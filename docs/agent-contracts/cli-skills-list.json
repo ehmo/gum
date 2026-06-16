@@ -1,0 +1,28 @@
+{
+  "skills": [
+    {
+      "name": "core",
+      "version": "1.0.0",
+      "summary": "Core gum CLI workflow for Google APIs, auth, risk gates, and output shaping.",
+      "min_gum": "1.0.0",
+      "sha256": "bd40a38b7dda9f55c6633c1bef6b70af9f7ce85322a86f91f742791cbba55dca",
+      "bytes": 1513
+    },
+    {
+      "name": "hasp",
+      "version": "1.0.0",
+      "summary": "Use HASP with gum when a workflow needs local repo, test, or deploy secrets.",
+      "min_gum": "1.0.0",
+      "sha256": "65ca4e7be63221d56c57a3d56af79aeec4d3a69c7c70cd86227110b3212cd42c",
+      "bytes": 1264
+    },
+    {
+      "name": "mcp",
+      "version": "1.0.0",
+      "summary": "gum MCP setup and guarded Google API workflow for agents.",
+      "min_gum": "1.0.0",
+      "sha256": "057bee43d5a7f68c716bf9a810cf02248731eccb309c392458cee5aadb989a55",
+      "bytes": 1108
+    }
+  ]
+}

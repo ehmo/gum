@@ -1,0 +1,8 @@
+id=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms
+kind="drive#file"
+mimeType=application/vnd.google-apps.document
+modifiedTime="2026-05-20T14:22:00Z"
+name="Project Proposal"
+owners=[{"displayName":"Bob Jones","emailAddress":"bob@example.com","kind":"drive#user","me":true,"permissionId":"12345","photoLink":"https://lh3.googleusercontent.com/a/photo"}]
+permissions=[{"deleted":false,"displayName":"Bob Jones","emailAddress":"bob@example.com","id":"12345","kind":"drive#permission","photoLink":"https://lh3.googleusercontent.com/a/photo","role":"owner","type":"user"},{"allowFileDiscovery":false,"id":"anyoneWithLink","kind":"drive#permission","role":"reader","type":"anyone"}]
+webViewLink="https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/edit?usp=drivesdk"

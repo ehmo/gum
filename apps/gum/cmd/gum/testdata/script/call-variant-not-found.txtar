@@ -1,0 +1,5 @@
+# Spec §5.1: --variant-id pinning an unknown id must fail with
+# VARIANT_NOT_FOUND before any upstream request.
+! gum call gmail.users.messages.list --risk=read --variant-id=gmail.v999.bogus userId=me
+stderr '"error_code": "VARIANT_NOT_FOUND"'
+stderr '"variant_id": "gmail.v999.bogus"'

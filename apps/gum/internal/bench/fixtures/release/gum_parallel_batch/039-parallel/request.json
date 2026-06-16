@@ -1,0 +1,1 @@
+{"args":{"calls":[{"args":{"fields":"files(id,name)","pageSize":10},"op_id":"drive.files.list"},{"args":{"fields":"files(id,name)","pageSize":10},"op_id":"drive.files.list"},{"args":{"fields":"files(id,name)","pageSize":10},"op_id":"drive.files.list"},{"args":{"calendarId":"primary"},"op_id":"calendar.events.list"}]},"op_id":"gum_parallel"}

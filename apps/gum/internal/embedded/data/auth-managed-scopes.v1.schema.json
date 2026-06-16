@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gum/spec/apps/gum/internal/embedded/data/auth-managed-scopes.v1.schema.json",
+  "title": "GUM managed-scope manifest schema (v1)",
+  "description": "JSON Schema 2020-12 validation for apps/gum/internal/embedded/data/auth-managed-scopes.v1.json. Enforces the §7 promotion procedure's preconditions at parse time so that an invalid manifest fails the build before cmd/gen-catalog evaluates gum_oauth variants. Updates to this schema MUST land in the same PR as the corresponding spec.md §7 change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "client_policy", "managed_project", "scopes"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "_preamble": {"type": "string", "description": "Informative pointer to the governing spec.md procedure; not consumed at runtime."},
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bumped on incompatible field-shape changes to the manifest format. The v0.1.0 catalog generator pins to 1; future versions require a documented migration path."
+    },
+    "client_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["flow", "embedded_client_secret", "redirect_method", "scope_expansion_mode", "active_scope_rule"],
+      "properties": {
+        "flow": {"type": "string", "enum": ["installed_app_pkce"]},
+        "embedded_client_secret": {"type": "boolean", "const": false, "description": "The managed gum_oauth strategy manifest never carries an OAuth client secret. Release builds may still include Google Desktop client material injected by the build system for the default managed BYO OAuth fallback; that material is not committed to source."},
+        "redirect_method": {"type": "string", "enum": ["loopback"]},
+        "scope_expansion_mode": {"type": "string", "enum": ["full_reconsent"]},
+        "active_scope_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "managed_project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "apis_enabled_evidence",
+        "oauth_consent_screen_evidence",
+        "publishing_status",
+        "quota_project_strategy",
+        "billing_or_terms_evidence",
+        "token_exchange_canary_evidence",
+        "refresh_canary_evidence",
+        "release_rule"
+      ],
+      "properties": {
+        "apis_enabled_evidence": {"type": "string"},
+        "oauth_consent_screen_evidence": {"type": "string"},
+        "publishing_status": {"type": "string", "enum": ["planned", "testing", "in_review", "published"]},
+        "quota_project_strategy": {"type": "string", "enum": ["gum_managed_project", "user_byo_project"]},
+        "billing_or_terms_evidence": {"type": "string"},
+        "token_exchange_canary_evidence": {"type": "string"},
+        "refresh_canary_evidence": {"type": "string"},
+        "release_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/ScopeEntry"},
+      "uniqueItems": true,
+      "description": "List of OAuth scopes the GUM-managed OAuth client may request. v0.1.0 release tagging requires at least one entry with status=active (see GUM_OAUTH_MANAGED_CLIENT_NOT_READY in spec.md §7)."
+    }
+  },
+  "$defs": {
+    "ScopeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "service",
+        "category",
+        "status",
+        "verification_state",
+        "project_evidence_state",
+        "live_canary_state",
+        "workspace_admin_trust_may_be_required",
+        "evidence"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "pattern": "^https://www\\.googleapis\\.com/auth/[A-Za-z0-9._-]+$",
+          "description": "Full OAuth scope URI. v0.1.0 supports only googleapis.com scopes; sovereign-cloud scope hosts (e.g. mil/gov) are deferred to v0.4.0 universe-domain support."
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short service identifier matching the catalog's service field (e.g. gmail, drive, calendar). Used for service-scoped diagnostics."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["sensitive", "restricted", "non_sensitive"],
+          "description": "Google's OAuth scope sensitivity classification. 'restricted' scopes (gmail.*, drive.*) have stricter consent and verification requirements than 'sensitive' scopes."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "planned"],
+          "description": "active = managed client may request this scope today. planned = listed for documentation but NOT eligible for gum_oauth requests."
+        },
+        "verification_state": {
+          "type": "string",
+          "enum": ["verified", "pending", "expired"]
+        },
+        "project_evidence_state": {
+          "type": "string",
+          "enum": ["ready", "pending"]
+        },
+        "live_canary_state": {
+          "type": "string",
+          "enum": ["passing", "pending", "failing"]
+        },
+        "workspace_admin_trust_may_be_required": {"type": "boolean"},
+        "testing_allowed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicit per-scope opt-in for the Google 'testing' publishing window. When managed_project.publishing_status is 'testing', a scope with testing_allowed=true is eligible for gum_oauth before full verification completes (<=100-user cap, unverified-app warning). Inert under any other publishing_status, so production stays strict by default. Defaults to false when omitted."
+        },
+        "evidence": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "$comment": "If status is active, all four readiness states must be at their positive terminal value. Enforces the spec.md §7 promotion procedure at the schema layer.",
+          "if": {"properties": {"status": {"const": "active"}}, "required": ["status"]},
+          "then": {
+            "properties": {
+              "verification_state": {"const": "verified"},
+              "project_evidence_state": {"const": "ready"},
+              "live_canary_state": {"const": "passing"},
+              "evidence": {"minLength": 1}
+            },
+            "required": ["evidence"]
+          }
+        }
+      ]
+    }
+  }
+}

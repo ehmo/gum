@@ -1,0 +1,6 @@
+# Spec §6.1.2: destructive calls without signed confirmation must return a
+# structured confirmation-token envelope.
+! gum call gmail.users.messages.trash --risk=destructive id=abc userId=me
+stderr 'REQUIRES_CONFIRMATION'
+stderr 'confirmation_token'
+stderr '--confirmed --token'

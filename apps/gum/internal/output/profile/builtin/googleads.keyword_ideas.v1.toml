@@ -1,0 +1,10 @@
+# Compact profile for googleads.keywordPlanIdeas.generateKeywordIdeas.
+# Keeps the headline per-keyword metrics and drops the verbose 12-month
+# monthlySearchVolumes array + keywordAnnotations. Re-run the op without this
+# profile (or via gum call --raw) to recover the dropped per-month history.
+# NOTE: the profile parser is line-based — keep_fields must stay on one line.
+default_format = "toon"
+keep_fields = ["results.text", "results.keywordIdeaMetrics.avgMonthlySearches", "results.keywordIdeaMetrics.competition", "results.keywordIdeaMetrics.competitionIndex", "results.keywordIdeaMetrics.lowTopOfPageBidMicros", "results.keywordIdeaMetrics.highTopOfPageBidMicros", "nextPageToken", "totalSize"]
+collapse_arrays = { max_items = 50 }
+on_empty = "No keyword ideas — try different seed keywords or broaden geo/language."
+recovery = "none"

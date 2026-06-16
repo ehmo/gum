@@ -1,0 +1,108 @@
+{
+  "target": "all",
+  "scope": "user",
+  "features": [
+    "skills",
+    "mcp"
+  ],
+  "toolset": "core",
+  "dry_run": true,
+  "actions": [
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum-hasp/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum-hasp/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum-mcp/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum-mcp/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "codex,cursor,gemini",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.agents/skills/gum/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "mcp",
+      "path": "/private/tmp/gum-home/.claude/mcp.json",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum-hasp/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum-hasp/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum-mcp/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum-mcp/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum/SKILL.md",
+      "status": "would_write"
+    },
+    {
+      "target": "claude",
+      "kind": "skills",
+      "path": "/private/tmp/gum-home/.claude/skills/gum/agents/openai.yaml",
+      "status": "would_write"
+    },
+    {
+      "target": "codex",
+      "kind": "mcp",
+      "path": "/private/tmp/gum-home/.codex/config.toml",
+      "status": "would_write"
+    },
+    {
+      "target": "cursor",
+      "kind": "mcp",
+      "path": "/private/tmp/gum-home/.cursor/mcp.json",
+      "status": "would_write"
+    },
+    {
+      "target": "gemini",
+      "kind": "mcp",
+      "path": "/private/tmp/gum-home/.gemini/settings.json",
+      "status": "would_write"
+    }
+  ]
+}

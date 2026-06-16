@@ -1,0 +1,8 @@
+historyId="12345"
+id=18f1a2b3c4d5e001
+internalDate="1716364800000"
+labelIds=["INBOX","UNREAD"]
+payload={"body":{"size":0},"filename":"","headers":[{"name":"From","value":"Alice Smith \u003calice@example.com\u003e"},{"name":"To","value":"Bob Jones \u003cbob@example.com\u003e"},{"name":"Subject","value":"Following up on project proposal"},{"name":"Date","value":"Wed, 22 May 2026 09:00:00 -0400"},{"name":"Message-ID","value":"\u003cabc123@mail.example.com\u003e"}],"mimeType":"multipart/alternative","partId":"","parts":[{"body":{"data":"SGkgdGhlcmUsIGp1c3QgZm9sbG93aW5nIHVwIG9uIHRoZSBwcm9qZWN0IHByb3Bvc2FsLi4u","size":342},"filename":"","headers":[{"name":"Content-Type","value":"text/plain; charset=utf-8"}],"mimeType":"text/plain","partId":"0"},{"body":{"data":"PGh0bWw+PGJvZHk+SGkgdGhlcmUsIGp1c3QgZm9sbG93aW5nIHVwLi4uPC9ib2R5PjwvaHRtbD4=","size":512},"filename":"","headers":[{"name":"Content-Type","value":"text/html; charset=utf-8"}],"mimeType":"text/html","partId":"1"}]}
+sizeEstimate=1024
+snippet="Hi there, just following up on the project proposal we discussed last week. I wanted to check in and see if you had any questions or feedback."
+threadId=18f1a2b3c4d5e001

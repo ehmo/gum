@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gum.dev/expression-profile-dsl.json",
+  "title": "GUM expression profile DSL",
+  "type": "object",
+  "additionalProperties": false,
+  "anyOf": [
+    {"required": ["output_profiles"]},
+    {"required": ["override_bindings"]}
+  ],
+  "properties": {
+    "output_profiles": {
+      "type": "object",
+      "propertyNames": {"type": "string", "minLength": 1},
+      "additionalProperties": {"$ref": "#/$defs/profile"}
+    },
+    "override_bindings": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "tests": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    }
+  },
+  "$defs": {
+    "collapseArrays": {
+      "type": "object",
+      "required": ["max_items"],
+      "additionalProperties": false,
+      "properties": {
+        "max_items": {"type": "integer", "minimum": 0}
+      }
+    },
+    "truncateStrings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_chars": {"type": "integer", "minimum": 1},
+        "fields": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "dedupe": {
+      "type": "object",
+      "required": ["by"],
+      "additionalProperties": false,
+      "properties": {
+        "by": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {"type": "string", "enum": ["toon", "csv", "json", "markdown"]},
+        "field_mask": {"type": "string"},
+        "field_mask_mode": {"type": "string", "enum": ["upstream", "dual_fetch", "none"]},
+        "keep_fields": {"type": "array", "items": {"type": "string"}},
+        "drop_fields": {"type": "array", "items": {"type": "string"}},
+        "strip_nulls": {"type": "boolean"},
+        "flatten": {"type": "boolean"},
+        "collapse_arrays": {"$ref": "#/$defs/collapseArrays"},
+        "truncate_strings": {"$ref": "#/$defs/truncateStrings"},
+        "dedupe": {"$ref": "#/$defs/dedupe"},
+        "recovery": {"type": "string", "enum": ["none", "local_artifact", "resource_link"]},
+        "inherits": {"type": "string"},
+        "on_empty": {"type": "string"},
+        "tee_mode": {"type": "string", "enum": ["off", "failures", "always"]}
+      }
+    }
+  }
+}

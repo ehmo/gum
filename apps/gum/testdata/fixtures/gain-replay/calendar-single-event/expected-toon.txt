@@ -1,0 +1,19 @@
+attendees=[{"displayName":"Bob Jones","email":"user@example.com","organizer":false,"responseStatus":"accepted","self":true},{"displayName":"Jane CEO","email":"ceo@example.com","organizer":true,"responseStatus":"accepted","self":false},{"displayName":"Tom CTO","email":"cto@example.com","organizer":false,"responseStatus":"needsAction","self":false},{"displayName":"Sue VP","email":"vp@example.com","organizer":false,"responseStatus":"accepted","self":false}]
+created="2026-05-01T08:00:00.000Z"
+creator={"displayName":"Jane CEO","email":"ceo@example.com","self":false}
+description="Q3 planning session with leadership team. Please bring your roadmap proposals."
+end={"dateTime":"2026-06-01T12:00:00-07:00","timeZone":"America/Los_Angeles"}
+etag="""3277337833276000"""
+eventType=default
+htmlLink="https://www.google.com/calendar/event?eid=ev001"
+iCalUID="ev001@google.com"
+id=ev001
+kind="calendar#event"
+location="Conference Room A, 123 Main St"
+organizer={"displayName":"Jane CEO","email":"ceo@example.com","self":false}
+reminders={"overrides":[{"method":"email","minutes":1440},{"method":"popup","minutes":60}],"useDefault":false}
+sequence=2
+start={"dateTime":"2026-06-01T10:00:00-07:00","timeZone":"America/Los_Angeles"}
+status=confirmed
+summary="Quarterly Planning"
+updated="2026-05-10T09:15:00.000Z"

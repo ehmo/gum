@@ -1,0 +1,97 @@
+version: 2
+
+project_name: gum
+
+before:
+  hooks:
+    - go mod tidy
+    # Stage repo-root docs inside apps/gum/ because goreleaser's archive.files
+    # globbing rejects parent-relative paths (see fileglob's static-prefix bug
+    # observed on macOS with `src: ../../CHANGELOG.md`). The staging files are
+    # .gitignored; the archive references them as local paths below.
+    - bash -c "cp ../../CHANGELOG.md ./CHANGELOG.md"
+    - bash -c "cp ../../README.md ./README.md"
+    - bash -c "cp ../../LICENSE ./LICENSE"
+
+builds:
+  - id: gum
+    main: ./cmd/gum
+    binary: gum
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+archives:
+  - id: gum
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
+
+release:
+  draft: false
+  prerelease: auto
+  replace_existing_artifacts: true
+  mode: append
+  header: |
+    # gum {{ .Tag }}
+
+    See `docs/release-notes-{{ .Tag }}.md` for the narrative release notes.
+
+source:
+  enabled: false
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+# Homebrew is published through ehmo/homebrew-tap's Formula/gum.rb.
+# Do not enable a cask until macOS Developer ID signing and notarization are
+# active. Unsigned cask binaries can inherit quarantine and hang on first launch.
+
+# macOS notarization (Apple Gatekeeper). Activates only when the operator
+# has provisioned the four required secrets. When any
+# are unset, goreleaser skips the entire block, so snapshot builds and
+# unsigned releases still succeed. The base64-encoded Developer ID cert is
+# decoded into a transient PKCS12 file via the inline template.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - gum
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m

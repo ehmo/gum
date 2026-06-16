@@ -1,0 +1,6 @@
+{
+  "error_code": "RATE_LIMITED",
+  "message": "upstream rate-limited (HTTP 429)",
+  "retry_after_ms": 5000,
+  "retryable": true
+}

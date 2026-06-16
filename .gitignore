@@ -1,0 +1,29 @@
+# Local credentials
+*-service-account*.json
+*-credentials*.json
+.env
+.env.local
+
+# Local data dirs
+.cache/gum/
+
+# Go build and release artifacts
+apps/gum/gum
+apps/gum/gen-catalog
+apps/gum/measure-tier-a
+apps/gum/gen-fixtures
+apps/gum/dist/
+apps/gum/CHANGELOG.md
+apps/gum/README.md
+apps/gum/LICENSE
+coverage.out
+coverage.html
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+.omx/
+
+# Go test binaries
+*.test

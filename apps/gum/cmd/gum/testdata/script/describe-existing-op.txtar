@@ -1,0 +1,5 @@
+# gum describe <op_id> returns the catalog entry — op_id round-trip + at
+# least one variant_id.
+gum describe gmail.users.messages.list
+stdout 'gmail.users.messages.list'
+stdout 'risk_class'

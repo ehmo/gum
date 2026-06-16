@@ -1,0 +1,6 @@
+default_format = "toon"
+projection = ["id", "name", "mimeType"]
+flatten_singletons = true
+omit_zero_counts = true
+sort_by = "name"
+limit = 10

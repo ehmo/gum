@@ -1,0 +1,16 @@
+{
+  "json": {
+    "total_tokens_saved": 0,
+    "mean": 0,
+    "p50": 0,
+    "p95": 0,
+    "p99": 0
+  },
+  "toon": {
+    "total_tokens_saved": 101,
+    "mean": 0.505,
+    "p50": 0,
+    "p95": 2,
+    "p99": 3
+  }
+}

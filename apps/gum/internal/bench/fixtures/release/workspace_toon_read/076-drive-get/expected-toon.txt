@@ -1,0 +1,6 @@
+id=1000000000000c83b3a8c9a84045
+mimeType=application/vnd.google-apps.document
+modifiedTime="2026-05-23T18:42:00Z"
+name="Roadmap Q3 2026.gdoc"
+owners=[{"displayName":"Pat Owner","emailAddress":"pat@example.com"}]
+size="19004"

@@ -1,0 +1,172 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-05-22T00:00:00Z",
+  "generator_version": "gum/test@0.0.0",
+  "ops": [
+    {
+      "op_id": "gmail.users.messages.send",
+      "op_schema_version": 1,
+      "title": "Send Gmail message",
+      "summary": "Send an email message on behalf of the authenticated user.",
+      "service": "gmail",
+      "service_family": "workspace",
+      "default_variant_id": "gmail.v1.rest.users.messages.send",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.send",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "write",
+          "auth_strategy": "byo_oauth",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.users.messages.send",
+            "http": {
+              "method": "POST",
+              "path": "/gmail/v1/users/{userId}/messages/send"
+            },
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.Send"
+          }
+        }
+      ]
+    },
+    {
+      "op_id": "calendar.events.insert",
+      "op_schema_version": 1,
+      "title": "Create Calendar event",
+      "summary": "Create a new event on the specified Google Calendar.",
+      "service": "calendar",
+      "service_family": "workspace",
+      "default_variant_id": "calendar.v3.rest.events.insert",
+      "variants": [
+        {
+          "variant_id": "calendar.v3.rest.events.insert",
+          "variant_schema_version": 1,
+          "version": "v3",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "write",
+          "auth_strategy": "byo_oauth",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "calendar.events.insert",
+            "http": {
+              "method": "POST",
+              "path": "/calendar/v3/calendars/{calendarId}/events"
+            },
+            "go_pkg": "google.golang.org/api/calendar/v3",
+            "go_call": "Events.Insert"
+          }
+        }
+      ]
+    },
+    {
+      "op_id": "drive.files.create",
+      "op_schema_version": 1,
+      "title": "Upload file to Drive",
+      "summary": "Upload and create a new file in Google Drive storage.",
+      "service": "drive",
+      "service_family": "workspace",
+      "default_variant_id": "drive.v3.rest.files.create",
+      "variants": [
+        {
+          "variant_id": "drive.v3.rest.files.create",
+          "variant_schema_version": 1,
+          "version": "v3",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "write",
+          "auth_strategy": "byo_oauth",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "drive.files.create",
+            "http": {
+              "method": "POST",
+              "path": "/drive/v3/files"
+            },
+            "go_pkg": "google.golang.org/api/drive/v3",
+            "go_call": "Files.Create"
+          }
+        }
+      ]
+    },
+    {
+      "op_id": "gmail.users.messages.list",
+      "op_schema_version": 1,
+      "title": "Search Gmail messages",
+      "summary": "Search and list messages in the authenticated user's Gmail mailbox.",
+      "service": "gmail",
+      "service_family": "workspace",
+      "default_variant_id": "gmail.v1.rest.users.messages.list",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.list",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "byo_oauth",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.users.messages.list",
+            "http": {
+              "method": "GET",
+              "path": "/gmail/v1/users/{userId}/messages"
+            },
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.List"
+          }
+        }
+      ]
+    },
+    {
+      "op_id": "gmail.users.messages.trash",
+      "op_schema_version": 1,
+      "title": "Trash Gmail message",
+      "summary": "Move a Gmail message to the Trash. This permanently deletes after 30 days.",
+      "service": "gmail",
+      "service_family": "workspace",
+      "default_variant_id": "gmail.v1.rest.users.messages.trash",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.trash",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "destructive",
+          "auth_strategy": "byo_oauth",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.users.messages.trash",
+            "http": {
+              "method": "POST",
+              "path": "/gmail/v1/users/{userId}/messages/{id}/trash"
+            },
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.Trash"
+          }
+        }
+      ]
+    }
+  ]
+}

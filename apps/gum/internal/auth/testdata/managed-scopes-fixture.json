@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scopes": [
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.readonly",
+      "status": "active",
+      "verification_state": "verified",
+      "project_evidence_state": "ready",
+      "live_canary_required": true,
+      "live_canary_state": "stale",
+      "last_checked": "2026-01-01T00:00:00Z"
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/calendar.events",
+      "status": "active",
+      "verification_state": "planned",
+      "project_evidence_state": "pending",
+      "live_canary_required": false,
+      "live_canary_state": "stale",
+      "last_checked": "2026-01-01T00:00:00Z"
+    }
+  ]
+}

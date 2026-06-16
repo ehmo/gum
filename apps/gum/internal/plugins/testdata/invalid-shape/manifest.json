@@ -1,0 +1,14 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "bad-shape-plugin",
+  "name": "Bad Shape Plugin",
+  "version": "0.1.0",
+  "shape": "grpc-subprocess",
+  "executable": "executable",
+  "advertised_tools": [],
+  "declared_capabilities": {
+    "network": false,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "google-flights",
+  "name": "Google Flights",
+  "version": "0.1.0",
+  "namespace_owner": "io.example.flights",
+  "shape": "mcp-plugin",
+  "executable": "executable",
+  "advertised_tools": [
+    {
+      "name": "flights_search",
+      "description": "Search Google Flights itineraries",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

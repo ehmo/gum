@@ -1,0 +1,24 @@
+# BYO OAuth ergonomics (spec §7): `gum auth login` and the `gum login` alias
+# run the loopback + PKCE flow against the operator's own OAuth client — no
+# gcloud, and no mandatory --scope (it defaults to the full catalog scope set).
+# The managed gum_oauth client takes over automatically once its scopes pass
+# Google verification.
+#
+# These assertions use --help so they stay deterministic regardless of the
+# host keychain state (the OS keyring is not sandboxed by HOME).
+
+# The top-level `gum login` alias is registered.
+gum login --help
+stdout 'Authorize gum'
+
+# `gum auth login` advertises the no-gcloud BYO loopback flow.
+gum auth login --help
+stdout 'loopback'
+
+# --scope is optional: the login defaults to the core Workspace scope set, with
+# --service / --all for the breadth catalog. The help must NOT demand an
+# explicit scope the way the old managed flow did.
+stdout '--scope'
+stdout '--service'
+stdout '--all'
+! stdout 'at least one --scope is required'

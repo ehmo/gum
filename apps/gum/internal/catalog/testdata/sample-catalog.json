@@ -1,0 +1,61 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-05-22T00:00:00Z",
+  "generator_version": "gum/cmd/gen-catalog@deadbeef",
+  "ops": [
+    {
+      "op_id": "gmail.users.messages.list",
+      "op_schema_version": 1,
+      "title": "List Gmail messages",
+      "summary": "List message IDs in a Gmail mailbox.",
+      "params_required": [["userId", "string"]],
+      "params_optional": [["q", "string"], ["maxResults", "int"]],
+      "response_ref": "gmail.users.messages.list.response",
+      "paginated": true,
+      "tags": ["mail", "workspace"],
+      "service_family": "workspace",
+      "service": "gmail",
+      "default_variant_id": "gmail.v1.rest.users.messages.list",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.list",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "gum_oauth",
+          "capabilities": ["json_request", "json_response", "query_params", "path_params", "pagination", "field_mask"],
+          "scopes": ["gmail.readonly"],
+          "default_fields": "nextPageToken,messages(id,threadId)",
+          "default_page_size": 20,
+          "default_format": "toon",
+          "output_profile": "gmail.messages.list.v1",
+          "annotations": {
+            "readOnly": true,
+            "openWorld": true,
+            "idempotent": true
+          },
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.v1.rest.users.messages.list",
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.List",
+            "http": {
+              "method": "GET",
+              "path": "/gmail/v1/users/{userId}/messages"
+            },
+            "request_ref": "gmail.users.messages.list.request",
+            "response_ref": "gmail.users.messages.list.response"
+          }
+        }
+      ],
+      "deprecated_op_ids": [],
+      "deprecated_variant_ids": [],
+      "superseded_variant_ids": {}
+    }
+  ]
+}

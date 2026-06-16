@@ -1,0 +1,73 @@
+{
+  "root_files": [
+    ".hasp.manifest.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md",
+    "install.sh",
+    "install_test.sh",
+    "Formula/gum.rb",
+    "scripts/check-public-release-contract.py",
+    "scripts/public-release-manifest.json",
+    "skills/gum/SKILL.md",
+    "skills/gum/agents/openai.yaml",
+    "skills/gum-hasp/SKILL.md",
+    "skills/gum-hasp/agents/openai.yaml",
+    "skills/gum-mcp/SKILL.md",
+    "skills/gum-mcp/agents/openai.yaml"
+  ],
+  "source_roots": [
+    ".github",
+    "apps/gum"
+  ],
+  "exclude_paths": [
+    ".github/workflows/catalog-regen.yml"
+  ],
+  "docs": [
+    "docs/agent-contracts/cli-agents-install.json",
+    "docs/agent-contracts/cli-skills-core.json",
+    "docs/agent-contracts/cli-skills-hasp.json",
+    "docs/agent-contracts/cli-skills-list.json",
+    "docs/agent-contracts/cli-skills-mcp.json",
+    "docs/assets/gum-logo.png",
+    "docs/auth-guides/README.md",
+    "docs/auth-guides/admin-cloud-vault.md",
+    "docs/auth-guides/calendar.md",
+    "docs/auth-guides/chat.md",
+    "docs/auth-guides/classroom-forms-meet-script.md",
+    "docs/auth-guides/docs-sheets-slides.md",
+    "docs/auth-guides/drive.md",
+    "docs/auth-guides/gmail.md",
+    "docs/auth-guides/google-ads.md",
+    "docs/auth-guides/maps-custom-search.md",
+    "docs/auth-guides/people.md",
+    "docs/auth-guides/photos-library.md",
+    "docs/auth-guides/search-console.md",
+    "docs/auth-guides/tasks.md",
+    "docs/auth-guides/youtube.md",
+    "docs/catalog-abi.md",
+    "docs/expression-profile-dsl.json",
+    "docs/expression-profile-dsl.md",
+    "docs/hasp.md",
+    "docs/mcp-client-setup.md",
+    "docs/plugin-contract.md",
+    "docs/service-matrix.md",
+    "docs/test-matrix.md",
+    "docs/tier-a-roster.v1.json",
+    "docs/release-notes-v1.0.0.md"
+  ],
+  "forbidden_public_paths": [
+    ".beads",
+    ".dolt",
+    ".claude",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/research",
+    "docs/PROCESS.md",
+    "docs/RELEASE.md",
+    "docs/known-divergences.md",
+    "docs/release-notes-template.md",
+    "docs/spec.md"
+  ]
+}

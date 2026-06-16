@@ -1,0 +1,9 @@
+op: gmail.messages.list
+variant: typed-rest-sdk
+format_version: 1
+count: 3
+fields: id,snippet,size_estimate
+
+msg001,,42
+msg002,"",
+msg003,hello,7

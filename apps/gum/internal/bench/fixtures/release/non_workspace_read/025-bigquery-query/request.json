@@ -1,0 +1,1 @@
+{"args":{"query":"SELECT user_id, event, COUNT(*) c FROM `proj.ds.events` WHERE day=CURRENT_DATE() GROUP BY 1,2 LIMIT 50"},"op_id":"bigquery.jobs.query"}

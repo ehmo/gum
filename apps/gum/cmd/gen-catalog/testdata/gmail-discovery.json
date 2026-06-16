@@ -1,0 +1,215 @@
+{
+  "kind": "discovery#restDescription",
+  "id": "gmail:v1",
+  "name": "gmail",
+  "version": "v1",
+  "revision": "20260101",
+  "title": "Gmail API",
+  "description": "The Gmail API lets you view and manage Gmail mailbox data like threads, messages, and labels.",
+  "discoveryVersion": "v1",
+  "rootUrl": "https://gmail.googleapis.com/",
+  "servicePath": "",
+  "baseUrl": "https://gmail.googleapis.com/",
+  "basePath": "",
+  "canonicalName": "Gmail",
+  "ownerDomain": "google.com",
+  "ownerName": "Google",
+  "fullyEncodeReservedExpansion": true,
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://mail.google.com/": {
+          "description": "Read, compose, send, and permanently delete all your email from Gmail"
+        },
+        "https://www.googleapis.com/auth/gmail.readonly": {
+          "description": "View your email messages and settings"
+        },
+        "https://www.googleapis.com/auth/gmail.send": {
+          "description": "Send email on your behalf"
+        }
+      }
+    }
+  },
+  "resources": {
+    "users": {
+      "resources": {
+        "messages": {
+          "methods": {
+            "list": {
+              "id": "gmail.users.messages.list",
+              "path": "{userId}/messages",
+              "httpMethod": "GET",
+              "description": "Lists the messages in the user's mailbox.",
+              "parameters": {
+                "userId": {
+                  "type": "string",
+                  "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+                  "required": true,
+                  "location": "path"
+                },
+                "maxResults": {
+                  "type": "integer",
+                  "description": "Maximum number of messages to return. This field defaults to 100.",
+                  "format": "uint32",
+                  "location": "query"
+                },
+                "pageToken": {
+                  "type": "string",
+                  "description": "Page token to retrieve a specific page of results in the list.",
+                  "location": "query"
+                },
+                "q": {
+                  "type": "string",
+                  "description": "Only return messages matching the specified query. Supports the same query format as the Gmail search box.",
+                  "location": "query"
+                },
+                "labelIds": {
+                  "type": "string",
+                  "description": "Only return messages with labels that match all of the specified label IDs.",
+                  "repeated": true,
+                  "location": "query"
+                }
+              },
+              "parameterOrder": ["userId"],
+              "scopes": [
+                "https://mail.google.com/",
+                "https://www.googleapis.com/auth/gmail.readonly"
+              ],
+              "response": {
+                "$ref": "ListMessagesResponse"
+              }
+            },
+            "get": {
+              "id": "gmail.users.messages.get",
+              "path": "{userId}/messages/{id}",
+              "httpMethod": "GET",
+              "description": "Gets the specified message.",
+              "parameters": {
+                "userId": {
+                  "type": "string",
+                  "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+                  "required": true,
+                  "location": "path"
+                },
+                "id": {
+                  "type": "string",
+                  "description": "The ID of the message to retrieve.",
+                  "required": true,
+                  "location": "path"
+                },
+                "format": {
+                  "type": "string",
+                  "description": "The format to return the message in.",
+                  "location": "query"
+                }
+              },
+              "parameterOrder": ["userId", "id"],
+              "scopes": [
+                "https://mail.google.com/",
+                "https://www.googleapis.com/auth/gmail.readonly"
+              ],
+              "response": {
+                "$ref": "Message"
+              }
+            }
+          }
+        },
+        "labels": {
+          "methods": {
+            "list": {
+              "id": "gmail.users.labels.list",
+              "path": "{userId}/labels",
+              "httpMethod": "GET",
+              "description": "Lists all labels in the user's mailbox.",
+              "parameters": {
+                "userId": {
+                  "type": "string",
+                  "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+                  "required": true,
+                  "location": "path"
+                }
+              },
+              "parameterOrder": ["userId"],
+              "scopes": [
+                "https://mail.google.com/",
+                "https://www.googleapis.com/auth/gmail.readonly"
+              ],
+              "response": {
+                "$ref": "ListLabelsResponse"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "schemas": {
+    "ListMessagesResponse": {
+      "id": "ListMessagesResponse",
+      "type": "object",
+      "description": "Response for the ListMessages method.",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "description": "List of messages.",
+          "items": {
+            "$ref": "Message"
+          }
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Token to retrieve the next page of results in the list."
+        },
+        "resultSizeEstimate": {
+          "type": "integer",
+          "description": "Estimated total number of results.",
+          "format": "uint32"
+        }
+      }
+    },
+    "Message": {
+      "id": "Message",
+      "type": "object",
+      "description": "An email message.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The immutable ID of the message."
+        },
+        "threadId": {
+          "type": "string",
+          "description": "The ID of the thread the message belongs to."
+        }
+      }
+    },
+    "ListLabelsResponse": {
+      "id": "ListLabelsResponse",
+      "type": "object",
+      "description": "Response for the ListLabels method.",
+      "properties": {
+        "labels": {
+          "type": "array",
+          "description": "List of labels.",
+          "items": {
+            "$ref": "Label"
+          }
+        }
+      }
+    },
+    "Label": {
+      "id": "Label",
+      "type": "object",
+      "description": "Labels are used to categorize messages and threads within the user's mailbox.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The immutable ID of the label."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the label."
+        }
+      }
+    }
+  }
+}

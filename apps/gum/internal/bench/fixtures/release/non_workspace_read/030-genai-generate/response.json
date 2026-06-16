@@ -1,0 +1,1 @@
+{"candidates":[{"content":{"parts":[{"text":"This PR replaces the BoltDB cache with a SQLite WAL cache for HTTP responses, adds an idempotent migration, and gates on a coverage floor."}],"role":"model"},"finishReason":"STOP"}],"usageMetadata":{"candidatesTokenCount":64,"promptTokenCount":412,"totalTokenCount":476}}

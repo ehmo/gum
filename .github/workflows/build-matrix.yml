@@ -1,0 +1,83 @@
+name: build-matrix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/gum
+
+jobs:
+  cross-compile:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubicloud-standard-2
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+    env:
+      CGO_ENABLED: '0'
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: build
+        run: go build -trimpath -ldflags='-s -w' -o /tmp/gum-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/gum
+      - name: verify no-CGo
+        run: |
+          set -euo pipefail
+          leaks=$(go list -deps -f '{{.ImportPath}} {{if .CgoFiles}}CGO{{end}}' ./cmd/gum/... | grep ' CGO$' || true)
+          if [ -n "$leaks" ]; then
+            echo "CGo dependencies detected:" >&2
+            echo "$leaks" >&2
+            exit 1
+          fi
+
+  cgo-invariant:
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: run release-binary invariant test
+        run: go test -run TestReleaseBinaryNoCGo ./internal/securityscan/... -count=1
+
+  reproducible:
+    name: reproducible build
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: reproducible-build test
+        run: go test -run TestReproducibleBuild ./internal/securityscan/... -count=1 -timeout 120s
+
+  binary-size:
+    name: binary size budget (120 MB cap)
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: binary-size test
+        run: go test -run TestBinarySize ./internal/securityscan/... -count=1 -timeout 120s -v

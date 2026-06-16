@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "collapseArrays": {
+      "additionalProperties": false,
+      "properties": {
+        "max_items": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_items"
+      ],
+      "type": "object"
+    },
+    "dedupe": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "by"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": false,
+      "properties": {
+        "collapse_arrays": {
+          "$ref": "#/$defs/collapseArrays"
+        },
+        "dedupe": {
+          "$ref": "#/$defs/dedupe"
+        },
+        "drop_fields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "field_mask": {
+          "type": "string"
+        },
+        "field_mask_mode": {
+          "enum": [
+            "upstream",
+            "dual_fetch",
+            "none"
+          ],
+          "type": "string"
+        },
+        "flatten": {
+          "type": "boolean"
+        },
+        "format": {
+          "enum": [
+            "toon",
+            "csv",
+            "json",
+            "markdown"
+          ],
+          "type": "string"
+        },
+        "inherits": {
+          "type": "string"
+        },
+        "keep_fields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "on_empty": {
+          "type": "string"
+        },
+        "recovery": {
+          "enum": [
+            "none",
+            "local_artifact",
+            "resource_link"
+          ],
+          "type": "string"
+        },
+        "strip_nulls": {
+          "type": "boolean"
+        },
+        "tee_mode": {
+          "enum": [
+            "off",
+            "failures",
+            "always"
+          ],
+          "type": "string"
+        },
+        "truncate_strings": {
+          "$ref": "#/$defs/truncateStrings"
+        }
+      },
+      "type": "object"
+    },
+    "truncateStrings": {
+      "additionalProperties": false,
+      "properties": {
+        "default_chars": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "fields": {
+          "additionalProperties": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://gum.dev/expression-profile-dsl.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": [
+        "output_profiles"
+      ]
+    },
+    {
+      "required": [
+        "override_bindings"
+      ]
+    }
+  ],
+  "properties": {
+    "output_profiles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      },
+      "propertyNames": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "override_bindings": {
+      "additionalProperties": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "tests": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "title": "GUM expression profile DSL",
+  "type": "object"
+}

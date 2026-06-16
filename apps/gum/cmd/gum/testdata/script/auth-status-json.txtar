@@ -1,0 +1,6 @@
+# gum auth status prints a JSON envelope with provider="adc" — safe to run
+# anywhere because the implementation reads env vars + filesystem only (no
+# network). The sandboxed HOME ensures gcloud_cache_present is false.
+gum auth status --scopes=gmail.readonly
+stdout '"provider": "adc"'
+stdout '"scopes_requested":'

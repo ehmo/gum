@@ -1,0 +1,1 @@
+{"args":{"maxResults":10,"q":"label:inbox newer_than:4d","userId":"me"},"op_id":"gmail.users.messages.list"}

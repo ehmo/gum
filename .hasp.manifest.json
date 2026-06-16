@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "project": {
+    "name": "gum",
+    "description": "gum v1 release builds do not require brokered secrets."
+  },
+  "references": [],
+  "requirements": [],
+  "targets": []
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "./auth-managed-scopes.v1.schema.json",
+  "_preamble": "Scope promotion is governed by §7 of spec.md ('Scope promotion procedure (normative)'). A scope transitions from 'planned' to 'active' only via a human-reviewed PR that completes all evidence fields, runs TestManagedScopeVerificationEvidence and TestManagedOAuthProjectReadiness as v0.1 CI gates, and changes status/verification_state/project_evidence_state/live_canary_state to (active, verified, ready, passing) atomically. v0.1.0 release tagging requires at least one scope with status=active; the gate is GUM_OAUTH_MANAGED_CLIENT_NOT_READY.",
+  "schema_version": 1,
+  "client_policy": {
+    "flow": "installed_app_pkce",
+    "embedded_client_secret": false,
+    "redirect_method": "loopback",
+    "scope_expansion_mode": "full_reconsent",
+    "active_scope_rule": "Scopes assigned to auth_strategy=gum_oauth must be status=active, verification_state=verified, project_evidence_state=ready, and live_canary_state=passing, except for explicit testing_allowed=true scopes while managed_project.publishing_status=testing. gum auth login against the built-in managed client may request the managed-supported set returned by ManagedSupportedScopes(): status=active or testing_allowed=true."
+  },
+  "managed_project": {
+    "apis_enabled_evidence": "Search Console API enabled for the GUM-managed Google Cloud OAuth project. Live canary 2026-06-12T19:23Z: release-style HASP build completed managed login, then searchconsole.sites.list returned verified properties for profile managed-canary.",
+    "oauth_consent_screen_evidence": "Google OAuth verification passed for the GUM app on 2026-06-12. Branding pages: home https://turek.co/gum/, privacy https://turek.co/gum/privacy/, terms https://turek.co/gum/terms/. Authorized domain: turek.co.",
+    "publishing_status": "published",
+    "quota_project_strategy": "gum_managed_project",
+    "billing_or_terms_evidence": "Search Console readonly access uses the GUM-managed OAuth project. Public terms are hosted at https://turek.co/gum/terms/ and privacy/Limited Use disclosure is hosted at https://turek.co/gum/privacy/.",
+    "token_exchange_canary_evidence": "2026-06-12T19:23Z: hasp run --project-root . --target gum.build produced a managed-client binary; ./gum auth managed-status --format=json returned available=true with client_id_present=true, client_secret_present=true, supported_scopes=1; ./gum --profile=managed-canary login --scope https://www.googleapis.com/auth/webmasters.readonly completed and returned strategy=byo_oauth, scopes=[webmasters.readonly], subject_fingerprint=3545a5e2b8cd465f, token_bytes=253.",
+    "refresh_canary_evidence": "2026-06-12T19:23Z: ./gum --profile=managed-canary call searchconsole.sites.list --risk=read succeeded twice after managed login, returning Search Console siteOwner rows for sc-domain:turek.co, sc-domain:mdgrok.com, sc-domain:vaultaire.app, sc-domain:gethasp.com, and sc-domain:urgentry.com.",
+    "release_rule": "No managed scope may be active until the GUM-owned OAuth project has API enablement, consent/publishing, quota/billing or terms evidence where required, and live PKCE token-exchange plus refresh canary evidence."
+  },
+  "scopes": [
+    {
+      "scope": "https://www.googleapis.com/auth/calendar.readonly",
+      "service": "calendar",
+      "category": "sensitive",
+      "status": "planned",
+      "verification_state": "pending",
+      "project_evidence_state": "pending",
+      "live_canary_state": "pending",
+      "workspace_admin_trust_may_be_required": true,
+      "evidence": ""
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/drive.metadata.readonly",
+      "service": "drive",
+      "category": "restricted",
+      "status": "planned",
+      "verification_state": "pending",
+      "project_evidence_state": "pending",
+      "live_canary_state": "pending",
+      "workspace_admin_trust_may_be_required": true,
+      "evidence": ""
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/gmail.readonly",
+      "service": "gmail",
+      "category": "restricted",
+      "status": "planned",
+      "verification_state": "pending",
+      "project_evidence_state": "pending",
+      "live_canary_state": "pending",
+      "workspace_admin_trust_may_be_required": true,
+      "evidence": ""
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "service": "sheets",
+      "category": "sensitive",
+      "status": "planned",
+      "verification_state": "pending",
+      "project_evidence_state": "pending",
+      "live_canary_state": "pending",
+      "workspace_admin_trust_may_be_required": true,
+      "evidence": ""
+    },
+    {
+      "scope": "https://www.googleapis.com/auth/webmasters.readonly",
+      "service": "searchconsole",
+      "category": "sensitive",
+      "status": "active",
+      "verification_state": "verified",
+      "project_evidence_state": "ready",
+      "live_canary_state": "passing",
+      "workspace_admin_trust_may_be_required": false,
+      "testing_allowed": true,
+      "evidence": "Google OAuth verification passed for Search Console readonly on 2026-06-12. Live managed-client canary with profile managed-canary completed token exchange for https://www.googleapis.com/auth/webmasters.readonly and two searchconsole.sites.list reads. This scope is now the first active managed OAuth scope for the GUM-managed client."
+    }
+  ]
+}

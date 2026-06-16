@@ -1,0 +1,1 @@
+{"op_id":"gmail.users.messages.list","args":{"userId":"me","maxResults":50,"labelIds":["INBOX"]}}

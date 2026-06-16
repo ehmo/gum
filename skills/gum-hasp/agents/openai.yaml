@@ -1,0 +1,4 @@
+interface:
+  display_name: "gum + HASP"
+  short_description: "Use HASP when gum work also needs local repo, test, or deploy secrets."
+  default_prompt: "Use gum for Google API calls and HASP for non-Google secrets. Keep secret values out of prompts and request short-lived HASP grants for the command."

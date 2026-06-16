@@ -1,0 +1,1 @@
+Move a Gmail message to the Trash. This permanently deletes the message after 30 days.

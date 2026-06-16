@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "youtube-transcripts",
+  "name": "YouTube Transcripts",
+  "version": "0.1.0",
+  "namespace_owner": "co.wraxle.gum.plugins.youtube-transcripts",
+  "shape": "mcp-plugin",
+  "executable": "bin/youtube-transcripts-mcp",
+  "advertised_tools": [
+    {
+      "name": "youtube_transcripts_get",
+      "description": "Fetch the auto-generated or human-authored transcript for a YouTube video by video_id. Unofficial — uses the public timedtext endpoint that backs the YouTube player; not the YouTube Data API.",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

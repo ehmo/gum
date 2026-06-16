@@ -1,0 +1,1 @@
+Lists messages in the authenticated user's Gmail mailbox.

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "test-fixture.v1",
+  "type": "object",
+  "title": "First-party schema fixture",
+  "description": "Embedded placeholder used by TestSchemaResourceFirstPartyHit. The v0.1.0 Tier A catalog does not reference this ref, so production reads never surface it; only tests that inject a custom snapshot can reach it.",
+  "properties": {
+    "ok": {"type": "boolean"}
+  },
+  "required": ["ok"]
+}

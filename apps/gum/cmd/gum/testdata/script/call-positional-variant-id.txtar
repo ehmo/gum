@@ -1,0 +1,10 @@
+# Spec §12.0 host-control rule: positional `variant_id=` is an operation arg,
+# NOT a variant pin. Calling with a bogus positional variant_id must NOT
+# surface VARIANT_NOT_FOUND (the parser routes it into Args, not
+# RequestedVariantID).
+#
+# We don't care about the dispatch outcome here (the call will fail
+# downstream at AUTH_REQUIRED with no live ADC); we only care that the CLI
+# parser kept the positional out of the variant-pin lane.
+! gum call gmail.users.messages.list --risk=read variant_id=positional-not-a-pin userId=me
+! stderr 'VARIANT_NOT_FOUND'

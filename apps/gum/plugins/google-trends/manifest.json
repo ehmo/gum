@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "google-trends",
+  "name": "Google Trends",
+  "version": "0.1.0",
+  "namespace_owner": "co.wraxle.gum.plugins.trends",
+  "shape": "mcp-plugin",
+  "executable": "bin/trends-mcp",
+  "advertised_tools": [
+    {
+      "name": "trends_daily",
+      "description": "Fetch Google Trends daily and realtime trending searches for a region. Unofficial — uses the public trends.google.com JSON endpoints that back the Trends dashboard; not the Trends BigQuery dataset.",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

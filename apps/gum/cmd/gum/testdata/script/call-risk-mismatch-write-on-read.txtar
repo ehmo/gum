@@ -1,0 +1,8 @@
+# Spec §4.1 bidirectional rule: invoking a read-class variant with
+# --risk=write must surface RISK_TOOL_MISMATCH with required_risk_flag=read,
+# without any upstream request.
+! gum call gmail.users.messages.list --risk=write userId=me
+stderr '"error_code": "RISK_TOOL_MISMATCH"'
+stderr '"required_risk_flag": "--risk=read"'
+stderr '"variant_risk_class": "read"'
+stderr 'RISK_TOOL_MISMATCH'

@@ -1,0 +1,10 @@
+# Compact profile for googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics.
+# Keeps the headline per-keyword metrics and drops the 12-month
+# monthlySearchVolumes array + closeVariants. Re-run without this profile to
+# recover the dropped per-month history.
+# NOTE: the profile parser is line-based — keep_fields must stay on one line.
+default_format = "toon"
+keep_fields = ["results.text", "results.keywordMetrics.avgMonthlySearches", "results.keywordMetrics.competition", "results.keywordMetrics.competitionIndex", "results.keywordMetrics.lowTopOfPageBidMicros", "results.keywordMetrics.highTopOfPageBidMicros"]
+collapse_arrays = { max_items = 100 }
+on_empty = "No historical metrics for those keywords."
+recovery = "none"

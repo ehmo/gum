@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "google-flights",
+  "name": "Google Flights",
+  "version": "0.1.0",
+  "namespace_owner": "co.wraxle.gum.plugins.flights",
+  "shape": "mcp-plugin",
+  "executable": "bin/flights-mcp",
+  "advertised_tools": [
+    {
+      "name": "flights_search",
+      "description": "Search Google Flights itineraries. Unofficial — Flights has no public API; the plugin shells out to the `fli` Shape 1 MCP subprocess which scrapes flights.google.com.",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

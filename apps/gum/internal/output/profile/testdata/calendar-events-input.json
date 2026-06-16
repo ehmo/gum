@@ -1,0 +1,1 @@
+{"kind":"calendar#events","summary":"primary","items":[{"id":"ev001","summary":"Team standup","start":{"dateTime":"2026-05-22T09:00:00Z"},"end":{"dateTime":"2026-05-22T09:30:00Z"},"status":"confirmed"},{"id":"ev002","summary":"Lunch","start":{"dateTime":"2026-05-22T12:00:00Z"},"end":{"dateTime":"2026-05-22T13:00:00Z"},"status":"confirmed"}]}

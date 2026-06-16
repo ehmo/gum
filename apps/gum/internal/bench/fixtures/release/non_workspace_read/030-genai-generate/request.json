@@ -1,0 +1,1 @@
+{"args":{"contents":[{"parts":[{"text":"Summarize this PR in one sentence."}],"role":"user"}],"model":"gemini-1.5-pro"},"op_id":"genai.models.generateContent"}

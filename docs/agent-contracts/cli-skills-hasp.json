@@ -1,0 +1,9 @@
+{
+  "name": "hasp",
+  "version": "1.0.0",
+  "summary": "Use HASP with gum when a workflow needs local repo, test, or deploy secrets.",
+  "min_gum": "1.0.0",
+  "sha256": "65ca4e7be63221d56c57a3d56af79aeec4d3a69c7c70cd86227110b3212cd42c",
+  "bytes": 1264,
+  "body": "# gum + HASP\n\nUse this when gum work also needs local secrets outside Google's OAuth flow.\n\ngum handles Google API discovery, OAuth login, local refresh-token storage, and guarded API calls.\n\nHASP handles repo, test, and deploy secrets for commands and agents.\n\n## Start\n\nInstall HASP and run setup:\n\n```bash\nbrew tap gethasp/homebrew-tap\nbrew install hasp\nhasp setup\n```\n\nRead HASP at https://github.com/gethasp/hasp before changing secret policy.\n\n## Safe Pattern\n\nRegister gum OAuth secrets through stdin:\n\n```bash\nprintf '%s' \"$GOOGLE_OAUTH_CLIENT_SECRET\" \\\n  | gum auth use-oauth-client --client-id \"$GOOGLE_OAUTH_CLIENT_ID\" --secret-stdin\n```\n\nPut other secrets in HASP, then run gum under a short grant:\n\n```bash\nhasp secret add\nhasp app connect gum-work --cmd 'gum doctor' --install=never\nhasp run --project-root . \\\n  --target gum-work \\\n  --grant-project session \\\n  --grant-secret session \\\n  -- gum doctor --format=json\n```\n\n## Rules\n\nKeep secret values out of prompts, repo files, shell history, and agent notes.\n\nUse gum for Google API calls. Use HASP for non-Google secrets the command needs.\nGive agents the narrowest HASP grant that lets the command run.\n\nRun `hasp secret diff .env` before committing a repo that used to carry plaintext secrets.\n"
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "topics": [
+    {"topic": "auth", "status": "active", "one_line_description": "Authentication and credential setup.", "redirect_topic": ""},
+    {"topic": "profiles", "status": "active", "one_line_description": "Expression profiles and override lookup.", "redirect_topic": ""},
+    {"topic": "plugins", "status": "active", "one_line_description": "Plugin install, inventory, and lifecycle.", "redirect_topic": ""},
+    {"topic": "gain", "status": "active", "one_line_description": "Token-savings ledger and reporting.", "redirect_topic": ""},
+    {"topic": "code-mode", "status": "active", "one_line_description": "Risor code execution and safety gates.", "redirect_topic": ""},
+    {"topic": "field-masks", "status": "active", "one_line_description": "Upstream projection and field-mask behavior.", "redirect_topic": ""},
+    {"topic": "toon-format", "status": "active", "one_line_description": "TOON output format.", "redirect_topic": ""},
+    {"topic": "recovery", "status": "active", "one_line_description": "Recovery artifacts and resource links.", "redirect_topic": ""},
+    {"topic": "gmail", "status": "active", "one_line_description": "Send, list, and manage Gmail messages.", "redirect_topic": ""},
+    {"topic": "drive", "status": "active", "one_line_description": "Search, fetch, and share Drive files.", "redirect_topic": ""},
+    {"topic": "calendar", "status": "active", "one_line_description": "List events and calendars.", "redirect_topic": ""},
+    {"topic": "docs", "status": "active", "one_line_description": "Get and create Google Docs.", "redirect_topic": ""},
+    {"topic": "sheets", "status": "active", "one_line_description": "Read and update Sheets values.", "redirect_topic": ""}
+  ]
+}

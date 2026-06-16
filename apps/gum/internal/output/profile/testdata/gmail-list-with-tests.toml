@@ -1,0 +1,11 @@
+default_format = "toon"
+projection = ["id", "threadId"]
+limit = 2
+
+[[tests]]
+name = "gmail list compact"
+fixture = "gmail-flat-input.json"
+expect_format = "toon"
+expect_max_tokens = 800
+expect_lossy = true
+expect_fields = ["id", "threadId"]

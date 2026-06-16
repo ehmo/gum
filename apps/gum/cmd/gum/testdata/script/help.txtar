@@ -1,0 +1,19 @@
+# gum --help lists the core subcommands grouped per spec §12 / gum-me29.3.
+# Groups (Discover/Read/Write/Auth/Plugin/Profile/Admin) replace the flat
+# "Available Commands:" header; one assertion per group keeps the test
+# behavioural rather than golden-string-fragile.
+gum --help
+stdout 'Discover:'
+stdout 'Read:'
+stdout 'Write & destructive:'
+stdout 'Auth:'
+stdout 'Plugin:'
+stdout 'Profile & config:'
+stdout 'Admin:'
+stdout '  call '
+stdout '  auth '
+stdout '  cache '
+stdout '  catalog '
+stdout '  init '
+stdout '  mcp '
+stdout '  doctor '

@@ -1,0 +1,22 @@
+# govulncheck suppression file (spec §15 step 3, line 3459)
+#
+# From v0.2.0, govulncheck is a BLOCKING release gate in .github/workflows/release.yml.
+# Each line below suppresses one finding. Lines starting with "#" are comments.
+#
+# Format (one per line):
+#   GO-NNNN-NNNNN  # rationale: <one-line justification>; reviewed-by: <name>; expires: YYYY-MM-DD
+#
+# Suppression policy:
+#   1. The vulnerability MUST be in a transitive dep with no available patched version, OR
+#      the reachable function MUST be proven unreachable at our use site (link to audit).
+#   2. Add the entry with a reviewer signature and an expiry date (max 90 days).
+#   3. Expired entries are treated as hard failures by CI; re-evaluate before extending.
+#   4. The release-notes for the tag MUST link this file's diff so users see what is waived.
+#
+# Suppression entries are consumed by the govulncheck CI step (release workflow,
+# job `govulncheck`). The step parses `govulncheck -json ./...`, extracts each
+# `finding.osv` ID, subtracts the IDs listed here, and fails CI if any
+# unsuppressed finding remains. Suppressed IDs are still printed as advisory
+# output so reviewers see the active waiver list on every release.
+#
+# (No active suppressions as of v0.1.0.)

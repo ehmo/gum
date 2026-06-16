@@ -1,0 +1,1 @@
+{"args":{"calls":[{"args":{"calendarId":"primary"},"op_id":"calendar.events.list"},{"args":{"calendarId":"primary"},"op_id":"calendar.events.list"},{"args":{"maxResults":5,"userId":"me"},"op_id":"gmail.users.messages.list"},{"args":{"fields":"files(id,name)","pageSize":10},"op_id":"drive.files.list"}]},"op_id":"gum_parallel"}

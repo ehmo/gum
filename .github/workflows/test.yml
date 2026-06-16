@@ -1,0 +1,88 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/gum
+
+jobs:
+  test:
+    runs-on: ubicloud-standard-2
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.25.x', '1.26.x']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: apps/gum/go.sum
+      - name: vet
+        run: go vet ./...
+      - name: staticcheck
+        if: matrix.go-version == '1.26.x'
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          "$(go env GOPATH)"/bin/staticcheck ./...
+      - name: build
+        run: go build ./...
+      - name: test (race)
+        run: go test -race -timeout 300s ./...
+
+  # macOS leg: the auth package's keychain backend (zalando/go-keyring) and
+  # file-permission / path behavior differ from Linux and are never otherwise
+  # exercised in CI (review gum-662u). Scoped to platform-sensitive packages
+  # to keep the run cheap.
+  test-macos:
+    if: github.repository != 'ehmo/gum' && github.event_name == 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: test (race, platform-sensitive packages)
+        run: go test -race -timeout 300s ./internal/auth/... ./internal/config/... ./internal/initpkg/... ./internal/fsatomic/... ./cmd/gum/...
+
+  # The installer is a supply-chain artifact; its smoke tests (checksum-verify
+  # wiring, platform detection, PATH-conflict logic) run network-free via
+  # GUM_DRY_RUN and were previously wired to no workflow (review gum-662u).
+  install-script:
+    runs-on: ubicloud-standard-2
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v6
+      - name: public release contract
+        run: scripts/check-public-release-contract.py
+      - name: install.sh smoke tests
+        run: bash install_test.sh
+
+  coverage-floor:
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          # Single toolchain: per-package coverage can drift fractionally
+          # between Go minor versions, so the retention baselines in
+          # internal/coverage.Ratchets are pinned to the version they were
+          # measured on (matches go.mod's `go 1.26.x`).
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: per-package coverage retention gate
+        # Fails the build if any tracked package regresses below its
+        # floor(current-1%) baseline; prints RATCHET_OPPORTUNITY hints when
+        # coverage has climbed enough to justify tightening a baseline.
+        run: go run ./cmd/coverage-floor

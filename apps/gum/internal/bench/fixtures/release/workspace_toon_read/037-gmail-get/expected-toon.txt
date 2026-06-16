@@ -1,0 +1,6 @@
+id=18aef27555
+labelIds=["INBOX","UNREAD"]
+payload={"body":{"data":"SGV5LCBjYW4geW91IGxvb2sgYXQgdGhpcyBkcmFmdC4=","size":1364},"headers":[{"name":"From","value":"alex@example.com"},{"name":"To","value":"you@example.com"},{"name":"Subject","value":"Draft review"},{"name":"Date","value":"Sun, 24 May 2026 12:00:00 +0000"}],"mimeType":"text/plain"}
+sizeEstimate=4361
+snippet="Hey, can you look at this draft when you get a moment? Thanks."
+threadId=18aef27555

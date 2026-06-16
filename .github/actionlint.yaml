@@ -1,0 +1,7 @@
+# actionlint config — declare the self-hosted / third-party runner labels used in
+# .github/workflows so `actionlint` does not
+# flag them as unknown. Ubicloud is the managed runner provider for the build
+# matrix; add new labels here when a workflow adopts a new runner size.
+self-hosted-runner:
+  labels:
+    - ubicloud-standard-2

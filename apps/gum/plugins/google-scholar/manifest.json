@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "google-scholar",
+  "name": "Google Scholar",
+  "version": "0.1.0",
+  "namespace_owner": "co.wraxle.gum.plugins.scholar",
+  "shape": "mcp-plugin",
+  "executable": "bin/scholar-mcp",
+  "advertised_tools": [
+    {
+      "name": "scholar_search",
+      "description": "Search Google Scholar for academic papers, citations, and author profiles. Unofficial — Scholar has no public API. Passive scraping; rate-limited to defensible read traffic.",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

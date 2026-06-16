@@ -1,0 +1,45 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-05-22T00:00:00Z",
+  "generator_version": "gum/test@0.0.0",
+  "ops": [
+    {
+      "op_id": "gum.code",
+      "op_schema_version": 1,
+      "title": "Execute code in sandbox",
+      "summary": "Executes a Risor snippet that may call catalog ops via gum_call.",
+      "params_required": [["language", "string"], ["source", "string"]],
+      "params_optional": [
+        ["allow_write", "bool"],
+        ["allow_destructive", "bool"],
+        ["destructive_budget", "int"],
+        ["destructive_scope", "string"],
+        ["confirmed", "bool"],
+        ["confirmation_token", "string"]
+      ],
+      "service_family": "meta",
+      "service": "meta",
+      "default_variant_id": "gum.code.v1.risor",
+      "variants": [
+        {
+          "variant_id": "gum.code.v1.risor",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "sdk-native",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "none",
+          "capabilities": ["code_execution"],
+          "default_format": "json",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "code.risor",
+            "operation_key": "gum.code.risor.exec"
+          }
+        }
+      ]
+    }
+  ]
+}

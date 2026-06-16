@@ -1,0 +1,5 @@
+end={"dateTime":"2026-06-01T15:30:00Z"}
+id=ev_a21497571f
+start={"dateTime":"2026-06-01T15:00:00Z"}
+status=confirmed
+summary="Sync #27"

@@ -1,0 +1,7 @@
+accessRole=owner
+description=""
+items=[{"created":"2026-05-01T08:00:00Z","creator":{"email":"user@example.com"},"end":{"dateTime":"2026-05-22T09:30:00-04:00","timeZone":"America/New_York"},"etag":"\"1\"","htmlLink":"https://www.google.com/calendar/event?eid=ev001","iCalUID":"ev001@google.com","id":"ev001","kind":"calendar#event","organizer":{"email":"user@example.com"},"recurrence":["RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"],"reminders":{"useDefault":true},"sequence":0,"start":{"dateTime":"2026-05-22T09:00:00-04:00","timeZone":"America/New_York"},"status":"confirmed","summary":"Team standup","updated":"2026-05-01T08:00:00Z"},{"attendees":[{"email":"user@example.com","responseStatus":"accepted"},{"email":"dev@example.com","responseStatus":"needsAction"}],"created":"2026-05-10T09:00:00Z","creator":{"email":"pm@example.com"},"end":{"dateTime":"2026-05-22T15:00:00-04:00","timeZone":"America/New_York"},"etag":"\"2\"","htmlLink":"https://www.google.com/calendar/event?eid=ev002","iCalUID":"ev002@google.com","id":"ev002","kind":"calendar#event","organizer":{"email":"pm@example.com"},"reminders":{"overrides":[{"method":"email","minutes":30}],"useDefault":false},"sequence":0,"start":{"dateTime":"2026-05-22T14:00:00-04:00","timeZone":"America/New_York"},"status":"confirmed","summary":"Product review","updated":"2026-05-10T09:00:00Z"}]
+kind="calendar#events"
+summary=primary
+timeZone=America/New_York
+updated="2026-05-20T10:00:00Z"

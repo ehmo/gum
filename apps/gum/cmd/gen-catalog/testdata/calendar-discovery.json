@@ -1,0 +1,296 @@
+{
+  "kind": "discovery#restDescription",
+  "id": "calendar:v3",
+  "name": "calendar",
+  "version": "v3",
+  "revision": "20260101",
+  "title": "Google Calendar API",
+  "description": "Manipulates events and other calendar data.",
+  "discoveryVersion": "v1",
+  "rootUrl": "https://www.googleapis.com/",
+  "servicePath": "calendar/v3/",
+  "baseUrl": "https://www.googleapis.com/calendar/v3/",
+  "basePath": "/calendar/v3/",
+  "canonicalName": "Calendar",
+  "ownerDomain": "google.com",
+  "ownerName": "Google",
+  "auth": {
+    "oauth2": {
+      "scopes": {
+        "https://www.googleapis.com/auth/calendar": {
+          "description": "See, edit, share, and permanently delete all the calendars you can access using Google Calendar"
+        },
+        "https://www.googleapis.com/auth/calendar.readonly": {
+          "description": "See and download any calendar you can access using your Google Calendar"
+        },
+        "https://www.googleapis.com/auth/calendar.events": {
+          "description": "View and edit events on all your calendars"
+        },
+        "https://www.googleapis.com/auth/calendar.events.readonly": {
+          "description": "View events on all your calendars"
+        }
+      }
+    }
+  },
+  "resources": {
+    "calendarList": {
+      "methods": {
+        "list": {
+          "id": "calendar.calendarList.list",
+          "path": "users/me/calendarList",
+          "httpMethod": "GET",
+          "description": "Returns the calendars on the user's calendar list.",
+          "parameters": {
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of entries returned on one result page.",
+              "format": "int32",
+              "minimum": "1",
+              "location": "query"
+            },
+            "minAccessRole": {
+              "type": "string",
+              "description": "The minimum access role for the user in the returned entries.",
+              "location": "query"
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "Token specifying which result page to return.",
+              "location": "query"
+            },
+            "showDeleted": {
+              "type": "boolean",
+              "description": "Whether to include deleted calendar list entries in the result.",
+              "location": "query"
+            },
+            "showHidden": {
+              "type": "boolean",
+              "description": "Whether to show hidden entries.",
+              "location": "query"
+            },
+            "syncToken": {
+              "type": "string",
+              "description": "Token obtained from the nextSyncToken field returned on the last page of results.",
+              "location": "query"
+            }
+          },
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/calendar.readonly"
+          ],
+          "response": {
+            "$ref": "CalendarList"
+          }
+        }
+      }
+    },
+    "events": {
+      "methods": {
+        "list": {
+          "id": "calendar.events.list",
+          "path": "calendars/{calendarId}/events",
+          "httpMethod": "GET",
+          "description": "Returns events on the specified calendar.",
+          "parameters": {
+            "calendarId": {
+              "type": "string",
+              "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary calendar of the currently logged in user, use the \"primary\" keyword.",
+              "required": true,
+              "location": "path"
+            },
+            "iCalUID": {
+              "type": "string",
+              "description": "Specifies event ID in the iCalendar format to be included in the response.",
+              "location": "query"
+            },
+            "maxAttendees": {
+              "type": "integer",
+              "description": "The maximum number of attendees to include in the response.",
+              "format": "int32",
+              "minimum": "1",
+              "location": "query"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of events returned on one result page.",
+              "format": "int32",
+              "minimum": "1",
+              "location": "query"
+            },
+            "orderBy": {
+              "type": "string",
+              "description": "The order of the events returned in the result.",
+              "location": "query"
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "Token specifying which result page to return.",
+              "location": "query"
+            },
+            "q": {
+              "type": "string",
+              "description": "Free text search terms to find events that match these terms in any field, except for extended properties.",
+              "location": "query"
+            },
+            "showDeleted": {
+              "type": "boolean",
+              "description": "Whether to include deleted events (with status equals \"cancelled\") in the result.",
+              "location": "query"
+            },
+            "singleEvents": {
+              "type": "boolean",
+              "description": "Whether to expand recurring events into instances and only return single one-off events and instances of recurring events, but not the underlying recurring events themselves.",
+              "location": "query"
+            },
+            "syncToken": {
+              "type": "string",
+              "description": "Token obtained from the nextSyncToken field returned on the last page of results from the previous list request.",
+              "location": "query"
+            },
+            "timeMax": {
+              "type": "string",
+              "description": "Upper bound (exclusive) for an event's start time to filter by.",
+              "format": "date-time",
+              "location": "query"
+            },
+            "timeMin": {
+              "type": "string",
+              "description": "Lower bound (exclusive) for an event's end time to filter by.",
+              "format": "date-time",
+              "location": "query"
+            },
+            "timeZone": {
+              "type": "string",
+              "description": "Time zone used in the response.",
+              "location": "query"
+            },
+            "updatedMin": {
+              "type": "string",
+              "description": "Lower bound for an event's last modification time (as a RFC3339 timestamp) to filter by.",
+              "format": "date-time",
+              "location": "query"
+            }
+          },
+          "parameterOrder": ["calendarId"],
+          "scopes": [
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/calendar.events.readonly"
+          ],
+          "response": {
+            "$ref": "Events"
+          }
+        }
+      }
+    }
+  },
+  "schemas": {
+    "CalendarList": {
+      "id": "CalendarList",
+      "type": "object",
+      "description": "A list of calendars.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Type of the collection (\"calendar#calendarList\").",
+          "default": "calendar#calendarList"
+        },
+        "etag": {
+          "type": "string",
+          "description": "ETag of the collection."
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Token used to access the next page of this result."
+        },
+        "nextSyncToken": {
+          "type": "string",
+          "description": "Token used at a later point in time to retrieve only the entries that have changed since this result was returned."
+        },
+        "items": {
+          "type": "array",
+          "description": "Calendars that are present on the user's calendar list.",
+          "items": {
+            "$ref": "CalendarListEntry"
+          }
+        }
+      }
+    },
+    "CalendarListEntry": {
+      "id": "CalendarListEntry",
+      "type": "object",
+      "description": "A calendar entry.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Type of the resource (\"calendar#calendarListEntry\").",
+          "default": "calendar#calendarListEntry"
+        },
+        "id": {
+          "type": "string",
+          "description": "Identifier of the calendar."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Title of the calendar."
+        }
+      }
+    },
+    "Events": {
+      "id": "Events",
+      "type": "object",
+      "description": "A list of events.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Type of the collection (\"calendar#events\").",
+          "default": "calendar#events"
+        },
+        "etag": {
+          "type": "string",
+          "description": "ETag of the collection."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Title of the calendar."
+        },
+        "nextPageToken": {
+          "type": "string",
+          "description": "Token used to access the next page of this result."
+        },
+        "nextSyncToken": {
+          "type": "string",
+          "description": "Token used at a later point in time to retrieve only the entries that have changed since this result was returned."
+        },
+        "items": {
+          "type": "array",
+          "description": "List of events on the calendar.",
+          "items": {
+            "$ref": "Event"
+          }
+        }
+      }
+    },
+    "Event": {
+      "id": "Event",
+      "type": "object",
+      "description": "A calendar event.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Type of the resource (\"calendar#event\").",
+          "default": "calendar#event"
+        },
+        "id": {
+          "type": "string",
+          "description": "Opaque identifier of the event."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Title of the event."
+        }
+      }
+    }
+  }
+}

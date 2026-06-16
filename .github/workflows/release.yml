@@ -1,0 +1,391 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: read-all
+
+defaults:
+  run:
+    working-directory: apps/gum
+
+jobs:
+  validate-tag:
+    name: validate semver tag
+    if: github.repository == 'ehmo/gum'
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: public release contract
+        working-directory: .
+        run: scripts/check-public-release-contract.py
+      - name: enforce vX.Y.Z (no pre-release on stable channel)
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Stable release tags must match ^v[0-9]+\.[0-9]+\.[0-9]+$ (no pre-release suffix). Got: $tag"
+            echo "Pre-release builds: use 'goreleaser release --snapshot' locally and tag separately." >&2
+            exit 1
+          fi
+          echo "tag $tag is a valid stable semver"
+      - name: require tag commit on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Release tags must point at a commit reachable from origin/main."
+            exit 1
+          fi
+
+  pre-release-tests:
+    needs: validate-tag
+    name: pre-release tests
+    if: github.repository == 'ehmo/gum'
+    runs-on: ubicloud-standard-2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: vet
+        run: go vet ./...
+      - name: test (race)
+        run: go test -race -timeout 600s ./...
+
+  govulncheck:
+    name: govulncheck
+    if: github.repository == 'ehmo/gum'
+    runs-on: ubicloud-standard-2
+    needs: pre-release-tests
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - name: install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+      - name: scan
+        run: govulncheck ./...
+
+  goreleaser:
+    name: goreleaser
+    if: github.repository == 'ehmo/gum'
+    runs-on: ubicloud-standard-2
+    needs: govulncheck
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+
+      - name: run goreleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2.16'
+          args: release --clean
+          workdir: apps/gum
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify public auth posture
+        working-directory: apps/gum
+        run: |
+          set -euo pipefail
+          bin="$(find dist -type f -name gum -path '*linux_amd64*' | head -n 1)"
+          if [ -z "$bin" ]; then
+            echo "::error::could not locate built linux_amd64 gum binary for auth posture check"
+            find dist -maxdepth 3 -type f -name 'gum*' -print
+            exit 1
+          fi
+          "$bin" auth --help | tee /tmp/gum-auth-help.txt
+          if grep -q 'managed-status\|bundled OAuth' /tmp/gum-auth-help.txt; then
+            echo "::error::public auth help exposes bundled OAuth"
+            exit 1
+          fi
+
+      - name: hash artifacts
+        id: hash
+        working-directory: apps/gum/dist
+        run: |
+          # SLSA generator subjects use these filenames verbatim — no './' prefix
+          # so slsa-verifier can match by artifact name. SC2035 is silenced via
+          # the '--' end-of-options marker (gum_*.tar.gz cannot start with '-').
+          echo "hashes=$(sha256sum -- *.tar.gz 2>/dev/null | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: emit reproducibility manifest
+        working-directory: apps/gum/dist
+        run: |
+          # Per-binary sha256 for the reproducible-build canary (gum-8bzh).
+          # We hash the platform binaries inside the archives, not the
+          # archives themselves, because archive mtimes can differ between
+          # identical-content builds. The canary job downloads this manifest
+          # and rebuilds + compares.
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          for archive in *.tar.gz; do
+            case "$archive" in
+              *_source.tar.gz) continue ;;
+            esac
+            dir="$tmp/${archive%.tar.gz}"
+            mkdir -p "$dir"
+            tar -xzf "$archive" -C "$dir" --no-same-owner --no-same-permissions
+          done
+          (cd "$tmp" && find . -type f -name gum -print0 | sort -z | xargs -0 sha256sum) > release-binaries.sha256
+          cat release-binaries.sha256
+
+      - name: emit local SLSA provenance
+        working-directory: apps/gum/dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          prov="gum-${tag}.intoto.jsonl"
+          subjects="$(
+            sha256sum -- *.tar.gz |
+              jq -Rn '
+                [inputs | select(length > 0) |
+                  capture("^(?<sha>[0-9a-f]+)\\s+(?<name>.+)$") |
+                  {name: .name, digest: {sha256: .sha}}]
+              '
+          )"
+          jq -cn \
+            --arg repo "${GITHUB_REPOSITORY}" \
+            --arg sha "${GITHUB_SHA}" \
+            --arg tag "$tag" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+            --arg workflow_ref "${GITHUB_WORKFLOW_REF}" \
+            --arg workflow_sha "${GITHUB_WORKFLOW_SHA}" \
+            --argjson subject "$subjects" \
+            '{
+              _type: "https://in-toto.io/Statement/v1",
+              predicateType: "https://slsa.dev/provenance/v1",
+              subject: $subject,
+              predicate: {
+                buildDefinition: {
+                  buildType: "https://github.com/ehmo/gum/.github/workflows/release.yml",
+                  externalParameters: {
+                    repository: ("github.com/" + $repo),
+                    ref: ("refs/tags/" + $tag),
+                    workflow_ref: $workflow_ref
+                  },
+                  internalParameters: {
+                    workflow_sha: $workflow_sha
+                  },
+                  resolvedDependencies: [
+                    {
+                      uri: ("git+https://github.com/" + $repo),
+                      digest: {gitCommit: $sha}
+                    }
+                  ]
+                },
+                runDetails: {
+                  builder: {id: "github-actions-ubicloud"},
+                  metadata: {
+                    invocationID: ("https://github.com/" + $repo + "/actions/runs/" + $run_id + "/attempts/" + $run_attempt)
+                  }
+                }
+              }
+            }' > "$prov"
+          cat "$prov"
+          gh release upload "$tag" "$prov" --repo "${GITHUB_REPOSITORY}" --clobber
+
+      - name: upload reproducibility manifest
+        working-directory: apps/gum/dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" release-binaries.sha256 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber
+
+  repro-canary:
+    name: reproducible-build canary (gum-8bzh)
+    if: github.repository == 'ehmo/gum'
+    needs: goreleaser
+    runs-on: ubicloud-standard-2
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+
+      - name: rebuild artifacts on a fresh runner
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2.16'
+          # Re-run the release build without publishing so ldflags and version
+          # metadata match the real release artifacts exactly.
+          # because HEAD is the tag commit.
+          args: release --clean --skip=publish,announce,notarize
+          workdir: apps/gum
+
+      - name: hash rebuilt binaries
+        working-directory: apps/gum/dist
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          for archive in *.tar.gz; do
+            case "$archive" in
+              *_source.tar.gz) continue ;;
+            esac
+            dir="$tmp/${archive%.tar.gz}"
+            mkdir -p "$dir"
+            tar -xzf "$archive" -C "$dir" --no-same-owner --no-same-permissions
+          done
+          (cd "$tmp" && find . -type f -name gum -print0 | sort -z | xargs -0 sha256sum) > canary-binaries.sha256
+          cat canary-binaries.sha256
+
+      - name: download release manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p canary-compare
+          gh release download "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern release-binaries.sha256 \
+            --dir canary-compare \
+            --clobber
+
+      - name: compare
+        working-directory: apps/gum
+        run: |
+          set -euo pipefail
+          # Release and canary archives unpack as
+          # gum_<version>_<os>_<arch>/gum. Compare by os_arch.
+          normalise() {
+            awk '
+              function platform(path, n, p, dir, parts) {
+                n = split(path, p, "/")
+                dir = p[n-1]
+                sub(/^gum_/, "", dir)
+                sub(/^[0-9]+\.[0-9]+\.[0-9]+_/, "", dir)
+                split(dir, parts, "_")
+                return parts[1] "_" parts[2]
+              }
+              { print $1 "  " platform($2) }
+            ' "$1" | sort
+          }
+          normalise canary-compare/release-binaries.sha256 > release.norm
+          normalise dist/canary-binaries.sha256             > canary.norm
+          echo "--- release ---"; cat release.norm
+          echo "--- canary ---";  cat canary.norm
+          if ! diff -u release.norm canary.norm; then
+            echo "::error::reproducible-build canary failed: artifact hashes diverged on a fresh runner."
+            echo "Likely causes: embedded timestamps, non-deterministic codegen, dep drift between runners."
+            exit 1
+          fi
+          echo "reproducible-build canary: identical hashes on both runners"
+
+  verify-provenance:
+    name: verify release provenance against release artifacts
+    if: github.repository == 'ehmo/gum'
+    needs: [goreleaser, repro-canary]
+    runs-on: ubicloud-standard-2
+    permissions:
+      contents: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: download release artifacts and provenance
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir verify && cd verify
+          tag="${GITHUB_REF_NAME}"
+          # Release is created as draft by goreleaser; download via the API
+          # so we don't depend on it being published yet.
+          release_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/releases" \
+              --jq "map(select(.tag_name == \"$tag\"))[0].id // empty"
+          )"
+          if [[ -z "$release_id" ]]; then
+            echo "::error::release for tag $tag not found"
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets" --paginate \
+            --jq '.[] | select(.name | test("\\.tar\\.gz$|\\.intoto\\.jsonl$")) | [.id, .name] | @tsv' |
+            while IFS=$'\t' read -r asset_id name; do
+              gh api "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" \
+                -H "Accept: application/octet-stream" > "$name"
+            done
+          ls -la
+      - name: verify every artifact against the provenance
+        working-directory: verify
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          prov="gum-${tag}.intoto.jsonl"
+          if [[ ! -f "$prov" ]]; then
+            echo "::error::expected provenance file $prov not found in release assets"
+            ls -la
+            exit 1
+          fi
+          jq -e '
+            ._type == "https://in-toto.io/Statement/v1" and
+            .predicateType == "https://slsa.dev/provenance/v1" and
+            (.subject | type == "array") and
+            (.subject | length > 0)
+          ' "$prov" >/dev/null
+          for artifact in *.tar.gz; do
+            echo "::group::verify $artifact"
+            expected="$(
+              jq -r --arg name "$artifact" '
+                first(.subject[] | select(.name == $name) | .digest.sha256) // empty
+              ' "$prov"
+            )"
+            if [[ -z "$expected" ]]; then
+              echo "::error::missing provenance subject for $artifact"
+              exit 1
+            fi
+            actual="$(sha256sum "$artifact" | awk '{print $1}')"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::provenance digest mismatch for $artifact"
+              echo "expected=$expected"
+              echo "actual=$actual"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+          echo "All release artifacts verified against local SLSA provenance for $tag"

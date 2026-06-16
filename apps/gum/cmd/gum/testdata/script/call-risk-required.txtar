@@ -1,0 +1,4 @@
+# Spec §12.0: --risk is required. Cobra surfaces the missing-flag failure
+# without ever invoking the dispatch kernel.
+! gum call gmail.users.messages.list userId=me
+stderr 'required flag.*risk'

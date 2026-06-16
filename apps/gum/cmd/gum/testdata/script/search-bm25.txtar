@@ -1,0 +1,5 @@
+# gum search runs BM25 over the embedded catalog and prints JSON results.
+# Probing for "gmail" must return gmail ops in the results.
+gum search gmail
+stdout '"results":'
+stdout '"op_id": "gmail'

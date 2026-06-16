@@ -1,0 +1,1 @@
+[{"id":"msg001","threadId":"t001","snippet":"Hello there","labelIds":["INBOX"],"sizeEstimate":1234},{"id":"msg002","threadId":"t002","snippet":"Meeting tomorrow","labelIds":["INBOX","STARRED"],"sizeEstimate":567},{"id":"msg003","threadId":"t003","snippet":"","labelIds":["SENT"],"sizeEstimate":0}]

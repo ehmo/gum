@@ -1,0 +1,1 @@
+{"op_id":"calendar.events.list","args":{"calendarId":"primary","timeMin":"2026-06-01T00:00:00Z","timeMax":"2026-06-30T23:59:59Z","singleEvents":true}}

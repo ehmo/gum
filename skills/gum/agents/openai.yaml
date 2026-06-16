@@ -1,0 +1,4 @@
+interface:
+  display_name: "gum"
+  short_description: "Use gum for Google API discovery, OAuth setup, catalog-backed calls, and guarded write flows."
+  default_prompt: "Use gum to inspect the Google API catalog, choose the narrow operation and scope, then run the CLI or MCP call with explicit risk gates."

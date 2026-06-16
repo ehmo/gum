@@ -1,0 +1,21 @@
+{
+  "manifest_schema_version": 1,
+  "plugin_id": "google-patents",
+  "name": "Google Patents",
+  "version": "0.1.0",
+  "namespace_owner": "co.wraxle.gum.plugins.patents",
+  "shape": "mcp-plugin",
+  "executable": "bin/patents-mcp",
+  "advertised_tools": [
+    {
+      "name": "patents_search",
+      "description": "Search Google Patents for patent filings, prior art, and assignee profiles. Unofficial — Patents has no public API. Passive scraping; rate-limited to defensible read traffic.",
+      "risk_class": "read"
+    }
+  ],
+  "declared_capabilities": {
+    "network": true,
+    "fs_write_dir": "",
+    "env_allow": []
+  }
+}

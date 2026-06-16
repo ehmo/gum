@@ -1,0 +1,4 @@
+# Spec §12.0: only one of --json|--toon|--csv|--markdown may be set.
+# Two format flags must produce CLI_ARG_DUPLICATE.
+! gum call gmail.users.messages.list --risk=read --json --csv userId=me
+stderr 'CLI_ARG_DUPLICATE'

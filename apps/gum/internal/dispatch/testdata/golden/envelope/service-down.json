@@ -1,0 +1,5 @@
+{
+  "error_code": "SERVICE_DOWN",
+  "message": "internal error; see audit log",
+  "retryable": false
+}

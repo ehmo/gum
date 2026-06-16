@@ -1,0 +1,6 @@
+default_format = "toon"
+projection = ["id", "summary", "start"]
+flatten_singletons = false
+omit_zero_counts = false
+sort_by = "start"
+limit = 5

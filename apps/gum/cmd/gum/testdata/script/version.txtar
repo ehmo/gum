@@ -1,0 +1,4 @@
+# gum version prints a single line (dev in test builds).
+gum version
+stdout '^dev$'
+! stderr 'Error:'

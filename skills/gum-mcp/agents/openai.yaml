@@ -1,0 +1,4 @@
+interface:
+  display_name: "gum MCP"
+  short_description: "Wire agents to gum MCP for guarded Google API calls through stdio."
+  default_prompt: "Use gum MCP tools for this Google API task. Start with search and describe, keep scopes narrow, and respect write and destructive confirmations."
