@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-06-18
+
+### Changed
+
+- `gum auth probe` defaults to `--strategy auto`. It checks the BYO OAuth client
+  and grant created by `gum auth login` first, then falls back to ADC when no
+  BYO client is configured.
+- `gum auth probe --strategy adc` keeps the old ADC-only check for operators who
+  want to test gcloud or Application Default Credentials directly.
+
+### Fixed
+
+- `gum auth probe --scopes https://www.googleapis.com/auth/adwords` no longer
+  ignores a fresh BYO OAuth login and fails against stale ADC credentials with
+  `invalid_rapt`.
+- Probe scopes are normalized before token resolution, so short names such as
+  `adwords` work with BYO OAuth grants.
+
 ## [1.0.0] - 2026-06-14
 
 v1 release candidate: 222 catalog operations across 32 services, BYO OAuth as
@@ -136,5 +154,6 @@ Workspace and Flights slice before the v1 catalog expansion.
 - Release workflow (`.github/workflows/release.yml`) with SLSA L1 provenance
   via `slsa-github-generator` v2.
 
+[1.0.1]: https://github.com/ehmo/gum/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ehmo/gum/releases/tag/v1.0.0
 [0.1.0]: https://github.com/ehmo/gum/releases/tag/v0.1.0

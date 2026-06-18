@@ -352,13 +352,19 @@ func newAuthStatusCmd() *cobra.Command {
 // newAuthProbeCmd attempts to acquire a token for the given scopes via the
 // composite resolver and prints non-secret metadata (no Bearer token).
 func newAuthProbeCmd() *cobra.Command {
-	var scopesFlag []string
+	var (
+		scopesFlag   []string
+		strategyFlag string
+	)
 	cmd := &cobra.Command{
 		Use:   "probe",
 		Short: "Acquire a token for --scopes and print non-secret metadata",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			resolver := auth.NewLiveADCResolver()
-			creds, err := resolver.Resolve(cmd.Context(), scopesFlag)
+			resolver, scopes, err := authProbeResolver(cmd, scopesFlag, strategyFlag)
+			if err != nil {
+				return err
+			}
+			creds, err := resolver.Resolve(cmd.Context(), scopes)
 			if err != nil {
 				return err
 			}
@@ -371,19 +377,80 @@ func newAuthProbeCmd() *cobra.Command {
 			return writeJSON(cmd.OutOrStdout(), map[string]any{
 				"strategy":         creds.StrategyName,
 				"scopes":           creds.Scopes,
-				"scopes_requested": scopesFlag,
+				"scopes_requested": scopes,
 				"token_bytes":      len(creds.Token),
 				"expires_at":       creds.ExpiresAt.UTC().Format(time.RFC3339),
 			})
 		},
 	}
 	cmd.Flags().StringSliceVar(&scopesFlag, "scopes", []string{"gmail.readonly"}, "Scopes to acquire")
+	cmd.Flags().StringVar(&strategyFlag, "strategy", "auto", "Auth strategy to probe: auto, byo_oauth, or adc")
 	return cmd
+}
+
+var (
+	newAuthProbeADCResolver = func() auth.Resolver { return auth.NewLiveADCResolver() }
+	newAuthProbeByoResolver = func(cfg auth.ByoOAuthConfig) auth.Resolver {
+		return auth.NewDefaultByoOAuth(cfg)
+	}
+)
+
+func authProbeResolver(cmd *cobra.Command, scopesFlag []string, strategyFlag string) (auth.Resolver, []string, error) {
+	scopes := auth.NormaliseScopes(scopesFlag)
+	strategy := strings.TrimSpace(strings.ToLower(strategyFlag))
+	if strategy == "" {
+		strategy = "auto"
+	}
+
+	switch strategy {
+	case "auto":
+		if resolver, ok, err := authProbeByoResolver(cmd, scopes); err != nil || ok {
+			return resolver, scopes, err
+		}
+		return newAuthProbeADCResolver(), scopes, nil
+	case "byo_oauth":
+		resolver, ok, err := authProbeByoResolver(cmd, scopes)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !ok {
+			return nil, nil, &auth.AuthError{
+				Code:             "BYO_OAUTH_CLIENT_NOT_CONFIGURED",
+				Strategy:         "byo_oauth",
+				SetupCommand:     "gum auth use-oauth-client",
+				RequiredScopes:   scopes,
+				HumanRemediation: "no OAuth client configured; create a Desktop OAuth client in the Google Cloud console, then run `gum auth use-oauth-client --client-id <id> --secret-stdin`",
+				UserMessage:      "Register your Google OAuth client with `gum auth use-oauth-client`, then run `gum login`.",
+			}
+		}
+		return resolver, scopes, nil
+	case "adc":
+		return newAuthProbeADCResolver(), scopes, nil
+	default:
+		return nil, nil, fmt.Errorf("CLI_ARG_INVALID: --strategy must be one of auto, byo_oauth, adc")
+	}
+}
+
+func authProbeByoResolver(cmd *cobra.Command, scopes []string) (auth.Resolver, bool, error) {
+	profile := resolveProfileFlag(cmd)
+	client, ok, err := auth.LoadByoClient(auth.NewOSKeyring(), profile)
+	if err != nil {
+		return nil, false, fmt.Errorf("gum auth probe: read OAuth client from keychain: %w", err)
+	}
+	if !ok {
+		return nil, false, nil
+	}
+	return newAuthProbeByoResolver(auth.ByoOAuthConfig{
+		ClientID:     client.ClientID,
+		ClientSecret: client.ClientSecret,
+		Profile:      profile,
+		Scopes:       scopes,
+	}), true, nil
 }
 
 // newAuthLoginCmd runs the interactive byo_oauth login: the loopback + PKCE +
 // CSRF-state flow against the operator's own OAuth client (registered via
-// `gum auth use-oauth-client`). No --scope is required — with none given it
+// `gum auth use-oauth-client`). No --scope is required; with none given it
 // pre-authorizes the full catalog scope set in a single consent screen so
 // later `gum call`s never prompt. There is no gcloud dependency and no built-in
 // managed OAuth fallback in v1.

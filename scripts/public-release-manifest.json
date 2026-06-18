@@ -55,7 +55,8 @@
     "docs/service-matrix.md",
     "docs/test-matrix.md",
     "docs/tier-a-roster.v1.json",
-    "docs/release-notes-v1.0.0.md"
+    "docs/release-notes-v1.0.0.md",
+    "docs/release-notes-v1.0.1.md"
   ],
   "forbidden_public_paths": [
     ".beads",
