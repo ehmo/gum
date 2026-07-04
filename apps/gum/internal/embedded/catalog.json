@@ -1,6 +1,6 @@
 {
   "catalog_schema_version": 1,
-  "generated_at": "2026-06-01T06:12:32Z",
+  "generated_at": "2026-07-04T21:28:00Z",
   "generator_version": "gum/cmd/gen-catalog@phase3",
   "ops": [
     {
@@ -4452,6 +4452,65 @@
         }
       ],
       "request_fields": [
+        {
+          "name": "userId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The user's email address. The special value `me` can be used to indicate the authenticated user."
+        }
+      ]
+    },
+    {
+      "op_id": "gmail.users.messages.attachments.get",
+      "op_schema_version": 1,
+      "title": "Get Gmail message attachment",
+      "summary": "Get an attachment's base64url-encoded data for a specific message.",
+      "service_family": "workspace",
+      "service": "gmail",
+      "default_variant_id": "gmail.v1.rest.users.messages.attachments.get",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.attachments.get",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.users.messages.attachments.get",
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.Attachments.Get",
+            "http": {
+              "method": "GET",
+              "path": "/gmail/v1/users/{userId}/messages/{messageId}/attachments/{id}"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The ID of the attachment."
+        },
+        {
+          "name": "messageId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The ID of the message containing the attachment."
+        },
         {
           "name": "userId",
           "location": "path",
@@ -13335,231 +13394,6 @@
       ]
     },
     {
-      "op_id": "scholar.search",
-      "op_schema_version": 1,
-      "title": "Search Google Scholar",
-      "summary": "Search Google Scholar for academic papers, citations, and author profiles. Backed by the bundled google-scholar Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "scholar",
-      "default_variant_id": "scholar.v1.plugin.search",
-      "variants": [
-        {
-          "variant_id": "scholar.v1.plugin.search",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "scholar.search",
-            "plugin_name": "google-scholar",
-            "tool_name": "scholar_search"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "query",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Search terms for Google Scholar."
-        }
-      ]
-    },
-    {
-      "op_id": "patents.search",
-      "op_schema_version": 1,
-      "title": "Search Google Patents",
-      "summary": "Search Google Patents for patent filings, prior art, and assignee profiles. Backed by the bundled google-patents Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "patents",
-      "default_variant_id": "patents.v1.plugin.search",
-      "variants": [
-        {
-          "variant_id": "patents.v1.plugin.search",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "patents.search",
-            "plugin_name": "google-patents",
-            "tool_name": "patents_search"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "query",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Search terms for Google Patents."
-        }
-      ]
-    },
-    {
-      "op_id": "youtube.transcripts.get",
-      "op_schema_version": 1,
-      "title": "Get YouTube transcript",
-      "summary": "Fetch the auto-generated or human-authored transcript for a YouTube video by video_id. Backed by the bundled youtube-transcripts Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "youtube",
-      "default_variant_id": "youtube.transcripts.v1.plugin.get",
-      "variants": [
-        {
-          "variant_id": "youtube.transcripts.v1.plugin.get",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "youtube.transcripts.get",
-            "plugin_name": "youtube-transcripts",
-            "tool_name": "youtube_transcripts_get"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "video_id",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "YouTube video ID (or full watch URL)."
-        },
-        {
-          "name": "language",
-          "location": "arg",
-          "type": "string",
-          "description": "Preferred transcript language code, e.g. en."
-        }
-      ]
-    },
-    {
-      "op_id": "trends.daily",
-      "op_schema_version": 1,
-      "title": "Google Trends daily report",
-      "summary": "Fetch Google Trends daily and realtime trending searches for a region. Backed by the bundled google-trends Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "trends",
-      "default_variant_id": "trends.v1.plugin.daily",
-      "variants": [
-        {
-          "variant_id": "trends.v1.plugin.daily",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "trends.daily",
-            "plugin_name": "google-trends",
-            "tool_name": "trends_daily"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "geo",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Region code for trending searches, e.g. US."
-        }
-      ]
-    },
-    {
-      "op_id": "gum.code",
-      "op_schema_version": 1,
-      "title": "Execute code in sandbox",
-      "summary": "Executes a Risor snippet that may call catalog ops via gum_call.",
-      "params_required": [
-        [
-          "language",
-          "string"
-        ],
-        [
-          "source",
-          "string"
-        ]
-      ],
-      "params_optional": [
-        [
-          "allow_write",
-          "bool"
-        ],
-        [
-          "allow_destructive",
-          "bool"
-        ],
-        [
-          "destructive_budget",
-          "int"
-        ],
-        [
-          "destructive_scope",
-          "string"
-        ],
-        [
-          "confirmed",
-          "bool"
-        ],
-        [
-          "confirmation_token",
-          "string"
-        ]
-      ],
-      "service_family": "meta",
-      "service": "meta",
-      "default_variant_id": "gum.code.v1.risor",
-      "variants": [
-        {
-          "variant_id": "gum.code.v1.risor",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "stable",
-          "interface_kind": "sdk-native",
-          "backend_kind": "typed-rest-sdk",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "none",
-          "capabilities": [
-            "code_execution"
-          ],
-          "default_format": "json",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "code.risor",
-            "operation_key": "gum.code.risor.exec"
-          }
-        }
-      ]
-    },
-    {
       "op_id": "googleads.keywordPlanIdeas.generateKeywordIdeas",
       "op_schema_version": 1,
       "title": "Generate keyword ideas",
@@ -13860,6 +13694,231 @@
           "type": "string",
           "format": "date",
           "description": "Forecast window end (YYYY-MM-DD). Defaults to 30 days out."
+        }
+      ]
+    },
+    {
+      "op_id": "scholar.search",
+      "op_schema_version": 1,
+      "title": "Search Google Scholar",
+      "summary": "Search Google Scholar for academic papers, citations, and author profiles. Backed by the bundled google-scholar Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "scholar",
+      "default_variant_id": "scholar.v1.plugin.search",
+      "variants": [
+        {
+          "variant_id": "scholar.v1.plugin.search",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "scholar.search",
+            "plugin_name": "google-scholar",
+            "tool_name": "scholar_search"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "query",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Search terms for Google Scholar."
+        }
+      ]
+    },
+    {
+      "op_id": "patents.search",
+      "op_schema_version": 1,
+      "title": "Search Google Patents",
+      "summary": "Search Google Patents for patent filings, prior art, and assignee profiles. Backed by the bundled google-patents Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "patents",
+      "default_variant_id": "patents.v1.plugin.search",
+      "variants": [
+        {
+          "variant_id": "patents.v1.plugin.search",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "patents.search",
+            "plugin_name": "google-patents",
+            "tool_name": "patents_search"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "query",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Search terms for Google Patents."
+        }
+      ]
+    },
+    {
+      "op_id": "youtube.transcripts.get",
+      "op_schema_version": 1,
+      "title": "Get YouTube transcript",
+      "summary": "Fetch the auto-generated or human-authored transcript for a YouTube video by video_id. Backed by the bundled youtube-transcripts Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "youtube",
+      "default_variant_id": "youtube.transcripts.v1.plugin.get",
+      "variants": [
+        {
+          "variant_id": "youtube.transcripts.v1.plugin.get",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "youtube.transcripts.get",
+            "plugin_name": "youtube-transcripts",
+            "tool_name": "youtube_transcripts_get"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "video_id",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "YouTube video ID (or full watch URL)."
+        },
+        {
+          "name": "language",
+          "location": "arg",
+          "type": "string",
+          "description": "Preferred transcript language code, e.g. en."
+        }
+      ]
+    },
+    {
+      "op_id": "trends.daily",
+      "op_schema_version": 1,
+      "title": "Google Trends daily report",
+      "summary": "Fetch Google Trends daily and realtime trending searches for a region. Backed by the bundled google-trends Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "trends",
+      "default_variant_id": "trends.v1.plugin.daily",
+      "variants": [
+        {
+          "variant_id": "trends.v1.plugin.daily",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "trends.daily",
+            "plugin_name": "google-trends",
+            "tool_name": "trends_daily"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "geo",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Region code for trending searches, e.g. US."
+        }
+      ]
+    },
+    {
+      "op_id": "gum.code",
+      "op_schema_version": 1,
+      "title": "Execute code in sandbox",
+      "summary": "Executes a Risor snippet that may call catalog ops via gum_call.",
+      "params_required": [
+        [
+          "language",
+          "string"
+        ],
+        [
+          "source",
+          "string"
+        ]
+      ],
+      "params_optional": [
+        [
+          "allow_write",
+          "bool"
+        ],
+        [
+          "allow_destructive",
+          "bool"
+        ],
+        [
+          "destructive_budget",
+          "int"
+        ],
+        [
+          "destructive_scope",
+          "string"
+        ],
+        [
+          "confirmed",
+          "bool"
+        ],
+        [
+          "confirmation_token",
+          "string"
+        ]
+      ],
+      "service_family": "meta",
+      "service": "meta",
+      "default_variant_id": "gum.code.v1.risor",
+      "variants": [
+        {
+          "variant_id": "gum.code.v1.risor",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "sdk-native",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "none",
+          "capabilities": [
+            "code_execution"
+          ],
+          "default_format": "json",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "code.risor",
+            "operation_key": "gum.code.risor.exec"
+          }
         }
       ]
     }

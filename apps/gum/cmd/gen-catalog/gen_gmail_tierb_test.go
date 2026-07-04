@@ -34,6 +34,7 @@ func TestBuildGmailTierBOpsCoverage(t *testing.T) {
 		{"gmail.users.messages.batchModify", catalog.RiskClassWrite},
 		{"gmail.users.messages.delete", catalog.RiskClassDestructive},
 		{"gmail.users.messages.batchDelete", catalog.RiskClassDestructive},
+		{"gmail.users.messages.attachments.get", catalog.RiskClassRead},
 		// labels
 		{"gmail.users.labels.get", catalog.RiskClassRead},
 		{"gmail.users.labels.create", catalog.RiskClassWrite},
