@@ -44,9 +44,9 @@ var scanPaths = []string{
 // fails the lint. The stdlib `log` package is forbidden because it routes
 // around slog; the third-party loggers are forbidden by §14.1 rule 1.
 var prohibitedImports = map[string]string{
-	"log":                       "spec §14.1 rule 1: use log/slog, not the stdlib log package",
-	"github.com/rs/zerolog":     "spec §14.1 rule 1: zerolog is prohibited; use log/slog",
-	"go.uber.org/zap":           "spec §14.1 rule 1: zap is prohibited; use log/slog",
+	"log":                        "spec §14.1 rule 1: use log/slog, not the stdlib log package",
+	"github.com/rs/zerolog":      "spec §14.1 rule 1: zerolog is prohibited; use log/slog",
+	"go.uber.org/zap":            "spec §14.1 rule 1: zap is prohibited; use log/slog",
 	"github.com/sirupsen/logrus": "spec §14.1 rule 1: logrus is prohibited; use log/slog",
 }
 

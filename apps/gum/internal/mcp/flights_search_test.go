@@ -140,7 +140,7 @@ func TestFlightsSearchShapesPluginResultIntoToonText(t *testing.T) {
 
 	req := &sdkmcp.CallToolRequest{
 		Params: &sdkmcp.CallToolParamsRaw{
-			Name: "flights_search",
+			Name:      "flights_search",
 			Arguments: json.RawMessage(`{"origin":"SFO","destination":"JFK","departureDate":"2026-07-01"}`),
 		},
 	}

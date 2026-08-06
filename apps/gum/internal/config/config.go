@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ehmo/gum/internal/fsatomic"
 	profilepkg "github.com/ehmo/gum/internal/profile"
 )
 
@@ -238,18 +239,12 @@ func Save(profile string, c *Config) error {
 		fmt.Fprintf(&buf, "%s = \"%s\"\n", k, v)
 	}
 
-	// Atomic write: write to <path>.tmp, then rename. Mode 600.
-	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, []byte(buf.String()), 0o600); err != nil {
-		return fmt.Errorf("config: write tmp: %w", err)
-	}
-	if err := os.Chmod(tmp, 0o600); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("config: chmod tmp: %w", err)
-	}
-	if err := os.Rename(tmp, p); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("config: rename: %w", err)
+	// Atomic write at mode 600. fsatomic picks a unique temp name and fsyncs
+	// before the rename; the previous fixed `<path>.tmp` meant two gum
+	// processes saving the same profile at once shared one temp file, so one
+	// could rename the other's half-written bytes over the config.
+	if err := fsatomic.WriteFile(p, []byte(buf.String()), 0o600); err != nil {
+		return fmt.Errorf("config: save %s: %w", p, err)
 	}
 	return nil
 }

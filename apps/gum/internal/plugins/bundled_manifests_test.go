@@ -14,13 +14,13 @@ import (
 // manifest via plugins.LoadManifest (the same code path the install/start
 // gates use) and asserts:
 //
-//	1) the manifest passes schema validation (plugin_id, shape, executable,
-//	   advertised_tools.risk_class all present and well-formed),
-//	2) the plugin_id matches the directory name (so `gum plugin install
-//	   apps/gum/plugins/<dir>` resolves to the same id the catalog binding
-//	   references),
-//	3) the advertised tool names match the catalog binding.tool_name set in
-//	   cmd/gen-catalog/gen_unofficial_plugins.go.
+//  1. the manifest passes schema validation (plugin_id, shape, executable,
+//     advertised_tools.risk_class all present and well-formed),
+//  2. the plugin_id matches the directory name (so `gum plugin install
+//     apps/gum/plugins/<dir>` resolves to the same id the catalog binding
+//     references),
+//  3. the advertised tool names match the catalog binding.tool_name set in
+//     cmd/gen-catalog/gen_unofficial_plugins.go.
 //
 // A break in any of these is the same failure shape a real user would hit at
 // `gum plugin install` time. Catching it here keeps the bundled manifests

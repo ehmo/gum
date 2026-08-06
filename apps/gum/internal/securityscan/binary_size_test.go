@@ -1,10 +1,8 @@
 package securityscan
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -21,26 +19,11 @@ func TestBinarySize(t *testing.T) {
 		t.Skip("skipping binary-size test in -short mode")
 	}
 
-	root := moduleRoot(t)
 	tmp := t.TempDir()
 	binary := filepath.Join(tmp, "gum-linux-amd64")
 
-	cmd := exec.Command("go", "build",
-		"-trimpath",
-		"-ldflags", "-s -w",
-		"-o", binary,
-		"./cmd/gum")
-	cmd.Dir = root
-	cmd.Env = append(cmd.Environ(),
-		"CGO_ENABLED=0",
-		"GOOS=linux",
-		"GOARCH=amd64",
-	)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("build failed: %v\nstderr: %s", err, stderr.String())
-	}
+	runGo(t, []string{"CGO_ENABLED=0", "GOOS=linux", "GOARCH=amd64"},
+		"build", "-trimpath", "-ldflags", "-s -w", "-o", binary, "./cmd/gum")
 
 	info, err := os.Stat(binary)
 	if err != nil {

@@ -59,12 +59,12 @@ func TestEncodeStringEdges(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"", `""`},                 // empty string
-		{"true", `"true"`},         // keyword needs quoting
-		{"null", `"null"`},         // keyword needs quoting
-		{`he"llo`, `"he""llo"`},    // interior quote → doubled
-		{"a,b", `"a,b"`},           // comma forces CSV-quote
-		{"plain", `plain`},         // bare
+		{"", `""`},              // empty string
+		{"true", `"true"`},      // keyword needs quoting
+		{"null", `"null"`},      // keyword needs quoting
+		{`he"llo`, `"he""llo"`}, // interior quote → doubled
+		{"a,b", `"a,b"`},        // comma forces CSV-quote
+		{"plain", `plain`},      // bare
 	}
 	for _, tc := range cases {
 		got, err := toon.Encode(tc.input)

@@ -6,7 +6,7 @@
 
 <p align="center">
   <img alt="Go 1.26.4" src="https://img.shields.io/badge/Go-1.26.4-00ADD8?logo=go&logoColor=white">
-  <img alt="FSL 1.1, Apache 2.0 future" src="https://img.shields.io/badge/license-FSL%201.1%20to%20Apache%202.0-2ea44f">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2ea44f">
   <img alt="MCP stdio" src="https://img.shields.io/badge/MCP-stdio-7c3aed">
   <img alt="agent skills" src="https://img.shields.io/badge/agent%20skills-included-f97316">
 </p>
@@ -71,18 +71,9 @@ gum keeps the first screen small. The MCP server starts with 29 tools: 9
 meta-tools, 18 common convenience tools, and 2 skill helpers. Everything else is
 found through `gum.search_apis` and loaded only when needed.
 
-The current release-gate benchmark uses 200 fixture calls against a spec-scale
-naive baseline. In that test, gum reduced MCP-layer tokens by 83.39%:
-
-| Path | Tool-list tokens | Response tokens | Total |
-| --- | ---: | ---: | ---: |
-| Naive full-catalog MCP server | 406,638 | 140,065 | 546,703 |
-| gum shaped MCP surface | 8,804 | 82,000 | 90,804 |
-
-This measures MCP tool definitions plus API response payloads with the
-`cl100k_base` tokenizer. It is not a billing promise and it is not a latency
-claim. The point is simpler: the agent sees less catalog noise and less raw JSON
-while still getting the operation it asked for.
+`gum gain --fixture-replay` runs the deterministic local replay for the current
+checkout. Treat gain output as a regression signal tied to the binary, fixture
+set, and format you ran, not as a billing promise or latency claim.
 
 ## How OAuth works
 
@@ -133,6 +124,7 @@ unless you pass `--force`.
 | Agent access over MCP | `gum mcp --stdio` |
 | Guided setup and diagnostics | `gum setup`, `gum doctor` |
 | Google auth | Your Google OAuth client, ADC, API key, or service account |
+| Local state | Profiles under XDG config, data, and cache directories |
 | Secrets for agent workflows | [HASP](https://github.com/gethasp/hasp) for brokered local secret access |
 | Install and release downloads | Release archives, install script, or Homebrew tap |
 
@@ -390,6 +382,8 @@ apps/gum/internal/auth/   BYO OAuth, ADC, API key, service account auth
 apps/gum/internal/mcp/    MCP server presentation layer
 apps/gum/internal/dispatch/ Shared dispatch kernel
 docs/auth-guides/         Public Google credential setup guides
+docs/commands/            Generated command reference from `gum schema --json`
+docs/index.md             Docs-site overview
 docs/mcp-client-setup.md  Public MCP client setup
 docs/                     Public auth, MCP, catalog, plugin, and test references
 ```
@@ -400,6 +394,4 @@ See [SECURITY.md](SECURITY.md).
 
 ## License
 
-gum is licensed under FSL-1.1-ALv2. Each release becomes available under
-Apache License 2.0 on the second anniversary of that release date. See
-[LICENSE](LICENSE).
+gum is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -321,7 +321,7 @@ func TestGumWriteAnnotationReadOnlyHintFalse(t *testing.T) {
 	// ReadOnlyHint is a plain bool (not pointer) in go-sdk v1.6.0.
 	// gum.write must NOT be a read-only tool — ReadOnlyHint must be false.
 	if ann.ReadOnlyHint {
-		t.Errorf(`gum.write Annotations.ReadOnlyHint = true; want false. `+
+		t.Errorf(`gum.write Annotations.ReadOnlyHint = true; want false. ` +
 			`spec.md §13 table: gum.write readOnlyHint=false (it mutates state). `)
 	}
 
@@ -329,13 +329,13 @@ func TestGumWriteAnnotationReadOnlyHintFalse(t *testing.T) {
 	// spec.md §13 wire-form: "destructiveHint MUST be present with true or false
 	// for every Tier A tool" — so nil is non-compliant.
 	if ann.DestructiveHint == nil {
-		t.Errorf(`gum.write Annotations.DestructiveHint is nil; `+
-			`spec.md §13 wire-form requires destructiveHint MUST be present as an explicit `+
+		t.Errorf(`gum.write Annotations.DestructiveHint is nil; ` +
+			`spec.md §13 wire-form requires destructiveHint MUST be present as an explicit ` +
 			`*bool for every Tier A tool. Green Team: set DestructiveHint: boolPtr(false).`)
 	} else if *ann.DestructiveHint {
-		t.Errorf(`gum.write Annotations.DestructiveHint = true; want *false. `+
-			`spec.md §13 table: gum.write destructiveHint=false — write ops are NOT destructive `+
-			`in the MCP annotation model (high-stakes confirmation is a GUM policy field, `+
+		t.Errorf(`gum.write Annotations.DestructiveHint = true; want *false. ` +
+			`spec.md §13 table: gum.write destructiveHint=false — write ops are NOT destructive ` +
+			`in the MCP annotation model (high-stakes confirmation is a GUM policy field, ` +
 			`not an MCP destructive annotation per spec §13 note on gum.write row).`)
 	}
 }

@@ -96,9 +96,9 @@ func newLongTailDispatcher(pol ProfilePolicy) *dispatcher {
 // any one axis surfaces as a focused subtest failure.
 func TestLongTailUnknownArgHandling(t *testing.T) {
 	type want struct {
-		wantErr       bool                  // expect *StructuredError (vs nil)
-		wantUnknown   []string              // INVALID_ARGS detail['unknown'] when wantErr
-		wantWarnings  []string              // parsed.ValidationWarnings when !wantErr
+		wantErr      bool     // expect *StructuredError (vs nil)
+		wantUnknown  []string // INVALID_ARGS detail['unknown'] when wantErr
+		wantWarnings []string // parsed.ValidationWarnings when !wantErr
 	}
 
 	cases := []struct {
@@ -113,8 +113,8 @@ func TestLongTailUnknownArgHandling(t *testing.T) {
 			inv: &Invocation{
 				OpID: "admin.directory.users.list",
 				Args: map[string]any{
-					"customer":    "my_customer",
-					"viewType":    "admin_view", // unknown — not in params_*
+					"customer": "my_customer",
+					"viewType": "admin_view", // unknown — not in params_*
 				},
 			},
 			want: want{wantErr: true, wantUnknown: []string{"viewType"}},
@@ -199,9 +199,9 @@ func TestLongTailUnknownArgHandling(t *testing.T) {
 			inv: &Invocation{
 				OpID: "admin.directory.users.list",
 				Args: map[string]any{
-					"customer":   "my_customer",
-					"viewType":   "admin_view", // waived
-					"orderBy":    "email",       // not in allowlist → reject
+					"customer": "my_customer",
+					"viewType": "admin_view", // waived
+					"orderBy":  "email",      // not in allowlist → reject
 				},
 			},
 			want: want{wantErr: true, wantUnknown: []string{"orderBy"}},

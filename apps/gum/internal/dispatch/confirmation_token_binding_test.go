@@ -10,8 +10,9 @@
 // where the implementation exists but lacks the required semantics.
 //
 // Spec anchors:
-//   §6.1.2 — Confirmation token implementation (normative)
-//   §1421  — Stable runtime error codes (CONFIRMATION_TOKEN_INVALID, reason closed enum)
+//
+//	§6.1.2 — Confirmation token implementation (normative)
+//	§1421  — Stable runtime error codes (CONFIRMATION_TOKEN_INVALID, reason closed enum)
 package dispatch
 
 import (

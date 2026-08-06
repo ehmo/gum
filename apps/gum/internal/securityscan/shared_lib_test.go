@@ -1,7 +1,6 @@
 package securityscan
 
 import (
-	"bytes"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -21,18 +20,11 @@ func TestNoSharedLibDependencies(t *testing.T) {
 		t.Skipf("dynamic-linkage inspection only runs on linux/darwin; current GOOS=%s", runtime.GOOS)
 	}
 
-	root := moduleRoot(t)
 	tmp := t.TempDir()
 	binary := filepath.Join(tmp, "gum-static")
 
-	build := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", binary, "./cmd/gum")
-	build.Dir = root
-	build.Env = append(build.Environ(), "CGO_ENABLED=0")
-	var berr bytes.Buffer
-	build.Stderr = &berr
-	if err := build.Run(); err != nil {
-		t.Fatalf("build failed: %v\nstderr: %s", err, berr.String())
-	}
+	runGo(t, []string{"CGO_ENABLED=0"},
+		"build", "-trimpath", "-ldflags", "-s -w", "-o", binary, "./cmd/gum")
 
 	switch runtime.GOOS {
 	case "linux":

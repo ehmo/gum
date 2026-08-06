@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/ehmo/gum/internal/fsatomic"
 )
 
 // CanaryState is the closed-enum lifecycle state for a managed scope's live canary.
@@ -134,12 +136,11 @@ func (s *Scheduler) RunOnce(ctx context.Context) (map[string]CanaryState, error)
 		return nil, fmt.Errorf("canary: marshal registry: %w", err)
 	}
 
-	tmpPath := s.cfg.RegistryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, out, 0o644); err != nil {
-		return nil, fmt.Errorf("canary: write tmp: %w", err)
-	}
-	if err := os.Rename(tmpPath, s.cfg.RegistryPath); err != nil {
-		return nil, fmt.Errorf("canary: rename: %w", err)
+	// fsatomic, not a hand-rolled `<path>.tmp` + rename: the old form used a
+	// fixed temp name (two concurrent canary runs clobbered each other), never
+	// fsynced, and left the temp file behind when the rename failed.
+	if err := fsatomic.WriteFile(s.cfg.RegistryPath, out, 0o644); err != nil {
+		return nil, fmt.Errorf("canary: write registry: %w", err)
 	}
 
 	return outcomes, nil

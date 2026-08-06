@@ -32,7 +32,9 @@ func BuildMetaOps() []catalog.Op {
 			ParamsOptional: [][]string{
 				{"allow_write", "bool"},
 				{"allow_destructive", "bool"},
-				{"destructive_budget", "int"},
+				// "integer", not "int": dispatch.checkArgType keys off this
+				// string, and "integer" is the spelling every other op uses.
+				{"destructive_budget", "integer"},
 				{"destructive_scope", "string"},
 				{"confirmed", "bool"},
 				{"confirmation_token", "string"},

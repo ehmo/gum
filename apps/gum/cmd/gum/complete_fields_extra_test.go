@@ -24,7 +24,7 @@ func TestCompleteFieldsForOpUnknownOpID(t *testing.T) {
 }
 
 // TestCompleteFieldsForOpKnownOpEmptyDefaultFields covers the inner
-// "v.DefaultFields == ''" branch. The embedded catalog's stable op
+// "v.DefaultFields == ”" branch. The embedded catalog's stable op
 // gmail.users.messages.list resolves a default variant, but that variant
 // currently has no default_fields, so the helper returns nil — which is
 // exactly the safety net for ops that haven't published a default mask.

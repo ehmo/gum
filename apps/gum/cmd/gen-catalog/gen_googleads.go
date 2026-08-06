@@ -26,13 +26,17 @@ func BuildGoogleAdsOps() []catalog.Op {
 		Name: "loginCustomerId", Location: catalog.RequestFieldArg, Type: "string",
 		Description: "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account.",
 	}
+	// geo and language declare no Default: omitting either returns all-locations
+	// / all-languages data, and a declared default is sent for real (gum-3gcv),
+	// so declaring one here would silently narrow every unqualified query to the
+	// US and to English.
 	geo := catalog.RequestField{
-		Name: "geoTargetConstants", Location: catalog.RequestFieldArg, Type: "array", ItemType: "string", Default: "geoTargetConstants/2840",
+		Name: "geoTargetConstants", Location: catalog.RequestFieldArg, Type: "array", ItemType: "string",
 		Description: "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations.",
 	}
 	language := catalog.RequestField{
-		Name: "language", Location: catalog.RequestFieldArg, Type: "string", Default: "languageConstants/1000",
-		Description: "Language as a resource name or bare id (languageConstants/1000 or 1000 for English).",
+		Name: "language", Location: catalog.RequestFieldArg, Type: "string",
+		Description: "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages.",
 	}
 	network := catalog.RequestField{
 		Name: "keywordPlanNetwork", Location: catalog.RequestFieldArg, Type: "string",

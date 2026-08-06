@@ -431,11 +431,11 @@ func calendarListResponse(r *rand.Rand, n int) map[string]any {
 	items := make([]map[string]any, n)
 	for i := range items {
 		items[i] = map[string]any{
-			"id":       fakeCalEventID(r),
-			"status":   "confirmed",
-			"summary":  fmt.Sprintf("Standup #%d", i+1),
-			"start":    map[string]any{"dateTime": "2026-05-25T15:00:00Z"},
-			"end":      map[string]any{"dateTime": "2026-05-25T15:15:00Z"},
+			"id":      fakeCalEventID(r),
+			"status":  "confirmed",
+			"summary": fmt.Sprintf("Standup #%d", i+1),
+			"start":   map[string]any{"dateTime": "2026-05-25T15:00:00Z"},
+			"end":     map[string]any{"dateTime": "2026-05-25T15:15:00Z"},
 			"attendees": []map[string]any{
 				{"email": "a@example.com", "responseStatus": "accepted"},
 				{"email": "b@example.com", "responseStatus": "needsAction"},
@@ -504,12 +504,12 @@ func bigqueryQueryResponse(r *rand.Rand, rows int) map[string]any {
 		}
 	}
 	return map[string]any{
-		"jobReference":  map[string]string{"projectId": "proj", "jobId": fmt.Sprintf("job_%012d", r.Intn(1<<32))},
-		"totalRows":     fmt.Sprintf("%d", rows),
-		"schema":        map[string]any{"fields": []map[string]string{{"name": "user_id", "type": "STRING"}, {"name": "event", "type": "STRING"}, {"name": "c", "type": "INTEGER"}}},
-		"rows":          out,
-		"jobComplete":   true,
-		"cacheHit":      false,
+		"jobReference": map[string]string{"projectId": "proj", "jobId": fmt.Sprintf("job_%012d", r.Intn(1<<32))},
+		"totalRows":    fmt.Sprintf("%d", rows),
+		"schema":       map[string]any{"fields": []map[string]string{{"name": "user_id", "type": "STRING"}, {"name": "event", "type": "STRING"}, {"name": "c", "type": "INTEGER"}}},
+		"rows":         out,
+		"jobComplete":  true,
+		"cacheHit":     false,
 	}
 }
 
@@ -523,7 +523,7 @@ func genaiResponse(r *rand.Rand) map[string]any {
 	}
 }
 
-func fakeMsgID(r *rand.Rand) string     { return fmt.Sprintf("18a%07x", r.Intn(1<<28)) }
-func fakeDriveID(r *rand.Rand) string   { return fmt.Sprintf("1%027x", r.Int63n(1<<60)) }
+func fakeMsgID(r *rand.Rand) string      { return fmt.Sprintf("18a%07x", r.Intn(1<<28)) }
+func fakeDriveID(r *rand.Rand) string    { return fmt.Sprintf("1%027x", r.Int63n(1<<60)) }
 func fakeCalEventID(r *rand.Rand) string { return fmt.Sprintf("ev_%010x", r.Int63n(1<<40)) }
-func fakeSheetID(r *rand.Rand) string   { return fmt.Sprintf("ss_%030x", r.Int63n(1<<60)) }
+func fakeSheetID(r *rand.Rand) string    { return fmt.Sprintf("ss_%030x", r.Int63n(1<<60)) }

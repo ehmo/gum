@@ -12,13 +12,13 @@
 //     will FAIL TO COMPILE until gum-vq4z.11 is merged)
 //
 // 7 Injection points tested in TestDispatchCancellationNoGoroutineLeak:
-//   1. After step 1 (parseAndValidate), before step 2 (evaluatePolicy)
-//   2. After step 2 (evaluatePolicy), before step 3 (resolveVariant)
-//   3. After step 3 (resolveVariant), before step 4 (cacheCheck)
-//   4. After step 4 (cacheCheck), before step 5 (resolveAuth)
-//   5. After step 5 (resolveAuth), before step 6 (tokenBucketStep)
-//   6. After step 6 (tokenBucketStep), before step 7 (executeAdapter)
-//   7. During step 7 (executeAdapter) — adapter blocks on ctx.Done
+//  1. After step 1 (parseAndValidate), before step 2 (evaluatePolicy)
+//  2. After step 2 (evaluatePolicy), before step 3 (resolveVariant)
+//  3. After step 3 (resolveVariant), before step 4 (cacheCheck)
+//  4. After step 4 (cacheCheck), before step 5 (resolveAuth)
+//  5. After step 5 (resolveAuth), before step 6 (tokenBucketStep)
+//  6. After step 6 (tokenBucketStep), before step 7 (executeAdapter)
+//  7. During step 7 (executeAdapter) — adapter blocks on ctx.Done
 package dispatch
 
 import (
@@ -260,8 +260,8 @@ func minimalCatalog(adapterKey string) *catalog.Catalog {
 				DefaultVariantID: "gum.code.v1.test",
 				Variants: []catalog.Variant{
 					{
-						VariantID:  "gum.code.v1.test",
-						RiskClass:  catalog.RiskClassRead,
+						VariantID: "gum.code.v1.test",
+						RiskClass: catalog.RiskClassRead,
 						Binding: &catalog.Binding{
 							AdapterKey: adapterKey,
 						},

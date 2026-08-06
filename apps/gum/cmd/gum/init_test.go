@@ -103,4 +103,3 @@ func TestInitRefreshOnlyTouchesGUMmd(t *testing.T) {
 		t.Errorf("--refresh created settings.json; should leave it untouched")
 	}
 }
-

@@ -51,7 +51,11 @@ type Ratchet struct {
 // Ratchets pins every tracked package at floor(current − ~1% jitter
 // headroom). gum-5wkg established the original retention sweep
 // (2026-05-26); gum-8ilq refreshed stale baselines after the hardened audit
-// remediation sweep (2026-06-03). The trailing comment on each line is the
+// remediation sweep (2026-06-03); gum-ln4c raised four after the overhaul
+// review (2026-08-05). Readings are taken on macOS, so a Min gets extra
+// headroom rather than floor(current − 1) whenever a package's tests skip on a
+// platform or privilege level CI may differ on.
+// The trailing comment on each line is the
 // measured coverage that produced the Min. Lowering a Min or dropping its
 // Bead without a docs/test-matrix.md update is a regression; raising a Min
 // when coverage improves is encouraged.
@@ -60,9 +64,9 @@ var Ratchets = []Ratchet{
 	{Package: "github.com/ehmo/gum/internal/adapters/googleads", Min: 85.0, Bead: "gum-x5vw"}, // 86.7%
 	{Package: "github.com/ehmo/gum/internal/help/topics", Min: 79.0, Bead: "gum-5wkg"},        // 80.0%
 	{Package: "github.com/ehmo/gum/internal/plugins/registry", Min: 82.0, Bead: "gum-5wkg"},   // 83.5%
-	{Package: "github.com/ehmo/gum/internal/catalog", Min: 84.0, Bead: "gum-ql6c"},            // 84.6% — release rehearsal recalibration after catalog breadth growth
+	{Package: "github.com/ehmo/gum/internal/catalog", Min: 86.0, Bead: "gum-ln4c"},            // 86.8% — overhaul-review recalibration
 	{Package: "github.com/ehmo/gum/cmd/gum", Min: 86.0, Bead: "gum-ejek"},                     // 86.9% on Linux Go 1.26.4 public CI; macOS/local may report slightly higher
-	{Package: "github.com/ehmo/gum/internal/initpkg", Min: 88.0, Bead: "gum-5wkg"},            // 89.1%
+	{Package: "github.com/ehmo/gum/internal/initpkg", Min: 93.0, Bead: "gum-ln4c"},            // 94.7% — overhaul-review recalibration after atomicWrite moved to internal/fsatomic
 	{Package: "github.com/ehmo/gum/internal/profile", Min: 90.0, Bead: "gum-8ilq"},            // 91.7%
 	{Package: "github.com/ehmo/gum/internal/testutil/golden", Min: 91.0, Bead: "gum-5wkg"},    // 92.1%
 	{Package: "github.com/ehmo/gum/internal/adapters/genai", Min: 91.0, Bead: "gum-5wkg"},     // 92.3%
@@ -86,15 +90,15 @@ var Ratchets = []Ratchet{
 	{Package: "github.com/ehmo/gum/internal/bench", Min: 96.0, Bead: "gum-5wkg"},              // 97.3%
 	{Package: "github.com/ehmo/gum/internal/lro/routing", Min: 96.0, Bead: "gum-5wkg"},        // 97.4%
 	{Package: "github.com/ehmo/gum/internal/mcp", Min: 96.0, Bead: "gum-5wkg"},                // 97.8%
-	{Package: "github.com/ehmo/gum/internal/config", Min: 97.0, Bead: "gum-5wkg"},             // 98.1%
+	{Package: "github.com/ehmo/gum/internal/config", Min: 98.0, Bead: "gum-ln4c"},             // 100.0% — held 2 points back, not floor(current−1): the Save error-branch tests skip when euid==0, so a root CI container reads lower
 	{Package: "github.com/ehmo/gum/internal/cli/callargs", Min: 97.0, Bead: "gum-8ilq"},       // 98.9%
-	{Package: "github.com/ehmo/gum/internal/output/toon", Min: 92.0, Bead: "gum-ql6c"},        // 92.0% — release rehearsal recalibration after typed decoder expansion
+	{Package: "github.com/ehmo/gum/internal/output/toon", Min: 97.0, Bead: "gum-ln4c"},        // 98.1% — overhaul-review recalibration
 	{Package: "github.com/ehmo/gum/internal/output/jcs", Min: 98.0, Bead: "gum-5wkg"},         // 99.1%
 	{Package: "github.com/ehmo/gum/internal/adapters/grpc", Min: 99.0, Bead: "gum-5wkg"},      // 100.0%
 	{Package: "github.com/ehmo/gum/internal/help", Min: 99.0, Bead: "gum-5wkg"},               // 100.0%
 	{Package: "github.com/ehmo/gum/internal/httputil", Min: 99.0, Bead: "gum-5wkg"},           // 100.0%
 	{Package: "github.com/ehmo/gum/internal/output/fieldmask", Min: 99.0, Bead: "gum-5wkg"},   // 100.0%
-	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 61.0, Bead: "gum-ejek"},          // 61.1% on Linux Go 1.26.4 public CI; darwin-only backend files make macOS report 100%
+	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 61.0, Bead: "gum-ejek"},          // 61.1% on Linux Go 1.26.4 public CI; darwin-only backend files make macOS report 100%. Deliberately NOT raised: the macOS reading is the platform skew, not a coverage gain.
 }
 
 // GatedPackages returns the `go test` patterns whose coverage MUST be

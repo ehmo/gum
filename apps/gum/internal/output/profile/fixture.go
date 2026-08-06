@@ -12,21 +12,22 @@ import (
 // ProfileFixtureResult is one row in the JSON output of `gum profile test`.
 //
 // Spec §12.1: `gum profile test --format=json` returns
-//   `{"passed": bool, "fixtures": ProfileFixtureResult[], "token_budget": TokenBudgetSummary}`
+//
+//	`{"passed": bool, "fixtures": ProfileFixtureResult[], "token_budget": TokenBudgetSummary}`
 //
 // Failures is the list of expectation strings that did not match; an empty
 // list means the fixture passed.
 type ProfileFixtureResult struct {
-	Name              string   `json:"name"`
-	Profile           string   `json:"profile,omitempty"`
-	Fixture           string   `json:"fixture"`
-	Passed            bool     `json:"passed"`
-	ActualFormat      string   `json:"actual_format"`
-	ActualTokens      int      `json:"actual_tokens"`
-	ActualResultCount int      `json:"actual_result_count,omitempty"`
-	ActualOmittedCount int     `json:"actual_omitted_count,omitempty"`
-	ActualLossy       bool     `json:"actual_lossy"`
-	Failures          []string `json:"failures,omitempty"`
+	Name               string   `json:"name"`
+	Profile            string   `json:"profile,omitempty"`
+	Fixture            string   `json:"fixture"`
+	Passed             bool     `json:"passed"`
+	ActualFormat       string   `json:"actual_format"`
+	ActualTokens       int      `json:"actual_tokens"`
+	ActualResultCount  int      `json:"actual_result_count,omitempty"`
+	ActualOmittedCount int      `json:"actual_omitted_count,omitempty"`
+	ActualLossy        bool     `json:"actual_lossy"`
+	Failures           []string `json:"failures,omitempty"`
 }
 
 // TokenBudgetSummary aggregates token-ceiling assertions across fixtures.

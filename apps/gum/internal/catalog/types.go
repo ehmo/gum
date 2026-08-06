@@ -4,9 +4,12 @@
 package catalog
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,6 +30,7 @@ var (
 	ErrUnsupportedBindingSchemaVersion = errors.New("catalog: unsupported binding_schema_version")
 	ErrUnsupportedCatalogSchemaVersion = errors.New("catalog: unsupported catalog_schema_version")
 	ErrServiceRootTemplateDeferred     = errors.New("catalog: SERVICE_ROOT_TEMPLATE_DEFERRED")
+	ErrNoDefaultDeclared               = errors.New("catalog: request field declares no default")
 )
 
 // SupportedCatalogSchemaVersions is the set of catalog_schema_version values the loader accepts.
@@ -293,15 +297,89 @@ const (
 // opaque forms (key=value, body:=json); RequestField is purely additive,
 // enabling the ergonomic flag/wizard surface on top.
 type RequestField struct {
-	Name        string               `json:"name"`
-	Location    RequestFieldLocation `json:"location"`
-	Type        string               `json:"type"`                // string|integer|number|boolean|array|object
-	ItemType    string               `json:"item_type,omitempty"` // element type when Type=="array"
-	Enum        []string             `json:"enum,omitempty"`
-	Required    bool                 `json:"required,omitempty"`
-	Default     string               `json:"default,omitempty"`
-	Format      string               `json:"format,omitempty"` // e.g. date|date-time|google-datetime|int64
-	Description string               `json:"description,omitempty"`
+	Name     string               `json:"name"`
+	Location RequestFieldLocation `json:"location"`
+	Type     string               `json:"type"`                // string|integer|number|boolean|array|object
+	ItemType string               `json:"item_type,omitempty"` // element type when Type=="array"
+	Enum     []string             `json:"enum,omitempty"`
+	Required bool                 `json:"required,omitempty"`
+	// Default is the value the dispatcher sends when the caller omits this arg
+	// (encoded as a string; DefaultValue decodes it to the declared Type). It is
+	// load-bearing, not documentation: whatever a field declares here is what
+	// goes on the wire, so a field must not declare a default whose effect
+	// differs from omitting the arg (gum-3gcv). Leave it empty when omission is
+	// meant to reach the upstream API untouched.
+	Default     string `json:"default,omitempty"`
+	Format      string `json:"format,omitempty"` // e.g. date|date-time|google-datetime|int64
+	Description string `json:"description,omitempty"`
+}
+
+// HasDefault reports whether the field declares a default value.
+func (f RequestField) HasDefault() bool { return f.Default != "" }
+
+// DefaultValue decodes the declared Default string into the JSON value the
+// dispatcher injects when the arg is absent, using the field's declared Type
+// (and ItemType for arrays). An array default accepts either a JSON array
+// literal ("[\"a\",\"b\"]") or a bare scalar, which becomes a one-element array.
+// An object default must be a JSON object literal.
+//
+// It returns an error when the declared default cannot be decoded to the
+// declared type, so a catalog invariant test can reject the field at build time
+// instead of the dispatcher sending a wrongly-typed value at run time.
+func (f RequestField) DefaultValue() (any, error) {
+	if f.Default == "" {
+		return nil, fmt.Errorf("field %s: %w", f.Name, ErrNoDefaultDeclared)
+	}
+	switch f.Type {
+	case "array":
+		if strings.HasPrefix(strings.TrimSpace(f.Default), "[") {
+			var arr []any
+			if err := json.Unmarshal([]byte(f.Default), &arr); err != nil {
+				return nil, fmt.Errorf("field %s: default %q is not a JSON array: %w", f.Name, f.Default, err)
+			}
+			return arr, nil
+		}
+		elem, err := decodeScalarDefault(f.Name, f.Default, f.ItemType)
+		if err != nil {
+			return nil, err
+		}
+		return []any{elem}, nil
+	case "object":
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(f.Default), &obj); err != nil {
+			return nil, fmt.Errorf("field %s: default %q is not a JSON object: %w", f.Name, f.Default, err)
+		}
+		return obj, nil
+	default:
+		return decodeScalarDefault(f.Name, f.Default, f.Type)
+	}
+}
+
+// decodeScalarDefault parses s as the named JSON scalar type. An empty or
+// unrecognized type is treated as string, matching the catalog's convention that
+// an unset type means an opaque string arg.
+func decodeScalarDefault(field, s, typ string) (any, error) {
+	switch typ {
+	case "integer":
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %s: default %q is not an integer: %w", field, s, err)
+		}
+		return n, nil
+	case "number":
+		n, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %s: default %q is not a number: %w", field, s, err)
+		}
+		return n, nil
+	case "boolean":
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, fmt.Errorf("field %s: default %q is not a boolean: %w", field, s, err)
+		}
+		return b, nil
+	}
+	return s, nil
 }
 
 // Validate validates the Op and its variants.

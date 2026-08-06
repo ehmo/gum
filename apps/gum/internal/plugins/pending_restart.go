@@ -109,23 +109,16 @@ func ActivePluginNames(reg *registry.Registry) ([]string, error) {
 }
 
 // InventoryPluginNames returns every plugin name in plugin-state.json,
-// including installed_pending_restart rows. Used by the CLI `gum plugin
-// list` so operators can confirm a fresh install landed before they
-// restart.
+// including installed_pending_restart rows, sorted by name. Callers that also
+// need the quarantine state use InventoryRows.
 func InventoryPluginNames(reg *registry.Registry) ([]string, error) {
-	files, err := reg.Load()
+	rows, err := InventoryRows(reg)
 	if err != nil {
 		return nil, err
 	}
 	var out []string
-	for _, raw := range files.State.Plugins {
-		row, ok := raw.(map[string]any)
-		if !ok {
-			continue
-		}
-		if name, _ := row["name"].(string); name != "" {
-			out = append(out, name)
-		}
+	for _, r := range rows {
+		out = append(out, r.Name)
 	}
 	return out, nil
 }

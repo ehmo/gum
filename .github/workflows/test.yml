@@ -14,25 +14,40 @@ defaults:
     working-directory: apps/gum
 
 jobs:
+  # Single Go version, matching go.mod's `go 1.26` and every other workflow.
+  # A second '1.25.x' leg used to run here, but go.mod requires 1.26: a 1.25
+  # toolchain either refuses the module or (with the default GOTOOLCHAIN=auto)
+  # silently downloads 1.26 and runs that. Either way the leg tested 1.26 while
+  # reporting itself as 1.25 coverage, so it was removed rather than left to
+  # imply a compatibility guarantee that does not exist.
   test:
     runs-on: ubicloud-standard-2
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: ['1.25.x', '1.26.x']
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.26.x'
           cache-dependency-path: apps/gum/go.sum
+      # gofmt drift is invisible to vet, staticcheck and golangci-lint's
+      # default set; 71 files had accumulated drift before this gate existed.
+      - name: gofmt
+        run: make fmt-check
       - name: vet
         run: go vet ./...
       - name: staticcheck
-        if: matrix.go-version == '1.26.x'
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
           "$(go env GOPATH)"/bin/staticcheck ./...
+      # vet and staticcheck both miss unchecked errors; errcheck (bundled in
+      # golangci-lint's default set) is what found the dropped json.Unmarshal
+      # in internal/lro and the dropped Fprintf returns in cmd/gum. Version is
+      # pinned so a new upstream linter cannot turn a green branch red without
+      # a deliberate bump.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.1
+          working-directory: apps/gum
       - name: build
         run: go build ./...
       - name: test (race)
@@ -68,6 +83,32 @@ jobs:
         run: scripts/check-public-release-contract.py
       - name: install.sh smoke tests
         run: bash install_test.sh
+
+  docs:
+    runs-on: ubicloud-standard-2
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: apps/gum/go.sum
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: docs site and command reference
+        run: make docs-check
+      # docs-check regenerates docs/commands and docs/services in place, so on
+      # its own it can pass while the committed pages are stale. The `gum
+      # plugin list` rewrite shipped with exactly that drift. Fail instead.
+      - name: generated docs are committed
+        run: |
+          if ! git diff --exit-code -- docs/commands docs/services docs/commands.generated.md; then
+            echo "::error::generated docs are stale; run 'make docs-check' and commit the result"
+            exit 1
+          fi
 
   coverage-floor:
     runs-on: ubicloud-standard-2

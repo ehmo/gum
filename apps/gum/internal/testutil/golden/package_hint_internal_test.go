@@ -10,6 +10,7 @@ import (
 //   - A path under /cmd/<pkg>/ collapses to "./cmd/<pkg>/..."
 //   - A path under neither falls through to "./..." so users still see
 //     a runnable hint instead of an empty string.
+//
 // A regression that drops the leading "./" or appends the file basename
 // instead of dir would break the copy-paste UX in test-failure messages.
 func TestPackageHintBranches(t *testing.T) {

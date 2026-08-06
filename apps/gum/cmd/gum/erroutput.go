@@ -88,7 +88,7 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 		if want == "" {
 			want = "--risk=<read|write|destructive>"
 		}
-		return "Re-invoke with " + want + " — the resolved variant's risk_class does not match the requested risk path."
+		return "Re-invoke with " + want + ": the resolved variant's risk_class does not match the requested risk path."
 	case dispatch.ErrCodeRequiresConfirmation:
 		// Interpolate the freshly-issued token when present so the user can
 		// copy a ready-to-run retry instead of hunting for the value in the
@@ -99,9 +99,9 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 		}
 		label := confirmationHintLabel(se, extras)
 		if tok != "" {
-			return label + " — retry with --confirmed --token " + tok
+			return label + ": retry with --confirmed --token " + tok
 		}
-		return label + " — run once without --confirmed to receive confirmation_token, then retry with --confirmed --token <confirmation_token>."
+		return label + ": run once without --confirmed to receive confirmation_token, then retry with --confirmed --token <confirmation_token>."
 	case dispatch.ErrCodeConfirmationTokenInvalid:
 		return "Confirmation token expired or did not match the destructive op. Re-issue the call without --confirmed to receive a fresh token."
 	case dispatch.ErrCodeAuthRequired:
@@ -141,7 +141,7 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 	case dispatch.ErrCodeResultArtifactExpired:
 		return "Cached artifact expired. Re-issue the originating call; do not retry against the stale handle."
 	case dispatch.ErrCodeTeeSecretCorrupt:
-		return "Tee secret is corrupt — run `gum cache repair` or remove ~/.local/share/gum/<profile>/tee/ to reset."
+		return "Tee secret is corrupt. Run `gum cache repair` or remove ~/.local/share/gum/<profile>/tee/ to reset."
 	case dispatch.ErrCodeProjectRootRequired:
 		return "Operation needs a project root. Cd into a project directory or pass --project-root=<path>."
 	case dispatch.ErrCodeGainDisabled:
@@ -154,7 +154,7 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 		if reason := freeText(se.Detail, "reason"); reason != "" {
 			return "CLI arg invalid: " + reason
 		}
-		return "CLI arg invalid — re-check the §12.0 positional grammar (key=value, key:=json, @file)."
+		return "CLI arg invalid: use key=value, key:=json, or @file."
 	case dispatch.ErrCodePolicyDenied:
 		return "Profile policy denied this op_id. Inspect the active profile's allowlist/denylist or switch profiles via --profile=<name>."
 	}

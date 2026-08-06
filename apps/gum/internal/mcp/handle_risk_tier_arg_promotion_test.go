@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/catalog"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // TestHandleWriteVariantIDAndFlagsPromoteToInvocation pins handleRiskTier's

@@ -239,9 +239,9 @@ func TestToonNullRepresentation(t *testing.T) {
 		"count":          "3",
 		"fields":         "id,a,b",
 	}, // null in middle: two consecutive commas
-	// null at end: trailing comma
-	// empty string: \"\"
-	"row1,,end\nrow2,mid,\nrow3,\"\",last\n")
+		// null at end: trailing comma
+		// empty string: \"\"
+		"row1,,end\nrow2,mid,\nrow3,\"\",last\n")
 
 	doc, err := toon.DecodeTOONDocument([]byte(docWithNulls))
 	if err != nil {
@@ -272,8 +272,8 @@ func TestToonNullRepresentation(t *testing.T) {
 			Fields:        []string{"id", "name", "extra"},
 			FormatVersion: 1,
 			Rows: [][]any{
-				{"r1", nil, "ok"},    // nil in middle → consecutive commas
-				{"r2", "val", nil},   // nil at end → trailing comma
+				{"r1", nil, "ok"},  // nil in middle → consecutive commas
+				{"r2", "val", nil}, // nil at end → trailing comma
 			},
 		}
 		encoded, err := toon.EncodeTOONDocument(encDoc)

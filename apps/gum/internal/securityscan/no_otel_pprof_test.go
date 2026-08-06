@@ -1,8 +1,6 @@
 package securityscan
 
 import (
-	"bytes"
-	"os/exec"
 	"strings"
 	"testing"
 )
@@ -30,17 +28,9 @@ func TestNoPprofImportV01(t *testing.T) {
 
 func importsMatchingPrefix(t *testing.T, prefix string) []string {
 	t.Helper()
-	root := moduleRoot(t)
 
-	cmd := exec.Command("go", "list", "-deps", "-f", "{{.ImportPath}}", "./cmd/gum/...")
-	cmd.Dir = root
-	cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("go list failed: %v\nstderr: %s", err, stderr.String())
-	}
+	out := runGo(t, []string{"CGO_ENABLED=0"},
+		"list", "-deps", "-f", "{{.ImportPath}}", "./cmd/gum/...")
 
 	var matches []string
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {

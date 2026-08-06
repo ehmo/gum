@@ -25,9 +25,9 @@ func TestCompareVersions(t *testing.T) {
 		{"v0.2.0", "v0.1.99", 1},
 		{"v1.0.0", "v0.99.99", 1},
 		{"0.1.0", "v0.1.0", 0},
-		{"v0.1.0-rc1", "v0.1.0", 0},  // numeric prefix equal → treat as equal
-		{"v0.1.1-rc1", "v0.1.0", 1},  // numeric prefix wins
-		{"garbage", "v0.1.0", 0},     // unparseable → 0 (no warning)
+		{"v0.1.0-rc1", "v0.1.0", 0}, // numeric prefix equal → treat as equal
+		{"v0.1.1-rc1", "v0.1.0", 1}, // numeric prefix wins
+		{"garbage", "v0.1.0", 0},    // unparseable → 0 (no warning)
 		{"v0.1.0", "garbage", 0},
 	}
 	for _, c := range cases {
@@ -283,25 +283,36 @@ func TestWriteCacheMkdirAllError(t *testing.T) {
 	}
 }
 
-// TestWriteCacheWriteFileError drives the os.WriteFile branch: planting
-// a *directory* at path+".tmp" causes WriteFile to fail with EISDIR.
-// Without this branch covered, a stale lock-style temp directory would
-// silently swallow notifier state.
-func TestWriteCacheWriteFileError(t *testing.T) {
+// TestWriteCacheTempFileError drives the temp-file branch: fsatomic creates its
+// temp file in the cache directory, so a read-only directory is what makes that
+// step fail. writeCache must return the error rather than report a write that
+// never landed.
+func TestWriteCacheTempFileError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: mode bits do not deny writes")
+	}
 	dir := t.TempDir()
-	path := filepath.Join(dir, "notify.json")
-	if err := os.Mkdir(path+".tmp", 0o700); err != nil {
+	cacheDir := filepath.Join(dir, "cache")
+	if err := os.Mkdir(cacheDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	// MkdirAll on an existing directory succeeds whatever its mode, so
+	// writeCache reaches the temp-file step and fails there.
+	if err := os.Chmod(cacheDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(cacheDir, 0o700) })
+	path := filepath.Join(cacheDir, "notify.json")
 	entry := cacheEntry{CheckedAt: time.Now().UTC(), LatestVersion: "v1"}
 	if err := writeCache(path, entry); err == nil {
-		t.Fatal("writeCache returned nil; want WriteFile error")
+		t.Fatal("writeCache(read-only dir) = nil; want a temp-file error")
 	}
 }
 
-// TestWriteCacheRenameError drives the os.Rename branch: planting a
+// TestWriteCacheRenameError drives the rename branch: planting a
 // non-empty directory at path causes Rename of a file onto it to fail.
-// The function must surface the error and clean up the .tmp file.
+// The function must surface the error and leave no temp file behind — a
+// leak here would accumulate one file per failed check, forever.
 func TestWriteCacheRenameError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "notify.json")
@@ -315,8 +326,14 @@ func TestWriteCacheRenameError(t *testing.T) {
 	if err := writeCache(path, entry); err == nil {
 		t.Fatal("writeCache returned nil; want Rename error onto non-empty dir")
 	}
-	if _, err := os.Stat(path + ".tmp"); err == nil {
-		t.Errorf("temp file leaked at %s", path+".tmp")
+	// fsatomic names its temp files ".gum-*.tmp" in the destination's
+	// directory, so scan the directory rather than one predicted path.
+	leaked, err := filepath.Glob(filepath.Join(dir, ".gum-*.tmp"))
+	if err != nil {
+		t.Fatalf("glob temp files: %v", err)
+	}
+	if len(leaked) > 0 {
+		t.Errorf("temp files leaked: %v", leaked)
 	}
 }
 

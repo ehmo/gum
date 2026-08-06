@@ -149,4 +149,3 @@ func newFingerprintKeyring() *fingerprintKeyring {
 func (m *fingerprintKeyring) Get(k string) (string, error) { return m.items[k], nil }
 func (m *fingerprintKeyring) Set(k, v string) error        { m.items[k] = v; return nil }
 func (m *fingerprintKeyring) Delete(k string) error        { delete(m.items, k); return nil }
-

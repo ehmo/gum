@@ -24,6 +24,7 @@
 // Green Team implementation hint: add internal/mcp/describe_op.go containing:
 //   - type describeOpResult struct { ... }
 //   - func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult
+//
 // The handler calls buildDescribeOpResult and returns jsonResult(result).
 package mcp
 
@@ -34,9 +35,9 @@ import (
 	"testing"
 	"time"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ---- helpers ----------------------------------------------------------------
@@ -87,15 +88,15 @@ func makeMinimalOp(opID string, n int) catalog.Op {
 	variants := make([]catalog.Variant, n)
 	for i := range n {
 		variants[i] = catalog.Variant{
-			VariantID:        "v." + itoa(i+1),
+			VariantID:            "v." + itoa(i+1),
 			VariantSchemaVersion: 1,
-			Stability:        catalog.StabilityStable,
-			InterfaceKind:    catalog.InterfaceKindDiscoveryREST,
-			BackendKind:      catalog.BackendKindDiscoveryREST,
-			RiskClass:        catalog.RiskClassRead,
-			Scopes:           []string{"https://www.googleapis.com/auth/gmail.readonly"},
-			OutputProfile:    "gmail.messages.list.v1",
-			ExecutionSupport: "full",
+			Stability:            catalog.StabilityStable,
+			InterfaceKind:        catalog.InterfaceKindDiscoveryREST,
+			BackendKind:          catalog.BackendKindDiscoveryREST,
+			RiskClass:            catalog.RiskClassRead,
+			Scopes:               []string{"https://www.googleapis.com/auth/gmail.readonly"},
+			OutputProfile:        "gmail.messages.list.v1",
+			ExecutionSupport:     "full",
 		}
 	}
 	return catalog.Op{
@@ -218,7 +219,7 @@ func TestDescribeOpReturnsCompactMetadata(t *testing.T) {
 
 	// The raw catalog field "op_schema_version" must not leak into the compact result.
 	if _, has := got["op_schema_version"]; has {
-		t.Errorf("op_schema_version is a raw catalog.Op field and must NOT appear in the compact DescribeOpResult; "+
+		t.Errorf("op_schema_version is a raw catalog.Op field and must NOT appear in the compact DescribeOpResult; " +
 			"current impl returns the raw Op struct — this must be replaced with buildDescribeOpResult()")
 	}
 }
@@ -324,13 +325,13 @@ func TestDescribeOpExcludesPluginStatusFields(t *testing.T) {
 	// plugin-backed ops. These fields prove the compact DescribeOpResult shape is
 	// returned (not the raw catalog.Op struct, which would omit risk_class at the top level).
 	if got["risk_class"] == nil {
-		t.Errorf("risk_class is missing from describe_op result for plugin op; "+
-			"the compact DescribeOpResult shape must carry risk_class from the default variant "+
-			"(spec §4.1: 'risk class, required scopes, output profile') — "+
+		t.Errorf("risk_class is missing from describe_op result for plugin op; " +
+			"the compact DescribeOpResult shape must carry risk_class from the default variant " +
+			"(spec §4.1: 'risk class, required scopes, output profile') — " +
 			"current impl returns raw catalog.Op which nests risk_class inside variants[]")
 	}
 	if got["default_variant_id"] == nil {
-		t.Errorf("default_variant_id is missing from describe_op result; "+
+		t.Errorf("default_variant_id is missing from describe_op result; " +
 			"required by DescribeOpResult schema (spec Appendix A)")
 	}
 }
@@ -441,8 +442,8 @@ func TestDescribeOpSchemaRefsAreRefsNotInlined(t *testing.T) {
 	// schema_refs MUST be present when the default variant has a binding with request/response refs.
 	// The current impl returns the raw catalog.Op which does not include a top-level schema_refs key.
 	if got["schema_refs"] == nil {
-		t.Errorf("schema_refs key is missing; MUST be present when default variant has a binding "+
-			"(spec §4.1: 'schema refs' in compact output; DescribeOpResult schema). "+
+		t.Errorf("schema_refs key is missing; MUST be present when default variant has a binding " +
+			"(spec §4.1: 'schema refs' in compact output; DescribeOpResult schema). " +
 			"Current impl returns raw catalog.Op — schema_refs must be built from variant.Binding.RequestRef/ResponseRef.")
 		return
 	}

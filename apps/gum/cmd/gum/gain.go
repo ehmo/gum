@@ -68,7 +68,7 @@ func newGainCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&byOp, "by-op", false, "Aggregate gain by op_id")
 	cmd.Flags().BoolVar(&fixtureReplay, "fixture-replay", false, "Replay fixtures from testdata/fixtures/gain-replay")
 	cmd.Flags().StringVar(&format, "format", "toon", "Output format for --fixture-replay only (json|toon); ignored otherwise")
-	cmd.Flags().StringVar(&sinceStr, "since", "", "Filter ledger entries with ts >= since (RFC3339 UTC, spec §12.3)")
+	cmd.Flags().StringVar(&sinceStr, "since", "", "Filter ledger entries with ts >= since (RFC3339 UTC)")
 	cmd.Flags().StringVar(&untilStr, "until", "", "Filter ledger entries with ts <= until (RFC3339 UTC)")
 	return cmd
 }

@@ -1,7 +1,6 @@
 package securityscan
 
 import (
-	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 // the `gum version` and `gum --version` output. Required by spec §14 + §15
 // (release binaries must carry the git tag string).
 func TestVersionStamp(t *testing.T) {
-	root := moduleRoot(t)
 	tmp := t.TempDir()
 	binary := filepath.Join(tmp, "gum-test")
 	if isWindows() {
@@ -21,14 +19,8 @@ func TestVersionStamp(t *testing.T) {
 	}
 
 	const stamp = "v0.0.0-test-stamp"
-	cmd := exec.Command("go", "build", "-ldflags", "-X main.version="+stamp, "-o", binary, "./cmd/gum")
-	cmd.Dir = root
-	cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("build failed: %v\nstderr: %s", err, stderr.String())
-	}
+	runGo(t, []string{"CGO_ENABLED=0"},
+		"build", "-ldflags", "-X main.version="+stamp, "-o", binary, "./cmd/gum")
 
 	for _, args := range [][]string{{"version"}, {"--version"}} {
 		out, err := exec.Command(binary, args...).CombinedOutput()

@@ -98,10 +98,10 @@ func TestSearchAPIsHandlerReturnsTOON(t *testing.T) {
 	opID := "example.read.thing"
 	variantID := opID + ".v1"
 	op := catalog.Op{
-		OpID:            opID,
-		OpSchemaVersion: 1,
-		Title:           "Example Read Thing",
-		Summary:         "Reads an example thing by id",
+		OpID:             opID,
+		OpSchemaVersion:  1,
+		Title:            "Example Read Thing",
+		Summary:          "Reads an example thing by id",
 		DefaultVariantID: variantID,
 		Variants: []catalog.Variant{
 			{
@@ -195,10 +195,10 @@ func TestSearchAPIsOnEmptyFires(t *testing.T) {
 	opID := "example.read.thing"
 	variantID := opID + ".v1"
 	op := catalog.Op{
-		OpID:            opID,
-		OpSchemaVersion: 1,
-		Title:           "Example Read Thing",
-		Summary:         "Reads an example thing by id",
+		OpID:             opID,
+		OpSchemaVersion:  1,
+		Title:            "Example Read Thing",
+		Summary:          "Reads an example thing by id",
 		DefaultVariantID: variantID,
 		Variants: []catalog.Variant{
 			{
@@ -263,10 +263,10 @@ func TestSearchAPIsTruncateStringsApplies(t *testing.T) {
 	opID := "example.long.summary"
 	variantID := opID + ".v1"
 	op := catalog.Op{
-		OpID:            opID,
-		OpSchemaVersion: 1,
-		Title:           "Long Summary Op",
-		Summary:         longSummary,
+		OpID:             opID,
+		OpSchemaVersion:  1,
+		Title:            "Long Summary Op",
+		Summary:          longSummary,
 		DefaultVariantID: variantID,
 		Variants: []catalog.Variant{
 			{
@@ -358,10 +358,10 @@ func TestSearchAPIsCollapseAtK(t *testing.T) {
 		id := strings.Repeat("match", 1) + ".token.op" + string(rune('0'+i))
 		variantID := id + ".v1"
 		ops[i] = catalog.Op{
-			OpID:            id,
-			OpSchemaVersion: 1,
-			Title:           "Match Token Op",
-			Summary:         "match-token operation " + string(rune('0'+i)),
+			OpID:             id,
+			OpSchemaVersion:  1,
+			Title:            "Match Token Op",
+			Summary:          "match-token operation " + string(rune('0'+i)),
 			DefaultVariantID: variantID,
 			Variants: []catalog.Variant{
 				{

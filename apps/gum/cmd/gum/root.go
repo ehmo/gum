@@ -76,8 +76,8 @@ const (
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "gum",
-		Short: "Google Universal MCP — CLI and MCP stdio server",
-		Long: "gum is a single Go binary that exposes the same dispatch kernel via a CLI surface and an MCP stdio server. See spec.md for the full contract.\n\n" +
+		Short: "Google Universal MCP - CLI and MCP stdio server",
+		Long: "gum is a single Go binary that exposes the same dispatch kernel via a CLI surface and an MCP stdio server. See the public docs for setup, safety, and command reference.\n\n" +
 			"Version note: release builds report a semver tag. Local source builds report \"dev\" unless main.version is injected with release ldflags. To check for updates, run `gum config set notify.enabled=true`.",
 		Version:       version,
 		SilenceUsage:  true,
@@ -110,6 +110,7 @@ func newRootCmd() *cobra.Command {
 	}
 
 	root.AddCommand(
+		add(newSchemaCmd(), groupDiscover),
 		add(newSearchCmd(), groupDiscover),
 		add(newDescribeCmd(), groupDiscover),
 		add(newCatalogCmd(), groupDiscover),
@@ -139,7 +140,7 @@ func newRootCmd() *cobra.Command {
 		root.PersistentFlags().String("profile", "default", "Profile name to read/write config under")
 	}
 	root.PersistentFlags().String("log-level", "info", "Log level: debug|info|warn|error (overrides GUM_LOG_LEVEL)")
-	root.PersistentFlags().String("log-format", "json", "Log format: json|text (spec §14.1 rule 3)")
+	root.PersistentFlags().String("log-format", "json", "Log format: json|text")
 	return root
 }
 
@@ -222,7 +223,7 @@ func parseLogLevel(s string) (slog.Level, bool) {
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print the gum version (with optional update notifier — see `gum config set notify.enabled=true`)",
+		Short: "Print the gum version with optional update notices",
 		Long: "Print the gum version.\n\n" +
 			"A literal \"dev\" output means the binary was built without the release ldflags. " +
 			"That happens with `go install` and `go build` because main.version is injected by goreleaser at release time. " +

@@ -4,9 +4,9 @@
 // hardcoded defaults for the gum.search_apis implicit profile. The keys live
 // in the active profile's config.toml:
 //
-//   meta_tools.search_apis.k                                   default 5,   range 1-20
-//   meta_tools.search_apis.truncate_strings.default_chars      default 120, range 60-400
-//   meta_tools.search_apis.collapse_arrays.max_items           default = k, range 1-50
+//	meta_tools.search_apis.k                                   default 5,   range 1-20
+//	meta_tools.search_apis.truncate_strings.default_chars      default 120, range 60-400
+//	meta_tools.search_apis.collapse_arrays.max_items           default = k, range 1-50
 //
 // Out-of-range values are clamped at runtime; clamping logs a warning so
 // operators learn their setting was rejected.

@@ -13625,15 +13625,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "default": "geoTargetConstants/2840",
           "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "default": "languageConstants/1000",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English)."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
         },
         {
           "name": "keywordPlanNetwork",
@@ -13723,15 +13721,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "default": "geoTargetConstants/2840",
           "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "default": "languageConstants/1000",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English)."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
         },
         {
           "name": "keywordPlanNetwork",
@@ -13806,15 +13802,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "default": "geoTargetConstants/2840",
           "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "default": "languageConstants/1000",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English)."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
         },
         {
           "name": "keywordPlanNetwork",

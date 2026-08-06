@@ -14,7 +14,7 @@ func TestHasXPrefix(t *testing.T) {
 		{"x-anything-here", true},
 		{"", false},
 		{"x", false},
-		{"x-", false},     // too short — needs at least one char after the dash
+		{"x-", false},      // too short — needs at least one char after the dash
 		{"X-batch", false}, // case-sensitive per spec
 		{"y-batch", false},
 		{"http", false},

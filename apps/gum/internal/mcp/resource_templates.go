@@ -5,22 +5,22 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/output/jcs"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
-	opResourceTemplate     = "gum://op/{id}"
+	opResourceTemplate      = "gum://op/{id}"
 	variantResourceTemplate = "gum://variant/{id}"
-	schemaResourceTemplate = "gum://schema/{ref}"
-	pluginResourceTemplate = "gum://plugin/{name}"
+	schemaResourceTemplate  = "gum://schema/{ref}"
+	pluginResourceTemplate  = "gum://plugin/{name}"
 
-	opURIPrefix     = "gum://op/"
+	opURIPrefix      = "gum://op/"
 	variantURIPrefix = "gum://variant/"
-	schemaURIPrefix = "gum://schema/"
-	pluginURIPrefix = "gum://plugin/"
+	schemaURIPrefix  = "gum://schema/"
+	pluginURIPrefix  = "gum://plugin/"
 
 	mimeApplicationJSON   = "application/json"
 	mimeApplicationSchema = "application/schema+json"

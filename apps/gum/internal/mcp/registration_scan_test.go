@@ -181,4 +181,3 @@ func inspectToolLiteral(cl *ast.CompositeLit) (hasInput, hasOutput bool) {
 	}
 	return hasInput, hasOutput
 }
-

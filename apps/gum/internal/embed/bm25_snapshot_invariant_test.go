@@ -126,4 +126,3 @@ func TestBM25SnapshotSubsetInvariant(t *testing.T) {
 		t.Errorf("baseline search for prefix %q returned zero results; subset invariant trivially holds but index appears empty", probe)
 	}
 }
-

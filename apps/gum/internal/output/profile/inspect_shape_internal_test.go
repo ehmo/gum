@@ -8,10 +8,10 @@ import "testing"
 // are caught.
 func TestInspectShapeBranches(t *testing.T) {
 	cases := []struct {
-		name    string
-		body    string
-		wantRc  int
-		wantOc  int
+		name   string
+		body   string
+		wantRc int
+		wantOc int
 	}{
 		{"invalid_json_returns_zeros", "not json", 0, 0},
 		{"empty_body_returns_zeros", "", 0, 0},

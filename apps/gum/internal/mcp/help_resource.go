@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/embedded"
 	"github.com/ehmo/gum/internal/help/topics"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (

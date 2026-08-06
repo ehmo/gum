@@ -125,7 +125,7 @@ func TestMemCacheLRUEviction(t *testing.T) {
 	msg, panicked = catchPanic(func() {
 		c.Set(key1, []byte("v1"))
 		c.Set(key2, []byte("v2"))
-		c.Get(key1) // access key1 to make key2 the LRU
+		c.Get(key1)               // access key1 to make key2 the LRU
 		c.Set(key3, []byte("v3")) // evicts key2
 	})
 	if panicked {

@@ -25,18 +25,18 @@
 // Required NEW API surface (Green Team must add):
 //
 //  1. Add Quarantined bool field to catalog.Variant:
-//       Quarantined bool `json:"quarantined,omitempty"`
+//     Quarantined bool `json:"quarantined,omitempty"`
 //
 //  2. Add PreferredInterfaceKinds to DispatcherConfig:
-//       PreferredInterfaceKinds []string
+//     PreferredInterfaceKinds []string
 //     and wire it through to the dispatcher struct (e.g., preferredInterfaceKinds []string).
 //
 //  3. Change resolveVariant return type to use *StructuredError as the second return:
-//       func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*ResolvedVariant, *StructuredError)
+//     func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*ResolvedVariant, *StructuredError)
 //     and update Dispatch() to handle the new return type.
 //
 //  4. Implement stability-ordered variant selection when default_variant_id is empty:
-//       stable > beta > alpha.
+//     stable > beta > alpha.
 //
 //  5. Implement interface_kind preference tie-breaking: when two variants have the same
 //     stability, check d.preferredInterfaceKinds in order; first match wins.
@@ -178,11 +178,11 @@ func routingTestCatalog() *catalog.Catalog {
 			},
 			// Op 7: single deprecated variant (still within 90-day grace window).
 			{
-				OpID:             "routing.deprecated.one",
-				OpSchemaVersion:  1,
-				Title:            "Op with one deprecated variant (still invokable)",
-				Summary:          "Used by TestVariantRoutingDeprecatedAccepted.",
-				DefaultVariantID: "routing.deprecated.v1",
+				OpID:                 "routing.deprecated.one",
+				OpSchemaVersion:      1,
+				Title:                "Op with one deprecated variant (still invokable)",
+				Summary:              "Used by TestVariantRoutingDeprecatedAccepted.",
+				DefaultVariantID:     "routing.deprecated.v1",
 				DeprecatedVariantIDs: []string{"routing.deprecated.v1"},
 				Variants: []catalog.Variant{
 					makeRoutingVariant("routing.deprecated.v1", catalog.StabilityStable, catalog.InterfaceKindDiscoveryREST),

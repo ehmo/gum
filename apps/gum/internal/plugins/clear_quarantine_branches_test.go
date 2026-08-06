@@ -37,11 +37,11 @@ func TestClearQuarantineSkipsNonMapAndUnrelatedRows(t *testing.T) {
 		f.State.Plugins = []any{
 			"not-a-map", // exercises 118-119 continue
 			map[string]any{
-				"name":            "other",
-				"quarantined":     true,
-				"quarantined_at":  "2026-01-01T00:00:00Z",
-				"retry_count":     7,
-				"backoff_step":    3,
+				"name":           "other",
+				"quarantined":    true,
+				"quarantined_at": "2026-01-01T00:00:00Z",
+				"retry_count":    7,
+				"backoff_step":   3,
 			}, // exercises 121-122 continue (name != "target")
 			map[string]any{
 				"name":            "target",

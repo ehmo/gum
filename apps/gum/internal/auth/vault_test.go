@@ -10,9 +10,9 @@ import (
 // memKB is a minimal in-memory KeyringBackend for vault tests.
 type memKB struct{ m map[string]string }
 
-func (k *memKB) Get(key string) (string, error)       { return k.m[key], nil }
-func (k *memKB) Set(key, value string) error          { k.m[key] = value; return nil }
-func (k *memKB) Delete(key string) error              { delete(k.m, key); return nil }
+func (k *memKB) Get(key string) (string, error) { return k.m[key], nil }
+func (k *memKB) Set(key, value string) error    { k.m[key] = value; return nil }
+func (k *memKB) Delete(key string) error        { delete(k.m, key); return nil }
 
 // TestCredentialVaultRoundTrip pins the basic store/lookup/delete contract.
 func TestCredentialVaultRoundTrip(t *testing.T) {

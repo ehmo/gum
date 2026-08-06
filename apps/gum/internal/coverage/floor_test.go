@@ -103,7 +103,7 @@ func TestCheckRespectsRatchet(t *testing.T) {
 	})
 	readings := []Reading{
 		{Package: "github.com/ehmo/gum/internal/dispatch", Percent: 86.0, HasTests: true}, // above floor (85.0)
-		{Package: "synthetic/pkg", Percent: 82.0, HasTests: true},                          // below ratchet (83.0)
+		{Package: "synthetic/pkg", Percent: 82.0, HasTests: true},                         // below ratchet (83.0)
 	}
 	violations := Check(readings)
 	if len(violations) != 1 {

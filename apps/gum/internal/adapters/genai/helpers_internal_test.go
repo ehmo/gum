@@ -57,9 +57,9 @@ func TestBindingBranches(t *testing.T) {
 // this value so a typo would silently route everything to "default".
 func TestGenaiOp(t *testing.T) {
 	cases := []struct {
-		name    string
-		key     string
-		want    string
+		name string
+		key  string
+		want string
 	}{
 		{"empty_key", "", ""},
 		{"missing_prefix", "models.generate_content", ""},

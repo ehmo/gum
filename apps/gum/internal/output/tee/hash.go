@@ -20,10 +20,10 @@ import (
 // scoped content-addressed dedup); cross-profile and cross-principal handles
 // are not reusable.
 type HashInput struct {
-	OpID                    string
-	VariantIDResolved       string
-	Args                    any // arbitrary tree; serialised via JCS canonical form
-	AuthSubjectFingerprint  string
+	OpID                   string
+	VariantIDResolved      string
+	Args                   any // arbitrary tree; serialised via JCS canonical form
+	AuthSubjectFingerprint string
 }
 
 // ComputeHash returns the hex-encoded (lowercase) SHA-256 HMAC of the

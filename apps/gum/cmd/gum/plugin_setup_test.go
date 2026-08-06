@@ -86,9 +86,9 @@ func writeTestPlugin(t *testing.T, installRoot, pluginID string, descs []plugins
 			{"name": "echo", "description": "echo", "risk_class": "read"},
 		},
 		"declared_capabilities": map[string]any{
-			"network":     false,
+			"network":      false,
 			"fs_write_dir": "",
-			"env_allow":   needs,
+			"env_allow":    needs,
 		},
 		"requirements": map[string]any{
 			"needs_user_creds":       needs,

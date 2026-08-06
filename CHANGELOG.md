@@ -5,6 +5,58 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-08-06
+
+### Changed
+
+- gum is now MIT licensed. It was FSL-1.1-ALv2 through v1.0.1.
+- Published docs site at the `docs/` tree, including a command reference
+  generated from `gum schema --json` and per-service pages.
+- New `gum schema --json` command. The docs generators consume it; it also
+  gives agents a machine-readable view of the CLI surface.
+- `gum plugin list` reads `plugin-state.json` and prints status, retry count,
+  next retry, and last error for every install dir, quarantined ones included.
+  Before this it listed only plugins whose manifest loaded, so a quarantined
+  plugin was invisible.
+- CLI help and error text no longer cite internal `spec.md` sections. The
+  public docs are the reference surface.
+
+### Fixed
+
+- An expression profile that dropped fields left no trace in the output, so a
+  caller could not tell an absent field from one the API never returned.
+  `profile.Apply` now records the dropped paths; the CLI prints them on stderr
+  and MCP returns them in a text block, naming the recovery artifact when tee
+  wrote one.
+- A cache hit returned the stored body verbatim and skipped output shaping, so
+  a warm call could answer in a format the caller never asked for. Cached
+  bodies now go through the same shaping as cold ones, a bad `--format` fails
+  identically warm and cold, and `raw`-format responses are no longer cached.
+- A quarantined plugin returned `SERVICE_DOWN`, which read as an upstream
+  outage. It now returns `VARIANT_QUARANTINED`.
+- An op declaring a request-level field default failed with a required-arg
+  error. Catalog defaults are applied before validation.
+- An `integer` argument accepted any number, so `destructive_budget=2.5`
+  passed local validation and became an opaque upstream 400. Fractional
+  values, NaN, and infinities are rejected.
+- `gum.code`'s `destructive_budget` was declared `int` while the type checker
+  only knew `integer`, so the parameter had no type checking at all.
+- `gum schema` panicked on a command whose usage line had no arguments.
+- A long-running-operation poll ignored a malformed `done` field, reporting a
+  finished operation as still running and waiting for a completion that had
+  already happened.
+- `gum config`, the update-notification cache, the canary registry, and
+  `gum init` settings each wrote through a fixed `<path>.tmp` with no fsync.
+  Two gum processes writing at once could rename each other's partial bytes
+  into place, and a crash just after the rename could leave a zero-length
+  file. All four now use one atomic-write helper with a unique temp name and
+  an fsync.
+
+### Security
+
+- Dependency refresh: `govulncheck` reports 0 known vulnerabilities against
+  the updated module graph.
+
 ## [1.0.1] - 2026-06-18
 
 ### Changed
@@ -154,6 +206,7 @@ Workspace and Flights slice before the v1 catalog expansion.
 - Release workflow (`.github/workflows/release.yml`) with SLSA L1 provenance
   via `slsa-github-generator` v2.
 
+[1.0.2]: https://github.com/ehmo/gum/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/ehmo/gum/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ehmo/gum/releases/tag/v1.0.0
 [0.1.0]: https://github.com/ehmo/gum/releases/tag/v0.1.0

@@ -18,8 +18,8 @@ import (
 	"strings"
 	"testing"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/catalog"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // --- Test 1: Schema property name is "k", not "top_k" -------------------------
@@ -276,4 +276,3 @@ func TestGumSearchAPIsResultShape(t *testing.T) {
 			"Reads an example thing", text)
 	}
 }
-

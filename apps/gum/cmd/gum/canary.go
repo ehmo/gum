@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/ehmo/gum/internal/plugins"
+	"github.com/spf13/cobra"
 )
 
 // newCanaryCmd implements `gum canary --plugin=<id> [--live]` (gum-xepy).
@@ -38,11 +38,11 @@ func newCanaryCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "canary",
-		Short: "Spawn a plugin subprocess once to verify it can boot (§8)",
+		Short: "Spawn a plugin subprocess once to verify it can boot",
 		Long: "gum canary --plugin=<id> [--live] resolves the named plugin under " +
 			"the active install root, spawns it once via the plugin host, and " +
 			"reports the outcome as a stable JSON envelope on stdout. A failed " +
-			"canary surfaces SERVICE_DOWN per spec §8 error_code mapping.",
+			"canary surfaces SERVICE_DOWN.",
 		// Match the root command: a failed canary is a structured outcome,
 		// not a usage error, so cobra should not pollute stdout with the
 		// usage block. SilenceErrors keeps the JSON envelope as the only
@@ -54,7 +54,7 @@ func newCanaryCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&pluginID, "plugin", "", "Plugin id to canary (required)")
-	cmd.Flags().BoolVar(&live, "live", false, "Issue a live subprocess ping after Start (§8.2)")
+	cmd.Flags().BoolVar(&live, "live", false, "Issue a live subprocess ping after Start")
 	_ = cmd.MarkFlagRequired("plugin")
 	return cmd
 }

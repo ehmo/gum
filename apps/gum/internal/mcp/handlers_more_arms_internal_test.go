@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/catalog"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // TestMakeConvenienceHandlerUnwiredToolReturnsConvenienceNotWired pins
@@ -54,9 +54,9 @@ func TestHandleSearchAPIsCandidateKCapsAt50(t *testing.T) {
 		Summary:          "test op",
 		DefaultVariantID: "v.1",
 		Variants: []catalog.Variant{{
-			VariantID:        "v.1",
+			VariantID:            "v.1",
 			VariantSchemaVersion: 1,
-			RiskClass:        catalog.RiskClassRead,
+			RiskClass:            catalog.RiskClassRead,
 		}},
 	}
 	s := NewServerWithCatalog(noopDispatcher{}, &catalog.Catalog{
@@ -90,10 +90,10 @@ func TestShapeSearchAPIsRowExpectedResponseFromOutputProfile(t *testing.T) {
 		DefaultVariantID: "v.1",
 		ParamsRequired:   [][]string{{"id"}},
 		Variants: []catalog.Variant{{
-			VariantID:        "v.1",
+			VariantID:            "v.1",
 			VariantSchemaVersion: 1,
-			RiskClass:        catalog.RiskClassRead,
-			OutputProfile:    "test.profile.v1",
+			RiskClass:            catalog.RiskClassRead,
+			OutputProfile:        "test.profile.v1",
 		}},
 	}
 	s := NewServerWithCatalog(noopDispatcher{}, &catalog.Catalog{

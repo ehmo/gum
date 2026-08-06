@@ -16,6 +16,7 @@ apps/gum/dist/
 apps/gum/CHANGELOG.md
 apps/gum/README.md
 apps/gum/LICENSE
+dist/
 coverage.out
 coverage.html
 

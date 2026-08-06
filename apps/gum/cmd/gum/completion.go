@@ -3,8 +3,8 @@ package main
 import (
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/ehmo/gum/internal/catalog"
+	"github.com/spf13/cobra"
 )
 
 // completeOpIDByRisk returns a cobra completion function that proposes op_ids

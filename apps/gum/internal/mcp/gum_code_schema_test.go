@@ -25,8 +25,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tiktoken-go/tokenizer"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/tiktoken-go/tokenizer"
 )
 
 // --- helpers local to this file -------------------------------------------
@@ -96,14 +96,14 @@ func TestGumCodeSchemaUsesSourceNotScript(t *testing.T) {
 	props := schemaProps(t, schema)
 
 	if _, hasSource := props["source"]; !hasSource {
-		t.Errorf(`gum.code schema is missing "source" property; `+
-			`spec.md §6.1 names the parameter "source" not "script". `+
+		t.Errorf(`gum.code schema is missing "source" property; ` +
+			`spec.md §6.1 names the parameter "source" not "script". ` +
 			`Current schemas.go uses "script" — Green Team must rename it.`)
 	}
 
 	if _, hasScript := props["script"]; hasScript {
-		t.Errorf(`gum.code schema contains forbidden property "script"; `+
-			`spec.md §6.1 / §4.1 table requires "source". `+
+		t.Errorf(`gum.code schema contains forbidden property "script"; ` +
+			`spec.md §6.1 / §4.1 table requires "source". ` +
 			`Green Team must rename the property in schemas.go.`)
 	}
 
@@ -425,10 +425,10 @@ func TestGumCodeAnnotationDestructiveHint(t *testing.T) {
 	// if the Green Team exports it, or fail with a descriptive message.
 	ann := metaToolAnnotationForCode()
 	if ann == nil {
-		t.Fatalf("gum.code MCP annotation is nil; "+
-			"spec.md §4.1 table requires destructiveHint=true (static annotation). "+
-			"Green Team must: (1) export TierAMetaToolAnnotations() in tool_defs.go, "+
-			"(2) add destructiveHint=true for gum.code in server.go registration loop. "+
+		t.Fatalf("gum.code MCP annotation is nil; " +
+			"spec.md §4.1 table requires destructiveHint=true (static annotation). " +
+			"Green Team must: (1) export TierAMetaToolAnnotations() in tool_defs.go, " +
+			"(2) add destructiveHint=true for gum.code in server.go registration loop. " +
 			"Expected: &sdkmcp.ToolAnnotations{DestructiveHint: ptr(true)}.")
 	}
 

@@ -710,6 +710,13 @@ func (s *Server) dispatchAndShape(ctx context.Context, inv *dispatch.Invocation)
 	if shaped.StructuredContent != nil {
 		res.StructuredContent = shaped.StructuredContent
 	}
+	// A profile whitelist removes fields with no marker in the shaped text. Name
+	// them in their own text block so the caller can tell an absent field from a
+	// field the upstream API never returned (gum-bpx0). The block names the
+	// recovery artifact when tee wrote one.
+	if msg := profile.DroppedPathsNotice(shaped.DroppedPaths, `format: "raw"`, shaped.FullResultPath); msg != "" {
+		res.Content = append(res.Content, &sdkmcp.TextContent{Text: msg})
+	}
 	// Spec §9.0 lines 1845-1847: when the active profile uses
 	// recovery=resource_link and tee fired, the dispatch layer populates
 	// shaped.FullResultResource with the gum://results/<hash> URI. We mirror

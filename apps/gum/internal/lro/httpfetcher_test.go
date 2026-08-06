@@ -237,4 +237,3 @@ func TestNotOperationShapeFallthrough(t *testing.T) {
 		t.Errorf("server saw %d calls want 2", calls)
 	}
 }
-

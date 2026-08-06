@@ -186,4 +186,3 @@ func TestExecuteDialerErrorSurfacesWrap(t *testing.T) {
 		t.Errorf("err=%q; want 'grpc adapter: dial' prefix", err)
 	}
 }
-

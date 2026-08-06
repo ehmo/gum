@@ -36,6 +36,22 @@ type ApplyOutput struct {
 
 	// BytesOut is len(Body).
 	BytesOut int
+
+	// DroppedPaths lists the response dot-paths removed by the profile's field
+	// filters — projection, keep_fields, and drop_fields — in lexical order,
+	// deduped, and without array indices (so one entry covers a field dropped
+	// from every element of an array).
+	//
+	// Only a field filter can remove a whole field, so only the three filters
+	// report here. The lossy-but-marked stages are excluded on purpose:
+	// collapse_arrays writes its own omitted_count sibling, truncate_strings
+	// shortens values it keeps, and strip_nulls removes only null-like values.
+	//
+	// A profile whitelist that omits a field the operation advertises is
+	// invisible to the caller otherwise: the response is valid JSON, just
+	// smaller (gum-bpx0). Presentation layers name these paths so the caller
+	// knows to re-run with --format raw or read the recovery artifact.
+	DroppedPaths []string
 }
 
 // Apply applies profile p to in and returns the shaped output.
@@ -81,19 +97,21 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 	preservedDefs, preservedKey := captureDefs(v)
 
 	// Apply transforms in order.
+	dropped := &dropRecorder{}
+
 	// 1. Projection.
 	if len(p.Projection) > 0 {
-		v = applyProjection(v, p.Projection)
+		v = applyProjection(v, p.Projection, dropped, "")
 	}
 
 	// 2a. KeepFields.
 	if len(p.KeepFields) > 0 {
-		v = applyKeepFields(v, p.KeepFields)
+		v = applyKeepFields(v, p.KeepFields, dropped, "")
 	}
 
 	// 2b. DropFields (runs after KeepFields).
 	if len(p.DropFields) > 0 {
-		v = applyDropFields(v, p.DropFields)
+		v = applyDropFields(v, p.DropFields, dropped, "")
 	}
 
 	// 3. StripNulls.
@@ -149,6 +167,9 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		if m, ok := v.(map[string]any); ok {
 			m[preservedKey] = preservedDefs
 			v = m
+			// A filter may have dropped the schema section on the way through;
+			// it is back in the output, so it is not missing data.
+			dropped.forget(preservedKey)
 		}
 	}
 
@@ -205,7 +226,61 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		ProfileApplied: true,
 		BytesIn:        bytesIn,
 		BytesOut:       len(outBytes),
+		DroppedPaths:   dropped.paths(),
 	}, nil
+}
+
+// dropRecorder collects the dot-paths a field filter removed from a response.
+// A nil recorder is a no-op, so the filter helpers stay callable where the
+// accounting is not wanted.
+//
+// Paths carry no array indices: recursing into a []any keeps the parent prefix,
+// so a field dropped from 500 array elements is reported once.
+type dropRecorder struct {
+	seen map[string]struct{}
+}
+
+// record adds prefix+key to the set of dropped paths.
+func (r *dropRecorder) record(prefix, key string) {
+	if r == nil {
+		return
+	}
+	if r.seen == nil {
+		r.seen = make(map[string]struct{})
+	}
+	r.seen[childPath(prefix, key)] = struct{}{}
+}
+
+// forget removes path from the set. Used when a later stage puts a dropped
+// section back (the $defs restore).
+func (r *dropRecorder) forget(path string) {
+	if r == nil || r.seen == nil {
+		return
+	}
+	delete(r.seen, path)
+}
+
+// paths returns the recorded dot-paths in lexical order, or nil when nothing
+// was dropped. Sorting makes the notice text stable across runs, which matters
+// because Go map iteration order is random.
+func (r *dropRecorder) paths() []string {
+	if r == nil || len(r.seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(r.seen))
+	for p := range r.seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// childPath joins a dot-path prefix and a map key.
+func childPath(prefix, key string) string {
+	if prefix == "" {
+		return key
+	}
+	return prefix + "." + key
 }
 
 // captureDefs returns the top-level $defs (preferred) or definitions section
@@ -251,7 +326,8 @@ func deepCopyJSON(v any) any {
 }
 
 // applyProjection keeps only specified keys in maps. Works on map[string]any and []any of maps.
-func applyProjection(v any, fields []string) any {
+// rec (may be nil) records the keys projection removed, under the dot-path prefix.
+func applyProjection(v any, fields []string, rec *dropRecorder, prefix string) any {
 	fieldSet := make(map[string]bool, len(fields))
 	for _, f := range fields {
 		fieldSet[f] = true
@@ -265,6 +341,7 @@ func applyProjection(v any, fields []string) any {
 				result[f] = val
 			}
 		}
+		recordUnprojected(vt, fieldSet, rec, prefix)
 		return result
 	case []any:
 		result := make([]any, len(vt))
@@ -276,6 +353,7 @@ func applyProjection(v any, fields []string) any {
 						projected[f] = val
 					}
 				}
+				recordUnprojected(m, fieldSet, rec, prefix)
 				result[i] = projected
 			} else {
 				result[i] = elem
@@ -284,6 +362,18 @@ func applyProjection(v any, fields []string) any {
 		return result
 	default:
 		return v
+	}
+}
+
+// recordUnprojected reports every key of m that the projection field set omits.
+func recordUnprojected(m map[string]any, fieldSet map[string]bool, rec *dropRecorder, prefix string) {
+	if rec == nil {
+		return
+	}
+	for key := range m {
+		if !fieldSet[key] {
+			rec.record(prefix, key)
+		}
 	}
 }
 
@@ -397,8 +487,9 @@ func classifyDotPaths(key string, paths []string) (directMatch bool, subPaths []
 // applyKeepFields recursively retains only keys that are in the allowlist or
 // are prefix ancestors of dot-paths in the allowlist.
 // paths is the set of allowed dot-paths at the current level.
+// rec (may be nil) records each dropped key under the dot-path prefix.
 // Spec §9.1 step 2 (keep_fields).
-func applyKeepFields(v any, paths []string) any {
+func applyKeepFields(v any, paths []string, rec *dropRecorder, prefix string) any {
 	switch vt := v.(type) {
 	case map[string]any:
 		result := make(map[string]any)
@@ -407,15 +498,19 @@ func applyKeepFields(v any, paths []string) any {
 			if directMatch {
 				result[key] = val
 			} else if len(subPaths) > 0 {
-				result[key] = applyKeepFields(val, subPaths)
+				result[key] = applyKeepFields(val, subPaths, rec, childPath(prefix, key))
+			} else {
+				// Key not in any path → drop it, and say so.
+				rec.record(prefix, key)
 			}
-			// Otherwise: key not in any path → drop.
 		}
 		return result
 	case []any:
+		// Array elements share their parent's prefix: the report names fields,
+		// not positions.
 		result := make([]any, len(vt))
 		for i, elem := range vt {
-			result[i] = applyKeepFields(elem, paths)
+			result[i] = applyKeepFields(elem, paths, rec, prefix)
 		}
 		return result
 	default:
@@ -424,18 +519,20 @@ func applyKeepFields(v any, paths []string) any {
 }
 
 // applyDropFields recursively removes keys whose dot-path is in the denylist.
+// rec (may be nil) records each removed key under the dot-path prefix.
 // Applied after applyKeepFields. Spec §9.1 step 2 (drop_fields).
-func applyDropFields(v any, paths []string) any {
+func applyDropFields(v any, paths []string, rec *dropRecorder, prefix string) any {
 	switch vt := v.(type) {
 	case map[string]any:
 		result := make(map[string]any)
 		for key, val := range vt {
 			directMatch, subPaths := classifyDotPaths(key, paths)
 			if directMatch {
+				rec.record(prefix, key)
 				continue // drop this key entirely
 			}
 			if len(subPaths) > 0 {
-				result[key] = applyDropFields(val, subPaths)
+				result[key] = applyDropFields(val, subPaths, rec, childPath(prefix, key))
 			} else {
 				result[key] = val
 			}
@@ -444,7 +541,7 @@ func applyDropFields(v any, paths []string) any {
 	case []any:
 		result := make([]any, len(vt))
 		for i, elem := range vt {
-			result[i] = applyDropFields(elem, paths)
+			result[i] = applyDropFields(elem, paths, rec, prefix)
 		}
 		return result
 	default:

@@ -29,16 +29,16 @@ func TestParseResultsURIAccepts(t *testing.T) {
 func TestParseResultsURIRejectsMalformed(t *testing.T) {
 	t.Parallel()
 	bad := []string{
-		"",                              // empty
-		"gum://results/",                // missing hash
-		"http://results/abc",            // wrong scheme
-		"gum://other/abc",               // wrong host
-		"gum://results/abc/def",         // embedded slash
-		"gum://results/abc?x=1",         // query
-		"gum://results/abc#frag",        // fragment
-		"gum://results/ABC123",          // uppercase hex
-		"gum://results/abz123",          // non-hex char
-		"gum://results/abc.json",        // non-hex char (dot)
+		"",                                     // empty
+		"gum://results/",                       // missing hash
+		"http://results/abc",                   // wrong scheme
+		"gum://other/abc",                      // wrong host
+		"gum://results/abc/def",                // embedded slash
+		"gum://results/abc?x=1",                // query
+		"gum://results/abc#frag",               // fragment
+		"gum://results/ABC123",                 // uppercase hex
+		"gum://results/abz123",                 // non-hex char
+		"gum://results/abc.json",               // non-hex char (dot)
 		"gum://results/" + repeatHex(63) + "G", // mixed-case sneak-in
 	}
 	for _, uri := range bad {

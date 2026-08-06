@@ -24,7 +24,7 @@ func TestRenderStructuredEnvelope_AddsHowToFix(t *testing.T) {
 		{"response_too_large", dispatch.ErrCodeResponseTooLarge, "response_cap"},
 		{"rate_limited", dispatch.ErrCodeRateLimited, "Retry-After"},
 		{"policy_denied", dispatch.ErrCodePolicyDenied, "allowlist/denylist"},
-		{"cli_arg_invalid", dispatch.ErrCodeCLIArgInvalid, "§12.0"},
+		{"cli_arg_invalid", dispatch.ErrCodeCLIArgInvalid, "key=value"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -34,12 +34,11 @@ func TestSavePropagatesPathHomeError(t *testing.T) {
 	}
 }
 
-// TestSaveRenameFailureSurfacesRenameWrap pins Save's
-// `os.Rename err → return 'config: rename' wrap` arm (config.go:246-249).
+// TestSaveRenameFailureSurfacesRenameWrap pins Save's rename-failure arm.
 // Reached when the destination path is a non-empty directory: rename(file
-// → non-empty-dir) returns ENOTEMPTY on most filesystems. The wrap names
-// 'rename' so operators can distinguish atomic-write failures from
-// mkdir/chmod failures earlier in the path.
+// → non-empty-dir) fails on every supported filesystem. Save wraps with
+// 'config: save <path>' and fsatomic names the failing step, so an operator
+// can still tell a rename failure from a mkdir or temp-file failure.
 func TestSaveRenameFailureSurfacesRenameWrap(t *testing.T) {
 	base := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", base)
@@ -61,7 +60,7 @@ func TestSaveRenameFailureSurfacesRenameWrap(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Save(dir-at-dest) err=nil; want rename failure")
 	}
-	if !strings.Contains(err.Error(), "config: rename") {
-		t.Errorf("err=%v; want 'config: rename' wrap", err)
+	if !strings.Contains(err.Error(), "config: save") || !strings.Contains(err.Error(), "rename") {
+		t.Errorf("err=%v; want a 'config: save' wrap naming 'rename'", err)
 	}
 }

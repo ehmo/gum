@@ -164,14 +164,24 @@ func DispatchPluginCommandFull(args []string, host pluginsHostInterface, profile
 		if err != nil {
 			return "", err
 		}
-		if len(manifests) == 0 {
-			return "", nil
+		// Host.List skips every install dir whose manifest fails to load, so on
+		// its own it hides the quarantined plugins — PLUGIN_MANIFEST_NOT_FOUND
+		// is both the most common quarantine cause and the exact condition that
+		// makes a plugin invisible to a manifest walk. Merge plugin-state.json
+		// in so `gum plugin list` reports the breakage it exists to report
+		// (gum-mmzr). With no profile there is no registry, so the listing
+		// degrades to manifests alone.
+		var states []plugins.InventoryRow
+		if profileDir != "" {
+			reg, rerr := openRegistry(profileDir, regFactory)
+			if rerr != nil {
+				return "", rerr
+			}
+			if states, rerr = plugins.InventoryRows(reg); rerr != nil {
+				return "", rerr
+			}
 		}
-		var sb strings.Builder
-		for _, m := range manifests {
-			fmt.Fprintf(&sb, "%s\t%s\t%s\n", m.PluginID, m.Version, m.Name)
-		}
-		return sb.String(), nil
+		return formatPluginList(manifests, states), nil
 
 	case "remove":
 		if len(args) < 2 {
@@ -356,7 +366,7 @@ func dispatchTransferNamespace(ctx context.Context, args []string, profileDir st
 		return "", errors.New("gum plugin transfer-namespace: must specify --new-owner <name> or --release")
 	}
 	if !yes {
-		return "", errors.New("gum plugin transfer-namespace: --yes is required (non-interactive consent acknowledgment, spec §5.1.3 line 526)")
+		return "", errors.New("gum plugin transfer-namespace: --yes is required (non-interactive consent acknowledgment)")
 	}
 
 	reg, err := openRegistry(profileDir, regFactory)
@@ -501,14 +511,14 @@ func newPluginCmd() *cobra.Command {
 func newPluginSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup <name>",
-		Short: "Configure plugin credentials and run live canary (§7/§8.2)",
+		Short: "Configure plugin credentials and run a live canary",
 		Long: `Reads the plugin's credential_descriptors from its manifest, prompts for
-each missing credential by display_name and setup_hint (never by raw env var
-name per spec §1414/§1606), stores secrets in the OS keychain, then runs
+each missing credential by display_name and setup_hint, stores secrets in the
+OS keychain, then runs
 'gum canary --plugin=<name> --live' to verify the plugin is functional.
 
 On canary success the plugin state is set to 'active'.
-On canary failure the plugin is quarantined with CANARY_FAILED (spec §8.6);
+On canary failure the plugin is quarantined with CANARY_FAILED;
 run 'gum plugin reload <name>' after correcting credentials.`,
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(1),
@@ -543,7 +553,7 @@ run 'gum plugin reload <name>' after correcting credentials.`,
 func newPluginTransferNamespaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transfer-namespace <prefix>",
-		Short: "Transfer or release a third-party namespace owner (§5.1.3)",
+		Short: "Transfer or release a third-party namespace owner",
 		Long: `Updates the namespace_owner binding for <prefix> in the active profile's
 plugins.lock, recording the prior owner in transfer_history and emitting an
 audit.jsonl row.
@@ -551,7 +561,7 @@ audit.jsonl row.
 Pass either --new-owner <name> to hand the prefix to a different owner string
 (matching subsequent installs succeed without --dev-allow-namespace-conflict)
 or --release to clear the binding entirely (any owner may then re-bind on the
-next install). --yes is mandatory in both modes — this command is destructive
+next install). --yes is mandatory in both modes; this command is destructive
 to the namespace lease and has no interactive prompt.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -583,7 +593,7 @@ to the namespace lease and has no interactive prompt.`,
 	}
 	cmd.Flags().String("new-owner", "", "Hand the prefix to this namespace_owner string. Mutually exclusive with --release.")
 	cmd.Flags().Bool("release", false, "Clear the existing namespace_owner binding without assigning a new one.")
-	cmd.Flags().Bool("yes", false, "Acknowledge the non-interactive consent gate. Required (spec §5.1.3).")
+	cmd.Flags().Bool("yes", false, "Acknowledge the non-interactive consent gate. Required.")
 	return cmd
 }
 
@@ -591,7 +601,7 @@ func newPluginReloadCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "reload <id>",
 		Short: "Clear quarantine, restart the plugin subprocess, and run a passive canary",
-		Long:  "Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin per spec §8.6.",
+		Long:  "Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
@@ -613,7 +623,7 @@ func newPluginUnquarantineCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unquarantine <id>",
 		Short: "Clear quarantine state without restarting the plugin",
-		Long:  "Resets quarantined, retry_count, backoff_step, and next_retry_at in plugin-state.json so the plugin can be invoked on the next call. Use when the operator has independently verified the plugin is healthy and wants to bypass the exponential-backoff window (spec §8.6).",
+		Long:  "Resets quarantined, retry_count, backoff_step, and next_retry_at in plugin-state.json so the plugin can be invoked on the next call. Use when the operator has independently verified the plugin is healthy and wants to bypass the exponential-backoff window.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
@@ -635,8 +645,8 @@ func newPluginInstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install <local-dir>",
 		Short: "Install a plugin from a local directory",
-		Long: `Installs a plugin via the spec §8.7 atomic protocol: validates the manifest,
-runs the spec §5.1 namespace-ownership check against the active profile's
+		Long: `Installs a plugin through an atomic registry update: validates the manifest,
+runs the namespace-ownership check against the active profile's
 plugins.lock, and writes plugin-catalog.json + plugins.lock + plugin-state.json
 through one fsync'd transaction.
 
@@ -679,7 +689,7 @@ fails with PLUGIN_NAMESPACE_CONFLICT.`,
 		},
 	}
 	cmd.Flags().Bool("dev-allow-namespace-conflict", false,
-		"On a dev profile, allow installing a plugin whose prefix is already locked to a different namespace_owner (spec §5.1). Ignored outside dev profiles.")
+		"On a dev profile, allow installing a plugin whose prefix is already locked to a different namespace_owner. Ignored outside dev profiles.")
 	cmd.Flags().Bool("yes", false, "Acknowledge that the plugin subprocess and manifest-declared capabilities are trusted enough to install.")
 	return cmd
 }
@@ -687,10 +697,14 @@ fails with PLUGIN_NAMESPACE_CONFLICT.`,
 func newPluginListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List installed plugins",
+		Short: "List installed plugins with their quarantine state",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			out, err := DispatchPluginCommand([]string{"list"}, defaultPluginsHost())
+			// The profile dir carries plugin-state.json. Without it the listing
+			// falls back to manifests alone and cannot report a quarantine, so a
+			// resolve failure is not fatal here: report what we can (gum-mmzr).
+			profileDir, _ := resolveProfileDir(resolveProfileFlag(cmd))
+			out, err := DispatchPluginCommandWithRegistry([]string{"list"}, defaultPluginsHost(), profileDir, nil)
 			if err != nil {
 				return err
 			}

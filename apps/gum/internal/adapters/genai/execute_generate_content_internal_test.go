@@ -37,4 +37,3 @@ func TestExecuteGenerateContentRequiresArgs(t *testing.T) {
 		})
 	}
 }
-

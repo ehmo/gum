@@ -11,12 +11,12 @@ import (
 // through unchanged. Without this guard the type-switch would fall
 // out with no return and the function would return nil.
 func TestApplyProjectionDefaultArmReturnsValueUnchanged(t *testing.T) {
-	got := applyProjection("scalar-string", []string{"foo"})
+	got := applyProjection("scalar-string", []string{"foo"}, nil, "")
 	if got != "scalar-string" {
 		t.Errorf("applyProjection(scalar)=%v; want passthrough", got)
 	}
 
-	gotInt := applyProjection(42, []string{"x"})
+	gotInt := applyProjection(42, []string{"x"}, nil, "")
 	if gotInt != 42 {
 		t.Errorf("applyProjection(int)=%v; want passthrough 42", gotInt)
 	}
@@ -34,7 +34,7 @@ func TestApplyProjectionArrayWithNonMapElementPreservesElement(t *testing.T) {
 		"scalar-elem",
 		42,
 	}
-	got := applyProjection(input, []string{"a"})
+	got := applyProjection(input, []string{"a"}, nil, "")
 	arr, ok := got.([]any)
 	if !ok {
 		t.Fatalf("applyProjection([])=%T; want []any", got)
@@ -119,10 +119,10 @@ func TestCompareValuesFallbackJSONComparison(t *testing.T) {
 // is a scalar — keep_fields is a map-key filter, so scalars pass
 // through unchanged.
 func TestApplyKeepFieldsScalarPassthrough(t *testing.T) {
-	if got := applyKeepFields("scalar", []string{"a"}); got != "scalar" {
+	if got := applyKeepFields("scalar", []string{"a"}, nil, ""); got != "scalar" {
 		t.Errorf("applyKeepFields(scalar)=%v; want passthrough", got)
 	}
-	if got := applyKeepFields(42, []string{"a"}); got != 42 {
+	if got := applyKeepFields(42, []string{"a"}, nil, ""); got != 42 {
 		t.Errorf("applyKeepFields(int)=%v; want passthrough 42", got)
 	}
 }
@@ -131,10 +131,10 @@ func TestApplyKeepFieldsScalarPassthrough(t *testing.T) {
 // `default → return v` arm (applier.go:410-411). Same rationale as
 // keepFields: scalars pass through.
 func TestApplyDropFieldsScalarPassthrough(t *testing.T) {
-	if got := applyDropFields("scalar", []string{"a"}); got != "scalar" {
+	if got := applyDropFields("scalar", []string{"a"}, nil, ""); got != "scalar" {
 		t.Errorf("applyDropFields(scalar)=%v; want passthrough", got)
 	}
-	if got := applyDropFields(3.14, []string{"a"}); got != 3.14 {
+	if got := applyDropFields(3.14, []string{"a"}, nil, ""); got != 3.14 {
 		t.Errorf("applyDropFields(float)=%v; want passthrough 3.14", got)
 	}
 }

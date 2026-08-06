@@ -362,11 +362,11 @@ func TestCatalogListOverridesPluginPrecedenceOverEmbedded(t *testing.T) {
 		"plugin_catalog_schema_version": 1,
 		"variants": []map[string]any{
 			{
-				"variant_id":           target.VariantID,
+				"variant_id":             target.VariantID,
 				"variant_schema_version": 1,
-				"risk_class":           target.RiskClass,
-				"risk_override":        true,
-				"risk_override_reason": "profile-override-wins",
+				"risk_class":             target.RiskClass,
+				"risk_override":          true,
+				"risk_override_reason":   "profile-override-wins",
 			},
 		},
 	})

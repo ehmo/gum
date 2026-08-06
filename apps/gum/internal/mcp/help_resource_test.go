@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/embedded"
 	"github.com/ehmo/gum/internal/help/topics"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // v0.1.0 active seed set from spec §13 line 3150 plus the five per-service

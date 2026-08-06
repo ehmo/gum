@@ -14,8 +14,8 @@ import (
 // and embed at build time, or a hand-crafted test snapshot).
 func TestLoadFirstPartySchemaReadFileErrorReturnsFalse(t *testing.T) {
 	op := catalog.Op{
-		OpID:         "synthetic.op",
-		ResponseRef:  "nonexistent.schema.v1", // not in embedded SchemaFS
+		OpID:        "synthetic.op",
+		ResponseRef: "nonexistent.schema.v1", // not in embedded SchemaFS
 	}
 	s := &Server{
 		snapshot: &catalog.Catalog{

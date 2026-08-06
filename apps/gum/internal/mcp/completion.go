@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/embed"
 	"github.com/ehmo/gum/internal/help/topics"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // completionMaxValues is the wire-budget ceiling for one completion/complete

@@ -16,13 +16,13 @@ func TestParseLogLevel(t *testing.T) {
 		wantOK    bool
 	}{
 		{"debug", slog.LevelDebug, true},
-		{"INFO", slog.LevelInfo, true},        // case-insensitive
-		{" warn ", slog.LevelWarn, true},      // trimmed
-		{"warning", slog.LevelWarn, true},     // friendly synonym
-		{"Error", slog.LevelError, true},      // mixed case
-		{"trace", 0, false},                   // not in the closed enum
-		{"", 0, false},                        // empty rejected
-		{"info debug", 0, false},              // composite rejected
+		{"INFO", slog.LevelInfo, true},    // case-insensitive
+		{" warn ", slog.LevelWarn, true},  // trimmed
+		{"warning", slog.LevelWarn, true}, // friendly synonym
+		{"Error", slog.LevelError, true},  // mixed case
+		{"trace", 0, false},               // not in the closed enum
+		{"", 0, false},                    // empty rejected
+		{"info debug", 0, false},          // composite rejected
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {

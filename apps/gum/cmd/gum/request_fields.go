@@ -165,7 +165,7 @@ func coerceScalar(v any, typ string) any {
 // and pasted straight into a `gum call` invocation.
 func renderSkeleton(w io.Writer, opID string, fields []catalog.RequestField) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s — fill in and pass to `gum call %s --risk=<read|write|destructive> <args>`\n", opID, opID)
+	fmt.Fprintf(&b, "# %s: fill in and pass to `gum call %s --risk=<read|write|destructive> <args>`\n", opID, opID)
 	groups := []struct {
 		loc   catalog.RequestFieldLocation
 		label string
@@ -455,7 +455,7 @@ func promptMissingFields(in io.Reader, errOut io.Writer, args map[string]any, fi
 		}
 		prompt := f.Name
 		if f.Description != "" {
-			prompt += " — " + f.Description
+			prompt += ": " + f.Description
 		}
 		if len(f.Enum) > 0 {
 			prompt += " [" + strings.Join(f.Enum, "|") + "]"

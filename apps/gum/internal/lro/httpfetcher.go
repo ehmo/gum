@@ -149,12 +149,23 @@ func (o *operationDoc) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+	// Both fields must be propagated, not swallowed. A malformed `done` (say
+	// the string "true" instead of the bool) would otherwise leave o.Done
+	// false while hasDoneField is true, so Fetch reports a finished operation
+	// as still running and the poller waits for a completion that already
+	// happened. Returning the error makes json.Unmarshal fail in tryREST,
+	// which classifies the body as "not an Operation" and advances to the next
+	// fallback — the behaviour the caller already documents.
 	if v, ok := raw["name"]; ok {
-		_ = json.Unmarshal(v, &o.Name)
+		if err := json.Unmarshal(v, &o.Name); err != nil {
+			return fmt.Errorf("lro: operation `name` is not a string: %w", err)
+		}
 	}
 	if v, ok := raw["done"]; ok {
 		o.hasDoneField = true
-		_ = json.Unmarshal(v, &o.Done)
+		if err := json.Unmarshal(v, &o.Done); err != nil {
+			return fmt.Errorf("lro: operation `done` is not a boolean: %w", err)
+		}
 	}
 	o.Response = raw["response"]
 	o.Error = raw["error"]

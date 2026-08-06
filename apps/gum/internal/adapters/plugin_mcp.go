@@ -88,6 +88,25 @@ func (p *PluginMCP) Execute(ctx context.Context, inv *dispatch.Invocation, rv *d
 
 	plug, err := p.ensureRunning(ctx, pluginID)
 	if err != nil {
+		// A local quarantine is not an upstream outage. SERVICE_DOWN reads as
+		// "Google is down" and sends the operator hunting for a network fault,
+		// when the fix is two local commands. A quarantined plugin means every
+		// variant bound to it is unavailable, so the spec-coherent code is
+		// VARIANT_QUARANTINED (§5.4 lifecycle rule 5), and the hint names the
+		// commands that clear it (gum-mmzr).
+		if errors.Is(err, plugins.ErrPluginQuarantined) {
+			return nil, dispatch.NewStructuredError(dispatch.ErrCodeVariantQuarantined,
+				fmt.Sprintf("plugin %q is quarantined locally, so %s cannot run", pluginID, inv.OpID)).
+				WithDetail("adapter_key", rv.Variant.Binding.AdapterKey).
+				WithDetail("plugin_name", pluginID).
+				WithDetail("variant_id", rv.Variant.VariantID).
+				WithDetail("reason", "plugin_quarantined").
+				WithDetail("detail", err.Error()).
+				WithDetail("hint", fmt.Sprintf("the %q plugin is quarantined on this machine, not down upstream. "+
+					"Run `gum plugin list` for the last error code, then `gum plugin reload %s` to retry the spawn "+
+					"or `gum plugin unquarantine %s` to clear the backoff.", pluginID, pluginID, pluginID)).
+				WithRetryable(false)
+		}
 		// A plugin-bound op that can't start its plugin surfaces as SERVICE_DOWN
 		// with the adapter_key (spec §8 line 1631), not a bare error string — so
 		// an agent can branch on error_code and a human gets the plugin name. The

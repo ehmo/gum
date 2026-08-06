@@ -20,12 +20,12 @@ func sampleCatalog() *catalog.Catalog {
 		GeneratorVersion:     "test",
 		Ops: []catalog.Op{
 			{
-				OpID:            "gmail.users.messages.list",
-				OpSchemaVersion: 1,
-				Title:           "List Gmail messages",
-				Summary:         "List message IDs in a Gmail mailbox.",
-				ParamsRequired:  [][]string{{"userId", "string"}},
-				ParamsOptional:  [][]string{{"q", "string"}, {"maxResults", "integer"}},
+				OpID:             "gmail.users.messages.list",
+				OpSchemaVersion:  1,
+				Title:            "List Gmail messages",
+				Summary:          "List message IDs in a Gmail mailbox.",
+				ParamsRequired:   [][]string{{"userId", "string"}},
+				ParamsOptional:   [][]string{{"q", "string"}, {"maxResults", "integer"}},
 				DefaultVariantID: "gmail.v1.list",
 				Variants: []catalog.Variant{
 					{

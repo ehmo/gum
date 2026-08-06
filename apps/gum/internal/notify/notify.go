@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ehmo/gum/internal/fsatomic"
 	profilepkg "github.com/ehmo/gum/internal/profile"
 )
 
@@ -86,15 +87,10 @@ func writeCache(path string, entry cacheEntry) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
+	// The write happens on the background goroutine, so it can overlap another
+	// gum process doing the same thing. fsatomic gives each writer its own
+	// temp file; the fixed `<path>.tmp` this replaced did not.
+	return fsatomic.WriteFile(path, data, 0o600)
 }
 
 // Fetcher abstracts the GitHub releases API call so tests can inject a stub

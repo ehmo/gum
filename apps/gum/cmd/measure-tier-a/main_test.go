@@ -14,14 +14,14 @@ import (
 
 // metaToolCeiling and convenienceToolCeiling are per-tool token budgets from spec.md §2.
 const (
-	metaToolCeiling       = 360
+	metaToolCeiling        = 360
 	convenienceToolCeiling = 220
 	defsOverheadCeiling    = 660
 	framingReserveCeiling  = 140
 	totalBudget            = 8000
 
 	// metaToolCount and convenienceToolCount are from docs/tier-a-roster.v1.json.
-	metaToolCount       = 9
+	metaToolCount        = 9
 	convenienceToolCount = 18
 )
 

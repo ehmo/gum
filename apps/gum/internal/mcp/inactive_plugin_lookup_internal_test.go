@@ -38,7 +38,7 @@ func plantPluginCatalog(t *testing.T, profile string, variants []any) string {
 func TestLookupOpOwnerPluginScansVariantsAndReturnsOwner(t *testing.T) {
 	plantPluginCatalog(t, "default", []any{
 		"not-a-map", // 117-118: non-map skip
-		map[string]any{"op_id": "other.op", "owner_plugin": "wrong"}, // 120-121: mismatch
+		map[string]any{"op_id": "other.op", "owner_plugin": "wrong"},         // 120-121: mismatch
 		map[string]any{"op_id": "target.op", "owner_plugin": "right-plugin"}, // match
 	})
 	s := &Server{profile: "default", snapshot: &catalog.Catalog{}}
@@ -64,7 +64,7 @@ func TestLookupOpOwnerPluginScansVariantsAndReturnsOwner(t *testing.T) {
 func TestLookupVariantOwnerPluginScansVariantsAndReturnsOwner(t *testing.T) {
 	plantPluginCatalog(t, "default", []any{
 		42, // 139-140: non-map (number) skip
-		map[string]any{"variant_id": "v.other", "owner_plugin": "wrong"}, // 142-143: mismatch
+		map[string]any{"variant_id": "v.other", "owner_plugin": "wrong"},         // 142-143: mismatch
 		map[string]any{"variant_id": "v.target", "owner_plugin": "right-plugin"}, // match
 	})
 	s := &Server{profile: "default", snapshot: &catalog.Catalog{}}

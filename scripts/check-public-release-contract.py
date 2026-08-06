@@ -55,6 +55,32 @@ BINARY_SUFFIXES = {
 
 FENCE_RE = re.compile(r"^```(?P<lang>[A-Za-z0-9_+.#-]*)\s*$")
 
+# Files whose recipes run helper scripts. Every scripts/ path they name has to
+# be exported, or the public checkout has a Makefile target and a CI job that
+# cannot run. `make docs-check` shipped broken this way once: the root Makefile
+# called scripts/gen-service-reference.mjs and the manifest never listed it.
+SCRIPT_CALLERS = (
+    "Makefile",
+    ".github/workflows/test.yml",
+    ".github/workflows/release.yml",
+)
+SCRIPT_REF_RE = re.compile(r"scripts/[A-Za-z0-9_.-]+\.(?:mjs|js|py|sh)")
+
+# Same failure shape for images: the docs-site build fails the whole job on a
+# broken link, so every `assets/<file>` named by an exported page or by the
+# site generator has to be exported as docs/assets/<file>.
+ASSET_REF_RE = re.compile(r"assets/([A-Za-z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif|svg|ico))")
+
+# And for page-to-page links: docs/service-matrix.md linked
+# docs/admin-write-policy-gate.md, which the manifest never listed, so the
+# public docs-site build died on the dangling href.
+MD_LINK_RE = re.compile(r"\]\(([^)#?\s]+\.md)(?:[#?][^)\s]*)?\)")
+
+# scripts/check-docs-site.mjs hard-fails on any page in its requiredDocs list
+# that is not on disk, and the public docs CI job runs it. Read the list from
+# the script itself so the two cannot drift.
+REQUIRED_DOCS_RE = re.compile(r"const requiredDocs = \[(.*?)\];", re.S)
+
 
 def fail(message: str) -> None:
     print(f"public release contract: {message}", file=sys.stderr)
@@ -78,6 +104,18 @@ def tracked_files() -> list[str]:
     return [line for line in proc.stdout.splitlines() if line]
 
 
+def generated_files(manifest: dict) -> list[str]:
+    paths: list[str] = []
+    for root in manifest.get("generated_roots", []):
+        base = ROOT / root
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*"):
+            if path.is_file():
+                paths.append(path.relative_to(ROOT).as_posix())
+    return paths
+
+
 def public_files(manifest: dict) -> list[Path]:
     rels = set(manifest.get("root_files", []) + manifest.get("docs", []))
     roots = tuple(root.rstrip("/") + "/" for root in manifest.get("source_roots", []))
@@ -86,6 +124,7 @@ def public_files(manifest: dict) -> list[Path]:
     for rel in tracked_files():
         if rel.startswith(roots):
             rels.add(rel)
+    rels.update(generated_files(manifest))
     rels = {
         rel
         for rel in rels
@@ -170,12 +209,60 @@ def main() -> int:
         leaked = sorted(path for path in selected if path.startswith(forbidden_prefix))
         if leaked:
             fail(f"forbidden path is selected for public export: {leaked[0]}")
+    for caller in SCRIPT_CALLERS:
+        source = ROOT / caller
+        if not source.is_file():
+            continue
+        for ref in sorted(set(SCRIPT_REF_RE.findall(source.read_text(encoding="utf-8")))):
+            if ref not in selected:
+                fail(f"{caller} runs {ref}, which the public export does not ship")
+
+    for rel in sorted(selected):
+        if not (rel.endswith(".md") or rel.endswith(".mjs")):
+            continue
+        for asset in sorted(set(ASSET_REF_RE.findall((ROOT / rel).read_text(encoding="utf-8")))):
+            if f"docs/assets/{asset}" not in selected:
+                fail(f"{rel} references assets/{asset}, which the public export does not ship")
+
+    for rel in sorted(selected):
+        if not rel.startswith("docs/") or not rel.endswith(".md"):
+            continue
+        base = (ROOT / rel).parent
+        for link in sorted(set(MD_LINK_RE.findall((ROOT / rel).read_text(encoding="utf-8")))):
+            if link.startswith(("http://", "https://")):
+                continue
+            target = (base / link).resolve()
+            try:
+                target_rel = target.relative_to(ROOT).as_posix()
+            except ValueError:
+                fail(f"{rel} links outside the repository: {link}")
+            if target_rel not in selected:
+                fail(f"{rel} links to {target_rel}, which the public export does not ship")
+
+    checker = ROOT / "scripts" / "check-docs-site.mjs"
+    if checker.is_file():
+        block = REQUIRED_DOCS_RE.search(checker.read_text(encoding="utf-8"))
+        if not block:
+            fail("cannot read requiredDocs from scripts/check-docs-site.mjs")
+        required_docs = re.findall(r'"([^"]+)"', block.group(1))
+        if not required_docs:
+            fail("requiredDocs in scripts/check-docs-site.mjs is empty")
+        for rel in required_docs:
+            if f"docs/{rel}" not in selected:
+                fail(f"check-docs-site.mjs requires docs/{rel}, which the public export does not ship")
+
     for path in sorted((ROOT / rel for rel in selected), key=lambda p: p.as_posix()):
         validate_text(path)
 
     license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
-    if "Copyright 2026 Wraxle LLC" not in license_text:
-        fail("LICENSE must use Copyright 2026 Wraxle LLC")
+    required_license_fragments = [
+        "MIT License",
+        "Copyright (c) 2026 Wraxle LLC",
+        "Permission is hereby granted, free of charge",
+    ]
+    for fragment in required_license_fragments:
+        if fragment not in license_text:
+            fail(f"LICENSE must use MIT terms; missing {fragment!r}")
 
     goreleaser_config = (ROOT / "apps" / "gum" / ".goreleaser.yaml").read_text(encoding="utf-8")
     if re.search(r"(?m)^source:\n\s+enabled:\s+true\b", goreleaser_config):

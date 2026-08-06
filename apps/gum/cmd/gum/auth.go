@@ -42,14 +42,14 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "use-oauth-client --client-id <id> [--secret-stdin | --secret-file <path>]",
-		Short: "Register your own Google OAuth client for the byo_oauth strategy (spec §7)",
+		Short: "Register your own Google OAuth client for browser login",
 		Long: "Register a Desktop-app OAuth client you created in the Google Cloud console.\n" +
 			"gum then runs the browser login itself (loopback + PKCE) and refreshes tokens\n" +
-			"automatically — no gcloud dependency. Create one at:\n" +
-			"  https://console.cloud.google.com/apis/credentials → Create credentials → OAuth client ID → Desktop app\n" +
+			"automatically; no gcloud dependency. Create one at:\n" +
+			"  https://console.cloud.google.com/apis/credentials > Create credentials > OAuth client ID > Desktop app\n" +
 			"Google issues a client_secret for Desktop-app clients and its token endpoint REQUIRES it\n" +
 			"even with PKCE, so pipe the secret via --secret-stdin (it never enters shell history).\n" +
-			"Only a true public client — rare for Google — may omit the secret.",
+			"Only a true public client, rare for Google, may omit the secret.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -71,7 +71,7 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 			}
 			_, _ = fmt.Fprintf(out, "gum auth use-oauth-client: stored OAuth client in OS keychain under profile %q.\n", profile)
 			if secret == "" {
-				_, _ = fmt.Fprintln(out, "(public PKCE client — no secret stored)")
+				_, _ = fmt.Fprintln(out, "(public PKCE client; no secret stored)")
 			}
 			_, _ = fmt.Fprintln(out, "Next: run `gum login` to authorize, or just run a `gum call` and approve when prompted.")
 			return nil
@@ -114,7 +114,7 @@ func readClientSecret(cmd *cobra.Command, fromStdin bool, fromFile string) (stri
 func newAuthSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:           "setup <op_id>",
-		Short:         "Walk the credential prerequisites for an operation (spec §7)",
+		Short:         "Walk the credential prerequisites for an operation",
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -130,7 +130,7 @@ func newAuthSetupCmd() *cobra.Command {
 				MissingComponents: []string{"see_setup_command"},
 				SetupCommand:      "gum auth setup " + opID,
 				UserMessage:       "Compound auth for " + opID + " walks each declared component. v0.1.0 prints the envelope; per-component prompts land with the catalog component records.",
-				HumanRemediation:  "Run `gum auth use-oauth-client`, `gum auth use-api-key`, or `gum auth use-service-account` as the variant requires; see spec.md §7.",
+				HumanRemediation:  "Run `gum auth use-oauth-client`, `gum auth use-api-key`, or `gum auth use-service-account` as the variant requires.",
 				Retryable:         false,
 			}
 			return writeJSON(cmd.OutOrStdout(), envelope)
@@ -145,7 +145,7 @@ func newAuthSetupCmd() *cobra.Command {
 func newAuthUseServiceAccountCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "use-service-account <key.json>",
-		Short: "Configure the service_account_key auth strategy (spec §7)",
+		Short: "Configure the service_account_key auth strategy",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := strings.TrimSpace(args[0])
@@ -197,7 +197,7 @@ func newAuthUseAPIKeyCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:           "use-api-key",
-		Short:         "Configure the api_key auth strategy (spec §7)",
+		Short:         "Configure the api_key auth strategy",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
@@ -221,7 +221,7 @@ func newAuthUseAPIKeyCmd() *cobra.Command {
 				// Crucially we still DO NOT print the key bytes — the operator
 				// already has them and can set the env var themselves.
 				_, _ = fmt.Fprintln(out, "gum auth use-api-key: OS keychain backend unavailable on this platform.")
-				_, _ = fmt.Fprintf(out, "Set the %s env variable manually (do not paste it in shell history — use a here-string or password manager):\n", auth.EnvAPIKeyVar)
+				_, _ = fmt.Fprintf(out, "Set the %s env variable manually (do not paste it in shell history; use a here-string or password manager):\n", auth.EnvAPIKeyVar)
 				_, _ = fmt.Fprintln(out)
 				_, _ = fmt.Fprintf(out, "  export %s=$(your-password-manager get gum-api-key)\n", auth.EnvAPIKeyVar)
 				_, _ = fmt.Fprintln(out)
@@ -278,7 +278,7 @@ func newAuthUseAdsDeveloperTokenCmd() *cobra.Command {
 			"googleads.* Keyword Planner ops can send it as the developer-token header.\n" +
 			"The token is a secret: pipe it via --stdin (default) or --from-file; it is\n" +
 			"never accepted as a positional argument and never sent as an invocation arg.\n" +
-			"The OAuth Bearer is separate — run `gum auth use-oauth-client` then\n" +
+			"The OAuth Bearer is separate. Run `gum auth use-oauth-client` then\n" +
 			"`gum login --service googleads` to authorize the adwords scope.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -563,7 +563,7 @@ func resolveLoginScopes(cat *catalog.Catalog, explicit, services []string, all b
 	case len(services) > 0:
 		scopes = cat.ScopesForServices(services)
 		if len(scopes) == 0 {
-			return nil, fmt.Errorf("gum login: no OAuth scopes for service(s) %v — check names with `gum describe` or pass --scope explicitly", services)
+			return nil, fmt.Errorf("gum login: no OAuth scopes for service(s) %v. Check names with `gum describe` or pass --scope explicitly", services)
 		}
 	case all:
 		scopes = cat.AllScopes()

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/ehmo/gum/internal/cache"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 // withTempCacheRootCLI redirects XDG_CACHE_HOME (and XDG_CONFIG_HOME for

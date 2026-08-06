@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/ehmo/gum/internal/fsatomic"
 )
 
 // DefaultLockTimeout is the spec §12.2 ceiling for acquiring the patch lock
@@ -234,33 +236,13 @@ func entryEqualsMap(e MCPEntry, m map[string]any) bool {
 
 // atomicWrite writes data to path via a same-directory temp file then renames.
 // Mode applies to the destination after rename.
+//
+// Delegates to fsatomic, which adds the fsync this copy was missing: a rename
+// is atomic with respect to the directory entry, but without fsync the data
+// blocks may not be durable, so a crash right after the rename can leave a
+// zero-length settings file where a valid one used to be.
 func atomicWrite(path string, data []byte, mode os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".gum-init-*.tmp")
-	if err != nil {
-		return fmt.Errorf("initpkg: tempfile in %s: %w", dir, err)
-	}
-	tmpPath := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpPath) }
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("initpkg: write %s: %w", tmpPath, err)
-	}
-	if err := tmp.Chmod(mode); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("initpkg: chmod %s: %w", tmpPath, err)
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return fmt.Errorf("initpkg: close %s: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		cleanup()
-		return fmt.Errorf("initpkg: rename %s -> %s: %w", tmpPath, path, err)
-	}
-	return nil
+	return fsatomic.WriteFile(path, data, mode)
 }
 
 // FormatDiff returns a human-readable presentation of plan for the user

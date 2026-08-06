@@ -14,13 +14,13 @@ import (
 // docs/catalog-abi.md §55 + docs/expression-profile-dsl.md validation rule §2.
 func TestProfileStripNullsSafety(t *testing.T) {
 	type tc struct {
-		name        string
-		stripNulls  bool
-		keepFields  []string
-		safe        []string
-		wantErr     bool
+		name         string
+		stripNulls   bool
+		keepFields   []string
+		safe         []string
+		wantErr      bool
 		wantSentinel bool
-		wantSubstr  []string
+		wantSubstr   []string
 	}
 
 	cases := []tc{

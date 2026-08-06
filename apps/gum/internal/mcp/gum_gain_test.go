@@ -198,9 +198,10 @@ func TestGainSuccessModeIsSummary(t *testing.T) {
 // (i.e. it is not a GainResult success shape).
 //
 // Green should check os.Getenv("GUM_GAIN_DISABLED") == "1" (or a Server field)
-// at the top of handleGain and return jsonErrorResult(map[string]any{
-//   "error_code": "GAIN_DISABLED",
-// }) immediately.
+//
+//	at the top of handleGain and return jsonErrorResult(map[string]any{
+//	  "error_code": "GAIN_DISABLED",
+//	}) immediately.
 //
 // Current handler never checks this env var and always proceeds to open the ledger.
 // MUST FAIL.

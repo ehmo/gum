@@ -11,13 +11,13 @@ import (
 // stubFile is a fileWriter that fails on configured ops. Useful for
 // exercising every error branch of atomicWrite without a hostile FS.
 type stubFile struct {
-	name      string
-	writeErr  error
-	chmodErr  error
-	closeErr  error
-	closeRan  bool
-	chmodRan  bool
-	writeRan  bool
+	name     string
+	writeErr error
+	chmodErr error
+	closeErr error
+	closeRan bool
+	chmodRan bool
+	writeRan bool
 }
 
 func (s *stubFile) Name() string { return s.name }

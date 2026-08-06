@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ehmo/gum/internal/cache"
 	"github.com/ehmo/gum/internal/dispatch"
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // isolateAuditSentinel redirects XDG_DATA_HOME to a fresh tempdir so the

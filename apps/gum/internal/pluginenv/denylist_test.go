@@ -32,9 +32,9 @@ func repoRoot(t *testing.T) string {
 	}
 	// file is …/apps/gum/internal/pluginenv/denylist_test.go
 	// go two levels up from internal/pluginenv to apps/gum
-	dir := filepath.Dir(file)          // …/pluginenv
-	dir = filepath.Dir(dir)            // …/internal
-	dir = filepath.Dir(dir)            // …/apps/gum
+	dir := filepath.Dir(file) // …/pluginenv
+	dir = filepath.Dir(dir)   // …/internal
+	dir = filepath.Dir(dir)   // …/apps/gum
 	return dir
 }
 
@@ -222,7 +222,7 @@ func TestPluginEnvDenylistMembers(t *testing.T) {
 		}
 	}
 	if !hasPrefixGlob {
-		t.Errorf("PluginEnvDenylist has no prefix-glob entries (e.g. AWS_* or GUM_AUTH_*); "+
+		t.Errorf("PluginEnvDenylist has no prefix-glob entries (e.g. AWS_* or GUM_AUTH_*); " +
 			"spec §8.1 requires GUM_* and _GUM* to be denied — at minimum a prefix pattern for GUM_AUTH_*")
 	}
 

@@ -51,7 +51,6 @@ func writePluginRegistryFiles(t *testing.T, profileDir string, catalog, lock, st
 	}
 }
 
-
 // TestPluginResourceFullSurface verifies the §13 line 3161 happy path: every
 // required field is present and sourced from the file the spec names.
 func TestPluginResourceFullSurface(t *testing.T) {

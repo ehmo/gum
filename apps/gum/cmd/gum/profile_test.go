@@ -103,8 +103,8 @@ func TestProfileTestEmitsFixtureRunResultJSON(t *testing.T) {
 
 	// Validate envelope shape: top-level passed, fixtures array, token_budget object.
 	var env struct {
-		Passed      bool `json:"passed"`
-		Fixtures    []struct {
+		Passed   bool `json:"passed"`
+		Fixtures []struct {
 			Name         string `json:"name"`
 			Passed       bool   `json:"passed"`
 			ActualFormat string `json:"actual_format"`

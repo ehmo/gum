@@ -1,8 +1,8 @@
 class Gum < Formula
   desc "Google Universal MCP CLI and stdio server"
   homepage "https://github.com/ehmo/gum"
-  url "https://github.com/ehmo/gum.git", tag: "v1.0.0"
-  license "FSL-1.1-ALv2"
+  url "https://github.com/ehmo/gum.git", tag: "v1.0.2"
+  license "MIT"
   head "https://github.com/ehmo/gum.git", branch: "main"
 
   depends_on "go" => :build

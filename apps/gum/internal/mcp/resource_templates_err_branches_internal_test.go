@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ehmo/gum/internal/catalog"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/ehmo/gum/internal/catalog"
 )
 
 // assertGrammarRejectionDetail checks that err is a jsonrpc.Error whose

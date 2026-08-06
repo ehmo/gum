@@ -157,9 +157,9 @@ func TestSemanticCacheReplacePreservesKey(t *testing.T) {
 func TestPerOpTTLTableShape(t *testing.T) {
 	// calendar.events: 60s; drive.files.list: 300s; gmail.profiles.get: 3600s.
 	mustHave := map[string]time.Duration{
-		"calendar.events.list":   60 * time.Second,
-		"drive.files.list":       300 * time.Second,
-		"gmail.profiles.get":     3600 * time.Second,
+		"calendar.events.list": 60 * time.Second,
+		"drive.files.list":     300 * time.Second,
+		"gmail.profiles.get":   3600 * time.Second,
 	}
 	for k, want := range mustHave {
 		got, ok := PerOpTTL[k]

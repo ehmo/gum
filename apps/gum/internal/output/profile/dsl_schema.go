@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/ehmo/gum/internal/embedded"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 var (

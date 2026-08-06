@@ -26,9 +26,9 @@ func TestTestdataNoProductionImport(t *testing.T) {
 
 	fset := token.NewFileSet()
 	skipDirs := map[string]bool{
-		".git":      true,
+		".git":         true,
 		"node_modules": true,
-		"testdata":  true,
+		"testdata":     true,
 	}
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {

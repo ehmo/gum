@@ -88,23 +88,30 @@ func TestCanaryRunOnceScopesWrongTypeSurfacesAsInvalid(t *testing.T) {
 	}
 }
 
-// TestCanaryRunOnceWriteTmpFailureSurfacesAsError pins the
-// `os.WriteFile(tmpPath, ...) err → wrap` arm. The write-back step
-// uses tmp+rename for atomicity; if the tmp write fails (e.g. a
-// blocker directory already exists at the .tmp suffix path because a
-// prior crash left it), the error MUST surface so the operator can
-// repair, not silently succeed and lose the new state.
-func TestCanaryRunOnceWriteTmpFailureSurfacesAsError(t *testing.T) {
+// TestCanaryRunOnceWriteFailureSurfacesAsError pins the write-back failure
+// arm. RunOnce persists the refreshed registry through fsatomic; if that write
+// fails (here: a read-only registry directory, so the temp file cannot be
+// created), the error MUST surface so the operator can repair, not silently
+// succeed and lose the new state.
+func TestCanaryRunOnceWriteFailureSurfacesAsError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: mode bits do not deny writes")
+	}
 	tmp := t.TempDir()
-	registryPath := filepath.Join(tmp, "managed-scopes.json")
+	registryDir := filepath.Join(tmp, "registry")
+	if err := os.Mkdir(registryDir, 0o700); err != nil {
+		t.Fatalf("mkdir registry dir: %v", err)
+	}
+	registryPath := filepath.Join(registryDir, "managed-scopes.json")
 	if err := os.WriteFile(registryPath, []byte(`{"scopes":[]}`), 0o600); err != nil {
 		t.Fatalf("write registry: %v", err)
 	}
-	// Plant a directory at the .tmp suffix path so os.WriteFile
-	// returns EISDIR on its open(O_CREAT|O_TRUNC) call.
-	if err := os.MkdirAll(registryPath+".tmp", 0o700); err != nil {
-		t.Fatalf("plant tmp blocker: %v", err)
+	// Read-only directory: the registry itself stays readable, so RunOnce
+	// gets all the way to the write-back before it fails.
+	if err := os.Chmod(registryDir, 0o500); err != nil {
+		t.Fatalf("chmod registry dir: %v", err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(registryDir, 0o700) })
 
 	s := auth.NewScheduler(auth.SchedulerConfig{
 		RegistryPath: registryPath,
@@ -113,12 +120,12 @@ func TestCanaryRunOnceWriteTmpFailureSurfacesAsError(t *testing.T) {
 
 	_, err := s.RunOnce(t.Context())
 	if err == nil {
-		t.Fatal("RunOnce(tmp dir-blocker)=nil; want write-tmp surface")
+		t.Fatal("RunOnce(read-only registry dir)=nil; want a write failure")
 	}
-	// We only assert the wrap prefix because the underlying EISDIR
-	// text varies cross-platform.
-	if !strings.Contains(err.Error(), "canary: write tmp") {
-		t.Errorf("err=%v; want 'canary: write tmp' wrap", err)
+	// Only the wrap prefix is asserted: the underlying errno text varies
+	// across platforms.
+	if !strings.Contains(err.Error(), "canary: write registry") {
+		t.Errorf("err=%v; want 'canary: write registry' wrap", err)
 	}
 }
 

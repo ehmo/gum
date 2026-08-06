@@ -27,12 +27,12 @@ import (
 // and resource-link-absent branches without spinning up a real expression
 // pipeline.
 type recoveryDispatcher struct {
-	body              []byte
-	structured        any
-	fullResultPath    string
-	fullResultURI     string
-	fullResultSize    *int64
-	err               error
+	body           []byte
+	structured     any
+	fullResultPath string
+	fullResultURI  string
+	fullResultSize *int64
+	err            error
 }
 
 func (d recoveryDispatcher) Dispatch(_ context.Context, _ *dispatch.Invocation) (*dispatch.ShapedResponse, error) {

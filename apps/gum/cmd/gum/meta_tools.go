@@ -11,6 +11,7 @@ import (
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/embed"
+	outprofile "github.com/ehmo/gum/internal/output/profile"
 	"github.com/spf13/cobra"
 )
 
@@ -66,6 +67,7 @@ func dispatchToWriterWithFactory(ctx context.Context, profile string, w, errW io
 			return err
 		}
 		_, _ = fmt.Fprintln(w)
+		printShapingNotice(errW, shaped)
 		return nil
 	}
 	if _, err := w.Write(shaped.Body); err != nil {
@@ -74,7 +76,20 @@ func dispatchToWriterWithFactory(ctx context.Context, profile string, w, errW io
 	if len(shaped.Body) == 0 || shaped.Body[len(shaped.Body)-1] != '\n' {
 		_, _ = fmt.Fprintln(w)
 	}
+	printShapingNotice(errW, shaped)
 	return nil
+}
+
+// printShapingNotice writes the dropped-field notice for shaped to errW. It goes
+// to stderr so stdout stays a clean machine-readable body for pipelines, and it
+// is a no-op when the profile removed nothing.
+func printShapingNotice(errW io.Writer, shaped *dispatch.ShapedResponse) {
+	if errW == nil || shaped == nil {
+		return
+	}
+	if msg := outprofile.DroppedPathsNotice(shaped.DroppedPaths, "--format raw", shaped.FullResultPath); msg != "" {
+		_, _ = fmt.Fprintln(errW, msg)
+	}
 }
 
 // dispatchAndRender dispatches inv and renders the result in format. CLI-only
@@ -97,6 +112,9 @@ func dispatchAndRender(cmd *cobra.Command, inv *dispatch.Invocation, requestedRi
 				return fmt.Errorf("render %s output: upstream response is not JSON (use --output json or --format raw): %w", format, jerr)
 			}
 		}
+		// No dropped-field notice here: table/csv/markdown/value render from
+		// StructuredContent, which carries the pre-shaping body, so nothing the
+		// profile removed is actually missing from what the caller sees.
 		return renderStructured(out, format, v)
 	}
 	inv.Format = format
@@ -268,7 +286,7 @@ func newSearchCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "BM25 search the embedded catalog (TTY → table, pipe → JSON)",
+		Short: "BM25 search the embedded catalog (TTY table, pipe JSON)",
 		Example: "  # Find ops by keyword (table on a TTY, JSON when piped)\n" +
 			"  gum search gmail messages\n" +
 			"  gum search \"calendar events\" | jq '.results[].op_id'",
@@ -371,16 +389,18 @@ func newDescribeCmd() *cobra.Command {
 //  1. params_required (first alternative group only — the catalog spec
 //     records alternatives, but for a "here's a starting point" example
 //     we pick the first).
-//  2. URL-template placeholders in the default variant's binding.http.path
+//  2. request_fields marked required:true — the authoritative per-field
+//     schema. An example that omits one of these is a failing call, and the
+//     example is what callers paste (gum-uvw3).
+//  3. URL-template placeholders in the default variant's binding.http.path
 //     (e.g. "/gmail/v1/users/{userId}/messages" → "userId").
-//  3. params_optional first group, prefixed with a comment marker so
-//     scripted callers know they can drop them.
 //
 // Values are placeholders, not concrete defaults: a single string parameter
 // named "user_id" becomes "<user_id>", a name that smells like a page size
-// becomes the integer 10. This is intentionally conservative — anything
-// fancier would need full JSON Schema introspection (out of scope, see
-// gum-wcwn).
+// becomes the integer 10. Enum fields get their first legal value. Composite
+// types get a correctly-typed empty shell ([] / {}) rather than a string
+// sigil, so a pasted example fails schema validation on the missing leaf
+// rather than on the container's type.
 func synthesizeExampleArgs(op *catalog.Op) map[string]any {
 	out := map[string]any{}
 	var required []string
@@ -389,6 +409,19 @@ func synthesizeExampleArgs(op *catalog.Op) map[string]any {
 	}
 	for _, name := range required {
 		out[name] = exampleValueFor(name)
+	}
+	// Every request field the catalog marks required must appear. Typed here
+	// because request_fields carries type/item_type/enum; params_required is
+	// names only.
+	for i := range op.RequestFields {
+		f := &op.RequestFields[i]
+		if !f.Required {
+			continue
+		}
+		if _, already := out[f.Name]; already {
+			continue
+		}
+		out[f.Name] = exampleValueForField(f)
 	}
 	// Path-template fallback: pulls placeholders the binding declared even
 	// when the curator did not surface them in params_required.
@@ -406,6 +439,11 @@ func synthesizeExampleArgs(op *catalog.Op) map[string]any {
 
 // pathTemplateParams returns the {placeholder} names in p in order. Empty
 // when p has no template segments. Used by synthesizeExampleArgs.
+//
+// The URI-template reserved-expansion marker ("{+resourceName}") is stripped:
+// the executor binds the arg under the bare name (see typedrestsdk
+// pathParamNames), so an example keyed "+resourceName" names an arg that no
+// op accepts.
 func pathTemplateParams(p string) []string {
 	var names []string
 	for i := 0; i < len(p); i++ {
@@ -419,10 +457,57 @@ func pathTemplateParams(p string) []string {
 		if j >= len(p) {
 			break
 		}
-		names = append(names, p[i+1:j])
+		name := strings.TrimPrefix(p[i+1:j], "+")
+		if name != "" {
+			names = append(names, name)
+		}
 		i = j
 	}
 	return names
+}
+
+// exampleValueForField returns a correctly-typed placeholder for one request
+// field. Composite types yield an empty shell of the right shape; scalars
+// fall through to the name heuristic in exampleValueFor.
+func exampleValueForField(f *catalog.RequestField) any {
+	switch f.Type {
+	case "array":
+		return []any{exampleElementFor(f)}
+	case "object":
+		return map[string]any{}
+	}
+	if len(f.Enum) > 0 {
+		return f.Enum[0]
+	}
+	switch f.Type {
+	case "integer", "number":
+		if n, ok := exampleValueFor(f.Name).(int); ok {
+			return n
+		}
+		return 1
+	case "boolean":
+		return false
+	}
+	return exampleValueFor(f.Name)
+}
+
+// exampleElementFor returns the placeholder for one element of an array field,
+// typed by item_type. Unknown or absent item_type falls back to the name sigil.
+func exampleElementFor(f *catalog.RequestField) any {
+	switch f.ItemType {
+	case "object":
+		return map[string]any{}
+	case "array":
+		return []any{}
+	case "integer", "number":
+		return 1
+	case "boolean":
+		return false
+	}
+	if len(f.Enum) > 0 {
+		return f.Enum[0]
+	}
+	return "<" + f.Name + ">"
 }
 
 // exampleValueFor maps a parameter name to a plausible placeholder. Heuristic
@@ -461,7 +546,7 @@ func newCodeCmd() *cobra.Command {
 		Long: `Run a Risor v2 script in the gum sandbox.
 
 The sandbox is deliberately small: there is NO filesystem, os/exec, or raw
-network access, and Risor v2 has NO for/while/loop keyword — iterate with the
+network access, and Risor v2 has NO for/while/loop keyword; iterate with the
 stdlib instead (range(), list().each(), .map()).
 
 Catalog access is provided through these injected builtins:

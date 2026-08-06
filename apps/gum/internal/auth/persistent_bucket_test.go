@@ -21,8 +21,8 @@ func TestBucketBasicTake(t *testing.T) {
 
 	dir := t.TempDir()
 	b, err := auth.OpenBucket(auth.BucketConfig{
-		Path:                    filepath.Join(dir, "bucket.db"),
-		DefaultCapacity:         3,
+		Path:                     filepath.Join(dir, "bucket.db"),
+		DefaultCapacity:          3,
 		DefaultLeakRatePerSecond: 0, // no replenishment in this test
 	})
 	if err != nil {
@@ -140,8 +140,8 @@ func TestBucketCrossProcess(t *testing.T) {
 	// "Process A": consume 2 tokens from capacity=3.
 	func() {
 		b, err := auth.OpenBucket(auth.BucketConfig{
-			Path:                    dbPath,
-			DefaultCapacity:         3,
+			Path:                     dbPath,
+			DefaultCapacity:          3,
 			DefaultLeakRatePerSecond: 0,
 		})
 		if err != nil {
@@ -160,8 +160,8 @@ func TestBucketCrossProcess(t *testing.T) {
 	// "Process B": should have 1 token remaining; 2nd Take should fail.
 	func() {
 		b, err := auth.OpenBucket(auth.BucketConfig{
-			Path:                    dbPath,
-			DefaultCapacity:         3,
+			Path:                     dbPath,
+			DefaultCapacity:          3,
 			DefaultLeakRatePerSecond: 0,
 		})
 		if err != nil {
@@ -194,8 +194,8 @@ func TestBucketRetryAfterHonored(t *testing.T) {
 
 	dir := t.TempDir()
 	b, err := auth.OpenBucket(auth.BucketConfig{
-		Path:                    filepath.Join(dir, "bucket.db"),
-		DefaultCapacity:         100,
+		Path:                     filepath.Join(dir, "bucket.db"),
+		DefaultCapacity:          100,
 		DefaultLeakRatePerSecond: 100,
 	})
 	if err != nil {
@@ -235,8 +235,8 @@ func TestBucketRateLimitedError(t *testing.T) {
 
 	dir := t.TempDir()
 	b, err := auth.OpenBucket(auth.BucketConfig{
-		Path:                    filepath.Join(dir, "bucket.db"),
-		DefaultCapacity:         0, // treated as default (100), then override via Update
+		Path:                     filepath.Join(dir, "bucket.db"),
+		DefaultCapacity:          0, // treated as default (100), then override via Update
 		DefaultLeakRatePerSecond: 0,
 	})
 	if err != nil {

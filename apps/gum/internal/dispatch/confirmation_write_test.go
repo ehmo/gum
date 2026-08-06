@@ -12,11 +12,12 @@
 //     matching params don't cross-poison each other's replay slots)
 //
 // Spec anchors:
-//   §6.1.2 line 1128 — "TTL: 5 minutes from the issuance timestamp embedded in the token"
-//   §6.1.2 line 1122 — high_stakes_write and ABI write-confirmation paths use
-//                       ConfirmationPurposeWrite = "gum_confirm_write"
-//   §6.1.2 line 1120 — confirmation_purpose is in the binding tuple; mismatch → reject
-//   §4.1 / §6.1      — write-tier does NOT enforce destructive_scope_canonical
+//
+//	§6.1.2 line 1128 — "TTL: 5 minutes from the issuance timestamp embedded in the token"
+//	§6.1.2 line 1122 — high_stakes_write and ABI write-confirmation paths use
+//	                    ConfirmationPurposeWrite = "gum_confirm_write"
+//	§6.1.2 line 1120 — confirmation_purpose is in the binding tuple; mismatch → reject
+//	§4.1 / §6.1      — write-tier does NOT enforce destructive_scope_canonical
 //
 // Done criterion: go test -run TestWriteToken ./internal/dispatch/... FAILS.
 package dispatch

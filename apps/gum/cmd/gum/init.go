@@ -59,7 +59,7 @@ func newInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "First-run installer: patch the MCP host config and write GUM.md",
 		Long: "gum init bootstraps GUM for a new user or project. Default behavior is " +
-			"diff-and-prompt — gum init never silently patches a security-sensitive file. " +
+			"diff-and-prompt: gum init never silently patches a security-sensitive file. " +
 			"Use --target to pick the host (claude-code | claude-desktop | cursor). " +
 			"Use --refresh to regenerate GUM.md only after a gum upgrade.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -94,7 +94,7 @@ func newInitCmd() *cobra.Command {
 			}
 
 			if plan.NoOp {
-				_, _ = fmt.Fprintf(out, "No changes — %s already has the gum MCP entry.\n", plan.Path)
+				_, _ = fmt.Fprintf(out, "No changes: %s already has the gum MCP entry.\n", plan.Path)
 			} else {
 				_, _ = fmt.Fprintln(out, initpkg.FormatDiff(plan))
 				if !yes {

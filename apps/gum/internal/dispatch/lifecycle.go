@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -162,6 +163,16 @@ type ShapedResponse struct {
 	// `_validation_warnings` field on the response envelope. Empty/nil when
 	// no allowlist applied.
 	ValidationWarnings []string
+
+	// DroppedPaths lists the response dot-paths the active expression profile's
+	// field filters removed (profile.ApplyOutput.DroppedPaths). Nil for a raw
+	// pass-through and for any op whose profile declares no field filter.
+	//
+	// The presentation layer must name these paths. A whitelist that omits a
+	// field the op advertises otherwise returns valid, plausible, silently
+	// incomplete JSON, and the caller has no signal to look for the rest
+	// (gum-bpx0).
+	DroppedPaths []string
 }
 
 // CacheLayerStats holds a point-in-time snapshot of the semantic (in-process)
@@ -453,17 +464,31 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 	}
 	logEvent(EventCacheCheck, t0)
 	if hit && cached != nil {
-		shaped := &ShapedResponse{Body: cached.Body, Format: cached.Format, ValidationWarnings: validationWarnings}
-		// Populate StructuredContent on the cache-HIT path too, so a warm call
-		// returns the same typed structured content the cold (shapeResponse) path
-		// does — otherwise an MCP client gets StructuredContent on the first call
-		// and nil on every cached repeat. Best-effort: a non-JSON cached body
-		// (e.g. raw/TOON) leaves it nil, matching the miss-path fallback.
-		var structured any
-		if json.Unmarshal(cached.Body, &structured) == nil {
-			shaped.StructuredContent = structured
+		// The cache stores the raw executor body (step 7b), so a hit must run the
+		// same step-8 pipeline the cold path runs. Returning cached.Body verbatim
+		// made an identical warm call answer with unshaped upstream JSON in a
+		// format the caller did not ask for (gum-n110).
+		cachedResp := &Response{Body: cached.Body, Format: cached.Format}
+		shaped, serr := d.shapeResponse(ctx, inv, rv, cachedResp)
+		if serr != nil {
+			// A bad inv.Format is the caller's error either way: surface it so a
+			// warm call reports the same INVALID_ARGS a cold call reports.
+			var se *StructuredError
+			if errors.As(serr, &se) {
+				return nil, serr
+			}
+			// A cached body the profile cannot shape (opaque bytes from an
+			// adapter whose Format the cache did not preserve) must not fail a
+			// call that would have succeeded cold: serve it verbatim.
+			slog.Warn("cached body failed shaping; serving verbatim", "op_id", inv.OpID, "err", serr)
+			shaped = &ShapedResponse{Body: cached.Body, Format: cached.Format}
+			var structured any
+			if json.Unmarshal(cached.Body, &structured) == nil {
+				shaped.StructuredContent = structured
+			}
 		}
-		return d.recordAndReturn(ctx, inv, rv, shaped, &Response{Body: cached.Body, Format: cached.Format}, dispatchStart, true)
+		shaped.ValidationWarnings = append(shaped.ValidationWarnings, validationWarnings...)
+		return d.recordAndReturn(ctx, inv, rv, shaped, cachedResp, dispatchStart, true)
 	}
 	if err := checkCancelled(ctx, "cache_check"); err != nil {
 		return nil, err
@@ -507,8 +532,14 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 	// response could serve a stale "success" for a later identical-arg call that
 	// never actually ran (e.g. a duplicate send returning the prior message id
 	// without sending). The §10.3 cache is a read-response cache.
-	cacheable := rv != nil && rv.Variant != nil && rv.Variant.RiskClass == catalog.RiskClassRead
-	if cacheable && d.semanticCache != nil && resp != nil {
+	//
+	// Format "raw" responses (opaque executor bytes, e.g. gum.code printed
+	// output) are excluded: the cache stores only bytes, so a hit would come
+	// back labelled "json" and hit the step-8 fallback on every warm call
+	// (gum-n110).
+	cacheable := rv != nil && rv.Variant != nil && rv.Variant.RiskClass == catalog.RiskClassRead &&
+		resp != nil && resp.Format != "raw"
+	if cacheable && d.semanticCache != nil {
 		key := cache.SemanticKey(
 			inv.OpID,
 			rv.Variant.VariantID,
@@ -517,7 +548,7 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 			semanticAuthFP(inv, creds),
 		)
 		d.semanticCache.Set(key, resp.Body, inv.OpID)
-	} else if cacheable && d.cache != nil && d.auth == nil && resp != nil {
+	} else if cacheable && d.cache != nil && d.auth == nil {
 		// Legacy MemCache only: its KeyFor key has no auth-subject component, so
 		// it would serve one principal's response to another. Restrict it to the
 		// unauthenticated case; an authed dispatcher must use SemanticCache,
@@ -626,6 +657,90 @@ func emptyStrings(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// bodyArgKey mirrors adapters.BodyArgKey — the reserved Args key carrying the
+// JSON request body. Declared locally because internal/dispatch must not import
+// internal/adapters (the dependency runs the other way).
+const bodyArgKey = "body"
+
+// applyFieldDefaults fills in the args the caller omitted from the op's
+// request-field defaults, mutating args in place. It runs before validateParams
+// so an injected default is part of the validated args, the ArgsHash, the cache
+// key, and the audit record — the same value the adapter puts on the wire.
+//
+// Before gum-3gcv nothing read catalog.RequestField.Default, so `gum describe`
+// advertised defaults the dispatcher never sent and a caller who trusted the
+// listed default got different data with no error. Applying the key here makes
+// the declaration load-bearing: what a field declares is what gets sent.
+//
+// Rules:
+//   - An arg the caller supplied is never overwritten, including an explicit
+//     null and an explicit body field of the same name.
+//   - A body-location default goes into the reserved "body" arg, because that is
+//     where validateParams and the executors expect body fields. A non-object
+//     explicit body is left untouched.
+//   - A required field's default is skipped: absence must stay a clean
+//     INVALID_ARGS instead of becoming a silent placeholder. The catalog
+//     invariant test rejects the required+default combination outright.
+//
+// It returns validation warnings for defaults it could not decode (possible for
+// a plugin-supplied catalog op, which no build-time test gates); an undecodable
+// default is skipped rather than failing the call.
+func applyFieldDefaults(op *catalog.Op, args map[string]any) []string {
+	var warnings []string
+	var body map[string]any
+	bodyResolved := false
+
+	for _, f := range op.RequestFields {
+		if !f.HasDefault() || f.Required {
+			continue
+		}
+		if f.Location == catalog.RequestFieldBody {
+			if !bodyResolved {
+				body = existingBodyMap(args)
+				bodyResolved = true
+			}
+			if body == nil {
+				continue // explicit non-object body wins; don't second-guess it
+			}
+			if _, provided := body[f.Name]; provided {
+				continue
+			}
+			v, err := f.DefaultValue()
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("op %s: skipped undecodable default for body field %q: %v", op.OpID, f.Name, err))
+				continue
+			}
+			body[f.Name] = v
+			args[bodyArgKey] = body
+			continue
+		}
+		if _, provided := args[f.Name]; provided {
+			continue
+		}
+		v, err := f.DefaultValue()
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("op %s: skipped undecodable default for arg %q: %v", op.OpID, f.Name, err))
+			continue
+		}
+		args[f.Name] = v
+	}
+	return warnings
+}
+
+// existingBodyMap returns the args' body object, creating an empty one when the
+// arg is absent. It returns nil when the caller passed a body that is not a JSON
+// object, which signals the caller to leave the body alone.
+func existingBodyMap(args map[string]any) map[string]any {
+	existing, ok := args[bodyArgKey]
+	if !ok || existing == nil {
+		return map[string]any{}
+	}
+	if m, isMap := existing.(map[string]any); isMap {
+		return m
+	}
+	return nil
 }
 
 func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, typeErrors []string) {
@@ -766,8 +881,9 @@ func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, type
 // Responsibilities (spec §3.1 step 1–2, §4.1, §5.3, §8.42):
 //  1. Normalize nil args to {}.
 //  2. Resolve op_id: exact match, then alias scan via Op.DeprecatedOpIDs.
-//  3. Validate args against params_required / params_optional; aggregate ALL errors.
-//  4. Compute ArgsHash.
+//  3. Apply request-field defaults for args the caller omitted.
+//  4. Validate args against params_required / params_optional; aggregate ALL errors.
+//  5. Compute ArgsHash.
 //
 // Side-effect: if an alias is resolved, inv.OpID is updated to the canonical id
 // so that downstream steps (evaluatePolicy, resolveVariant, …) see the canonical id.
@@ -795,10 +911,15 @@ func (d *dispatcher) parseAndValidate(ctx context.Context, inv *Invocation) (*pa
 	// Mutate inv.OpID to the canonical id (so downstream steps see it).
 	inv.OpID = resolvedOp.OpID
 
-	// 3. Validate args.
+	// 3. Apply catalog defaults before validation, so validation, the ArgsHash,
+	// the cache key, and the audit record all see the args that actually go on
+	// the wire (gum-3gcv).
+	var warnings []string
+	warnings = append(warnings, applyFieldDefaults(resolvedOp, inv.Args)...)
+
+	// 4. Validate args.
 	missing, unknown, typeErrors := validateParams(resolvedOp, inv.Args)
 
-	var warnings []string
 	if len(unknown) > 0 {
 		if remaining, warning, applied := applyReadOnlyAllowlist(resolvedOp, &d.profilePolicy, unknown, inv.AllowWrite, inv.AllowDestructive); applied {
 			unknown = remaining
@@ -817,7 +938,7 @@ func (d *dispatcher) parseAndValidate(ctx context.Context, inv *Invocation) (*pa
 			WithDetail("type_errors", emptyStrings(typeErrors))
 	}
 
-	// 4. Compute ArgsHash. Apply spec §10.0 Rule 4 datetime normalization when
+	// 5. Compute ArgsHash. Apply spec §10.0 Rule 4 datetime normalization when
 	// enabled so the audit/replay-detection hash matches the cache key.
 	canonical := canonicalizeArgs(d.canonicalArgs(inv.Args))
 	sum := sha256.Sum256([]byte(canonical))
@@ -896,18 +1017,45 @@ func applyReadOnlyAllowlist(op *catalog.Op, policy *ProfilePolicy, unknown []str
 
 // checkArgType returns an error message if val does not match the declared type,
 // or "" if the value is acceptable.
+// declaredArgTypes is the closed vocabulary checkArgType understands. Anything
+// outside it silently skips validation, so TestCatalogDeclTypesAreKnown asserts
+// the embedded catalog never declares a type that is missing here.
+//
+// "int" is an accepted spelling of "integer": gum.code declares
+// destructive_budget as "int" in the currently embedded catalog while
+// cmd/gen-catalog/gen_meta.go now emits "integer". Both must validate, or the
+// param loses type checking on whichever side is stale.
+var declaredArgTypes = map[string]struct{}{
+	"string":   {},
+	"integer":  {},
+	"int":      {},
+	"bool":     {},
+	"string[]": {},
+}
+
 func checkArgType(name string, val any, declType string) string {
 	switch declType {
 	case "string":
 		if _, ok := val.(string); !ok {
 			return fmt.Sprintf("%s: expected string, got %T", name, val)
 		}
-	case "integer":
+	case "integer", "int":
 		switch v := val.(type) {
 		case int, int8, int16, int32, int64,
-			uint, uint8, uint16, uint32, uint64,
-			float32, float64:
+			uint, uint8, uint16, uint32, uint64:
 			// ok
+		case float32:
+			if msg := checkWholeNumber(name, float64(v)); msg != "" {
+				return msg
+			}
+		case float64:
+			// JSON numbers decode to float64, so this is the shape every MCP
+			// arg arrives in. 2 must pass and 2.5 must not: forwarding a
+			// fractional value upstream turns a locally-detectable mistake into
+			// an opaque 400, which is what local validation exists to prevent.
+			if msg := checkWholeNumber(name, v); msg != "" {
+				return msg
+			}
 		case string:
 			// These params are query/path values (the hand-authored
 			// ParamsRequired/ParamsOptional allowlist) — strings on the wire. A
@@ -944,6 +1092,19 @@ func checkArgType(name string, val any, declType string) string {
 		default:
 			return fmt.Sprintf("%s: expected string[], got %T", name, val)
 		}
+	}
+	return ""
+}
+
+// checkWholeNumber rejects the float values that cannot stand in for an
+// integer: a fractional part, NaN, or an infinity. It reports the value with
+// %v so 2.5 reads as 2.5 rather than 2.500000.
+func checkWholeNumber(name string, f float64) string {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return fmt.Sprintf("%s: expected integer, got %v", name, f)
+	}
+	if f != math.Trunc(f) {
+		return fmt.Sprintf("%s: expected integer, got %v", name, f)
 	}
 	return ""
 }
@@ -1369,7 +1530,12 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, _ *Resolv
 		// non-deterministic upstream — drop structuredContent rather than fail.
 		structured = nil
 	}
-	return &ShapedResponse{Body: out.Body, Format: out.Format, StructuredContent: structured}, nil
+	return &ShapedResponse{
+		Body:              out.Body,
+		Format:            out.Format,
+		StructuredContent: structured,
+		DroppedPaths:      out.DroppedPaths,
+	}, nil
 }
 
 // Step 9 — record audit / gain ledger and return (spec §3.1 line 237).

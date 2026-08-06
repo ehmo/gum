@@ -71,32 +71,35 @@ func TestLoadReadFileEISDIRWrapsAsConfigReadError(t *testing.T) {
 	}
 }
 
-// TestSaveWriteTmpFailWrapsAsWriteTmpError pins the
-// `WriteFile tmp err → "config: write tmp"` arm. Planting a directory
-// at the <path>.tmp location makes WriteFile fail with EISDIR; Save
-// MUST surface the "write tmp" wrap rather than fall through to
-// Chmod or Rename which would then mis-attribute the failure.
-func TestSaveWriteTmpFailWrapsAsWriteTmpError(t *testing.T) {
+// TestSaveTempFileFailureSurfacesAsSaveError pins the arm where the temp file
+// cannot be created. Save delegates to fsatomic, which creates its temp file in
+// the destination directory, so a read-only config dir is what makes that step
+// fail. The wrap must name the config path and the failing fsatomic step, or an
+// operator cannot tell a permissions problem from a full disk.
+func TestSaveTempFileFailureSurfacesAsSaveError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: mode bits do not deny writes")
+	}
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	// Pre-create both the parent AND a directory at <path>.tmp so
-	// MkdirAll succeeds but WriteFile fails.
+	// MkdirAll on an existing directory succeeds regardless of its mode, so
+	// Save gets past the mkdir and fails at temp-file creation.
 	cfgDir := filepath.Join(tmp, "gum", "p")
 	if err := os.MkdirAll(cfgDir, 0o700); err != nil {
 		t.Fatalf("mkdir cfgDir: %v", err)
 	}
-	tmpBlocker := filepath.Join(cfgDir, "config.toml.tmp")
-	if err := os.Mkdir(tmpBlocker, 0o755); err != nil {
-		t.Fatalf("plant tmp dir: %v", err)
+	if err := os.Chmod(cfgDir, 0o500); err != nil {
+		t.Fatalf("chmod cfgDir read-only: %v", err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(cfgDir, 0o700) })
 
 	c := &config.Config{Values: map[string]string{"k": "v"}}
 	err := config.Save("p", c)
 	if err == nil {
-		t.Fatal("want write-tmp err; got nil")
+		t.Fatal("Save(read-only dir) = nil; want a temp-file failure")
 	}
-	if !strings.Contains(err.Error(), "write tmp") {
-		t.Errorf("err=%v; want 'write tmp' wrap", err)
+	if !strings.Contains(err.Error(), "config: save") || !strings.Contains(err.Error(), "tempfile") {
+		t.Errorf("err=%v; want a 'config: save' wrap naming 'tempfile'", err)
 	}
 }

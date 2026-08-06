@@ -166,7 +166,7 @@ func projectRootRequiredEnvelope(e *projectRootError) map[string]any {
 // Returns:
 //   - (path, nil)        when project-local lookup should fire against path
 //   - ("", nil)          when project-local lookup is disabled (no roots /
-//                        no client support); caller falls back to user-global
+//     no client support); caller falls back to user-global
 //   - ("", projErr)      when the request must fail with PROJECT_ROOT_REQUIRED
 //
 // metaGumRoot is the request's `_meta.gumRoot` value (empty when absent).

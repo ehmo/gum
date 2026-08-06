@@ -40,7 +40,7 @@ func newCallCmd() *cobra.Command {
 		Use:   "call <op_id> --risk=<read|write|destructive> [args...]",
 		Short: "Invoke a catalog operation through the dispatch kernel",
 		Long: "gum call is the deterministic CLI entry point for catalog operations.\n" +
-			"Positional args follow the §12.0 grammar: key=value, key:=json, @file. The risk\n" +
+			"Positional args use key=value, key:=json, and @file forms. The risk\n" +
 			"flag MUST match the resolved variant's risk_class or the call returns\n" +
 			"RISK_TOOL_MISMATCH before any upstream request.",
 		Example: "  # Read with positional args\n" +
@@ -200,7 +200,7 @@ func newCallCmd() *cobra.Command {
 				v := res.StructuredContent
 				if v == nil && len(res.Body) > 0 {
 					if jerr := json.Unmarshal(res.Body, &v); jerr != nil {
-						return fmt.Errorf("gum call: cannot render %s output — upstream response is not JSON (use --output json or --raw): %w", format, jerr)
+						return fmt.Errorf("gum call: cannot render %s output: upstream response is not JSON (use --output json or --raw): %w", format, jerr)
 					}
 				}
 				return renderStructured(out, format, v)
@@ -210,6 +210,7 @@ func newCallCmd() *cobra.Command {
 				if !strings.HasSuffix(string(res.Body), "\n") {
 					_, _ = fmt.Fprintln(out)
 				}
+				printShapingNotice(cmd.ErrOrStderr(), res)
 				return nil
 			}
 			if res.StructuredContent != nil {
