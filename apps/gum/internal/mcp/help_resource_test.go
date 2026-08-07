@@ -119,12 +119,12 @@ func TestHelpResourceNotFound(t *testing.T) {
 			t.Errorf("ReadResource(%s) err = %v (%T); want *jsonrpc.Error", uri, err, err)
 			continue
 		}
-		// -32002 is the SDK's CodeResourceNotFound (matches the MCP 2025-11-25
-		// wire spec). spec §13 line 1427 says -32004, but that code collides
-		// with jsonrpc2.ErrServerClosing in the SDK; see help_resource.go for
-		// the divergence rationale.
-		if rpcErr.Code != -32002 {
-			t.Errorf("ReadResource(%s) Code = %d; want -32002", uri, rpcErr.Code)
+		// gum emits the code the SDK emits for a missing resource: -32602
+		// (Invalid Params) under go-sdk v1.7.0, per SEP-2164. Spec §13 line 1427
+		// says -32004, but that code collides with jsonrpc2.ErrServerClosing in
+		// the SDK; see help_resource.go for the divergence rationale.
+		if rpcErr.Code != jsonrpc.CodeInvalidParams {
+			t.Errorf("ReadResource(%s) Code = %d; want %d", uri, rpcErr.Code, jsonrpc.CodeInvalidParams)
 		}
 		var env struct {
 			ErrorCode   string `json:"error_code"`
@@ -148,10 +148,11 @@ func TestHelpResourceNotFound(t *testing.T) {
 	}
 
 	// Group B — URIs that do not match the gum://help/{topic} template at
-	// all. The SDK returns -32002 directly; the envelope is the SDK's
-	// default (no error_code, no suggestion). We still assert the code so a
-	// future SDK upgrade that returns 200-success-with-empty-body breaks
-	// this test loudly.
+	// all. The SDK builds the error itself; the envelope is the SDK's default
+	// (no error_code, no suggestion). Asserting the same constant as Group A
+	// is the point: gum's hand-built envelope and the SDK's own must agree on
+	// the code, and a future SDK upgrade that returns success-with-empty-body
+	// still breaks this test loudly.
 	templateMissCases := []string{
 		"gum://help/",                  // empty tail
 		"gum://help/a/b",               // multi-segment substitution
@@ -169,8 +170,8 @@ func TestHelpResourceNotFound(t *testing.T) {
 			t.Errorf("ReadResource(%s) err = %v (%T); want *jsonrpc.Error", uri, err, err)
 			continue
 		}
-		if rpcErr.Code != -32002 {
-			t.Errorf("ReadResource(%s) Code = %d; want -32002", uri, rpcErr.Code)
+		if rpcErr.Code != jsonrpc.CodeInvalidParams {
+			t.Errorf("ReadResource(%s) Code = %d; want %d", uri, rpcErr.Code, jsonrpc.CodeInvalidParams)
 		}
 	}
 }

@@ -1,17 +1,17 @@
 // Package mcp — gum-6m8 acceptance tests.
 //
-// Per spec §13 (lines 3210-3214) and docs/test-matrix.md:
+// Per spec §13 and docs/test-matrix.md:
 //
-//   - TestToolAnnotations asserts the go-sdk v1.6.0 ToolAnnotations field
-//     shapes that GUM depends on (DestructiveHint pointer-backed, ReadOnlyHint
-//     plain-bool-with-omitempty). The test fails if a future SDK upgrade
-//     changes those shapes without a spec patch.
+//   - TestToolAnnotations asserts the go-sdk v1.7.0 ToolAnnotations field
+//     shapes that GUM depends on (DestructiveHint and OpenWorldHint
+//     pointer-backed with omitempty, ReadOnlyHint and IdempotentHint plain
+//     bool without omitempty). The test fails if a future SDK upgrade changes
+//     those shapes without a spec patch.
 //   - TestToolAnnotationsWireForm serializes every Tier A tool's annotation
-//     struct to JSON and verifies the wire-form contract: readOnlyHint=true is
-//     present, readOnlyHint=false is OMITTED (omitempty under v1.6.0),
-//     destructiveHint is present with explicit true|false on every Tier A
-//     tool, and idempotentHint / openWorldHint are absent or present-with-bool
-//     — never null.
+//     struct to JSON and verifies the wire-form contract: readOnlyHint carries
+//     the tool's boolean value, destructiveHint is present with explicit
+//     true|false on every Tier A tool, and idempotentHint / openWorldHint are
+//     absent or present-with-bool — never null.
 package mcp
 
 import (
@@ -23,12 +23,12 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TestToolAnnotations asserts that the go-sdk v1.6.0 sdkmcp.ToolAnnotations
+// TestToolAnnotations asserts that the go-sdk v1.7.0 sdkmcp.ToolAnnotations
 // struct still has the field shapes GUM's annotation logic depends on. Spec
-// §13 line 3210 pins DestructiveHint as pointer-backed in v1.6.0 (so the host
-// can distinguish "destructive=false declared" from "destructive unknown"),
-// and ReadOnlyHint as a plain bool with `omitempty` (so the false default is
-// omitted from the wire form).
+// §13 pins DestructiveHint as pointer-backed (so the host can distinguish
+// "destructive=false declared" from "destructive unknown"), and ReadOnlyHint
+// as a plain bool without `omitempty` (so the false case reaches the wire as
+// an explicit false rather than an absent key).
 //
 // If a future SDK upgrade flips DestructiveHint to a plain bool, the GUM
 // boolPtr(false) calls would no longer compile, but this test surfaces the
@@ -52,47 +52,47 @@ func TestToolAnnotations(t *testing.T) {
 		t.Fatal("sdkmcp.ToolAnnotations has no ReadOnlyHint field")
 	}
 	if readField.Type.Kind() != reflect.Bool {
-		t.Errorf("ReadOnlyHint type = %s; want plain bool (spec §13 line 3210)", readField.Type)
+		t.Errorf("ReadOnlyHint type = %s; want plain bool (spec §13)", readField.Type)
 	}
-	if got, want := readField.Tag.Get("json"), "readOnlyHint,omitempty"; got != want {
-		t.Errorf("ReadOnlyHint json tag = %q; want %q (false-valued readOnlyHint must omit under v1.6.0)", got, want)
+	if got, want := readField.Tag.Get("json"), "readOnlyHint"; got != want {
+		t.Errorf("ReadOnlyHint json tag = %q; want %q (v1.7.0 dropped omitempty so false reaches the wire)", got, want)
 	}
 
-	// IdempotentHint and OpenWorldHint must NOT serialize null. Either field
-	// shape (plain bool + omitempty, or *bool + omitempty) satisfies this; the
+	// IdempotentHint is a plain bool without omitempty in v1.7.0, so it always
+	// serializes an explicit boolean. OpenWorldHint stays pointer-backed with
+	// omitempty, so it is absent when unset. Neither may serialize null; the
 	// wire-form test below catches actual null emissions.
-	for _, name := range []string{"IdempotentHint", "OpenWorldHint"} {
-		f, ok := annType.FieldByName(name)
-		if !ok {
-			t.Errorf("sdkmcp.ToolAnnotations has no %s field", name)
-			continue
-		}
-		tag := f.Tag.Get("json")
-		// The exact form may evolve; require at least omitempty so absence is the wire default.
-		if want := ",omitempty"; len(tag) == 0 || !containsSuffix(tag, want) {
-			t.Errorf("%s json tag = %q; want suffix %q (so the field is omitted, never null, when unset)", name, tag, want)
-		}
+	idemField, ok := annType.FieldByName("IdempotentHint")
+	if !ok {
+		t.Fatal("sdkmcp.ToolAnnotations has no IdempotentHint field")
+	}
+	if idemField.Type.Kind() != reflect.Bool {
+		t.Errorf("IdempotentHint type = %s; want plain bool", idemField.Type)
+	}
+	if got, want := idemField.Tag.Get("json"), "idempotentHint"; got != want {
+		t.Errorf("IdempotentHint json tag = %q; want %q (v1.7.0 dropped omitempty)", got, want)
+	}
+
+	openField, ok := annType.FieldByName("OpenWorldHint")
+	if !ok {
+		t.Fatal("sdkmcp.ToolAnnotations has no OpenWorldHint field")
+	}
+	if openField.Type.Kind() != reflect.Pointer || openField.Type.Elem().Kind() != reflect.Bool {
+		t.Errorf("OpenWorldHint type = %s; want *bool", openField.Type)
+	}
+	if got, want := openField.Tag.Get("json"), "openWorldHint,omitempty"; got != want {
+		t.Errorf("OpenWorldHint json tag = %q; want %q (absent, never null, when unset)", got, want)
 	}
 }
 
-// containsSuffix reports whether s ends with suffix. Local helper to keep the
-// reflection test self-contained.
-func containsSuffix(s, suffix string) bool {
-	if len(suffix) > len(s) {
-		return false
-	}
-	return s[len(s)-len(suffix):] == suffix
-}
-
-// TestToolAnnotationsWireForm asserts the wire-form contract from spec §13
-// line 3212 for every Tier A tool annotation (9 meta + 18 convenience = 27):
+// TestToolAnnotationsWireForm asserts the spec §13 wire-form contract for
+// every Tier A tool annotation (9 meta + 18 convenience = 27):
 //
-//	(a) readOnlyHint=true MUST be present with the value true.
-//	(b) readOnlyHint=false MUST be absent from the wire JSON (omitempty under
-//	    go-sdk v1.6.0); hosts interpret absence as "not read-only".
-//	(c) destructiveHint MUST be present with explicit true or false for every
+//	(a) readOnlyHint MUST be present and MUST carry the tool's own boolean
+//	    value; go-sdk v1.7.0 dropped the omitempty that used to hide false.
+//	(b) destructiveHint MUST be present with explicit true or false for every
 //	    Tier A tool (no absent, no null).
-//	(d) idempotentHint and openWorldHint are either absent or present with a
+//	(c) idempotentHint and openWorldHint are either absent or present with a
 //	    boolean value — never null.
 //
 // The test serializes the annotation struct that GUM actually registers
@@ -125,21 +125,23 @@ func TestToolAnnotationsWireForm(t *testing.T) {
 			continue
 		}
 
-		// (a)+(b) readOnlyHint wire shape.
+		// (a) readOnlyHint wire shape: present, carrying the tool's own value.
 		readRaw, readPresent := raw["readOnlyHint"]
+		want := "false"
+		if ann.ReadOnlyHint {
+			want = "true"
+		}
 		switch {
-		case ann.ReadOnlyHint && !readPresent:
-			t.Errorf("%s: readOnlyHint absent on wire; want true (spec §13 line 3212 (a))", name)
-		case ann.ReadOnlyHint && string(readRaw) != "true":
-			t.Errorf("%s: readOnlyHint=%s on wire; want true", name, string(readRaw))
-		case !ann.ReadOnlyHint && readPresent:
-			t.Errorf("%s: readOnlyHint present (=%s) on wire; want absent under go-sdk v1.6.0 omitempty (spec §13 line 3212 (b))", name, string(readRaw))
+		case !readPresent:
+			t.Errorf("%s: readOnlyHint absent on wire; want %s (spec §13 (a); v1.7.0 has no omitempty)", name, want)
+		case string(readRaw) != want:
+			t.Errorf("%s: readOnlyHint=%s on wire; want %s", name, string(readRaw), want)
 		}
 
-		// (c) destructiveHint wire shape: MUST be present with true|false.
+		// (b) destructiveHint wire shape: MUST be present with true|false.
 		destRaw, destPresent := raw["destructiveHint"]
 		if !destPresent {
-			t.Errorf("%s: destructiveHint absent on wire; spec §13 line 3212 (c) requires explicit true|false on every Tier A tool", name)
+			t.Errorf("%s: destructiveHint absent on wire; spec §13 (c) requires explicit true|false on every Tier A tool", name)
 		} else {
 			s := string(destRaw)
 			if s != "true" && s != "false" {
@@ -147,7 +149,7 @@ func TestToolAnnotationsWireForm(t *testing.T) {
 			}
 		}
 
-		// (d) idempotentHint / openWorldHint MUST NOT be null on wire.
+		// (c) idempotentHint / openWorldHint MUST NOT be null on wire.
 		for _, key := range []string{"idempotentHint", "openWorldHint"} {
 			v, present := raw[key]
 			if !present {
@@ -155,7 +157,7 @@ func TestToolAnnotationsWireForm(t *testing.T) {
 			}
 			s := string(v)
 			if s != "true" && s != "false" {
-				t.Errorf("%s: %s = %s on wire; want absent or literal true/false (never null) per spec §13 line 3212 (d)", name, key, s)
+				t.Errorf("%s: %s = %s on wire; want absent or literal true/false (never null) per spec §13 (d)", name, key, s)
 			}
 		}
 	}

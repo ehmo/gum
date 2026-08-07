@@ -6,7 +6,14 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/deepnoodle-ai/risor/v2 v2.1.0
 	github.com/google/jsonschema-go v0.4.3
-	github.com/modelcontextprotocol/go-sdk v1.6.0
+	// v1.7.0 adopts MCP revision 2026-07-28. Three wire changes land with it
+	// and gum tracks all three rather than pinning the old shape via
+	// MCPGODEBUG (those hatches are removed in 1.9.0):
+	// ToolAnnotations.ReadOnlyHint and IdempotentHint always serialize,
+	// RESOURCE_NOT_FOUND moves from -32002 to -32602 (SEP-2164), and stdio
+	// MethodNotFound responses carry -32601. Server-initiated roots/list is
+	// gone under SEP-2322; see internal/mcp/roots.go.
+	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

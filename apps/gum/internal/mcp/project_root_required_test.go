@@ -3,6 +3,14 @@
 // session without `_meta.gumRoot` MUST surface the PROJECT_ROOT_REQUIRED
 // envelope inside the CallToolResult — not just via the unit-test helper.
 
+// The roots feature is deprecated as of MCP revision 2026-07-28 (SEP-2577);
+// gum keeps it while spec §9.2 binds project-local lookup to it. The SDK's
+// SA1019 roots reports are suppressed twice below because the two linters
+// read different directives: CI's bare staticcheck reads //lint:file-ignore,
+// golangci-lint reads the per-line //nolint. See internal/mcp/roots.go.
+
+//lint:file-ignore SA1019 SEP-2577 deprecates roots; spec §9.2 still binds project-local profile lookup to it (exit tracked in gum-9uff).
+
 package mcp_test
 
 import (
@@ -47,13 +55,13 @@ func TestMultiRootSessionWithoutGumRootReturnsProjectRootRequired(t *testing.T) 
 		&sdkmcp.Implementation{Name: "gum-0fx1-multi", Version: "0.0.1"},
 		&sdkmcp.ClientOptions{
 			Capabilities: &sdkmcp.ClientCapabilities{
-				RootsV2: &sdkmcp.RootCapabilities{},
+				RootsV2: &sdkmcp.RootCapabilities{}, //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
 			},
 		},
 	)
-	client.AddRoots(
-		&sdkmcp.Root{URI: "file:///tmp/0fx1-a", Name: "a"},
-		&sdkmcp.Root{URI: "file:///tmp/0fx1-b", Name: "b"},
+	client.AddRoots( //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
+		&sdkmcp.Root{URI: "file:///tmp/0fx1-a", Name: "a"}, //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
+		&sdkmcp.Root{URI: "file:///tmp/0fx1-b", Name: "b"}, //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
 	)
 
 	cs, err := client.Connect(ctx, clientTransport, nil)
@@ -117,11 +125,11 @@ func TestSingleRootSessionDispatchesNormally(t *testing.T) {
 		&sdkmcp.Implementation{Name: "gum-0fx1-single", Version: "0.0.1"},
 		&sdkmcp.ClientOptions{
 			Capabilities: &sdkmcp.ClientCapabilities{
-				RootsV2: &sdkmcp.RootCapabilities{},
+				RootsV2: &sdkmcp.RootCapabilities{}, //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
 			},
 		},
 	)
-	client.AddRoots(&sdkmcp.Root{URI: "file:///tmp/0fx1-only", Name: "only"})
+	client.AddRoots(&sdkmcp.Root{URI: "file:///tmp/0fx1-only", Name: "only"}) //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
 
 	cs, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {

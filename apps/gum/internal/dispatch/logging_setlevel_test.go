@@ -1,4 +1,12 @@
 // Package dispatch_test — logging/setLevel tolerance test (spec.md §13.1).
+//
+// SEP-2577 deprecates the logging feature at MCP revision 2026-07-28; spec
+// §13.1 still requires gum to answer logging/setLevel, so the test keeps
+// calling it. CI's bare staticcheck reads //lint:file-ignore, golangci-lint
+// reads the per-line //nolint, so both appear.
+
+//lint:file-ignore SA1019 SEP-2577 deprecates logging; spec §13.1 still requires gum to answer logging/setLevel (exit tracked in gum-9uff).
+
 package dispatch_test
 
 import (
@@ -54,7 +62,10 @@ func TestLoggingSetLevelTolerant(t *testing.T) {
 	}
 
 	// The contract: send logging/setLevel, expect success (no method-not-found).
-	if err := cs.SetLoggingLevel(ctx, &sdkmcp.SetLoggingLevelParams{Level: "info"}); err != nil {
+	// SEP-2577 deprecates logging at revision 2026-07-28; spec §13.2 still
+	// requires gum to answer an unsolicited setLevel with {}, so the test
+	// keeps calling the deprecated client helper.
+	if err := cs.SetLoggingLevel(ctx, &sdkmcp.SetLoggingLevelParams{Level: "info"}); err != nil { //nolint:staticcheck // SEP-2577; §13.2 tolerant setLevel
 		t.Fatalf("logging/setLevel returned error (expected tolerant {} success per spec §13.1): %v", err)
 	}
 

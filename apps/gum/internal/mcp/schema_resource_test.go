@@ -234,8 +234,8 @@ func TestSchemaResourceGrammarRejection(t *testing.T) {
 			if !errors.As(err, &rpcErr) {
 				t.Fatalf("error type=%T; want *jsonrpc.Error", err)
 			}
-			if rpcErr.Code != -32002 {
-				t.Errorf("JSON-RPC error.code=%d; want -32002", rpcErr.Code)
+			if rpcErr.Code != jsonrpc.CodeInvalidParams {
+				t.Errorf("JSON-RPC error.code=%d; want %d", rpcErr.Code, jsonrpc.CodeInvalidParams)
 			}
 			var envelope map[string]any
 			_ = json.Unmarshal(rpcErr.Data, &envelope)

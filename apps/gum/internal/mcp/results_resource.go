@@ -25,8 +25,9 @@ const resultsURIPrefix = "gum://results/"
 const resultsScanMaxDaysDefault = 2
 
 // jsonRPCResultArtifactExpired is the spec §13 normative JSON-RPC error
-// code for `RESULT_ARTIFACT_EXPIRED`. Distinct from the SDK's -32002 for
-// generic resource-not-found so that clients can branch on staleness.
+// code for `RESULT_ARTIFACT_EXPIRED`. Distinct from jsonRPCResourceNotFnd,
+// the code for generic resource-not-found, so that clients can branch on
+// staleness.
 const jsonRPCResultArtifactExpired = -32010
 
 // registerResultsResource attaches the gum://results/{hash} resource

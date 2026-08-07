@@ -11,17 +11,27 @@ import (
 // back to exactly n bytes — so callers can rely on the inverse for
 // fingerprinting if needed.
 func TestRandomURLTokenShapes(t *testing.T) {
+	// redraws is how many further tokens the wiring check may draw before
+	// it gives up. n=1 is a single random byte, so one extra draw repeats
+	// the first 1 time in 256 and the earlier single-pair form failed that
+	// often (gum-fucm). Accepting any differing draw puts the false-failure
+	// rate at 256^-redraws.
+	const redraws = 16
 	for _, n := range []int{1, 16, 32, 48} {
 		a, err := randomURLToken(n)
 		if err != nil {
 			t.Fatalf("n=%d: %v", n, err)
 		}
-		b, err := randomURLToken(n)
-		if err != nil {
-			t.Fatalf("n=%d second call: %v", n, err)
+		differs := false
+		for i := 0; i < redraws && !differs; i++ {
+			b, err := randomURLToken(n)
+			if err != nil {
+				t.Fatalf("n=%d draw %d: %v", n, i+2, err)
+			}
+			differs = b != a
 		}
-		if a == b {
-			t.Errorf("n=%d: two calls produced identical tokens (rand wiring?)", n)
+		if !differs {
+			t.Errorf("n=%d: %d draws all produced the same token (rand wiring?)", n, redraws+1)
 		}
 		raw, err := base64.RawURLEncoding.DecodeString(a)
 		if err != nil {

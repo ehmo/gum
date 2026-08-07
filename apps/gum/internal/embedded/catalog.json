@@ -1,6 +1,6 @@
 {
   "catalog_schema_version": 1,
-  "generated_at": "2026-06-01T06:12:32Z",
+  "generated_at": "2026-08-06T23:35:36Z",
   "generator_version": "gum/cmd/gen-catalog@phase3",
   "ops": [
     {
@@ -465,7 +465,8 @@
             "freeBusyReader",
             "owner",
             "reader",
-            "writer"
+            "writer",
+            "writerWithoutPrivateAccess"
           ],
           "description": "The minimum access role for the user in the returned entries. Optional. The default is no restriction."
         },
@@ -486,6 +487,12 @@
           "location": "query",
           "type": "boolean",
           "description": "Whether to show hidden entries. Optional. The default is False."
+        },
+        {
+          "name": "showOwnOrganizationOnly",
+          "location": "query",
+          "type": "boolean",
+          "description": "Whether to show only entries for calendars from the organization. This parameter is only applicable to Google Workspace…"
         },
         {
           "name": "syncToken",
@@ -3806,7 +3813,7 @@
           "name": "pageSize",
           "location": "query",
           "type": "integer",
-          "description": "Maximum number of shared drives to return per page."
+          "description": "The maximum number of shared drives to return. The service may return fewer than this value. If unspecified, at most 10…"
         },
         {
           "name": "pageToken",
@@ -5343,6 +5350,12 @@
           "location": "query",
           "type": "integer",
           "description": "Version number of conference data supported by the API client. Version 0 assumes no conference data support and ignores…"
+        },
+        {
+          "name": "eventLabelVersion",
+          "location": "query",
+          "type": "integer",
+          "description": "Version number of the event label feature supported by the API client. Version 0 assumes no event label support and pro…"
         },
         {
           "name": "maxAttendees",
@@ -9855,6 +9868,17 @@
           "description": "Optional. A query filter. You can filter messages by date (`create_time`) and thread (`thread.name`). To filter message…"
         },
         {
+          "name": "markupSyntax",
+          "location": "query",
+          "type": "string",
+          "enum": [
+            "MARKUP_SYNTAX_UNSPECIFIED",
+            "MARKUP_SYNTAX_CHAT",
+            "MARKUP_SYNTAX_MARKDOWN"
+          ],
+          "description": "Optional. Specifies the desired output syntax for the Chat message `formatted_text` field."
+        },
+        {
           "name": "orderBy",
           "location": "query",
           "type": "string",
@@ -9922,6 +9946,17 @@
           "type": "string",
           "required": true,
           "description": "Required. Resource name of the message. Format: `spaces/{space}/messages/{message}` If you've set a custom ID for your …"
+        },
+        {
+          "name": "markupSyntax",
+          "location": "query",
+          "type": "string",
+          "enum": [
+            "MARKUP_SYNTAX_UNSPECIFIED",
+            "MARKUP_SYNTAX_CHAT",
+            "MARKUP_SYNTAX_MARKDOWN"
+          ],
+          "description": "Optional. Specifies the desired output syntax for the Chat message `formatted_text` field."
         }
       ]
     },
@@ -12322,7 +12357,8 @@
             "takeout",
             "graduation",
             "voice",
-            "chrome_sync"
+            "chrome_sync",
+            "workspace_studio"
           ],
           "required": true,
           "description": "Application name for which the events are to be retrieved."
@@ -12341,6 +12377,12 @@
           "description": "The Internet Protocol (IP) Address of host where the event was performed. This is an additional way to filter a report'…"
         },
         {
+          "name": "agentInfoFilter",
+          "location": "query",
+          "type": "string",
+          "description": "Optional. Filters on agent info fields in the activity. This filter gets applied in conjunction(AND) with other filters…"
+        },
+        {
           "name": "applicationInfoFilter",
           "location": "query",
           "type": "string",
@@ -12351,6 +12393,12 @@
           "location": "query",
           "type": "string",
           "description": "The unique ID of the customer to retrieve data for."
+        },
+        {
+          "name": "deviceFilter",
+          "location": "query",
+          "type": "string",
+          "description": "Optional. Used to filter on the fields present in [`UserDeviceInfo`](#userdeviceinfo) message like `deviceId`, `deviceT…"
         },
         {
           "name": "endTime",
@@ -13335,231 +13383,6 @@
       ]
     },
     {
-      "op_id": "scholar.search",
-      "op_schema_version": 1,
-      "title": "Search Google Scholar",
-      "summary": "Search Google Scholar for academic papers, citations, and author profiles. Backed by the bundled google-scholar Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "scholar",
-      "default_variant_id": "scholar.v1.plugin.search",
-      "variants": [
-        {
-          "variant_id": "scholar.v1.plugin.search",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "scholar.search",
-            "plugin_name": "google-scholar",
-            "tool_name": "scholar_search"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "query",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Search terms for Google Scholar."
-        }
-      ]
-    },
-    {
-      "op_id": "patents.search",
-      "op_schema_version": 1,
-      "title": "Search Google Patents",
-      "summary": "Search Google Patents for patent filings, prior art, and assignee profiles. Backed by the bundled google-patents Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "patents",
-      "default_variant_id": "patents.v1.plugin.search",
-      "variants": [
-        {
-          "variant_id": "patents.v1.plugin.search",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "patents.search",
-            "plugin_name": "google-patents",
-            "tool_name": "patents_search"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "query",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Search terms for Google Patents."
-        }
-      ]
-    },
-    {
-      "op_id": "youtube.transcripts.get",
-      "op_schema_version": 1,
-      "title": "Get YouTube transcript",
-      "summary": "Fetch the auto-generated or human-authored transcript for a YouTube video by video_id. Backed by the bundled youtube-transcripts Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "youtube",
-      "default_variant_id": "youtube.transcripts.v1.plugin.get",
-      "variants": [
-        {
-          "variant_id": "youtube.transcripts.v1.plugin.get",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "youtube.transcripts.get",
-            "plugin_name": "youtube-transcripts",
-            "tool_name": "youtube_transcripts_get"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "video_id",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "YouTube video ID (or full watch URL)."
-        },
-        {
-          "name": "language",
-          "location": "arg",
-          "type": "string",
-          "description": "Preferred transcript language code, e.g. en."
-        }
-      ]
-    },
-    {
-      "op_id": "trends.daily",
-      "op_schema_version": 1,
-      "title": "Google Trends daily report",
-      "summary": "Fetch Google Trends daily and realtime trending searches for a region. Backed by the bundled google-trends Shape 1 plugin.",
-      "service_family": "plugin",
-      "service": "trends",
-      "default_variant_id": "trends.v1.plugin.daily",
-      "variants": [
-        {
-          "variant_id": "trends.v1.plugin.daily",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "alpha",
-          "interface_kind": "plugin-mcp",
-          "backend_kind": "mcp-plugin",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "plugin_managed",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "plugin.mcp",
-            "operation_key": "trends.daily",
-            "plugin_name": "google-trends",
-            "tool_name": "trends_daily"
-          }
-        }
-      ],
-      "request_fields": [
-        {
-          "name": "geo",
-          "location": "arg",
-          "type": "string",
-          "required": true,
-          "description": "Region code for trending searches, e.g. US."
-        }
-      ]
-    },
-    {
-      "op_id": "gum.code",
-      "op_schema_version": 1,
-      "title": "Execute code in sandbox",
-      "summary": "Executes a Risor snippet that may call catalog ops via gum_call.",
-      "params_required": [
-        [
-          "language",
-          "string"
-        ],
-        [
-          "source",
-          "string"
-        ]
-      ],
-      "params_optional": [
-        [
-          "allow_write",
-          "bool"
-        ],
-        [
-          "allow_destructive",
-          "bool"
-        ],
-        [
-          "destructive_budget",
-          "int"
-        ],
-        [
-          "destructive_scope",
-          "string"
-        ],
-        [
-          "confirmed",
-          "bool"
-        ],
-        [
-          "confirmation_token",
-          "string"
-        ]
-      ],
-      "service_family": "meta",
-      "service": "meta",
-      "default_variant_id": "gum.code.v1.risor",
-      "variants": [
-        {
-          "variant_id": "gum.code.v1.risor",
-          "variant_schema_version": 1,
-          "version": "v1",
-          "stability": "stable",
-          "interface_kind": "sdk-native",
-          "backend_kind": "typed-rest-sdk",
-          "preferred": true,
-          "risk_class": "read",
-          "auth_strategy": "none",
-          "capabilities": [
-            "code_execution"
-          ],
-          "default_format": "json",
-          "binding": {
-            "binding_schema_version": 1,
-            "adapter_key": "code.risor",
-            "operation_key": "gum.code.risor.exec"
-          }
-        }
-      ]
-    },
-    {
       "op_id": "googleads.keywordPlanIdeas.generateKeywordIdeas",
       "op_schema_version": 1,
       "title": "Generate keyword ideas",
@@ -13854,6 +13677,231 @@
           "type": "string",
           "format": "date",
           "description": "Forecast window end (YYYY-MM-DD). Defaults to 30 days out."
+        }
+      ]
+    },
+    {
+      "op_id": "scholar.search",
+      "op_schema_version": 1,
+      "title": "Search Google Scholar",
+      "summary": "Search Google Scholar for academic papers, citations, and author profiles. Backed by the bundled google-scholar Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "scholar",
+      "default_variant_id": "scholar.v1.plugin.search",
+      "variants": [
+        {
+          "variant_id": "scholar.v1.plugin.search",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "scholar.search",
+            "plugin_name": "google-scholar",
+            "tool_name": "scholar_search"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "query",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Search terms for Google Scholar."
+        }
+      ]
+    },
+    {
+      "op_id": "patents.search",
+      "op_schema_version": 1,
+      "title": "Search Google Patents",
+      "summary": "Search Google Patents for patent filings, prior art, and assignee profiles. Backed by the bundled google-patents Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "patents",
+      "default_variant_id": "patents.v1.plugin.search",
+      "variants": [
+        {
+          "variant_id": "patents.v1.plugin.search",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "patents.search",
+            "plugin_name": "google-patents",
+            "tool_name": "patents_search"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "query",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Search terms for Google Patents."
+        }
+      ]
+    },
+    {
+      "op_id": "youtube.transcripts.get",
+      "op_schema_version": 1,
+      "title": "Get YouTube transcript",
+      "summary": "Fetch the auto-generated or human-authored transcript for a YouTube video by video_id. Backed by the bundled youtube-transcripts Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "youtube",
+      "default_variant_id": "youtube.transcripts.v1.plugin.get",
+      "variants": [
+        {
+          "variant_id": "youtube.transcripts.v1.plugin.get",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "youtube.transcripts.get",
+            "plugin_name": "youtube-transcripts",
+            "tool_name": "youtube_transcripts_get"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "video_id",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "YouTube video ID (or full watch URL)."
+        },
+        {
+          "name": "language",
+          "location": "arg",
+          "type": "string",
+          "description": "Preferred transcript language code, e.g. en."
+        }
+      ]
+    },
+    {
+      "op_id": "trends.daily",
+      "op_schema_version": 1,
+      "title": "Google Trends daily report",
+      "summary": "Fetch Google Trends daily and realtime trending searches for a region. Backed by the bundled google-trends Shape 1 plugin.",
+      "service_family": "plugin",
+      "service": "trends",
+      "default_variant_id": "trends.v1.plugin.daily",
+      "variants": [
+        {
+          "variant_id": "trends.v1.plugin.daily",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "plugin-mcp",
+          "backend_kind": "mcp-plugin",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "plugin_managed",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "plugin.mcp",
+            "operation_key": "trends.daily",
+            "plugin_name": "google-trends",
+            "tool_name": "trends_daily"
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "geo",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "Region code for trending searches, e.g. US."
+        }
+      ]
+    },
+    {
+      "op_id": "gum.code",
+      "op_schema_version": 1,
+      "title": "Execute code in sandbox",
+      "summary": "Executes a Risor snippet that may call catalog ops via gum_call.",
+      "params_required": [
+        [
+          "language",
+          "string"
+        ],
+        [
+          "source",
+          "string"
+        ]
+      ],
+      "params_optional": [
+        [
+          "allow_write",
+          "bool"
+        ],
+        [
+          "allow_destructive",
+          "bool"
+        ],
+        [
+          "destructive_budget",
+          "integer"
+        ],
+        [
+          "destructive_scope",
+          "string"
+        ],
+        [
+          "confirmed",
+          "bool"
+        ],
+        [
+          "confirmation_token",
+          "string"
+        ]
+      ],
+      "service_family": "meta",
+      "service": "meta",
+      "default_variant_id": "gum.code.v1.risor",
+      "variants": [
+        {
+          "variant_id": "gum.code.v1.risor",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "sdk-native",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "none",
+          "capabilities": [
+            "code_execution"
+          ],
+          "default_format": "json",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "code.risor",
+            "operation_key": "gum.code.risor.exec"
+          }
         }
       ]
     }

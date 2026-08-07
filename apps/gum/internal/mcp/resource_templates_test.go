@@ -158,17 +158,19 @@ func TestSchemaResourceLookup(t *testing.T) {
 }
 
 // assertResourceNotFound parses the JSON-RPC error returned by ReadResource
-// and asserts both the JSON-RPC error code (-32002, matching the SDK's
-// CodeResourceNotFound) and the envelope.error_code field. Returns the parsed
-// envelope so callers can probe additional fields.
+// and asserts both the JSON-RPC error code and the envelope.error_code field.
+// gum-produced not-found errors must carry the same code the SDK emits for its
+// own (jsonrpc.CodeInvalidParams, -32602 under go-sdk v1.7.0), so a client
+// needs one branch, not two. Returns the parsed envelope so callers can probe
+// additional fields.
 func assertResourceNotFound(t *testing.T, err error, wantURI string) map[string]any {
 	t.Helper()
 	var rpcErr *jsonrpc.Error
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("error type=%T; want *jsonrpc.Error, value=%v", err, err)
 	}
-	if rpcErr.Code != -32002 {
-		t.Errorf("JSON-RPC error.code=%d; want -32002 (SDK collision with -32004; see known-divergences.md)", rpcErr.Code)
+	if rpcErr.Code != jsonrpc.CodeInvalidParams {
+		t.Errorf("JSON-RPC error.code=%d; want %d (SDK collision with -32004; see help_resource.go)", rpcErr.Code, jsonrpc.CodeInvalidParams)
 	}
 	var envelope map[string]any
 	if err := json.Unmarshal(rpcErr.Data, &envelope); err != nil {

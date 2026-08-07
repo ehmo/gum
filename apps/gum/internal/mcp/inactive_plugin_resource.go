@@ -18,8 +18,8 @@
 //     the snapshot; falling through avoids masking a catalog-generation bug)
 //
 // VARIANT_QUARANTINED uses JSON-RPC code -32000 (spec §13 line 1427 "other
-// stable runtime resource errors"); RESOURCE_NOT_FOUND uses -32002 due to
-// the SDK collision documented in help_resource.go.
+// stable runtime resource errors"); RESOURCE_NOT_FOUND uses the SDK's
+// CodeResourceNotFound due to the collision documented in help_resource.go.
 
 package mcp
 

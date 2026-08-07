@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-08-06
+
+### Changed
+
+- The MCP server speaks protocol revision 2026-07-28, built on
+  `modelcontextprotocol/go-sdk` v1.7.0. Clients on the older revision are
+  served by the same code path.
+- `resources/read` on an unknown URI answers with JSON-RPC `-32602` instead of
+  `-32002`, and an unknown method over stdio answers `-32601`.
+- `tools/list` always carries `readOnlyHint` and `idempotentHint`, including
+  when the value is `false`. `destructiveHint` and `openWorldHint` keep their
+  present-or-absent behaviour.
+- Project-local profile lookup obtains the client's roots through an input
+  request carried on the tool result, because revision 2026-07-28 removed the
+  server-initiated `roots/list` call it used before. That costs one extra round
+  trip on the first tool call of a session. The resolution rules, the
+  `_meta.gumRoot` selection in multi-root sessions, and the
+  `PROJECT_ROOT_REQUIRED` envelope are unchanged.
+- The capability catalog was regenerated from the upstream discovery documents.
+  222 operations before and after: none added, none removed, seven changed. Six
+  gained an optional upstream request field (`groupIdFilter`,
+  `includeSensitiveData`, `showOwnOrganizationOnly`, `eventLabelVersion`, and
+  `markupSyntax` on two chat operations), along with the enum values
+  `workspace_studio` and `writerWithoutPrivateAccess`. One Drive operation
+  description was reworded. No risk class, scope, auth strategy, or required
+  argument changed.
+
 ## [1.0.2] - 2026-08-06
 
 ### Changed
@@ -206,6 +233,7 @@ Workspace and Flights slice before the v1 catalog expansion.
 - Release workflow (`.github/workflows/release.yml`) with SLSA L1 provenance
   via `slsa-github-generator` v2.
 
+[1.0.3]: https://github.com/ehmo/gum/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/ehmo/gum/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/ehmo/gum/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ehmo/gum/releases/tag/v1.0.0

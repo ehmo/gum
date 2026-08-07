@@ -248,9 +248,9 @@ func findVariant(c *catalog.Catalog, id string) (*catalog.Op, *catalog.Variant) 
 }
 
 // resourceTemplateNotFound builds the canonical RESOURCE_NOT_FOUND envelope.
-// JSON-RPC code -32002 (matching the SDK's CodeResourceNotFound) is used in
-// place of the spec-defined -32004; see docs/known-divergences.md for the
-// SDK-collision rationale.
+// The JSON-RPC code is the SDK's own not-found code (-32602, Invalid Params,
+// under go-sdk v1.7.0) in place of the spec-defined -32004; see
+// jsonRPCResourceNotFnd in help_resource.go for the SDK-collision rationale.
 func resourceTemplateNotFound(uri, detail string) *jsonrpc.Error {
 	envelope := map[string]any{
 		"error_code":   "RESOURCE_NOT_FOUND",

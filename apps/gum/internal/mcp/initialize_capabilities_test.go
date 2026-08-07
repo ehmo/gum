@@ -1,3 +1,12 @@
+// Initialize-handshake capability assertions. One of them reads the logging
+// capability field to prove gum leaves it nil, which spec §13.1 requires.
+// SEP-2577 deprecates the field itself at MCP revision 2026-07-28, so reading
+// it reports SA1019 even though the assertion is that gum never advertises
+// logging. CI's bare staticcheck reads //lint:file-ignore, golangci-lint
+// reads the per-line //nolint, so both appear.
+
+//lint:file-ignore SA1019 SEP-2577 deprecates the logging capability field; spec §13.1 requires gum to leave it nil and this test proves it (exit tracked in gum-9uff).
+
 package mcp_test
 
 import (
@@ -99,7 +108,7 @@ func TestMCPInitializeCapabilities(t *testing.T) {
 	}
 
 	// Logging: NEVER advertised in v0.1.0 (spec §13.2 line 3290).
-	if caps.Logging != nil {
+	if caps.Logging != nil { //nolint:staticcheck // SEP-2577 deprecates logging; the assertion is that gum never advertises it
 		t.Errorf("Logging capability advertised; want nil (spec §13.2 line 3290 — deferred to v0.3.0)")
 	}
 

@@ -17,20 +17,23 @@ const (
 	helpTopicsURI      = "gum://help/topics"
 	helpTopicTemplate  = "gum://help/{topic}"
 	helpTopicURIPrefix = "gum://help/"
-
-	// jsonRPCResourceNotFnd is the JSON-RPC error.code emitted on
-	// RESOURCE_NOT_FOUND. Spec §13 line 1427 specifies -32004, but the
-	// modelcontextprotocol/go-sdk reserves -32004 for jsonrpc2.ErrServerClosing
-	// and translates any -32004 handler reply into a connection-close on the
-	// client. We therefore use -32002 (the SDK's CodeResourceNotFound, which
-	// also matches the upstream MCP 2025-11-25 wire spec) to keep the
-	// application error inside the JSON-RPC error frame. The application-level
-	// envelope still carries "error_code": "RESOURCE_NOT_FOUND" so spec §13
-	// line 1427's "assert both the JSON-RPC error code and the
-	// error.data.error_code" requirement is satisfied at the envelope level.
-	// This divergence is tracked in docs/known-divergences.md.
-	jsonRPCResourceNotFnd = -32002
 )
+
+// jsonRPCResourceNotFnd is the JSON-RPC error.code gum emits on
+// RESOURCE_NOT_FOUND. It is the code the SDK itself emits for a missing
+// resource, so gum-produced and SDK-produced not-found errors carry one code
+// on the wire and a client needs one branch. SEP-2164 folded resource
+// not-found into Invalid Params (-32602) at go-sdk v1.7.0; v1.6.x used -32002.
+// The SDK's own mcp.CodeResourceNotFound alias is deprecated in favour of
+// jsonrpc.CodeInvalidParams, which is what this tracks.
+//
+// Spec §13 line 1427 specifies -32004, which gum cannot emit: the SDK reserves
+// -32004 for jsonrpc2.ErrServerClosing and turns any -32004 handler reply into
+// a connection close on the client. The application-level envelope still
+// carries "error_code": "RESOURCE_NOT_FOUND", so §13's "assert both the
+// JSON-RPC error code and the error.data.error_code" requirement is satisfied
+// at the envelope level.
+const jsonRPCResourceNotFnd = jsonrpc.CodeInvalidParams
 
 // helpTopicRow mirrors one row in docs/help-topics.v1.json (embedded as
 // HelpTopicsJSON). Re-declared locally so the package boundary remains

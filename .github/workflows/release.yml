@@ -57,6 +57,13 @@ jobs:
         with:
           go-version: '1.26.x'
           cache-dependency-path: apps/gum/go.sum
+      # gen/dispatch holds three tracked files and 197 gitignored generated
+      # stubs, so a fresh checkout compiles the package's tests against an
+      # empty registry and five of them fail. The test workflow already
+      # generates first; this job has to as well or every tag fails here.
+      # Runs before vet so the stubs are vetted too.
+      - name: generate dispatch stubs
+        run: make stubs
       - name: vet
         run: go vet ./...
       - name: test (race)

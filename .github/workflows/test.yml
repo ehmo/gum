@@ -30,6 +30,17 @@ jobs:
           cache-dependency-path: apps/gum/go.sum
       # gofmt drift is invisible to vet, staticcheck and golangci-lint's
       # default set; 71 files had accumulated drift before this gate existed.
+      # gen/dispatch is generated and gitignored, so a fresh checkout has no
+      # 50th package: `go test ./...` silently covered 49 and the stub
+      # generator itself was never exercised by CI. This pass is offline (it
+      # reads the embedded catalog, no Discovery fetch) and does not rewrite
+      # catalog.json. Runs before vet so the stubs are vetted and linted too.
+      #
+      # `make stubs`, not `go generate ./gen/dispatch/...`: the //go:generate
+      # directive lives in gen/dispatch/dispatch.go, inside the gitignored tree
+      # it would create, so go generate cannot bootstrap a fresh checkout.
+      - name: generate dispatch stubs
+        run: make stubs
       - name: gofmt
         run: make fmt-check
       - name: vet
@@ -57,8 +68,14 @@ jobs:
   # file-permission / path behavior differ from Linux and are never otherwise
   # exercised in CI (review gum-662u). Scoped to platform-sensitive packages
   # to keep the run cheap.
+  #
+  # This job used to carry `if: github.repository != 'ehmo/gum' &&
+  # github.event_name == 'pull_request'`. Both halves were wrong: work lands
+  # on main by direct push, not by PR, so the job was skipped on every run it
+  # had ever been scheduled for, and the repository guard would have kept it
+  # off the one runner (public repo, free macOS minutes) where it costs
+  # nothing. It is unguarded now so it actually gates.
   test-macos:
-    if: github.repository != 'ehmo/gum' && github.event_name == 'pull_request'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6

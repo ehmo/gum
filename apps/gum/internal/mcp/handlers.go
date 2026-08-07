@@ -414,11 +414,7 @@ func (s *Server) handleCacheStats(_ context.Context, req *sdkmcp.CallToolRequest
 	if csp, ok := s.disp.(cacheStatProvider); ok {
 		sem = csp.CacheStats()
 	}
-	var session *sdkmcp.ServerSession
-	if req != nil {
-		session = req.Session
-	}
-	return jsonResult(cacheStatsEnvelope(sem, s.auditBroken(), clientSupportsPromptCache(session))), nil
+	return jsonResult(cacheStatsEnvelope(sem, s.auditBroken(), clientSupportsPromptCache(req))), nil
 }
 
 // auditBroken returns true when the audit.broken sentinel file exists at
@@ -647,13 +643,21 @@ func (s *Server) searchIndex() (*embed.Index, error) {
 // catalog variant's `output_profile` name and feed it into the invocation
 // before dispatching.
 //
+// When the session's roots are not cached yet, the call returns an
+// InputRequests result instead of dispatching: MCP 2026-07-28 (SEP-2322)
+// forbids a server-initiated roots/list mid-request, so the client fulfils
+// the request and the SDK retries this handler with the reply attached.
+//
 // req may be nil in unit tests that bypass the SDK transport; in that case
 // project-local resolution is skipped and dispatch proceeds with the
 // catalog-default profile.
 func (s *Server) dispatchToolCall(ctx context.Context, req *sdkmcp.CallToolRequest, inv *dispatch.Invocation) (*sdkmcp.CallToolResult, error) {
 	if req != nil && req.Session != nil {
 		metaGumRoot := stringFromMeta(req, "gumRoot")
-		rootPath, projErr := s.ResolveProjectRootForRequest(ctx, req.Session, metaGumRoot)
+		rootPath, needRoots, projErr := s.ResolveProjectRootForRequest(req, metaGumRoot)
+		if needRoots {
+			return &sdkmcp.CallToolResult{InputRequests: rootsInputRequest()}, nil
+		}
 		if projErr != nil {
 			return jsonErrorResult(projectRootRequiredEnvelope(projErr)), nil
 		}

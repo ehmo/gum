@@ -6,9 +6,12 @@
 // the unknown `_meta` keys and the tools work normally.
 //
 // `gum.cache_stats` reports the prompt layer's `supported` flag based on
-// the connected client's Implementation.Name advertised at `initialize`.
-// Any client whose name contains "claude" (case-insensitive) is treated as
-// Anthropic-backed.
+// the calling client's Implementation.Name. Any client whose name contains
+// "claude" (case-insensitive) is treated as Anthropic-backed. The name is
+// read from the request: MCP 2026-07-28 (SEP-2577) drops the `initialize`
+// handshake and carries client identity in each request's `_meta`, and the
+// SDK accessor falls back to the session's InitializeParams for clients on
+// older protocol revisions.
 
 package mcp
 
@@ -32,19 +35,18 @@ func promptCacheHintMeta() sdkmcp.Meta {
 	}
 }
 
-// clientSupportsPromptCache reports whether the connected client is known to
+// clientSupportsPromptCache reports whether the calling client is known to
 // honour `_meta.cache_control` hints. v0.1.0 heuristic: substring "claude" in
-// the client's Implementation.Name (case-insensitive). When the session or
-// the InitializeParams are nil (CLI mode, pre-initialize, test stubs), the
-// answer is false — spec §10.1 requires `supported` to be reported, not
-// guessed.
-func clientSupportsPromptCache(session *sdkmcp.ServerSession) bool {
-	if session == nil {
+// the client's Implementation.Name (case-insensitive). When the request is
+// nil or carries no client identity (CLI mode, test stubs), the answer is
+// false — spec §10.1 requires `supported` to be reported, not guessed.
+func clientSupportsPromptCache(req *sdkmcp.CallToolRequest) bool {
+	if req == nil {
 		return false
 	}
-	params := session.InitializeParams()
-	if params == nil || params.ClientInfo == nil {
+	info := req.ClientInfo()
+	if info == nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(params.ClientInfo.Name), "claude")
+	return strings.Contains(strings.ToLower(info.Name), "claude")
 }

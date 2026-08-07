@@ -20,9 +20,37 @@ package coverage
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 )
+
+// BaselineGOOS is the platform every Min in Ratchets was measured on. The
+// gate runs on ubicloud-standard-2, so linux is the only reading a baseline
+// can be held to.
+//
+// Coverage is GOOS-sensitive whenever a package carries build-tagged files:
+// internal/pluginenv reads 61% on linux (the Landlock path never executes on
+// a runner without it) and 100% on darwin, where those files are not compiled
+// in at all. A baseline raised from a darwin reading therefore fails linux CI
+// on the next push. RatchetOpportunities is suppressed off-baseline for that
+// reason; the failing check itself still runs everywhere, because a genuine
+// regression is worth catching on any platform.
+const BaselineGOOS = "linux"
+
+// OnBaselinePlatform reports whether the current GOOS is the one the Ratchets
+// baselines were measured on.
+func OnBaselinePlatform() bool { return runtime.GOOS == BaselineGOOS }
+
+// OpportunitiesOn is Opportunities with the platform supplied explicitly, so
+// the margin logic can be exercised from any host. Callers outside tests want
+// Opportunities.
+func OpportunitiesOn(readings []Reading, goos string) []Opportunity {
+	if goos != BaselineGOOS {
+		return nil
+	}
+	return rankOpportunities(readings)
+}
 
 // FloorPercent is the absolute line-coverage floor for any gated package
 // that does NOT carry a Ratchet baseline (e.g. a newly added package).
@@ -203,7 +231,15 @@ type Opportunity struct {
 // Packages with no ratchet entry (gated only by FloorPercent) and empty-test
 // packages are never candidates. Results are sorted by import path. This
 // gate never fails the build; cmd/coverage-floor surfaces it as a hint.
+//
+// Off the baseline platform the result is always empty: acting on a hint
+// derived from a different GOOS raises a baseline linux CI cannot hold. On
+// darwin, internal/pluginenv alone would report a 39-point phantom gain.
 func Opportunities(readings []Reading) []Opportunity {
+	return OpportunitiesOn(readings, runtime.GOOS)
+}
+
+func rankOpportunities(readings []Reading) []Opportunity {
 	var out []Opportunity
 	for _, r := range readings {
 		if !r.HasTests {

@@ -1,6 +1,7 @@
 package coverage
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -213,7 +214,7 @@ func TestOpportunitiesFlagsImprovedPackages(t *testing.T) {
 		{Package: "unratcheted/pkg", Percent: 100.0, HasTests: true},                        // no baseline → never flagged
 		{Package: "empty/pkg", Percent: 100.0, HasTests: false},                             // no tests → skipped
 	}
-	got := Opportunities(readings)
+	got := OpportunitiesOn(readings, BaselineGOOS)
 	if len(got) != 1 {
 		t.Fatalf("expected 1 opportunity, got %d: %+v", len(got), got)
 	}
@@ -229,7 +230,37 @@ func TestOpportunitiesFlagsImprovedPackages(t *testing.T) {
 // no package clears the margin, so cmd/coverage-floor prints no hint block.
 func TestOpportunitiesEmptyWhenNoneImproved(t *testing.T) {
 	withSyntheticRatchets(t, []Ratchet{{Package: "p", Min: 95.0, Bead: "test-only"}})
-	if got := Opportunities([]Reading{{Package: "p", Percent: 95.5, HasTests: true}}); len(got) != 0 {
+	if got := OpportunitiesOn([]Reading{{Package: "p", Percent: 95.5, HasTests: true}}, BaselineGOOS); len(got) != 0 {
 		t.Errorf("expected no opportunities, got %+v", got)
+	}
+}
+
+// TestOpportunitiesSuppressedOffBaselinePlatform pins the reason the platform
+// argument exists. internal/pluginenv reads 61% on linux and 100% on darwin
+// because its Landlock files are build-tagged; a hint derived from the darwin
+// reading would raise a baseline that linux CI cannot hold, which is exactly
+// how the v1.0.2 coverage-floor break happened. A reading that clears the
+// margin by a mile must still produce no hint off-baseline.
+func TestOpportunitiesSuppressedOffBaselinePlatform(t *testing.T) {
+	withSyntheticRatchets(t, []Ratchet{{Package: "skewed/pkg", Min: 61.0, Bead: "test-only"}})
+	readings := []Reading{{Package: "skewed/pkg", Percent: 100.0, HasTests: true}}
+
+	if got := OpportunitiesOn(readings, BaselineGOOS); len(got) != 1 {
+		t.Fatalf("on %s: expected 1 opportunity, got %d", BaselineGOOS, len(got))
+	}
+	for _, goos := range []string{"darwin", "windows", "freebsd"} {
+		if got := OpportunitiesOn(readings, goos); got != nil {
+			t.Errorf("on %s: expected no opportunities, got %+v", goos, got)
+		}
+	}
+}
+
+// TestOnBaselinePlatformMatchesRuntime pins that the exported helper and the
+// constant agree, so cmd/coverage-floor's banner cannot claim one platform
+// while Opportunities gates on another.
+func TestOnBaselinePlatformMatchesRuntime(t *testing.T) {
+	if want := runtime.GOOS == BaselineGOOS; OnBaselinePlatform() != want {
+		t.Errorf("OnBaselinePlatform() = %v, want %v (GOOS=%s, baseline=%s)",
+			OnBaselinePlatform(), want, runtime.GOOS, BaselineGOOS)
 	}
 }

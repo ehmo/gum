@@ -13,6 +13,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/ehmo/gum/internal/coverage"
@@ -29,6 +30,17 @@ func main() {
 	}
 
 	violations := coverage.Check(readings)
+
+	// Name the platform. Build-tagged files make per-package coverage
+	// GOOS-dependent, so a clean local run on darwin is not evidence that
+	// the linux gate passes.
+	if coverage.OnBaselinePlatform() {
+		fmt.Printf("measured on GOOS=%s (baseline platform)\n\n", runtime.GOOS)
+	} else {
+		fmt.Printf("measured on GOOS=%s; baselines were measured on %s. "+
+			"Readings for build-tagged packages will differ from CI, and "+
+			"ratchet hints are suppressed.\n\n", runtime.GOOS, coverage.BaselineGOOS)
+	}
 
 	fmt.Printf("%-60s %-9s %-9s\n", "PACKAGE", "COVERAGE", "FLOOR")
 	fmt.Println(strings.Repeat("-", 80))

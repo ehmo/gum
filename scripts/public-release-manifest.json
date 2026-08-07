@@ -31,7 +31,9 @@
     "docs/services"
   ],
   "exclude_paths": [
-    ".github/workflows/catalog-regen.yml"
+    ".github/workflows/catalog-regen.yml",
+    ".github/workflows/attribution.yml",
+    ".github/workflows/tap-drift.yml"
   ],
   "docs": [
     "docs/agent-contracts/cli-agents-install.json",
@@ -46,6 +48,7 @@
     "docs/admin-write-policy-gate.md",
     "docs/agent-setup.md",
     "docs/api-workflows.md",
+    "docs/architecture.md",
     "docs/auth.md",
     "docs/auth-guides/README.md",
     "docs/auth-guides/admin-cloud-vault.md",
@@ -92,7 +95,8 @@
     "docs/tier-a-roster.v1.json",
     "docs/release-notes-v1.0.0.md",
     "docs/release-notes-v1.0.1.md",
-    "docs/release-notes-v1.0.2.md"
+    "docs/release-notes-v1.0.2.md",
+    "docs/release-notes-v1.0.3.md"
   ],
   "forbidden_public_paths": [
     ".beads",
