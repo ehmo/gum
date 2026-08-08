@@ -6,14 +6,14 @@ service_group: "Workspace communication"
 
 # Gmail
 
-Gmail has 30 operations in gum's generated catalog. Start with search when you know the task, use describe to inspect request fields and scopes, then dispatch through the command that matches the operation risk class.
+Gmail has 31 operations in gum's generated catalog. Start with search when you know the task, use describe to inspect request fields and scopes, then dispatch through the command that matches the operation risk class.
 
 | Count | Value |
 | --- | --- |
 | Family | Workspace communication |
-| Operations | 30 |
-| Risk classes | 6 destructive, 11 read, 13 write |
-| Auth strategies | 30 byo_oauth |
+| Operations | 31 |
+| Risk classes | 6 destructive, 12 read, 13 write |
+| Auth strategies | 31 byo_oauth |
 
 ## Start here
 
@@ -39,7 +39,7 @@ gum destructive gmail.users.drafts.delete --args '{"id":"<id>","userId":"me"}' -
 
 ## Auth
 
-Auth strategies in this service: 30 byo_oauth. Authenticate the strategy used by the operation you plan to call.
+Auth strategies in this service: 31 byo_oauth. Authenticate the strategy used by the operation you plan to call.
 
 ### Bring-your-own OAuth
 
@@ -98,6 +98,7 @@ Service setup notes: [Gmail auth guide](../auth-guides/gmail.md).
 | `gmail.users.labels.list` | `read` | `byo_oauth` | List labels in a Gmail mailbox. |
 | `gmail.users.labels.patch` | `write` | `byo_oauth` | Partial-update a label's definition (only supplied fields are changed). |
 | `gmail.users.labels.update` | `write` | `byo_oauth` | Replace a label's definition. Use patch for partial updates. |
+| `gmail.users.messages.attachments.get` | `read` | `byo_oauth` | Get an attachment's base64url-encoded data for a specific message. |
 | `gmail.users.messages.batchDelete` | `destructive` | `byo_oauth` | Permanently delete up to 1000 messages. Bypasses Trash; unrecoverable. |
 | `gmail.users.messages.batchModify` | `write` | `byo_oauth` | Add or remove labels on up to 1000 messages in a single request. |
 | `gmail.users.messages.delete` | `destructive` | `byo_oauth` | Permanently delete a message. Bypasses Trash; unrecoverable. |

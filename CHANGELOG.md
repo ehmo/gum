@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-07
+
+### Added
+
+- Added the read-only `gmail.users.messages.attachments.get` catalog operation.
+  It retrieves a message attachment through the Gmail v1 API with
+  `gmail.readonly` scope and requires `userId`, `messageId`, and attachment
+  `id` path arguments.
+
+### Changed
+
+- The public docs site now deploys from the public repository's `main` branch.
+  A stable-release tag cannot publish binaries until the live release notes and
+  changelog match the tagged source.
+
 ## [1.0.3] - 2026-08-06
 
 ### Changed

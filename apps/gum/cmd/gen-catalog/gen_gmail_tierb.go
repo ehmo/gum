@@ -28,6 +28,7 @@ const (
 //   - threads.trash                             — destructive (matches messages.trash)
 //   - messages.{untrash,modify,batchModify}    — write
 //   - messages.{delete,batchDelete}            — destructive
+//   - messages.attachments.get                  — read
 //   - labels.{list,get,create,update,patch,delete} — full CRUD
 //   - drafts.{list,get,update,send,delete}     — read+write+destructive
 //   - history.list                              — change feed (incremental sync)
@@ -173,6 +174,19 @@ func BuildGmailTierBOps() []catalog.Op {
 			httpPath:   "/gmail/v1/users/{userId}/messages/batchDelete",
 			goPkg:      "google.golang.org/api/gmail/v1",
 			goCall:     "Users.Messages.BatchDelete",
+		}),
+		makeWorkspaceOp(workspaceOpSpec{
+			opID:       "gmail.users.messages.attachments.get",
+			variantID:  "gmail.v1.rest.users.messages.attachments.get",
+			title:      "Get Gmail message attachment",
+			summary:    "Get an attachment's base64url-encoded data for a specific message.",
+			service:    "gmail",
+			riskClass:  catalog.RiskClassRead,
+			scopes:     []string{scopeGmailReadonly},
+			httpMethod: "GET",
+			httpPath:   "/gmail/v1/users/{userId}/messages/{messageId}/attachments/{id}",
+			goPkg:      "google.golang.org/api/gmail/v1",
+			goCall:     "Users.Messages.Attachments.Get",
 		}),
 		// ── labels ───────────────────────────────────────────────────────
 		makeWorkspaceOp(workspaceOpSpec{

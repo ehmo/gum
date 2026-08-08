@@ -34,6 +34,7 @@ func TestBuildGmailTierBOpsCoverage(t *testing.T) {
 		{"gmail.users.messages.batchModify", catalog.RiskClassWrite},
 		{"gmail.users.messages.delete", catalog.RiskClassDestructive},
 		{"gmail.users.messages.batchDelete", catalog.RiskClassDestructive},
+		{"gmail.users.messages.attachments.get", catalog.RiskClassRead},
 		// labels
 		{"gmail.users.labels.get", catalog.RiskClassRead},
 		{"gmail.users.labels.create", catalog.RiskClassWrite},
@@ -102,6 +103,37 @@ func TestBuildGmailTierBOpsCoverage(t *testing.T) {
 			t.Errorf("%s: go_pkg=%q want google.golang.org/api/gmail/v1", w.opID, v.Binding.GoPkg)
 		}
 	}
+}
+
+func TestBuildGmailAttachmentGetContract(t *testing.T) {
+	const opID = "gmail.users.messages.attachments.get"
+	for _, op := range BuildGmailTierBOps() {
+		if op.OpID != opID {
+			continue
+		}
+		if len(op.Variants) != 1 {
+			t.Fatalf("%s: variants=%d want 1", opID, len(op.Variants))
+		}
+		v := op.Variants[0]
+		if len(v.Scopes) != 1 || v.Scopes[0] != scopeGmailReadonly {
+			t.Errorf("%s: scopes=%v want [%s]", opID, v.Scopes, scopeGmailReadonly)
+		}
+		if v.Binding == nil || v.Binding.HTTP == nil {
+			t.Fatalf("%s: missing binding.http", opID)
+		}
+		if v.Binding.HTTP.Method != "GET" {
+			t.Errorf("%s: http.method=%q want GET", opID, v.Binding.HTTP.Method)
+		}
+		const wantPath = "/gmail/v1/users/{userId}/messages/{messageId}/attachments/{id}"
+		if v.Binding.HTTP.Path != wantPath {
+			t.Errorf("%s: http.path=%q want %q", opID, v.Binding.HTTP.Path, wantPath)
+		}
+		if v.Binding.GoCall != "Users.Messages.Attachments.Get" {
+			t.Errorf("%s: go_call=%q want Users.Messages.Attachments.Get", opID, v.Binding.GoCall)
+		}
+		return
+	}
+	t.Fatalf("op %q missing from Gmail Tier B set", opID)
 }
 
 // TestBuildGmailTierBOpsValidates ensures the Tier B-only catalog passes

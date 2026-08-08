@@ -1,6 +1,6 @@
 {
   "catalog_schema_version": 1,
-  "generated_at": "2026-08-06T23:35:36Z",
+  "generated_at": "2026-08-08T06:24:56Z",
   "generator_version": "gum/cmd/gen-catalog@phase3",
   "ops": [
     {
@@ -4459,6 +4459,65 @@
         }
       ],
       "request_fields": [
+        {
+          "name": "userId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The user's email address. The special value `me` can be used to indicate the authenticated user."
+        }
+      ]
+    },
+    {
+      "op_id": "gmail.users.messages.attachments.get",
+      "op_schema_version": 1,
+      "title": "Get Gmail message attachment",
+      "summary": "Get an attachment's base64url-encoded data for a specific message.",
+      "service_family": "workspace",
+      "service": "gmail",
+      "default_variant_id": "gmail.v1.rest.users.messages.attachments.get",
+      "variants": [
+        {
+          "variant_id": "gmail.v1.rest.users.messages.attachments.get",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "gmail.users.messages.attachments.get",
+            "go_pkg": "google.golang.org/api/gmail/v1",
+            "go_call": "Users.Messages.Attachments.Get",
+            "http": {
+              "method": "GET",
+              "path": "/gmail/v1/users/{userId}/messages/{messageId}/attachments/{id}"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "id",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The ID of the attachment."
+        },
+        {
+          "name": "messageId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The ID of the message containing the attachment."
+        },
         {
           "name": "userId",
           "location": "path",
