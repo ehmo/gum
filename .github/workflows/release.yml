@@ -41,10 +41,61 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::Release tags must point at a commit reachable from origin/main."
+          main_sha="$(git rev-parse origin/main)"
+          if [[ "$GITHUB_SHA" != "$main_sha" ]]; then
+            echo "::error::Release tags must point at the current origin/main commit so the binary and docs use the same source."
+            echo "tag=$GITHUB_SHA"
+            echo "origin/main=$main_sha"
             exit 1
           fi
+
+  docs-live:
+    name: docs deployed from tag commit
+    needs: validate-tag
+    if: github.repository == 'ehmo/gum'
+    runs-on: ubicloud-standard-2
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: build expected docs
+        run: node scripts/build-docs-site.mjs
+      - name: require matching live release docs
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          expected_release="dist/docs-site/release-notes-${tag}.html"
+          expected_changelog="dist/docs-site/changelog.html"
+          if [[ ! -f "$expected_release" ]]; then
+            echo "::error::Missing docs/release-notes-${tag}.md for release tag ${tag}."
+            exit 1
+          fi
+
+          for attempt in $(seq 1 30); do
+            cache_bust="${GITHUB_SHA}-${attempt}"
+            if curl --fail --silent --show-error --location \
+                "https://gumcli.dev/release-notes-${tag}.html?release=${cache_bust}" \
+                --output /tmp/live-release.html \
+              && curl --fail --silent --show-error --location \
+                "https://gumcli.dev/changelog.html?release=${cache_bust}" \
+                --output /tmp/live-changelog.html \
+              && cmp --silent "$expected_release" /tmp/live-release.html \
+              && cmp --silent "$expected_changelog" /tmp/live-changelog.html; then
+              echo "gumcli.dev matches ${tag} at ${GITHUB_SHA}"
+              exit 0
+            fi
+            echo "gumcli.dev has not deployed ${tag} yet (attempt ${attempt}/30)"
+            sleep 10
+          done
+
+          echo "::error::gumcli.dev did not match the ${tag} release docs within five minutes."
+          diff --unified "$expected_release" /tmp/live-release.html || true
+          diff --unified "$expected_changelog" /tmp/live-changelog.html || true
+          exit 1
 
   pre-release-tests:
     needs: validate-tag
@@ -89,7 +140,7 @@ jobs:
     name: goreleaser
     if: github.repository == 'ehmo/gum'
     runs-on: ubicloud-standard-2
-    needs: govulncheck
+    needs: [govulncheck, docs-live]
     permissions:
       contents: write
       id-token: write
