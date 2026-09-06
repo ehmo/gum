@@ -9,6 +9,17 @@ import (
 	"github.com/ehmo/gum/internal/output/jcs"
 )
 
+func TestJCSRejectsExcessiveNesting(t *testing.T) {
+	var input any = 0
+	for i := 0; i < 10001; i++ {
+		input = []any{input}
+	}
+	out, err := jcs.Marshal(input)
+	if out != nil || err == nil || !strings.Contains(err.Error(), "exceeded max depth") {
+		t.Fatalf("output bytes=%d error=%v; want JSON nesting limit error", len(out), err)
+	}
+}
+
 // TestJCSCanonicalNilSliceAndMap verifies the nil-slice / nil-map
 // short-circuits in validateValue: these are legal JSON values
 // (null and the literal `null`) and must not trigger validation

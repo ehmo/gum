@@ -7,6 +7,16 @@ import (
 	"github.com/ehmo/gum/internal/lro/routing"
 )
 
+func TestSubstitutePathForGRPCEndpoint(t *testing.T) {
+	ep, _, ok := routing.Lookup("operations/abc-123")
+	if !ok || ep.Transport != routing.TransportGRPC {
+		t.Fatalf("endpoint=%v found=%v", ep, ok)
+	}
+	if got := routing.SubstitutePath(ep, "operations/abc-123"); got != "" {
+		t.Fatalf("gRPC endpoint produced REST path %q", got)
+	}
+}
+
 // TestLookupGoogleLongrunningGRPC pins that bare "operations/<id>" routes to
 // the canonical google.longrunning gRPC endpoint.
 func TestLookupGoogleLongrunningGRPC(t *testing.T) {

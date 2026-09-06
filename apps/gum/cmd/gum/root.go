@@ -291,10 +291,10 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		}
 		return plugins.NewSupervisor(reg, host.Start, time.Now).Start(ctx, pluginID)
 	})
-	// Google Ads Keyword Planner (backend_kind=google-ads-sdk). The developer
+	// Google Ads (backend_kind=google-ads-sdk). The developer
 	// token is a secret sourced from the OS keychain (env fallback) per profile,
-	// so it never travels as an invocation arg. One adapter instance serves all
-	// three keyword-planning methods, keyed by binding adapter_key.
+	// so it never travels as an invocation arg. One adapter instance serves
+	// every Google Ads method, keyed by binding adapter_key.
 	gadsProfile := auth.DefaultAPIKeyProfile
 	if name, err := profilepkg.Parse(profile); err == nil {
 		gadsProfile = name.String()
@@ -303,14 +303,17 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		return auth.LookupDeveloperToken(auth.NewOSKeyring(), gadsProfile)
 	})
 	return map[string]dispatch.Adapter{
-		"code.risor":                                 cr,
-		"rest.typed-rest-sdk":                        rest,
-		"rest.discovery-rest":                        rest,
-		"rest.raw-http":                              rest,
-		"plugin.mcp":                                 pluginMCP,
-		"googleads.generateKeywordIdeas":             gads,
+		"code.risor":                     cr,
+		"rest.typed-rest-sdk":            rest,
+		"rest.discovery-rest":            rest,
+		"rest.raw-http":                  rest,
+		"plugin.mcp":                     pluginMCP,
+		"googleads.generateKeywordIdeas": gads,
 		"googleads.generateKeywordHistoricalMetrics": gads,
 		"googleads.generateKeywordForecastMetrics":   gads,
+		"googleads.search":                           gads,
+		"googleads.mutate":                           gads,
+		"googleads.uploadClickConversions":           gads,
 	}, cr
 }
 

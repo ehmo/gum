@@ -5,7 +5,7 @@ description: "Generated service pages for the Google API and plugin operations i
 
 # Operations by service
 
-gum ships 223 catalog operations across 32 services. The CLI does not expose one top-level command per Google product; product coverage lives in the catalog. Use these pages to start from a service, then call the selected operation with `gum read`, `gum write`, or `gum destructive`.
+gum ships 226 catalog operations across 32 services. The CLI does not expose one top-level command per Google product; product coverage lives in the catalog. Use these pages to start from a service, then call the selected operation with `gum read`, `gum write`, or `gum destructive`.
 
 ```bash
 gum search "gmail messages"
@@ -53,7 +53,7 @@ gum read gmail.users.messages.list --args '{"userId":"me","maxResults":5}' --out
 
 ## Ads and maps
 
-- [Google Ads](googleads.md) - 3 operations; 3 read.
+- [Google Ads](googleads.md) - 6 operations; 1 destructive, 4 read, 1 write.
 - [Maps](maps.md) - 3 operations; 3 read.
 - [Places](places.md) - 2 operations; 2 read.
 - [Routes](routes.md) - 2 operations; 2 read.

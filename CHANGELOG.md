@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-06
+
+### Added
+
+- Google Ads GAQL reporting through `googleads.googleAds.search`.
+- Batch resource mutations through `googleads.googleAds.mutate`, with
+  destructive confirmation and validation-only support.
+- Offline conversion uploads through
+  `googleads.conversionUploads.uploadClickConversions` for eligible developer
+  tokens, with up to 2,000 conversions per request.
+
+### Changed
+
+- Google Ads errors expose upstream error codes, field paths, triggers, and
+  request IDs when available.
+- Google Ads writes are sent once to avoid replaying mutations after an
+  ambiguous server error. Read operations retain bounded retries.
+- New Google Ads writes reject raw bodies and malformed boolean options
+  before sending a request. Conversion uploads always use partial failure;
+  callers must inspect `partialFailureError` even after HTTP 200.
+
 ## [1.1.0] - 2026-08-07
 
 ### Added

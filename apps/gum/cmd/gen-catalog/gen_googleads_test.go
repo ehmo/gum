@@ -9,22 +9,32 @@ import (
 
 func TestBuildGoogleAdsOps(t *testing.T) {
 	ops := BuildGoogleAdsOps()
-	if len(ops) != 3 {
-		t.Fatalf("BuildGoogleAdsOps len = %d; want 3", len(ops))
+	if len(ops) != 6 {
+		t.Fatalf("BuildGoogleAdsOps len = %d; want 6", len(ops))
 	}
 
-	wantIDs := map[string]string{
-		"googleads.keywordPlanIdeas.generateKeywordIdeas":             "generateKeywordIdeas",
-		"googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics": "generateKeywordHistoricalMetrics",
-		"googleads.keywordPlanIdeas.generateKeywordForecastMetrics":   "generateKeywordForecastMetrics",
+	type want struct {
+		method string
+		risk   catalog.RiskClass
+	}
+	wantIDs := map[string]want{
+		"googleads.keywordPlanIdeas.generateKeywordIdeas":             {"generateKeywordIdeas", catalog.RiskClassRead},
+		"googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics": {"generateKeywordHistoricalMetrics", catalog.RiskClassRead},
+		"googleads.keywordPlanIdeas.generateKeywordForecastMetrics":   {"generateKeywordForecastMetrics", catalog.RiskClassRead},
+		"googleads.googleAds.search":                                  {"search", catalog.RiskClassRead},
+		"googleads.googleAds.mutate":                                  {"mutate", catalog.RiskClassDestructive},
+		"googleads.conversionUploads.uploadClickConversions":          {"uploadClickConversions", catalog.RiskClassWrite},
 	}
 
+	seen := map[string]bool{}
 	for _, op := range ops {
-		method, ok := wantIDs[op.OpID]
+		w, ok := wantIDs[op.OpID]
 		if !ok {
 			t.Errorf("unexpected op_id %q", op.OpID)
 			continue
 		}
+		seen[op.OpID] = true
+		method := w.method
 		if op.Service != "googleads" || op.ServiceFamily != "googleads" {
 			t.Errorf("%s: service/family = %q/%q; want googleads/googleads", op.OpID, op.Service, op.ServiceFamily)
 		}
@@ -38,8 +48,8 @@ func TestBuildGoogleAdsOps(t *testing.T) {
 		if v.BackendKind != catalog.BackendKindGoogleAdsSDK {
 			t.Errorf("%s: backend = %q; want google-ads-sdk", op.OpID, v.BackendKind)
 		}
-		if v.RiskClass != catalog.RiskClassRead {
-			t.Errorf("%s: risk = %q; want read", op.OpID, v.RiskClass)
+		if v.RiskClass != w.risk {
+			t.Errorf("%s: risk = %q; want %q", op.OpID, v.RiskClass, w.risk)
 		}
 		if len(v.Scopes) != 1 || v.Scopes[0] != "https://www.googleapis.com/auth/adwords" {
 			t.Errorf("%s: scopes = %v; want [adwords]", op.OpID, v.Scopes)
@@ -68,6 +78,24 @@ func TestBuildGoogleAdsOps(t *testing.T) {
 		}
 		if !foundCustomer {
 			t.Errorf("%s: missing customerId request field", op.OpID)
+		}
+	}
+
+	for id := range wantIDs {
+		if !seen[id] {
+			t.Errorf("missing op %q", id)
+		}
+	}
+
+	// GoogleAdsService hangs off the customer as a sub-resource, unlike the
+	// Keyword Planner methods. The adapter derives its request URL from this
+	// template, so the shape is load-bearing.
+	for _, op := range ops {
+		path := op.Variants[0].Binding.HTTP.Path
+		wantSub := strings.HasPrefix(op.OpID, "googleads.googleAds.")
+		gotSub := strings.Contains(path, "{customerId}/googleAds:")
+		if wantSub != gotSub {
+			t.Errorf("%s: path %q sub-resource = %v; want %v", op.OpID, path, gotSub, wantSub)
 		}
 	}
 

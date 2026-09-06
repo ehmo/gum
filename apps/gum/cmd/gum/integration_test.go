@@ -118,6 +118,26 @@ func TestDefaultDispatcherWiresAdaptersAndAuth(t *testing.T) {
 	if cr == nil {
 		t.Error("defaultAdapters returned nil CodeRunner reference")
 	}
+
+	// Every adapter_key the catalog binds must resolve to a registered adapter.
+	// A new op with an unregistered key builds and passes catalog validation,
+	// then fails at dispatch with "adapter not registered" the first time it
+	// runs, so the gap has to be caught here rather than in production.
+	missing := map[string][]string{}
+	for i := range cat.Ops {
+		for j := range cat.Ops[i].Variants {
+			b := cat.Ops[i].Variants[j].Binding
+			if b == nil || b.AdapterKey == "" {
+				continue
+			}
+			if _, ok := ads[b.AdapterKey]; !ok {
+				missing[b.AdapterKey] = append(missing[b.AdapterKey], cat.Ops[i].OpID)
+			}
+		}
+	}
+	for key, opIDs := range missing {
+		t.Errorf("adapter_key %q has no registered adapter (used by %d ops, e.g. %s)", key, len(opIDs), opIDs[0])
+	}
 }
 
 // TestDefaultDispatcherCloserContract — gum-dxpy. Pins the cmd-level wiring

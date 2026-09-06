@@ -1,6 +1,6 @@
 // Package googleads is the backend executor for catalog variants with
-// backend_kind="google-ads-sdk" (spec §14): the Google Ads API Keyword Planner
-// methods on googleads.googleapis.com.
+// backend_kind="google-ads-sdk" (spec §14): Keyword Planner, GAQL reporting,
+// resource mutations, and conversion uploads on googleads.googleapis.com.
 //
 // It is deliberately a small, self-contained REST executor rather than a
 // variant of the shared typed-rest-sdk adapter, for one reason: the Google Ads
@@ -48,23 +48,34 @@ const (
 const (
 	maxIdeaSeedKeywords = 20
 	maxKeywords         = 10000
+	// Google's documented ceiling for one GoogleAdsService.Mutate batch.
+	maxMutateOperations = 10000
+	// Google's documented ceiling for one ConversionUploadService request.
+	maxClickConversions = 2000
 )
 
-// knownMethods is the closed allow-list of keyword-planning custom methods this
-// adapter serves. Anything else fails closed before a request is built.
+// knownMethods is the closed allow-list of custom methods this adapter serves:
+// the three keyword-planning methods, GoogleAdsService search (GAQL reporting)
+// and mutate (writes), and ConversionUploadService uploadClickConversions
+// (offline conversions). Anything else fails closed before a
+// request is built.
 var knownMethods = map[string]bool{
 	"generateKeywordIdeas":             true,
 	"generateKeywordHistoricalMetrics": true,
 	"generateKeywordForecastMetrics":   true,
+	"search":                           true,
+	"mutate":                           true,
+	"uploadClickConversions":           true,
 }
 
 // validNetworks / validMatchTypes are the closed enums accepted from callers.
 var (
 	validNetworks   = map[string]bool{"GOOGLE_SEARCH": true, "GOOGLE_SEARCH_AND_PARTNERS": true}
 	validMatchTypes = map[string]bool{"BROAD": true, "PHRASE": true, "EXACT": true}
+	validRespTypes  = map[string]bool{"RESOURCE_NAME_ONLY": true, "MUTABLE_RESOURCE": true}
 )
 
-// Adapter executes Google Ads Keyword Planner calls for catalog variants whose
+// Adapter executes Google Ads calls for catalog variants whose
 // binding.adapter_key starts with "googleads.". The method to invoke is taken
 // from the binding HTTP path's custom-method suffix
 // (".../customers/{customerId}:generateKeywordIdeas").
@@ -81,8 +92,8 @@ type Adapter struct {
 	DevToken func() string
 	// MaxResponseBytes overrides defaultMaxResponseBytes (0 = default).
 	MaxResponseBytes int
-	// MaxAttempts overrides defaultMaxAttempts for the 429/5xx retry loop
-	// (0 = default; set to 1 to disable retries).
+	// MaxAttempts overrides defaultMaxAttempts for read retries on 429/5xx
+	// (0 = default; set to 1 to disable retries). Mutations are sent once.
 	MaxAttempts int
 	// backoffBase overrides defaultBackoffBase; tests set a tiny value for speed.
 	backoffBase time.Duration
@@ -163,7 +174,10 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 		return nil, fmt.Errorf("googleads adapter: marshal request body: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/customers/%s:%s", a.baseURL(), customerID, method)
+	url, err := a.resourceURL(rv.Variant.Binding.HTTP.Path, customerID)
+	if err != nil {
+		return nil, err
+	}
 	limit := a.MaxResponseBytes
 	if limit <= 0 {
 		limit = defaultMaxResponseBytes
@@ -201,16 +215,19 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 	}, nil
 }
 
-// doWithRetry sends the request, retrying on 429 and 5xx with exponential
-// backoff that honours the upstream Retry-After. Keyword-planning is capped at
-// ~1 QPS per customer, so transient 429s are expected. The body is rebuilt per
-// attempt; ctx cancellation aborts the wait.
+// doWithRetry retries reads on 429 and 5xx, with backoff and cancellation.
+// Mutations are sent once because a failed response may follow an applied write.
 func (a *Adapter) doWithRetry(ctx context.Context, method string, newReq func() (*http.Request, error), limit int) (raw []byte, status int, hdr http.Header, err error) {
 	attempts := a.MaxAttempts
 	if attempts <= 0 {
 		attempts = defaultMaxAttempts
 	}
-	for attempt := 1; attempt <= attempts; attempt++ {
+	switch method {
+	case "generateKeywordIdeas", "generateKeywordHistoricalMetrics", "generateKeywordForecastMetrics", "search":
+	default:
+		attempts = 1
+	}
+	for attempt := 1; ; attempt++ {
 		req, rerr := newReq()
 		if rerr != nil {
 			return nil, 0, nil, rerr
@@ -225,7 +242,7 @@ func (a *Adapter) doWithRetry(ctx context.Context, method string, newReq func() 
 			return nil, 0, nil, fmt.Errorf("googleads adapter: read response: %w", rdErr)
 		}
 		if len(body) > limit {
-			return nil, 0, nil, fmt.Errorf("googleads adapter: response exceeds %d byte cap (use pageSize/pageToken to paginate)", limit)
+			return nil, 0, nil, fmt.Errorf("googleads adapter: response exceeds %d byte cap (narrow the query or reduce the requested fields)", limit)
 		}
 		status, hdr, raw = resp.StatusCode, resp.Header, body
 		if !isRetryableStatus(status) || attempt == attempts {
@@ -237,7 +254,6 @@ func (a *Adapter) doWithRetry(ctx context.Context, method string, newReq func() 
 		case <-time.After(a.backoff(attempt, hdr.Get("Retry-After"))):
 		}
 	}
-	return raw, status, hdr, nil
 }
 
 func isRetryableStatus(code int) bool {
@@ -274,12 +290,43 @@ func customMethod(path string) string {
 	return path[i+1:]
 }
 
+// customersSegment marks where the account-scoped part of a binding path
+// starts; customerIDTemplate is the placeholder the catalog leaves for the
+// account id.
+const (
+	customersSegment   = "/customers/"
+	customerIDTemplate = "{customerId}"
+)
+
+// resourceURL joins the adapter base URL to the customer-scoped suffix of the
+// binding path, substituting the account id. Taking the suffix verbatim from
+// the catalog keeps both REST shapes working: a custom method hung off the
+// customer itself (".../customers/{customerId}:generateKeywordIdeas") and a
+// service sub-resource (".../customers/{customerId}/googleAds:search").
+func (a *Adapter) resourceURL(path, customerID string) (string, error) {
+	i := strings.Index(path, customersSegment)
+	if i < 0 {
+		return "", fmt.Errorf("googleads adapter: binding path %q has no %s segment", path, customersSegment)
+	}
+
+	suffix := strings.Replace(path[i:], customerIDTemplate, customerID, 1)
+	if strings.ContainsAny(suffix, "{}") {
+		return "", fmt.Errorf("googleads adapter: binding path %q has unresolved template parameters", path)
+	}
+
+	return a.baseURL() + suffix, nil
+}
+
 // buildBody assembles the JSON request body for method. When the caller passes
 // a raw `body` object it is used verbatim (advanced escape hatch — required for
 // fully custom forecast campaigns); otherwise the body is assembled from the
 // ergonomic top-level args.
 func (a *Adapter) buildBody(method string, args map[string]any) (map[string]any, error) {
-	if raw, ok := rawBodyArg(args); ok {
+	if method == "mutate" || method == "uploadClickConversions" {
+		if _, ok := args["body"]; ok {
+			return nil, fmt.Errorf("googleads adapter: %s does not accept `body`; use the declared top-level request fields", method)
+		}
+	} else if raw, ok := rawBodyArg(args); ok {
 		return raw, nil
 	}
 	switch method {
@@ -289,6 +336,12 @@ func (a *Adapter) buildBody(method string, args map[string]any) (map[string]any,
 		return a.historicalBody(args)
 	case "generateKeywordForecastMetrics":
 		return a.forecastBody(args)
+	case "search":
+		return a.searchBody(args)
+	case "mutate":
+		return a.mutateBody(args)
+	case "uploadClickConversions":
+		return a.uploadsBody(args)
 	default:
 		return nil, fmt.Errorf("googleads adapter: unsupported method %q", method)
 	}
@@ -426,7 +479,106 @@ func (a *Adapter) forecastBody(args map[string]any) (map[string]any, error) {
 	}, nil
 }
 
+// searchBody builds a GoogleAdsService.Search request. page_size stopped being
+// configurable in v19 (the API always returns 10000 rows per page), so paging
+// is token-only.
+func (a *Adapter) searchBody(args map[string]any) (map[string]any, error) {
+	query := stringArg(args, "query")
+	if query == "" {
+		return nil, errors.New("googleads adapter: `query` is required (a GAQL statement, e.g. SELECT campaign.name FROM campaign)")
+	}
+
+	body := map[string]any{"query": query}
+	if token := stringArg(args, "pageToken"); token != "" {
+		body["pageToken"] = token
+	}
+
+	return body, nil
+}
+
+// mutateBody builds a GoogleAdsService.Mutate request. The operations are
+// passed through verbatim: MutateOperation is a union over every resource type
+// in the API, so validating its shape here would mean mirroring the whole
+// resource schema. Google rejects a malformed operation with a precise error.
+func (a *Adapter) mutateBody(args map[string]any) (map[string]any, error) {
+	ops, err := objectSliceArg(args, "mutateOperations")
+	if err != nil {
+		return nil, err
+	}
+	if len(ops) == 0 {
+		return nil, errors.New("googleads adapter: `mutateOperations` is required (an array of MutateOperation objects)")
+	}
+	if len(ops) > maxMutateOperations {
+		return nil, fmt.Errorf("googleads adapter: `mutateOperations` has %d entries; the limit is %d per request", len(ops), maxMutateOperations)
+	}
+
+	body := map[string]any{"mutateOperations": ops}
+	if err := setBooleanOptions(body, args, "validateOnly", "partialFailure"); err != nil {
+		return nil, err
+	}
+
+	if rct := stringArg(args, "responseContentType"); rct != "" {
+		up := strings.ToUpper(rct)
+		if !validRespTypes[up] {
+			return nil, fmt.Errorf("googleads adapter: `responseContentType` must be RESOURCE_NAME_ONLY or MUTABLE_RESOURCE, got %q", rct)
+		}
+		body["responseContentType"] = up
+	}
+
+	return body, nil
+}
+
+// uploadsBody builds a ConversionUploadService.UploadClickConversions request.
+// Each ClickConversion is passed through verbatim; Google names the offending
+// index in partialFailureError when one is malformed.
+//
+// partialFailure is forced on rather than exposed as an arg. Google documents
+// it as required for this method, and the failure it guards against is one bad
+// click id discarding a whole day of conversions.
+func (a *Adapter) uploadsBody(args map[string]any) (map[string]any, error) {
+	conversions, err := objectSliceArg(args, "conversions")
+	if err != nil {
+		return nil, err
+	}
+	if len(conversions) == 0 {
+		return nil, errors.New("googleads adapter: `conversions` is required (an array of ClickConversion objects)")
+	}
+	if len(conversions) > maxClickConversions {
+		return nil, fmt.Errorf("googleads adapter: `conversions` has %d entries; the limit is %d per request", len(conversions), maxClickConversions)
+	}
+
+	body := map[string]any{"conversions": conversions, "partialFailure": true}
+	if err := setBooleanOptions(body, args, "validateOnly"); err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
 // ── arg coercion helpers ─────────────────────────────────────────────────────
+
+// setBooleanOptions rejects malformed safety flags before a write is sent.
+func setBooleanOptions(body, args map[string]any, keys ...string) error {
+	for _, key := range keys {
+		value, ok := args[key]
+		if !ok {
+			continue
+		}
+		b, valid := value.(bool)
+		if s, isString := value.(string); isString {
+			var err error
+			b, err = strconv.ParseBool(strings.TrimSpace(s))
+			valid = err == nil
+		}
+		if !valid {
+			return fmt.Errorf("googleads adapter: `%s` must be a boolean", key)
+		}
+		if b {
+			body[key] = true
+		}
+	}
+	return nil
+}
 
 func rawBodyArg(args map[string]any) (map[string]any, bool) {
 	v, ok := args["body"]
@@ -492,6 +644,42 @@ func int64Arg(args map[string]any, key string) int64 {
 		return n
 	}
 	return 0
+}
+
+// objectSliceArg accepts a JSON array of objects (from MCP) or the same array
+// encoded as a string (CLI convenience, where a shell arg arrives as text).
+// A non-object element is an error rather than a silent drop: skipping one
+// operation from a mutate batch would apply a different change than asked.
+func objectSliceArg(args map[string]any, key string) ([]map[string]any, error) {
+	v, ok := args[key]
+	if !ok {
+		return nil, nil
+	}
+
+	raw, ok := v.([]any)
+	if !ok {
+		s, isStr := v.(string)
+		if !isStr {
+			return nil, fmt.Errorf("googleads adapter: `%s` must be an array of objects", key)
+		}
+		if strings.TrimSpace(s) == "" {
+			return nil, nil
+		}
+		if err := json.Unmarshal([]byte(s), &raw); err != nil {
+			return nil, fmt.Errorf("googleads adapter: `%s` is not a JSON array: %w", key, err)
+		}
+	}
+
+	out := make([]map[string]any, 0, len(raw))
+	for i, e := range raw {
+		m, ok := e.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("googleads adapter: `%s`[%d] must be an object", key, i)
+		}
+		out = append(out, m)
+	}
+
+	return out, nil
 }
 
 // stringSliceArg accepts a JSON array (from MCP) or a comma-separated string

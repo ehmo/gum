@@ -13963,6 +13963,214 @@
           }
         }
       ]
+    },
+    {
+      "op_id": "googleads.googleAds.search",
+      "op_schema_version": 1,
+      "title": "Search with GAQL",
+      "summary": "Run a Google Ads Query Language (GAQL) query against an account and return the matching rows. Use it for campaign, ad group, keyword, search-term, and spend reporting. Needs `query`.",
+      "service_family": "googleads",
+      "service": "googleads",
+      "default_variant_id": "googleads.v24.rest.googleAds.search",
+      "variants": [
+        {
+          "variant_id": "googleads.v24.rest.googleAds.search",
+          "variant_schema_version": 1,
+          "version": "v24",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "google-ads-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/adwords"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "googleads.search",
+            "operation_key": "googleads.googleAds.search",
+            "http": {
+              "method": "POST",
+              "path": "https://googleads.googleapis.com/v24/customers/{customerId}/googleAds:search"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "customerId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager."
+        },
+        {
+          "name": "loginCustomerId",
+          "location": "arg",
+          "type": "string",
+          "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account."
+        },
+        {
+          "name": "query",
+          "location": "arg",
+          "type": "string",
+          "required": true,
+          "description": "GAQL query, e.g. SELECT campaign.name, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_7_DAYS."
+        },
+        {
+          "name": "pageToken",
+          "location": "arg",
+          "type": "string",
+          "description": "nextPageToken from a previous response, to fetch the next 10000 rows."
+        }
+      ]
+    },
+    {
+      "op_id": "googleads.googleAds.mutate",
+      "op_schema_version": 1,
+      "title": "Mutate resources",
+      "summary": "Create, update, or remove Google Ads resources in an ordered batch, atomic unless partialFailure=true. Needs `mutateOperations` and destructive confirmation because removals are permanent. Pass validateOnly=true to check a batch without applying it.",
+      "service_family": "googleads",
+      "service": "googleads",
+      "default_variant_id": "googleads.v24.rest.googleAds.mutate",
+      "variants": [
+        {
+          "variant_id": "googleads.v24.rest.googleAds.mutate",
+          "variant_schema_version": 1,
+          "version": "v24",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "google-ads-sdk",
+          "preferred": true,
+          "risk_class": "destructive",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/adwords"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "googleads.mutate",
+            "operation_key": "googleads.googleAds.mutate",
+            "http": {
+              "method": "POST",
+              "path": "https://googleads.googleapis.com/v24/customers/{customerId}/googleAds:mutate"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "customerId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager."
+        },
+        {
+          "name": "loginCustomerId",
+          "location": "arg",
+          "type": "string",
+          "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account."
+        },
+        {
+          "name": "mutateOperations",
+          "location": "arg",
+          "type": "array",
+          "item_type": "object",
+          "required": true,
+          "description": "Ordered MutateOperation objects, e.g. {\"campaignBudgetOperation\":{\"create\":{...}}}. Later operations may reference earlier ones by temporary resource id (a negative id such as customers/123/campaignBudgets/-1)."
+        },
+        {
+          "name": "validateOnly",
+          "location": "arg",
+          "type": "boolean",
+          "default": "false",
+          "description": "Validate the batch and return errors without writing anything. Run every new batch this way first."
+        },
+        {
+          "name": "partialFailure",
+          "location": "arg",
+          "type": "boolean",
+          "default": "false",
+          "description": "Apply the operations that succeed instead of failing the whole batch. Leave false to keep the batch atomic."
+        },
+        {
+          "name": "responseContentType",
+          "location": "arg",
+          "type": "string",
+          "enum": [
+            "RESOURCE_NAME_ONLY",
+            "MUTABLE_RESOURCE"
+          ],
+          "default": "RESOURCE_NAME_ONLY",
+          "description": "RESOURCE_NAME_ONLY returns resource names; MUTABLE_RESOURCE returns the written resources."
+        }
+      ]
+    },
+    {
+      "op_id": "googleads.conversionUploads.uploadClickConversions",
+      "op_schema_version": 1,
+      "title": "Upload click conversions",
+      "summary": "Report offline conversions for eligible existing developer tokens. Needs `conversions`; set conversionAction, conversionDateTime, and a supported click id or user identifiers. Always inspect partialFailureError, even after HTTP success. New integrations must use the Data Manager API.",
+      "service_family": "googleads",
+      "service": "googleads",
+      "default_variant_id": "googleads.v24.rest.conversionUploads.uploadClickConversions",
+      "variants": [
+        {
+          "variant_id": "googleads.v24.rest.conversionUploads.uploadClickConversions",
+          "variant_schema_version": 1,
+          "version": "v24",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "google-ads-sdk",
+          "preferred": true,
+          "risk_class": "write",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/adwords"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "googleads.uploadClickConversions",
+            "operation_key": "googleads.conversionUploads.uploadClickConversions",
+            "http": {
+              "method": "POST",
+              "path": "https://googleads.googleapis.com/v24/customers/{customerId}:uploadClickConversions"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "customerId",
+          "location": "path",
+          "type": "string",
+          "required": true,
+          "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager."
+        },
+        {
+          "name": "loginCustomerId",
+          "location": "arg",
+          "type": "string",
+          "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account."
+        },
+        {
+          "name": "conversions",
+          "location": "arg",
+          "type": "array",
+          "item_type": "object",
+          "required": true,
+          "description": "ClickConversion objects with conversionAction, conversionDateTime (including timezone), and click ids or userIdentifiers. Optional fields include conversionValue, currencyCode, orderId, and consent. Google permits each orderId once per conversion action; inspect partialFailureError for rejected entries."
+        },
+        {
+          "name": "validateOnly",
+          "location": "arg",
+          "type": "boolean",
+          "default": "false",
+          "description": "Validate the batch and return errors without recording anything."
+        }
+      ]
     }
   ]
 }
