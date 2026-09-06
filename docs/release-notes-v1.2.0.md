@@ -1,7 +1,7 @@
 ---
 title: gum v1.2.0 release notes
 date: 2026-09-06
-status: release candidate
+status: release
 ---
 
 # gum v1.2.0
