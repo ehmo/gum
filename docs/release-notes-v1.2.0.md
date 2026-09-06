@@ -89,7 +89,7 @@ and server-side developer-token credential.
 
 ## Token savings
 
-Measured with the release fixtures using the candidate binary:
+Measured with the release fixtures using the published macOS ARM binary:
 
 ```bash
 gum gain --fixture-replay --format=toon
@@ -106,6 +106,6 @@ gum gain --fixture-replay --format=json
 ```bash
 git checkout v1.2.0
 cd apps/gum
-CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=v1.2.0' ./cmd/gum
+GOTOOLCHAIN=go1.26.7 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=1.2.0' ./cmd/gum
 sha256sum gum
 ```
