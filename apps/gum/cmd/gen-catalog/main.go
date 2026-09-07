@@ -76,6 +76,7 @@ func run() error {
 	offlineStubsOnly := flag.Bool("offline-stubs-only", false, "skip network; load embedded catalog and only re-emit gen/dispatch/*.go stubs")
 	injectMetaOffline := flag.Bool("inject-meta-offline", false, "skip network; load the existing catalog, append any missing meta ops (gum.code), and rewrite catalog.json + .sha256 in lockstep")
 	injectGoogleAdsOffline := flag.Bool("inject-googleads-offline", false, "skip network; load the existing catalog, add/replace the Google Ads Keyword Planner ops, and rewrite catalog.json + .sha256 in lockstep")
+	injectDataManagerOffline := flag.Bool("inject-datamanager-offline", false, "skip network; load the existing catalog, add/replace the Data Manager API ops, and rewrite catalog.json + .sha256 in lockstep")
 	refreshSourceOpsFlag := flag.Bool("refresh-source-ops", false, "skip network; rebuild in-source hand-authored ops (Search Console) and replace matching ops in catalog.json by op_id, then rewrite catalog.json + .sha256 in lockstep")
 	applyRequestFieldsFlag := flag.Bool("apply-request-fields", false, "skip network; set Op.RequestFields from the central Tier A map (request_fields_data.go) on matching ops in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
 	enrichRequestFieldsFlag := flag.Bool("enrich-request-fields", false, "fetch Discovery docs; apply the hand-map then derive RequestFields for every REST op still missing them, and rewrite catalog.json + .sha256 in lockstep")
@@ -91,6 +92,10 @@ func run() error {
 
 	if *injectGoogleAdsOffline {
 		return injectGoogleAds(*outPath)
+	}
+
+	if *injectDataManagerOffline {
+		return injectDataManager(*outPath)
 	}
 
 	if *refreshSourceOpsFlag {
@@ -159,6 +164,7 @@ func run() error {
 		cat.Ops = append(cat.Ops, BuildMapsOps()...)
 		cat.Ops = append(cat.Ops, BuildPlacesRoutesOps()...)
 		cat.Ops = append(cat.Ops, BuildGoogleAdsOps()...)
+		cat.Ops = append(cat.Ops, BuildDataManagerOps()...)
 		cat.Ops = append(cat.Ops, BuildUnofficialPluginOps()...)
 		cat.Ops = append(cat.Ops, BuildMetaOps()...)
 		if err := cat.Validate(); err != nil {
@@ -322,24 +328,39 @@ func injectMeta(catalogPath string) error {
 	return nil
 }
 
-// injectGoogleAds adds (or replaces, by op_id) the Google Ads Keyword Planner
-// ops in catalogPath without touching the network, then rewrites catalog.json +
-// .sha256 in lockstep. Unlike refreshSourceOps this also APPENDS ops that are
-// not yet present, so it lands brand-new googleads ops offline with a minimal
-// diff (generated_at preserved). Re-running it updates the ops in place.
+// injectGoogleAds adds (or replaces, by op_id) the Google Ads ops in
+// catalogPath without touching the network.
 func injectGoogleAds(catalogPath string) error {
+	return injectOpsOffline(catalogPath, BuildGoogleAdsOps(), "googleads")
+}
+
+// injectDataManager adds (or replaces, by op_id) the Data Manager API ops in
+// catalogPath without touching the network. Data Manager is the only transport
+// Google leaves open for a new offline-conversion integration, so it lands the
+// same way the googleads ops did.
+func injectDataManager(catalogPath string) error {
+	return injectOpsOffline(catalogPath, BuildDataManagerOps(), "datamanager")
+}
+
+// injectOpsOffline adds (or replaces, by op_id) one builder's ops in
+// catalogPath without touching the network, then rewrites catalog.json +
+// .sha256 in lockstep. Unlike refreshSourceOps this also APPENDS ops that are
+// not yet present, so it lands brand-new ops offline with a minimal diff
+// (generated_at preserved). Re-running it updates the ops in place. label names
+// the builder in log lines and error prefixes.
+func injectOpsOffline(catalogPath string, ops []catalog.Op, label string) error {
 	data, err := os.ReadFile(catalogPath)
 	if err != nil {
-		return fmt.Errorf("inject-googleads: read %s: %w", catalogPath, err)
+		return fmt.Errorf("inject-%s: read %s: %w", label, catalogPath, err)
 	}
 	var cat catalog.Catalog
 	if err := json.Unmarshal(data, &cat); err != nil {
-		return fmt.Errorf("inject-googleads: parse %s: %w", catalogPath, err)
+		return fmt.Errorf("inject-%s: parse %s: %w", label, catalogPath, err)
 	}
 
 	rebuilt := map[string]catalog.Op{}
 	order := []string{}
-	for _, op := range BuildGoogleAdsOps() {
+	for _, op := range ops {
 		rebuilt[op.OpID] = op
 		order = append(order, op.OpID)
 	}
@@ -363,26 +384,26 @@ func injectGoogleAds(catalogPath string) error {
 	}
 
 	if err := cat.Validate(); err != nil {
-		return fmt.Errorf("inject-googleads: validate catalog with googleads ops: %w", err)
+		return fmt.Errorf("inject-%s: validate catalog with %s ops: %w", label, label, err)
 	}
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(&cat); err != nil {
-		return fmt.Errorf("inject-googleads: encode catalog: %w", err)
+		return fmt.Errorf("inject-%s: encode catalog: %w", label, err)
 	}
 	if err := os.WriteFile(catalogPath, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("inject-googleads: write %s: %w", catalogPath, err)
+		return fmt.Errorf("inject-%s: write %s: %w", label, catalogPath, err)
 	}
 
 	sum := sha256.Sum256(buf.Bytes())
 	checksumLine := fmt.Sprintf("%s  %s\n", hex.EncodeToString(sum[:]), filepath.Base(catalogPath))
 	if err := os.WriteFile(catalogPath+".sha256", []byte(checksumLine), 0o644); err != nil {
-		return fmt.Errorf("inject-googleads: write %s.sha256: %w", catalogPath, err)
+		return fmt.Errorf("inject-%s: write %s.sha256: %w", label, catalogPath, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "gen-catalog: injected googleads ops into %s (offline): %d added, %d replaced\n", catalogPath, added, replaced)
+	fmt.Fprintf(os.Stderr, "gen-catalog: injected %s ops into %s (offline): %d added, %d replaced\n", label, catalogPath, added, replaced)
 	return nil
 }
 

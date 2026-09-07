@@ -34,7 +34,10 @@ func TestAssembleRequestBodyRoutesAndCoerces(t *testing.T) {
 		"dimensions": []any{"query", "page"}, // body array (from repeated key)
 		"alt":        "json",                 // not a field → stays top-level (query)
 	}
-	got := assembleRequestBody(args, scFields())
+	got, err := assembleRequestBody(args, scFields())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if got["siteUrl"] != "sc-domain:turek.co" {
 		t.Errorf("siteUrl should stay top-level, got %v", got["siteUrl"])
@@ -67,7 +70,10 @@ func TestAssembleRequestBodyRoutesAndCoerces(t *testing.T) {
 // the §12.0 grammar keep working.
 func TestAssembleRequestBodyNoFieldsIsNoop(t *testing.T) {
 	args := map[string]any{"siteUrl": "x", "body": map[string]any{"startDate": "2026-04-28"}}
-	got := assembleRequestBody(args, nil)
+	got, err := assembleRequestBody(args, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !reflect.DeepEqual(got, args) {
 		t.Errorf("no-fields should be a no-op, got %#v", got)
 	}
@@ -81,7 +87,10 @@ func TestAssembleRequestBodyExplicitBodyWins(t *testing.T) {
 		"startDate": "2026-04-28",                              // flat
 		bodyArgKey:  map[string]any{"startDate": "2000-01-01"}, // explicit body wins
 	}
-	got := assembleRequestBody(args, scFields())
+	got, err := assembleRequestBody(args, scFields())
+	if err != nil {
+		t.Fatal(err)
+	}
 	body := got[bodyArgKey].(map[string]any)
 	if body["startDate"] != "2000-01-01" {
 		t.Errorf("explicit body should win, got startDate=%v", body["startDate"])
@@ -444,5 +453,54 @@ func TestMetaToolFormat(t *testing.T) {
 	}
 	if _, err := metaToolFormat("yaml", ""); err == nil {
 		t.Error("--output yaml should error")
+	}
+}
+
+func TestAssembleRequestBodyBooleanSafety(t *testing.T) {
+	fields := []catalog.RequestField{{Name: "validateOnly", Type: "boolean", Location: catalog.RequestFieldBody}}
+	for _, tc := range []struct {
+		name string
+		args map[string]any
+		fail bool
+		want bool
+	}{
+		{"flat", map[string]any{"validateOnly": "true"}, false, true},
+		{"body", map[string]any{"body": map[string]any{"validateOnly": true}}, false, true},
+		{"matching", map[string]any{"validateOnly": "true", "body": map[string]any{"validateOnly": true}}, false, true},
+		{"false", map[string]any{"validateOnly": false}, false, false},
+		{"conflict", map[string]any{"validateOnly": true, "body": map[string]any{"validateOnly": false}}, true, false},
+		{"reverse", map[string]any{"validateOnly": false, "body": map[string]any{"validateOnly": true}}, true, false},
+		{"number", map[string]any{"validateOnly": 1}, true, false},
+		{"null", map[string]any{"validateOnly": nil}, true, false},
+		{"body-string", map[string]any{"body": map[string]any{"validateOnly": "true"}}, true, false},
+		{"body-null", map[string]any{"body": map[string]any{"validateOnly": nil}}, true, false},
+		{"raw-body", map[string]any{"validateOnly": true, "body": `{"validateOnly":false}`}, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := assembleRequestBody(tc.args, fields)
+			if tc.fail {
+				if err == nil {
+					t.Fatal("unsafe input accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got["body"].(map[string]any)["validateOnly"] != tc.want {
+				t.Fatalf("wrong validation setting: %v", got)
+			}
+		})
+	}
+}
+
+func TestAssembleRequestBodyRawWithoutFlatFields(t *testing.T) {
+	raw := `{"validateOnly":true}`
+	args, err := assembleRequestBody(map[string]any{"body": raw}, []catalog.RequestField{{Name: "validateOnly", Type: "boolean", Location: catalog.RequestFieldBody}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args["body"] != raw {
+		t.Fatal("raw body changed without flat fields")
 	}
 }

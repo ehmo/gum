@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-07
+
+### Added
+
+- Data Manager API event ingestion through `datamanager.events.ingest` and
+  diagnostics through `datamanager.requestStatus.retrieve`.
+- A setup guide for the Data Manager OAuth scope, request body, validation,
+  and asynchronous processing checks.
+
+### Fixed
+
+- Conflicting boolean fields in `gum call` no longer silently discard a
+  validation flag in favor of an explicit body.
+- REST POST and PATCH requests are not retried after transport or response-read
+  failures, including a failed attempt after an HTTP 429 rejection.
+- Google validation errors retain request IDs and bounded field diagnostics.
+
 ## [1.2.0] - 2026-09-06
 
 ### Added

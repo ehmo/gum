@@ -73,11 +73,11 @@ func arrayRequestFields(fields []catalog.RequestField) []string {
 // assembleRequestBody moves body-located request fields out of the flat args map
 // and into the nested "body" map the adapter serializes, coercing each value to
 // its declared type. An explicit body (from body:=json) is preserved and takes
-// precedence over a flat field of the same name. args is mutated in place and
-// returned. A nil/empty fields list (the common case today) is a no-op.
-func assembleRequestBody(args map[string]any, fields []catalog.RequestField) map[string]any {
+// precedence over a flat field of the same name, except conflicting booleans
+// are rejected. args is mutated in place and returned. A nil/empty fields list (the common case today) is a no-op.
+func assembleRequestBody(args map[string]any, fields []catalog.RequestField) (map[string]any, error) {
 	if len(args) == 0 || len(fields) == 0 {
-		return args
+		return args, nil
 	}
 	// Preserve an explicit body:=json if it parsed to an object; otherwise leave
 	// any non-object explicit body untouched and skip flat-field assembly into it.
@@ -85,9 +85,38 @@ func assembleRequestBody(args map[string]any, fields []catalog.RequestField) map
 	if existing, ok := args[bodyArgKey]; ok {
 		m, isMap := existing.(map[string]any)
 		if !isMap {
-			return args // explicit non-object body wins; don't second-guess it
+			for _, f := range fields {
+				if _, present := args[f.Name]; present && f.Location == catalog.RequestFieldBody {
+					return nil, cliArgInvalid("body must be a JSON object when body fields are also supplied")
+				}
+			}
+			return args, nil
 		}
 		body = m
+	}
+
+	// Boolean body fields can control validation or write behavior. Check both
+	// representations before moving anything so conflicting flags cannot vanish.
+	for _, f := range fields {
+		if f.Location != catalog.RequestFieldBody || f.Type != "boolean" {
+			continue
+		}
+		flat, hasFlat := args[f.Name]
+		nested, hasNested := body[f.Name]
+		if hasFlat {
+			flat = coerceFieldValue(flat, f)
+			if _, ok := flat.(bool); !ok {
+				return nil, cliArgInvalid(f.Name + ": expected true or false")
+			}
+		}
+		if hasNested {
+			if _, ok := nested.(bool); !ok {
+				return nil, cliArgInvalid("body." + f.Name + ": expected a JSON boolean")
+			}
+		}
+		if hasFlat && hasNested && flat != nested {
+			return nil, cliArgInvalid(f.Name + " conflicts with body." + f.Name + "; supply it once")
+		}
 	}
 
 	moved := false
@@ -111,7 +140,7 @@ func assembleRequestBody(args map[string]any, fields []catalog.RequestField) map
 	if moved {
 		args[bodyArgKey] = body
 	}
-	return args
+	return args, nil
 }
 
 // coerceFieldValue converts a flat string arg to the field's declared type.

@@ -127,7 +127,10 @@ func newCallCmd() *cobra.Command {
 			if verr := validateFieldTypes(parsed.Args, reqFields); verr != nil {
 				return verr
 			}
-			parsed.Args = assembleRequestBody(parsed.Args, reqFields)
+			parsed.Args, err = assembleRequestBody(parsed.Args, reqFields)
+			if err != nil {
+				return err
+			}
 
 			// Build the dispatch invocation.
 			inv := &dispatch.Invocation{

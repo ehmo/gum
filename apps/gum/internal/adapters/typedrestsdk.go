@@ -39,7 +39,9 @@ type UpstreamError struct {
 	// GoogleStatus is the string status token (from error.status, e.g. "UNAVAILABLE").
 	GoogleStatus string
 	// Message is the human-readable error message from the Google API error body.
-	Message string
+	Message   string
+	RequestID string   `json:",omitempty"`
+	Details   []string `json:",omitempty"`
 	// RetryAfterMillis is the parsed Retry-After header in milliseconds, or 0
 	// when the upstream omitted the header. Populated by parseUpstreamError
 	// when HTTPStatus == 429. Surfaced through the dispatch.RetryAfterMsCarrier
@@ -49,7 +51,14 @@ type UpstreamError struct {
 }
 
 func (e *UpstreamError) Error() string {
-	return fmt.Sprintf("upstream error HTTP %d (%s/%s): %s", e.HTTPStatus, e.GoogleStatus, e.GoogleCode, e.Message)
+	msg := fmt.Sprintf("upstream error HTTP %d (%s/%s): %s", e.HTTPStatus, e.GoogleStatus, e.GoogleCode, e.Message)
+	if e.RequestID != "" {
+		msg += " (requestId=" + e.RequestID + ")"
+	}
+	if len(e.Details) > 0 {
+		msg += ": " + strings.Join(e.Details, "; ")
+	}
+	return msg
 }
 
 // HTTPStatusCode satisfies dispatch.HTTPStatuser so the dispatch boundary can
@@ -245,6 +254,15 @@ type googleErrorBody struct {
 		Code    json.Number `json:"code"`
 		Status  string      `json:"status"`
 		Message string      `json:"message"`
+		Details []struct {
+			Type            string `json:"@type"`
+			RequestID       string `json:"requestId"`
+			FieldViolations []struct {
+				Field       string `json:"field"`
+				Reason      string `json:"reason"`
+				Description string `json:"description"`
+			} `json:"fieldViolations"`
+		} `json:"details"`
 	} `json:"error"`
 }
 
@@ -394,6 +412,23 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 			ue.GoogleCode = eb.Error.Code.String()
 			ue.GoogleStatus = eb.Error.Status
 			ue.Message = eb.Error.Message
+			violations := 0
+			for _, detail := range eb.Error.Details {
+				switch detail.Type {
+				case "type.googleapis.com/google.rpc.RequestInfo":
+					ue.RequestID = detail.RequestID
+				case "type.googleapis.com/google.rpc.BadRequest":
+					for _, v := range detail.FieldViolations {
+						violations++
+						if len(ue.Details) < 5 {
+							ue.Details = append(ue.Details, fmt.Sprintf("%s: %s (%s)", v.Field, v.Description, v.Reason))
+						}
+					}
+				}
+			}
+			if violations > len(ue.Details) {
+				ue.Details = append(ue.Details, fmt.Sprintf("%d more field violations", violations-len(ue.Details)))
+			}
 		}
 		if headers != nil {
 			if secs := retryAfterSeconds(headers); secs > 0 {
@@ -410,6 +445,28 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 	var finalStatus int
 	var lastUpstreamErr *UpstreamError
 
+	attemptError := func(err error) error {
+		if ctx.Err() != nil {
+			return backoff.Permanent(ctx.Err())
+		}
+		// Response-body cap breach is a permanent error — there's no
+		// "retry smaller" semantic for an oversized upstream payload.
+		// Surface as RESPONSE_TOO_LARGE so the dispatch boundary emits
+		// the structured envelope (spec gum-4d66).
+		if errors.Is(err, httputil.ErrResponseTooLarge) {
+			return backoff.Permanent(dispatch.NewStructuredError(
+				dispatch.ErrCodeResponseTooLarge,
+				fmt.Sprintf("upstream response exceeded body cap for op %s", inv.OpID)).
+				WithDetail("op_id", inv.OpID).
+				WithDetail("cap_bytes", t.MaxResponseBytes).
+				WithRetryable(false))
+		}
+		if !isIdempotentMethod(upperMethod) {
+			return backoff.Permanent(err)
+		}
+		return err
+	}
+
 	operation := func() error {
 		if ctx.Err() != nil {
 			return backoff.Permanent(ctx.Err())
@@ -417,22 +474,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 
 		body, status, headers, err := doRequest()
 		if err != nil {
-			if ctx.Err() != nil {
-				return backoff.Permanent(ctx.Err())
-			}
-			// Response-body cap breach is a permanent error — there's no
-			// "retry smaller" semantic for an oversized upstream payload.
-			// Surface as RESPONSE_TOO_LARGE so the dispatch boundary emits
-			// the structured envelope (spec gum-4d66).
-			if errors.Is(err, httputil.ErrResponseTooLarge) {
-				return backoff.Permanent(dispatch.NewStructuredError(
-					dispatch.ErrCodeResponseTooLarge,
-					fmt.Sprintf("upstream response exceeded body cap for op %s", inv.OpID)).
-					WithDetail("op_id", inv.OpID).
-					WithDetail("cap_bytes", t.MaxResponseBytes).
-					WithRetryable(false))
-			}
-			return err // retryable network error
+			return attemptError(err)
 		}
 
 		if status >= 200 && status < 300 {
@@ -454,10 +496,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 			// Retry once more immediately within this attempt.
 			body2, status2, headers2, err2 := doRequest()
 			if err2 != nil {
-				if ctx.Err() != nil {
-					return backoff.Permanent(ctx.Err())
-				}
-				return err2
+				return attemptError(err2)
 			}
 			if status2 >= 200 && status2 < 300 {
 				finalBody = body2

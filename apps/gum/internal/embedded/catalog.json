@@ -14171,6 +14171,134 @@
           "description": "Validate the batch and return errors without recording anything."
         }
       ]
+    },
+    {
+      "op_id": "datamanager.events.ingest",
+      "op_schema_version": 1,
+      "title": "Ingest events",
+      "summary": "Send conversion events to a Google Ads or Display \u0026 Video 360 account (args.body: destinations[] with operatingAccount {accountType:GOOGLE_ADS, accountId} and productDestinationId = the conversion action id, plus events[] with eventTimestamp, eventSource, adIdentifiers {gclid|gbraid|wbraid}, conversionValue, currency, and transactionId). At most 2000 events per request. Set validateOnly=true in the body to check a batch without recording it. For live uploads, check the returned requestId with datamanager.requestStatus.retrieve after 30 minutes; processing can take 24 hours. Status lookup is unavailable for validateOnly requests.",
+      "service_family": "googleads",
+      "service": "datamanager",
+      "default_variant_id": "datamanager.v1.rest.events.ingest",
+      "variants": [
+        {
+          "variant_id": "datamanager.v1.rest.events.ingest",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "write",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/datamanager"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "datamanager.events.ingest",
+            "go_pkg": "google.golang.org/api/datamanager/v1",
+            "go_call": "Events.Ingest",
+            "http": {
+              "method": "POST",
+              "path": "https://datamanager.googleapis.com/v1/events:ingest"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "destinations",
+          "location": "body",
+          "type": "array",
+          "item_type": "object",
+          "required": true,
+          "description": "Where the events go. Each entry carries operatingAccount {accountType, accountId} and productDestinationId, which for Google Ads is the conversion action id."
+        },
+        {
+          "name": "events",
+          "location": "body",
+          "type": "array",
+          "item_type": "object",
+          "required": true,
+          "description": "The events to send. At most 2000 per request. Each carries eventTimestamp, eventSource (WEB, APP, IN_STORE, PHONE, MESSAGE, or OTHER), adIdentifiers {gclid|gbraid|wbraid}, conversionValue, currency, and transactionId."
+        },
+        {
+          "name": "consent",
+          "location": "body",
+          "type": "object",
+          "description": "Request-level consent applied to every user in the request. A user-level consent inside an event overrides it."
+        },
+        {
+          "name": "validateOnly",
+          "location": "body",
+          "type": "boolean",
+          "description": "Validate the batch without recording it. Status lookup is unavailable for validation requests."
+        },
+        {
+          "name": "encoding",
+          "location": "body",
+          "type": "string",
+          "enum": [
+            "ENCODING_UNSPECIFIED",
+            "HEX",
+            "BASE64"
+          ],
+          "description": "Encoding of hashed user identifiers. Required only for userData uploads, not for click-id conversions."
+        },
+        {
+          "name": "encryptionInfo",
+          "location": "body",
+          "type": "object",
+          "description": "Encryption details for userData uploads. Omit when identifiers are hashed but not encrypted."
+        }
+      ]
+    },
+    {
+      "op_id": "datamanager.requestStatus.retrieve",
+      "op_schema_version": 1,
+      "title": "Retrieve request status",
+      "summary": "Read what Google did with an earlier Data Manager request. Needs the requestId returned by a live ingest call. Wait 30 minutes before checking; processing can take 24 hours. Not available for validateOnly requests. Returns per-destination ingestion status, error info, and warnings.",
+      "service_family": "googleads",
+      "service": "datamanager",
+      "default_variant_id": "datamanager.v1.rest.requestStatus.retrieve",
+      "variants": [
+        {
+          "variant_id": "datamanager.v1.rest.requestStatus.retrieve",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "discovery-rest",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "byo_oauth",
+          "scopes": [
+            "https://www.googleapis.com/auth/datamanager"
+          ],
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "rest.typed-rest-sdk",
+            "operation_key": "datamanager.requestStatus.retrieve",
+            "go_pkg": "google.golang.org/api/datamanager/v1",
+            "go_call": "RequestStatus.Retrieve",
+            "http": {
+              "method": "GET",
+              "path": "https://datamanager.googleapis.com/v1/requestStatus:retrieve"
+            }
+          }
+        }
+      ],
+      "request_fields": [
+        {
+          "name": "requestId",
+          "location": "query",
+          "type": "string",
+          "required": true,
+          "description": "The requestId returned by an ingest call."
+        }
+      ]
     }
   ]
 }

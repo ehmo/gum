@@ -24,6 +24,7 @@ const labels = new Map([
   ["forms", "Forms"],
   ["gmail", "Gmail"],
   ["googleads", "Google Ads"],
+  ["datamanager", "Data Manager"],
   ["groupssettings", "Groups Settings"],
   ["gum", "gum"],
   ["indexing", "Indexing"],
@@ -81,6 +82,7 @@ const categories = new Map([
   ["searchconsole", "Search and media"],
   ["youtube", "Search and media"],
   ["googleads", "Ads and maps"],
+  ["datamanager", "Ads and maps"],
   ["maps", "Ads and maps"],
   ["places", "Ads and maps"],
   ["routes", "Ads and maps"],
@@ -104,6 +106,7 @@ const authGuideByService = new Map([
   ["forms", "../auth-guides/classroom-forms-meet-script.md"],
   ["gmail", "../auth-guides/gmail.md"],
   ["googleads", "../auth-guides/google-ads.md"],
+  ["datamanager", "../auth-guides/google-ads.md#data-manager"],
   ["groupssettings", "../auth-guides/admin-cloud-vault.md"],
   ["indexing", "../auth-guides/README.md"],
   ["maps", "../auth-guides/maps-custom-search.md"],
@@ -134,6 +137,7 @@ const apiEnableNameByService = new Map([
   ["forms", "Google Forms API"],
   ["gmail", "Gmail API"],
   ["googleads", "Google Ads API"],
+  ["datamanager", "Data Manager API"],
   ["groupssettings", "Groups Settings API"],
   ["indexing", "Indexing API"],
   ["maps", "the required Maps Platform APIs"],
@@ -457,6 +461,13 @@ function commandFor(op) {
 }
 
 function sampleArgs(op) {
+  if (op.op_id === "datamanager.events.ingest") {
+    return JSON.stringify({ body: {
+      destinations: [{ operatingAccount: { accountType: "GOOGLE_ADS", accountId: "<customer-id>" }, productDestinationId: "<conversion-action-id>" }],
+      events: [{ eventTimestamp: "<RFC-3339-time>", eventSource: "WEB", adIdentifiers: { gclid: "<click-id>" } }],
+      validateOnly: true,
+    } });
+  }
   const fields = Array.isArray(op.request_fields) ? op.request_fields : [];
   const args = {};
   for (const field of fields.filter((item) => item.required).slice(0, 4)) {
