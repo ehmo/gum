@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img alt="Go 1.26.4" src="https://img.shields.io/badge/Go-1.26.4-00ADD8?logo=go&logoColor=white">
+  <img alt="Go 1.26" src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white">
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2ea44f">
   <img alt="MCP stdio" src="https://img.shields.io/badge/MCP-stdio-7c3aed">
   <img alt="agent skills" src="https://img.shields.io/badge/agent%20skills-included-f97316">
@@ -31,11 +31,13 @@ to operate.
 
 ## What gum covers
 
-gum v1.0 ships with 222 operations across 32 services.
+gum v1.3.0 ships with 228 operations across 33 services. See the
+[release notes](docs/release-notes-v1.3.0.md) and
+[operations by service](docs/services/README.md).
 
 | Surface | Examples | Auth |
 | --- | --- | --- |
-| Google Workspace and Google APIs | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet, Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google Ads, Maps, Custom Search | OAuth, ADC, API key, service account, or Google Ads developer token |
+| Google Workspace and Google APIs | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet, Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google Ads, Data Manager, Maps, Custom Search | OAuth, ADC, API key, service account, or Google Ads developer token |
 | Bundled plugin services | Google Flights, Google Scholar, Google Patents, Google Trends, YouTube transcripts | Plugin-managed setup, with separate trust and sandbox checks |
 
 The Google API path is for accounts and projects you control. The plugin path is
@@ -45,7 +47,7 @@ model.
 ```mermaid
 flowchart LR
   User["Agent or CLI user"] --> Gum["gum"]
-  Gum --> Catalog["API catalog<br/>222 ops / 32 services"]
+  Gum --> Catalog["API catalog<br/>228 ops / 33 services"]
   Gum --> Auth["Auth resolver<br/>OAuth / ADC / API key / service account"]
   Gum --> Gates["Risk gates<br/>write + destructive confirmation"]
   Gum --> Shape["Output shaping<br/>small MCP-friendly results"]
@@ -78,7 +80,7 @@ set, and format you ran, not as a billing promise or latency claim.
 ## How OAuth works
 
 OAuth is Google's consent flow. A Google Cloud project owns an OAuth client, the
-consent screen, API enablement, quota, and verification state. gum v1.0 asks you
+consent screen, API enablement, quota, and verification state. gum asks you
 to use your own Desktop OAuth client because that keeps those controls in your
 project.
 
@@ -140,7 +142,7 @@ install -m 0755 gum ~/.local/bin/gum
 gum --version
 ```
 
-After the public release is published, install with:
+Install the latest release with:
 
 ```shell
 curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | bash
@@ -244,6 +246,7 @@ checklist.
 | Maps and Custom Search | API key | `gum auth use-api-key --stdin` |
 | Service-account variants | Service account | `gum auth use-service-account <key.json>` |
 | Google Ads | BYO OAuth plus developer token | `gum auth use-ads-developer-token`, then `gum login --service googleads` |
+| Data Manager conversion ingestion and diagnostics | BYO OAuth with the separate `datamanager` scope | `gum login --service datamanager`; see the [setup guide](docs/auth-guides/google-ads.md#data-manager) |
 
 ## MCP Setup
 

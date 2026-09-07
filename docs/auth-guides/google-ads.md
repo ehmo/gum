@@ -1,4 +1,10 @@
-# Google Ads
+# Google Ads and Data Manager
+
+For offline conversion ingestion through Data Manager, use the
+[Data Manager setup](#data-manager) below. The Google Ads API setup in the next
+section requires a developer token; Data Manager uses its own OAuth scope.
+
+## Google Ads API
 
 Enable the Google Ads API in Google Cloud. You also need a Google Ads developer
 token and a customer ID that the signed-in account can access.

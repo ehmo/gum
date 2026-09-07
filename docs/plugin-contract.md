@@ -18,16 +18,16 @@ The author-facing walkthrough — manifest field-by-field, wire ABI with worked 
 
 | Shape | Status | Expansion role |
 |---|---|---|
-| Shape 1: MCP subprocess | v0.1 compatibility bridge | Accepts existing FastMCP/Python plugins. The plugin owns HTTP/TLS/cookies/retry/rate-limit internals and is fully trusted as user-level code. Not policy-complete. |
-| Shape 2: gRPC subprocess | v0.4 target model | Host provides HTTP client, cookie jar, retry, rate limiter, credential access, cache, logging, and optional headless browser. This is the future preferred unofficial expansion substrate once the public SDK/proto is frozen. |
+| Shape 1: MCP subprocess | Supported in v1.3.0 | Accepts existing FastMCP/Python plugins. The plugin owns HTTP/TLS/cookies/retry/rate-limit internals and is fully trusted as user-level code. Not policy-complete. |
+| Shape 2: gRPC subprocess | Future authoring model; no target release | Host provides HTTP client, cookie jar, retry, rate limiter, credential access, cache, logging, and optional headless browser. This is the future preferred unofficial expansion substrate once the public SDK/proto is frozen. |
 
-For v0.1.0 through v0.3.x, Shape 1 is the only supported external authoring path. Shape 1 plugins are allowed only when their manifest declares the infrastructure they own, ships schemas/output profiles/canaries, and accepts the trust warning. Shape 2 is the long-term unofficial expansion substrate, but it is not an authoring contract until v0.4.0 freezes the public plugin SDK and proto.
+In v1.3.0, Shape 1 is the only supported external authoring path. Shape 1 plugins are allowed only when their manifest declares the infrastructure they own, ships schemas/output profiles/canaries, and accepts the trust warning. Shape 2 is the long-term unofficial expansion substrate, but it is not an authoring contract until a release freezes the public plugin SDK and proto.
 
-Before v0.4.0, `gum plugin install` rejects third-party Shape 2 manifests with `PLUGIN_SHAPE_UNSUPPORTED`. This includes `[plugin].shape = "grpc-subprocess"` and any `[[tools]]` record with `backend_kind = "grpc-plugin"`. The Shape 2 gate runs immediately after structural manifest parsing has identified `shape` and `backend_kind`, wins over `PLUGIN_BINDING_INVALID`, and happens before schema copy, executable staging, canary execution, or registry writes. Shape 2 binding examples in the docs are ABI fixtures only, not an external authoring surface for v0.1.0-v0.3.x.
+In v1.3.0, `gum plugin install` rejects third-party Shape 2 manifests with `PLUGIN_SHAPE_UNSUPPORTED`. This includes `[plugin].shape = "grpc-subprocess"` and any `[[tools]]` record with `backend_kind = "grpc-plugin"`. The Shape 2 gate runs immediately after structural manifest parsing has identified `shape` and `backend_kind`, wins over `PLUGIN_BINDING_INVALID`, and happens before schema copy, executable staging, canary execution, or registry writes. Shape 2 binding examples in the docs are ABI fixtures only, not an external authoring surface for v1.3.0.
 
-### Shape 2 Notes (normative for future Shape 2 authors, v0.4.0+)
+### Shape 2 notes (future authoring contract)
 
-Shape 2 plugins are Go subprocesses that communicate with the host via GUM's plugin gRPC interface. Until v0.4.0 publishes a public importable SDK/proto package, plugin authors MUST NOT depend on GUM `internal/...` packages or treat any local development path as stable. A canonical `go.work` stub and public module path will be published when the Shape 2 interface is frozen.
+Shape 2 plugins are Go subprocesses that communicate with the host via GUM's plugin gRPC interface. Until a release publishes a public importable SDK/proto package, plugin authors MUST NOT depend on GUM `internal/...` packages or treat any local development path as stable. A canonical `go.work` stub and public module path will be published when the Shape 2 interface is frozen.
 
 ## Manifest ABI
 
@@ -53,13 +53,13 @@ Unsupported `manifest_schema_version`, missing `manifest_schema_version` on a th
 Missing or malformed plugin binding selector fields fail before
 subprocess start with `PLUGIN_BINDING_INVALID`. For Shape 1 MCP
 plugins, `tool_name` is required. For bundled ABI fixtures and future
-v0.4.0+ Shape 2 manifests, `backend_kind = "grpc-plugin"` requires
-`rpc_service` and `rpc_method`. Third-party v0.1.0-v0.3.x manifests
+Shape 2 manifests, `backend_kind = "grpc-plugin"` requires
+`rpc_service` and `rpc_method`. Third-party v1.3.0 manifests
 that declare Shape 2 are rejected earlier with `PLUGIN_SHAPE_UNSUPPORTED`,
 regardless of selector completeness.
 
 `confirmation_policy` is optional and defaults to `none`. The only non-default
-v0.1 value is `high_stakes_write`, valid only for `risk_class = "write"` tools.
+value is `high_stakes_write`, valid only for `risk_class = "write"` tools.
 It makes `gum.write` and `gum call --risk=write` require user confirmation
 before dispatch while preserving MCP `destructiveHint=false`.
 
@@ -101,7 +101,7 @@ artifact or bundled plugin directory. The document is a JSON Schema
 `$defs.response`. Build/install derives the resolved binding refs as
 `request_ref = "<schema_ref>.request"` and
 `response_ref = "<schema_ref>.response"`; plugin manifests do not
-declare these refs directly in v0.1.0. The ref strings MUST match the
+declare these refs directly. The ref strings MUST match the
 safe served-ref grammar in `spec.md` §8.2 before any path is constructed;
 path separators, traversal markers, URI-encoded separators, and control
 characters fail with `PLUGIN_SCHEMA_REF_INVALID`. Bundled plugin
@@ -141,9 +141,9 @@ MCP clients enumerate plugins via:
 - `gum://plugins`
 - `gum://plugin/{name}`
 
-CLI users use `gum plugin list|info`. Search may surface plugin operations, but search phrasing is not the inventory contract.
+CLI users use `gum plugin list`. Search may surface plugin operations, but search phrasing is not the inventory contract.
 
-Plugin inventory status is a closed enum: `active`, `installed_pending_restart`, `needs_configuration`, or `quarantined`. In v0.1.0, a plugin installed while an MCP server is already running is inventory-only in that session with status `installed_pending_restart`; its operations are not searchable, operation-completable, describable as active, usable from code mode, or invokable until the MCP server restarts and marks it activated. A credentialed plugin installed without required credentials is `needs_configuration`: install validation succeeded, live canary was skipped, and the user must provide the declared credentials and run `gum canary --plugin=<name> --live` before activation. The restart affects operation reachability through the existing Tier A/meta-tool surface only; plugin variants never add individual MCP tools in v0.1.0. Standalone CLI commands see install-valid configured plugins on their next process start. If a plugin is both quarantined and another inactive state, `quarantined` wins in every MCP and CLI surface.
+Plugin inventory status is a closed enum: `active`, `installed_pending_restart`, `needs_configuration`, or `quarantined`. In v1.3.0, a plugin installed while an MCP server is already running is inventory-only in that session with status `installed_pending_restart`; its operations are not searchable, operation-completable, describable as active, usable from code mode, or invokable until the MCP server restarts and marks it activated. A credentialed plugin installed without required credentials is `needs_configuration`: install validation succeeded, live canary was skipped, and the user must provide the declared credentials and run `gum canary --plugin=<name> --live` before activation. The restart affects operation reachability through the existing Tier A/meta-tool surface only; plugin variants never add individual MCP tools in v1.3.0. Standalone CLI commands see install-valid configured plugins on their next process start. If a plugin is both quarantined and another inactive state, `quarantined` wins in every MCP and CLI surface.
 
 `gum://plugin/{name}` metadata is assembled from the selected profile's `plugin-catalog.json` plus `plugin-state.json`; the same profile's `plugins.lock` is consulted for package source/ref/checksum fields and the runtime executable binding (`executable_path`, `executable_sha256`, `argv_normalized`, `install_root`). Lock lookups are keyed by `(profile, plugin_name)` and MUST NOT cross profile boundaries. If those sources disagree, runtime status from `plugin-state.json` wins for quarantine/retry state, variant records from `plugin-catalog.json` win for dispatch metadata, and lockfile package fields are surfaced with `metadata_warning: "lock_catalog_mismatch"`. The resource shape is fixed in `spec.md` §13 and includes safe credential descriptors for `needs_configuration`; raw env var names must never appear in this resource. Users configure missing plugin credentials through `gum plugin setup <name>`, which prompts using descriptor display names/setup hints, stores secrets in the OS keychain for the active profile, and runs a live canary before clearing `needs_configuration`.
 

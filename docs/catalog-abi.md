@@ -78,19 +78,19 @@ Variants that allow `strip_nulls=true` in their assigned expression profile MUST
 
 ## Service Root Extension Point
 
-Variant records MAY include an optional `service_root_template` string field starting in v0.4.0. In v0.1.0-v0.3.x this field is reserved: `cmd/gen-catalog` MUST reject first-party or plugin manifests that set it with `SERVICE_ROOT_TEMPLATE_DEFERRED`, and runtime dispatch always uses the discovery-derived `rootUrl` / `servicePath` already recorded in variant metadata.
+In v1.3.0, `service_root_template` is reserved: `cmd/gen-catalog` MUST reject first-party or plugin manifests that set it with `SERVICE_ROOT_TEMPLATE_DEFERRED`, and runtime dispatch always uses the discovery-derived `rootUrl` / `servicePath` already recorded in variant metadata.
 
-**v0.1-v0.3 boundary.** Standard Google public endpoints whose discovery docs
+Current endpoint boundary. Standard Google public endpoints whose discovery docs
 already carry the correct `rootUrl` / `servicePath` are in scope. Sovereign,
 government, private-service-connect, or universe-domain variants that require
-substituting a profile-specific host are explicitly out of scope until v0.4.0.
+substituting a profile-specific host are out of scope in v1.3.0.
 They may be described as schema-only roadmap candidates, but they MUST NOT be
 advertised as executable variants before `service_root_template` support lands.
 This calibrates the "easy expansion" claim: adding public-endpoint API versions
 is catalog-only when the capability/backend class exists; adding endpoint-family
 selection is a runtime dispatch feature, not a manifest-only change.
 
-Future v0.4.0 shape (illustrative only; invalid in v0.1.0-v0.3.x):
+Future shape (illustrative only; invalid in v1.3.0):
 
 ```jsonc
 {
@@ -100,11 +100,11 @@ Future v0.4.0 shape (illustrative only; invalid in v0.1.0-v0.3.x):
 }
 ```
 
-The placeholder `{universe_domain}` is the universe domain string (e.g., `googleapis.com`, `googleapis.us`, or a sovereign-cloud domain). When `service_root_template` is absent, the runtime uses the discovery-derived `rootUrl` / `servicePath` already recorded in the variant metadata; implementers MUST NOT synthesize hostnames from API names. When v0.4.0 enables this field, the runtime substitutes the active profile's configured `universe_domain` (default `"googleapis.com"`) before constructing the request URL.
+The placeholder `{universe_domain}` is the universe domain string (e.g., `googleapis.com`, `googleapis.us`, or a sovereign-cloud domain). When `service_root_template` is absent, the runtime uses the discovery-derived `rootUrl` / `servicePath` already recorded in the variant metadata; implementers MUST NOT synthesize hostnames from API names. A future implementation would substitute the active profile's configured `universe_domain` (default `"googleapis.com"`) before constructing the request URL.
 
-This field is additive once v0.4.0 support lands: catalogs generated before this field was defined load correctly with the default behavior. Universe-domain support is therefore a manifest-and-catalog change, not an ABI-breaking schema version increment, but it is not active before v0.4.0.
+This field would be additive: catalogs generated before this field was defined load correctly with the default behavior. Universe-domain support is therefore a manifest-and-catalog change, not an ABI-breaking schema version increment, but it is not active in v1.3.0 and has no target release.
 
-`service_root_template` is validated at catalog-build time: the template MUST contain exactly one `{universe_domain}` placeholder and MUST begin with `https://`. Build fails with `SERVICE_ROOT_TEMPLATE_INVALID` on violation.
+The future `service_root_template` validation contract is: the template MUST contain exactly one `{universe_domain}` placeholder and MUST begin with `https://`. A future implementation would reject violations with `SERVICE_ROOT_TEMPLATE_INVALID`. Current builds reject every nonempty template with `SERVICE_ROOT_TEMPLATE_DEFERRED`.
 
 ## Backend Kind
 
@@ -117,7 +117,7 @@ This field is additive once v0.4.0 support lands: catalogs generated before this
 | `raw-http` | Arbitrary HTTP, no discovery doc | stable |
 | `grpc-sdk` | `cloud.google.com/go` gRPC client | stable |
 | `mcp-plugin` | Shape 1 MCP subprocess | stable |
-| `grpc-plugin` | Shape 2 gRPC subprocess | ABI-stable; runtime availability deferred to v0.4.0 |
+| `grpc-plugin` | Shape 2 gRPC subprocess | Reserved ABI; external authoring unsupported in v1.3.0 |
 | `google-ads-sdk` | Google Ads API (`googleads.googleapis.com`) REST; injects the secret `developer-token` header server-side | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
@@ -142,7 +142,7 @@ This field is additive once v0.4.0 support lands: catalogs generated before this
 | `discovery-rest` | Google Discovery REST method | stable |
 | `grpc` | Protobuf/gRPC method through a Go SDK | stable |
 | `plugin-mcp` | Shape 1 MCP subprocess tool | stable |
-| `plugin-grpc` | Shape 2 GUM gRPC subprocess method | ABI-stable; runtime availability deferred to v0.4.0 |
+| `plugin-grpc` | Shape 2 GUM gRPC subprocess method | Reserved ABI; external authoring unsupported in v1.3.0 |
 | `sdk-native` | Non-discovery native Go SDK surface such as GenAI or Maps | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
@@ -254,7 +254,7 @@ Common binding fields:
 }
 ```
 
-`gum plugin install` materializes exactly one of these binding objects under each resolved plugin variant's `binding` field in `plugin-catalog.json`. For Shape 1 MCP plugins, `tool_name` is the live MCP tool name exposed by the subprocess and `operation_key` equals `tool_name`. For Shape 2 gRPC plugins, `operation_key` equals `<rpc_service>.<rpc_method>`. Missing or malformed selector fields fail build/install with `PLUGIN_BINDING_INVALID`, except that the third-party Shape 2 install gate runs earlier before v0.4.0 and returns `PLUGIN_SHAPE_UNSUPPORTED` for third-party `grpc-plugin` manifests regardless of selector completeness.
+`gum plugin install` materializes exactly one of these binding objects under each resolved plugin variant's `binding` field in `plugin-catalog.json`. For Shape 1 MCP plugins, `tool_name` is the live MCP tool name exposed by the subprocess and `operation_key` equals `tool_name`. For Shape 2 gRPC plugins, `operation_key` equals `<rpc_service>.<rpc_method>`. Missing or malformed selector fields fail build/install with `PLUGIN_BINDING_INVALID`, except that the third-party Shape 2 install gate runs earlier in v1.3.0 and returns `PLUGIN_SHAPE_UNSUPPORTED` for third-party `grpc-plugin` manifests regardless of selector completeness.
 
 Expansion rule: adding a new `grpc-sdk` or `sdk-native` variant for an existing `adapter_key` and existing capability classes is catalog-only. Adding a new `adapter_key`, changing a binding schema version, or adding a new backend binding kind is not catalog-only; it requires adapter implementation, generator validation, documentation, and a fixture-backed contract test in the same PR.
 
@@ -275,12 +275,12 @@ Existing `TestBackendBinding<Name>` rows in `docs/test-matrix.md` MUST be update
 
 Some catalog fields are reserved as *capability atoms* — small, well-named slots that exist today only as metadata so future runtime features can light up without a wire-shape change. They are deliberately conservative; adding one requires a spec patch.
 
-| Atom | Field path | Type | v0.1.0 runtime | Future runtime |
+| Atom | Field path | Type | v1.3.0 runtime | Future runtime |
 |---|---|---|---|---|
-| `x-sovereign-endpoint` | `variant.binding.x-sovereign-endpoint` (optional, string or null) | string | Inert. Generators MAY populate it from discovery doc `rootUrl` overrides for known sovereign hosts (`googleapis.us`, `googleapis.de`, etc.); runtime IGNORES the value and always uses the default `googleapis.com` request URL. | v0.4.0 universe-domain support consumes this atom together with the `service_root_template` field (§Service Root Extension Point) to dispatch sovereign-cloud variants without a catalog regeneration. |
-| `stub_expires` | `variant.stub_expires` (optional, RFC 3339 timestamp string) | string | Inert. Curators MAY set this on schema-only experimental variants to signal a stub-expiry deadline; the daily catalog regeneration CI emits a warning when a stub has expired but does not fail the build. | v0.2.0+ catalog-build pipeline MAY graduate this to a hard build failure once expired-stub backfill has a documented owner. |
+| `x-sovereign-endpoint` | `variant.binding.x-sovereign-endpoint` (optional, string or null) | string | Inert. Generators MAY populate it from discovery doc `rootUrl` overrides for known sovereign hosts (`googleapis.us`, `googleapis.de`, etc.); runtime IGNORES the value and always uses the default `googleapis.com` request URL. | Future universe-domain support would consume this atom together with the `service_root_template` field (§Service Root Extension Point) to dispatch sovereign-cloud variants without a catalog regeneration. |
+| `stub_expires` | `variant.stub_expires` (optional, RFC 3339 timestamp string) | string | Inert. Curators MAY set this on schema-only experimental variants to signal a stub-expiry deadline; the daily catalog regeneration CI emits a warning when a stub has expired but does not fail the build. | A future catalog-build pipeline MAY graduate this to a hard build failure once expired-stub backfill has a documented owner. |
 
-Both atoms are reserved-but-inert in v0.1.0: their **schema slots** are part of the Catalog ABI (loaders MUST accept them without error and MUST NOT use them); their **semantics** activate in the version listed in the "Future runtime" column. Adding a third capability atom requires a spec.md patch plus a row here.
+Both atoms are reserved but inert in v1.3.0: their **schema slots** are part of the Catalog ABI (loaders MUST accept them without error and MUST NOT use them); the "Future runtime" column describes possible semantics with no target release. Adding a third capability atom requires a spec.md patch plus a row here.
 
 ## Schema Refs
 

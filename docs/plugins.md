@@ -15,7 +15,6 @@ transcripts.
 
 ```bash
 gum plugin list
-gum plugin info <name>
 gum plugin setup <name>
 ```
 

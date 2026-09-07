@@ -39,15 +39,18 @@ gum setup --target codex --features skills,mcp --yes
 
 ## What gum covers
 
-gum v1.0 ships with 222 catalog operations across 32 services. It covers Gmail,
+gum v1.3.0 ships with 228 catalog operations across 33 services. It covers Gmail,
 Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet,
 Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google
-Ads, Maps, Custom Search, and bundled plugin services such as Flights, Scholar,
+Ads, Data Manager, Maps, Custom Search, and bundled plugin services such as Flights, Scholar,
 Patents, Trends, and YouTube transcripts.
 
 The [operations by service](services/) pages are generated from the embedded
 catalog. They are the product-level entry point. The [command index](commands/)
 is generated from `gum schema --json` and documents the CLI surface.
+
+The [v1.3.0 release notes](release-notes-v1.3.0.md) cover Data Manager ingestion,
+request diagnostics, and validation safeguards.
 
 ## What gum does
 

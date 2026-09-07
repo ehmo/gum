@@ -76,10 +76,8 @@ body precedence is unchanged.
   processing can take up to 24 hours. Inspect every destination's result.
 - An explicit HTTP 429 rejection permits one retry. Check request state before
   resubmitting an upload after an uncertain transport or server failure.
-- A live validation-only ingestion returned a request ID during release
-  verification. No conversion was recorded. Live asynchronous processing
-  was not exercised; status routing and response preservation were tested
-  with HTTP fixtures.
+- Live asynchronous processing was not exercised; status routing and response
+  preservation were tested with HTTP fixtures.
 - macOS binaries are not notarized. The Homebrew formula clears quarantine
   during installation. For standalone installs, inspect with
   `spctl --assess --type execute --verbose gum` and use
@@ -87,7 +85,8 @@ body precedence is unchanged.
 
 ## Token savings
 
-Measured with the release fixtures using the local v1.3.0 candidate:
+Measured with the release fixtures using the Homebrew-installed v1.3.0 binary.
+Run from the `apps/gum` directory of the matching source checkout:
 
 ```sh
 gum gain --fixture-replay --format=toon
@@ -98,6 +97,21 @@ gum gain --fixture-replay --format=json
 | --- | ---: | ---: | ---: | ---: |
 | `toon` | 10 | 3,922 | 0 | 0 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
+
+## Verification
+
+All seven jobs in the [v1.3.0 release workflow](https://github.com/ehmo/gum/actions/runs/34077162315)
+passed, including tests, vulnerability checks, the independent four-platform
+rebuild, and provenance checks. Downloaded archive checksums and extracted
+binary hashes matched the published manifests.
+
+Both the downloaded macOS ARM release and the Homebrew installation completed
+a live ingestion with `validateOnly:true` and returned a `requestId`. No
+conversion was recorded. Homebrew's formula audit and package tests passed.
+
+If an upgraded Homebrew executable times out during OAuth refresh, check its
+[firewall approval](support.md#oauth-connection-timeouts) before replacing
+credentials.
 
 ## Reproducibility
 

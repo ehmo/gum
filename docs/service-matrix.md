@@ -1,6 +1,6 @@
 # gum Google Service Coverage Matrix
 
-Current generated catalog: 222 ops across 32 services.
+Current generated catalog: 228 operations across 33 services in gum v1.3.0.
 
 The v1 release supports broad catalog discovery and dispatch. Google auth is
 operator-owned: users bring their own OAuth client, API key, service account,
@@ -16,13 +16,23 @@ or ADC source based on the catalog variant.
 | Slides | Covered | Presentation create/get, page reads, batchUpdate |
 | Tasks | Covered | Tasklist and task list/get/insert/update/delete |
 | Admin SDK | Partial write coverage | Directory user/group/member reads plus selected group/member/user writes |
+| Google Ads | Six operations | Keyword Planner, GAQL reporting, guarded mutations, and click conversion uploads |
+| Data Manager | Two operations | Event ingestion with validation-only support and per-destination request diagnostics |
 
 Admin SDK write coverage stays narrow because tenant-wide mutations need strict
 policy gates. See [admin-write-policy-gate.md](./admin-write-policy-gate.md).
 
 ## Breadth Canary Evidence
 
-Latest recorded live run: 2026-06-12 PDT.
+The table below records the broad live run from 2026-06-12 PDT. These are dated
+results for that test account, not current API availability guarantees.
+
+During v1.3.0 release verification on 2026-09-07 UTC, both the downloaded macOS
+ARM release and the Homebrew installation completed Data Manager ingestion
+with `validateOnly:true` and returned a `requestId`. No conversion was recorded.
+Live asynchronous processing was not exercised; request-status routing and
+output preservation passed HTTP fixture tests. See the
+[release verification](release-notes-v1.3.0.md#verification).
 
 | Service | Representative command | Result | Notes |
 | --- | --- | --- | --- |

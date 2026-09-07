@@ -24,4 +24,6 @@ fixture-backed token-savings measurements.
 
 - Release-gated proof obligations live in [`Test Matrix`](test-matrix.md).
 - Every release publishes SHA-256 checksums and a SLSA provenance statement
-  next to the archives; `install.sh` verifies both.
+  next to the archives. `install.sh` verifies checksums and attempts the optional
+  provenance check when `slsa-verifier` is installed. The release workflow checks
+  provenance against every published archive.

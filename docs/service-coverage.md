@@ -5,7 +5,7 @@ description: "The current generated Google API catalog and where to find service
 
 # Service coverage
 
-The generated catalog contains 222 operations across 32 services. gum supports
+The generated catalog contains 228 operations across 33 services. gum supports
 more products than its top-level command list suggests because product coverage
 lives in operation IDs such as `gmail.users.messages.list`,
 `drive.files.export`, and `sheets.spreadsheets.values.update`.
@@ -25,15 +25,16 @@ subcommands.
 | --- | --- |
 | Workspace | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin SDK, Vault, Chat, Meet, Classroom, Forms, Apps Script, People |
 | Media and public APIs | YouTube, Photos Library, Search Console, Maps, Custom Search |
-| Ads | Google Ads Keyword Planner operations |
+| Ads | Google Ads Keyword Planner, GAQL reporting, guarded mutations, conversion uploads, and Data Manager ingestion and request diagnostics |
 | Bundled plugins | Flights, Scholar, Patents, Trends, YouTube transcripts |
 
 Some services require setup outside gum: enabled APIs on the OAuth project,
 Workspace admin privileges, Photos Library app configuration, Google Ads
 developer-token approval, an API key, or a Programmable Search Engine `cx`.
 
-Detailed setup lives in [auth guides](auth-guides/). The older coverage matrix
-is still available at [service-matrix.md](service-matrix.md).
+Detailed setup lives in [auth guides](auth-guides/), including the separate
+[Data Manager OAuth setup](auth-guides/google-ads.md#data-manager).
+[Service matrix](service-matrix.md) records operation depth and dated live checks.
 
 ## Why service pages matter
 

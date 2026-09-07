@@ -2,7 +2,7 @@
 
 This is the **author-facing** companion to `docs/plugin-contract.md` (the normative contract) and `docs/catalog-abi.md` (the runtime catalog ABI). The contract tells you *what* the host validates and rejects; this guide walks you through *how to ship* a Shape 1 MCP-subprocess plugin from scratch — manifest, ABI wire format, packaging, install workflow, and a complete worked example.
 
-In v0.1.0 through v0.3.x, Shape 1 (MCP subprocess) is the only externally authorable plugin shape. Shape 2 (gRPC subprocess) is reserved for a v0.4.0 freeze; third-party Shape 2 manifests are rejected at install time with `PLUGIN_SHAPE_UNSUPPORTED`.
+In v1.3.0, Shape 1 (MCP subprocess) is the only externally authorable plugin shape. Shape 2 (gRPC subprocess) has no target release; third-party Shape 2 manifests are rejected at install time with `PLUGIN_SHAPE_UNSUPPORTED`.
 
 ---
 
@@ -52,7 +52,7 @@ The manifest is the v1 schema enforced by `plugins.LoadManifest`. Every field be
 
 | Field | Type | Constraint | Failure code |
 |---|---|---|---|
-| `manifest_schema_version` | integer | Must be exactly `1` in v0.1.0. Must be a **sibling** of `[plugin]` in TOML manifests, never nested. | `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` |
+| `manifest_schema_version` | integer | Must be exactly `1` in v1.3.0. Must be a **sibling** of `[plugin]` in TOML manifests, never nested. | `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` |
 | `plugin_id` | string | Matches `^[a-z][a-z0-9-]{0,63}$`. | `PLUGIN_MANIFEST_INVALID` |
 | `name` | string | Free-form display name. | `PLUGIN_MANIFEST_INVALID` if empty |
 | `version` | string | Free-form (typically semver). | — |
@@ -224,7 +224,7 @@ reloaded fli
 
 `gum plugin remove fli` removes the install but **preserves the `namespace_owner` entry** in `plugins.lock`, so a reinstall by the same owner succeeds without re-asserting consent (spec §5.1 transfer procedure).
 
-> **v0.1.0 note**: a dedicated `gum plugin validate` subcommand is not yet wired. Until it lands (planned for a v0.2.0 ergonomics pass), validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, executable-binding rehash, and (if defined) the canary.
+`gum plugin validate` is not available in v1.3.0. Validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, executable-binding rehash, and (if defined) the canary.
 
 ---
 

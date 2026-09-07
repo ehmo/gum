@@ -57,6 +57,7 @@ const serviceGroupsBySlug = new Map([
   ["searchconsole", "Search and media"],
   ["youtube", "Search and media"],
   ["googleads", "Ads and maps"],
+  ["datamanager", "Ads and maps"],
   ["maps", "Ads and maps"],
   ["places", "Ads and maps"],
   ["routes", "Ads and maps"],

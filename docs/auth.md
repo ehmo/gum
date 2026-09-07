@@ -21,7 +21,7 @@ gum auth setup gmail.users.messages.list
 
 | Catalog auth strategy | Use it for | Setup command |
 | --- | --- | --- |
-| `byo_oauth` | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, YouTube Data API, People, Photos, Chat, Classroom, Meet, Apps Script, Admin, Vault, Search Console, Google Ads | `gum auth use-oauth-client`, then `gum login` |
+| `byo_oauth` | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, YouTube Data API, People, Photos, Chat, Classroom, Meet, Apps Script, Admin, Vault, Search Console, Google Ads, Data Manager | `gum auth use-oauth-client`, then `gum login` |
 | `api_key` | Maps, Places, Routes, Custom Search | `gum auth use-api-key --stdin` |
 | `service_account` | Operations or plugins that explicitly accept a Google service account key | `gum auth use-service-account <key.json>` |
 | `adc` | Hosts already running under Google Application Default Credentials | Configure ADC on the host |
@@ -199,6 +199,21 @@ stored, and the signed-in account can access the customer ID used in the call.
 Google can still reject requests when the token is pending, the customer ID is
 wrong, or the account lacks access.
 
+## Data Manager
+
+Data Manager uses the separate `https://www.googleapis.com/auth/datamanager`
+scope. Enable the Data Manager API in the project that owns your Desktop OAuth
+client, then authorize and probe the grant:
+
+```bash
+gum login --service datamanager
+gum auth probe --strategy byo_oauth --scopes datamanager
+```
+
+These operations do not require a Google Ads developer token. Follow the
+[Data Manager guide](auth-guides/google-ads.md#data-manager) for a validation-only
+ingestion request and request-status diagnostics.
+
 ## Plugin-managed auth
 
 Plugin-managed operations do not use gum's Google OAuth client, API key, ADC, or
@@ -214,7 +229,7 @@ gum describe youtube.transcripts.get
 
 ```bash
 gum plugin list
-gum plugin info <plugin-name>
+gum plugin list
 ```
 
 3. Complete the plugin's own credential or prerequisite setup.
@@ -238,3 +253,7 @@ operation returns data from its upstream source.
   API key, Workspace role, customer ID, property, or resource permissions.
 - Workspace admin APIs require a managed Workspace domain and suitable admin
   privileges. Consumer accounts cannot satisfy Admin SDK or Vault admin flows.
+- `AUTH_REFRESH_FAILED` with a timeout at `oauth2.googleapis.com/token`: check
+  network access and firewall prompts for the installed executable. A timeout
+  does not by itself show that the stored grant is invalid. See
+  [OAuth connection timeouts](support.md#oauth-connection-timeouts).

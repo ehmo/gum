@@ -37,6 +37,18 @@ The read tests call Gmail and Calendar list operations. The write test sends a
 Gmail message from the live account to itself. Use a test account, then remove
 the message after the run if your policy requires it.
 
+## Data Manager validation
+
+Use the [Data Manager setup guide](auth-guides/google-ads.md#data-manager) to
+authorize its OAuth scope and construct an event batch. Keep
+`body.validateOnly:true` for a validation check. A successful request returns
+`requestId` without recording conversions; Google does not offer request-status
+lookup for validation-only requests.
+
+The v1.3.0 downloaded macOS ARM binary and Homebrew installation both passed
+this check. See the [release verification](release-notes-v1.3.0.md#verification)
+for the checks performed and the limits of that evidence.
+
 ## Flights plugin smoke test
 
 The Flights live test skips itself unless the `fli` subprocess is available on

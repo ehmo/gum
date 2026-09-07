@@ -45,6 +45,7 @@ catalog entry shows the auth strategy, scopes, risk class, and example args.
 | Classroom, Forms, Meet, Apps Script | [classroom-forms-meet-script.md](classroom-forms-meet-script.md) | BYO OAuth |
 | Admin, Admin Reports, Cloud Identity, Groups Settings, Vault | [admin-cloud-vault.md](admin-cloud-vault.md) | BYO OAuth plus Workspace admin privileges |
 | Google Ads | [google-ads.md](google-ads.md) | BYO OAuth plus developer token |
+| Data Manager | [Google Ads and Data Manager](google-ads.md#data-manager) | BYO OAuth with the separate `datamanager` scope; no developer token |
 | Maps and Custom Search | [maps-custom-search.md](maps-custom-search.md) | API key |
 
 ## Scope Reference
@@ -61,6 +62,7 @@ request with `gum login`.
 | chat | `chat.memberships.readonly`, `chat.messages`, `chat.messages.readonly`, `chat.spaces.readonly` |
 | classroom | `classroom.announcements.readonly`, `classroom.courses`, `classroom.courses.readonly`, `classroom.coursework.students`, `classroom.coursework.students.readonly`, `classroom.rosters.readonly` |
 | cloudidentity | `cloud-identity.groups.readonly` |
+| datamanager | `datamanager` |
 | docs | `documents`, `documents.readonly` |
 | drive | `drive`, `drive.readonly` |
 | forms | `forms.body`, `forms.body.readonly`, `forms.responses.readonly` |
