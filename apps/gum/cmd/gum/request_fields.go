@@ -58,6 +58,46 @@ func catalogHasOp(opID string) bool {
 	return false
 }
 
+// lookupCatalogOp returns opID's entry in the embedded catalog, or nil.
+func lookupCatalogOp(opID string) *catalog.Op {
+	snap := loadCatalog()
+	if snap == nil {
+		return nil
+	}
+	for i := range snap.Ops {
+		if snap.Ops[i].OpID == opID {
+			return &snap.Ops[i]
+		}
+	}
+	return nil
+}
+
+// unconfiguredFields drops the fields a configured default fills (gum-puum),
+// so the wizard prompts only for values that have no other source. A
+// malformed configured default fails here, before any prompt.
+func unconfiguredFields(opID, profile string, args map[string]any, fields []catalog.RequestField) ([]catalog.RequestField, error) {
+	op := lookupCatalogOp(opID)
+	if op == nil {
+		return fields, nil
+	}
+	defaults, err := newArgDefaulter(profile).ArgDefaults(op, args)
+	if err != nil {
+		return nil, cliArgInvalid(err.Error())
+	}
+	if len(defaults) == 0 {
+		return fields, nil
+	}
+
+	out := make([]catalog.RequestField, 0, len(fields))
+	for _, f := range fields {
+		if _, ok := defaults[f.Name]; ok {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
 // arrayRequestFields returns the names of array-typed request fields, so the
 // arg parser treats repeated keys (dimensions=query dimensions=page) as a slice.
 func arrayRequestFields(fields []catalog.RequestField) []string {

@@ -116,7 +116,11 @@ func newCallCmd() *cobra.Command {
 			// supplied (scripts/agents/pipes are non-TTY and skip this, falling
 			// through to the normal missing-arg error instead of blocking).
 			if isReaderTerminal(cmd.InOrStdin()) {
-				if werr := promptMissingFields(cmd.InOrStdin(), cmd.ErrOrStderr(), parsed.Args, reqFields); werr != nil {
+				prompted, werr := unconfiguredFields(opID, resolveProfileFlag(cmd), parsed.Args, reqFields)
+				if werr != nil {
+					return werr
+				}
+				if werr := promptMissingFields(cmd.InOrStdin(), cmd.ErrOrStderr(), parsed.Args, prompted); werr != nil {
 					return werr
 				}
 			}

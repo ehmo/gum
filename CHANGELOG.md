@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-18
+
+### Added
+
+- A default Google Ads account. `GUM_GOOGLE_ADS_CUSTOMER_ID`,
+  `GUM_GOOGLE_ADS_LOGIN_CUSTOMER_ID`, and the profile keys
+  `googleads.customer_id` and `googleads.login_customer_id` fill
+  `customerId` and `loginCustomerId` when a call omits them. A call argument
+  wins over the environment, and the environment wins over the profile config.
+- A Keyword Planner guide for `geoTargetConstants` and `language`. Calls that
+  omit them return worldwide data for all languages.
+
+### Changed
+
+- The `gum call` wizard no longer prompts for an account id that a default
+  supplies. A missing `customerId` error names both ways to set a default.
+
+### Fixed
+
+- The specification said request-field defaults were not injected. It now
+  describes the shipped behavior: catalog defaults and configured account
+  defaults are added before canonicalization, cache keys, and audit hashes.
+
+### Security
+
+- `google.golang.org/grpc` v1.83.2 fixes GO-2026-6348, which `govulncheck`
+  found on a call path, plus GO-2026-6441 and GO-2026-6443.
+- `golang.org/x/crypto` v0.56.0 fixes GO-2026-6303, GO-2026-6354, and
+  GO-2026-6355.
+
 ## [1.3.0] - 2026-09-07
 
 ### Added

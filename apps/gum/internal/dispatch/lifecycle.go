@@ -232,6 +232,7 @@ type dispatcher struct {
 	teeConfig               TeeConfig                                  // gum-66wd: filesystem tee artifact policy (spec §9.0)
 	normalizeDatetimes      bool                                       // gum-y1n: spec §10.0 Rule 4 UTC normalization of RFC 3339 datetime args
 	profileLookup           func(name string) (*profile.Profile, bool) // §9.2 catalog-embedded profile resolver (step 8)
+	argDefaulter            ArgDefaulter                               // gum-puum: configured arg defaults (step 1)
 
 	opIndexOnce sync.Once              // builds opIndex on first findOp (review gum-yvam)
 	opIndex     map[string]*catalog.Op // canonical op_id + alias → *Op; snapshot is immutable post-construction
@@ -743,6 +744,39 @@ func existingBodyMap(args map[string]any) map[string]any {
 	return nil
 }
 
+// applyArgDefaulter fills omitted top-level args from the configured
+// ArgDefaulter. A key the caller supplied always wins, including an explicit
+// null or empty string: that is how a caller opts out of a default per call.
+func (d *dispatcher) applyArgDefaulter(op *catalog.Op, args map[string]any) *StructuredError {
+	if d.argDefaulter == nil {
+		return nil
+	}
+	defaults, err := d.argDefaulter.ArgDefaults(op, args)
+	if err != nil {
+		return NewStructuredError(ErrCodeInvalidArgs, err.Error()).
+			WithDetail("missing", []string{}).
+			WithDetail("unknown", []string{}).
+			WithDetail("type_errors", []string{}).
+			WithDetail("hint", "Fix or unset the configured default named in the message, or pass the arg explicitly.")
+	}
+	for name, v := range defaults {
+		if _, provided := args[name]; provided {
+			continue
+		}
+		args[name] = v
+	}
+	return nil
+}
+
+// missingArgHint asks the ArgDefaulter how to supply required args that are
+// still missing after all defaults.
+func (d *dispatcher) missingArgHint(op *catalog.Op, missing []string) string {
+	if d.argDefaulter == nil || len(missing) == 0 {
+		return ""
+	}
+	return d.argDefaulter.MissingArgHint(op, missing)
+}
+
 func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, typeErrors []string) {
 	hasParams := len(op.ParamsRequired) > 0 || len(op.ParamsOptional) > 0
 	hasFields := len(op.RequestFields) > 0
@@ -881,7 +915,8 @@ func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, type
 // Responsibilities (spec §3.1 step 1–2, §4.1, §5.3, §8.42):
 //  1. Normalize nil args to {}.
 //  2. Resolve op_id: exact match, then alias scan via Op.DeprecatedOpIDs.
-//  3. Apply request-field defaults for args the caller omitted.
+//  3. Apply configured defaults, then request-field defaults, for args the
+//     caller omitted.
 //  4. Validate args against params_required / params_optional; aggregate ALL errors.
 //  5. Compute ArgsHash.
 //
@@ -911,9 +946,13 @@ func (d *dispatcher) parseAndValidate(ctx context.Context, inv *Invocation) (*pa
 	// Mutate inv.OpID to the canonical id (so downstream steps see it).
 	inv.OpID = resolvedOp.OpID
 
-	// 3. Apply catalog defaults before validation, so validation, the ArgsHash,
-	// the cache key, and the audit record all see the args that actually go on
-	// the wire (gum-3gcv).
+	// 3. Apply defaults before validation, so validation, the ArgsHash, the
+	// cache key, and the audit record all see the args that actually go on the
+	// wire (gum-3gcv). Configured defaults go first so they rank above catalog
+	// defaults (gum-puum).
+	if serr := d.applyArgDefaulter(resolvedOp, inv.Args); serr != nil {
+		return nil, serr
+	}
 	var warnings []string
 	warnings = append(warnings, applyFieldDefaults(resolvedOp, inv.Args)...)
 
@@ -932,10 +971,14 @@ func (d *dispatcher) parseAndValidate(ctx context.Context, inv *Invocation) (*pa
 	if len(missing) > 0 || len(unknown) > 0 || len(typeErrors) > 0 {
 		// Emit [] rather than null for the empty arrays so JS/Python consumers
 		// can iterate every field unconditionally (review gum-s985).
-		return nil, NewStructuredError(ErrCodeInvalidArgs, "invalid arguments").
+		serr := NewStructuredError(ErrCodeInvalidArgs, "invalid arguments").
 			WithDetail("missing", emptyStrings(missing)).
 			WithDetail("unknown", emptyStrings(unknown)).
 			WithDetail("type_errors", emptyStrings(typeErrors))
+		if hint := d.missingArgHint(resolvedOp, missing); hint != "" {
+			serr = serr.WithDetail("hint", hint)
+		}
+		return nil, serr
 	}
 
 	// 5. Compute ArgsHash. Apply spec §10.0 Rule 4 datetime normalization when

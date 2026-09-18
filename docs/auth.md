@@ -199,6 +199,9 @@ stored, and the signed-in account can access the customer ID used in the call.
 Google can still reject requests when the token is pending, the customer ID is
 wrong, or the account lacks access.
 
+To omit `customerId` from each call, set a
+[default account](auth-guides/google-ads.md#default-account).
+
 ## Data Manager
 
 Data Manager uses the separate `https://www.googleapis.com/auth/datamanager`

@@ -32,6 +32,7 @@ var knownPrefixes = []string{
 	"validation.",
 	"meta_tools.",
 	"notify.",
+	"googleads.",
 }
 
 // Warning is a structured non-fatal diagnostic emitted during Load.

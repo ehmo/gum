@@ -414,6 +414,9 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 		// override is set on the invocation. Shared by CLI and MCP (both build
 		// the dispatcher here).
 		ProfileLookup: outprofile.BuiltinLookup,
+		// Env and profile-config defaults for omitted args, such as the
+		// Google Ads account ids (gum-puum).
+		ArgDefaults: newArgDefaulter(scopeProfile),
 	}
 	closer := func() error { return nil }
 	if dir := profileDataDir; dir != "" {

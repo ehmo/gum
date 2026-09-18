@@ -51,6 +51,21 @@ type AuthResolver interface {
 	ResolveAuth(ctx context.Context, inv *Invocation, rv *ResolvedVariant) (*Credentials, error)
 }
 
+// ArgDefaulter supplies arg defaults from sources outside the catalog, such as
+// GUM_* environment variables and the profile config file (gum-puum). The
+// kernel consults it in step 1, before catalog defaults, so a configured value
+// ranks above a built-in one (spec §12.2 global config precedence).
+type ArgDefaulter interface {
+	// ArgDefaults returns top-level arg values for op. args holds the caller's
+	// args and is read-only; the kernel applies a returned key only when the
+	// caller omitted it. A non-nil error fails the call with INVALID_ARGS
+	// carrying the error text, so the text should name the bad source.
+	ArgDefaults(op *catalog.Op, args map[string]any) (map[string]any, error)
+	// MissingArgHint returns remediation for required args still missing after
+	// all defaults, or "" when the defaulter has none for them.
+	MissingArgHint(op *catalog.Op, missing []string) string
+}
+
 // DispatcherConfig carries optional Phase-3 extensions to the dispatch kernel.
 // All fields are optional; zero values yield Phase-2 behaviour (no-op stubs).
 //
@@ -113,6 +128,9 @@ type DispatcherConfig struct {
 	// precedence. On a miss, shaping falls back to the default (empty) profile,
 	// so ops without a defined profile are unchanged.
 	ProfileLookup func(name string) (*profile.Profile, bool)
+	// ArgDefaults, when non-nil, fills omitted args from configured defaults
+	// and supplies the hint for still-missing required args (gum-puum).
+	ArgDefaults ArgDefaulter
 }
 
 // NewDispatcherWithConfig constructs a dispatch kernel that honours Phase-3
@@ -137,5 +155,6 @@ func NewDispatcherWithConfig(snapshot *catalog.Catalog, adapters map[string]Adap
 		auditSink:               cfg.Audit,
 		normalizeDatetimes:      cfg.NormalizeDatetimes,
 		profileLookup:           cfg.ProfileLookup,
+		argDefaulter:            cfg.ArgDefaults,
 	}
 }

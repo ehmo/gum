@@ -24,6 +24,64 @@ gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"c
 Google Ads can reject requests after OAuth if the developer token is pending,
 the customer ID is wrong, or the account lacks access to the customer.
 
+### Default account
+
+Every Google Ads operation needs `customerId`. Access through a manager account
+also needs `loginCustomerId`. Store defaults in the profile config so calls can
+omit both:
+
+```shell
+gum config set googleads.customer_id=<customer-id>
+gum config set googleads.login_customer_id=<manager-customer-id>
+gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"keywords":["gum"]}'
+```
+
+`GUM_GOOGLE_ADS_CUSTOMER_ID` and `GUM_GOOGLE_ADS_LOGIN_CUSTOMER_ID` set the
+same defaults from the environment. An argument in the call wins over the
+environment, and the environment wins over the profile config. To send one call
+without the manager default, pass `"loginCustomerId":""`.
+
+A default must hold exactly 10 digits; dashes and spaces are allowed. A
+malformed default fails the call with `INVALID_ARGS` and names the variable or
+config key that holds it. With no argument and no default, the error names both
+ways to set one. Defaults belong to one profile, so set them with `--profile`
+for other profiles. The MCP server reads the profile config on every call, so a
+new `gum config set` value applies without a restart. gum resolves the default
+before it hashes the request, so the audit record and the cache key carry the
+account the call used.
+
+## Keyword Planner
+
+The three `googleads.keywordPlanIdeas` operations return worldwide data unless
+the call passes `geoTargetConstants`, and data for all languages unless it
+passes `language`. gum leaves an omitted field out of the request, and Google
+then covers all locations and languages. Nothing marks a worldwide result, and
+its figures look plausible for a single country.
+
+For United States searches in English, pass geo target 2840 and language 1000:
+
+```shell
+gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"keywords":["horse breeds"],"geoTargetConstants":["2840"],"language":"1000"}'
+```
+
+`geoTargetConstants` is an array of bare ids such as `2840` or resource names
+such as `geoTargetConstants/2840`. `language` takes one id, as `1000` or
+`languageConstants/1000`. Google lists the
+[geo target ids](https://developers.google.com/google-ads/api/data/geotargets)
+and the
+[language ids](https://developers.google.com/google-ads/api/data/codes-formats#languages).
+
+A worldwide figure cannot be scaled down to one country afterwards. On
+September 17, 2026, historical metrics returned these average monthly searches:
+
+| Keyword | Worldwide, all languages | United States, English |
+| --- | --- | --- |
+| horse breeds | 135,000 | 60,500 |
+| horse insurance | 9,900 | 2,400 |
+
+Across the terms checked that day, the United States share of the worldwide
+figure ranged from 24 to 82 percent.
+
 ## Reporting and mutations
 
 Use `googleads.googleAds.search` for GAQL queries. Pass `pageToken` from the
@@ -110,4 +168,5 @@ retry. Check request state before resubmitting an upload with an uncertain
 outcome. Error messages preserve the request ID and up to five field
 violations, followed by an omitted count when needed.
 
-Sources checked September 7, 2026.
+Sources checked September 7, 2026. Geo target and language ids checked
+September 18, 2026.
