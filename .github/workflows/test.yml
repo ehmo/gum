@@ -45,6 +45,11 @@ jobs:
         run: make fmt-check
       - name: vet
         run: go vet ./...
+      # CI runs on Ubicloud, which has no macOS runners. Vetting for darwin
+      # keeps darwin-only files compiling, including the sandbox-exec runner
+      # in internal/pluginenv/runner_darwin.go and its test file.
+      - name: vet (darwin)
+        run: GOOS=darwin GOARCH=arm64 go vet ./...
       - name: staticcheck
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
@@ -63,28 +68,6 @@ jobs:
         run: go build ./...
       - name: test (race)
         run: go test -race -timeout 300s ./...
-
-  # macOS leg: the auth package's keychain backend (zalando/go-keyring) and
-  # file-permission / path behavior differ from Linux and are never otherwise
-  # exercised in CI (review gum-662u). Scoped to platform-sensitive packages
-  # to keep the run cheap.
-  #
-  # This job used to carry `if: github.repository != 'ehmo/gum' &&
-  # github.event_name == 'pull_request'`. Both halves were wrong: work lands
-  # on main by direct push, not by PR, so the job was skipped on every run it
-  # had ever been scheduled for, and the repository guard would have kept it
-  # off the one runner (public repo, free macOS minutes) where it costs
-  # nothing. It is unguarded now so it actually gates.
-  test-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.x'
-          cache-dependency-path: apps/gum/go.sum
-      - name: test (race, platform-sensitive packages)
-        run: go test -race -timeout 300s ./internal/auth/... ./internal/config/... ./internal/initpkg/... ./internal/fsatomic/... ./cmd/gum/...
 
   # The installer is a supply-chain artifact; its smoke tests (checksum-verify
   # wiring, platform detection, PATH-conflict logic) run network-free via
