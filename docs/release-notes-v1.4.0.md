@@ -118,11 +118,25 @@ gum gain --fixture-replay --format=json
 | `toon` | 10 | 3,922 | 0 | 0 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
 
+## Verification
+
+All seven jobs in the [v1.4.0 release workflow](https://github.com/ehmo/gum/actions/runs/35369340831)
+passed, including tests, vulnerability checks, the independent four-platform
+rebuild, and provenance checks. Downloaded archive checksums and extracted
+binary hashes matched the published manifests. A local macOS ARM rebuild with
+the command below matched the published binary hash.
+
+The Homebrew installation reports 1.4.0 and reproduces the token savings
+figures above. It completed a live Keyword Planner historical metrics call
+that set the account only through `GUM_GOOGLE_ADS_CUSTOMER_ID` and
+`GUM_GOOGLE_ADS_LOGIN_CUSTOMER_ID`, with no `customerId` argument. Homebrew's
+formula audit and package tests passed.
+
 ## Reproducibility
 
 ```sh
 git checkout v1.4.0
 cd apps/gum
-GOTOOLCHAIN=go1.26.8 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=1.4.0' ./cmd/gum
+GOTOOLCHAIN=go1.26.7 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=1.4.0' ./cmd/gum
 sha256sum gum
 ```
