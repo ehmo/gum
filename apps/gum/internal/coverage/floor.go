@@ -31,11 +31,11 @@ import (
 //
 // Coverage is GOOS-sensitive whenever a package carries build-tagged files:
 // internal/pluginenv reads 61% on linux (the Landlock path never executes on
-// a runner without it) and 100% on darwin, where those files are not compiled
-// in at all. A baseline raised from a darwin reading therefore fails linux CI
-// on the next push. RatchetOpportunities is suppressed off-baseline for that
-// reason; the failing check itself still runs everywhere, because a genuine
-// regression is worth catching on any platform.
+// a runner without it) and 52% on darwin, where its sandbox-exec files have
+// no tests. Off-baseline, Opportunities is suppressed, because a baseline
+// raised from a darwin reading fails linux CI on the next push, and
+// cmd/coverage-floor reports violations as warnings, because a darwin
+// reading below a linux baseline is not a regression.
 const BaselineGOOS = "linux"
 
 // OnBaselinePlatform reports whether the current GOOS is the one the Ratchets
@@ -126,7 +126,7 @@ var Ratchets = []Ratchet{
 	{Package: "github.com/ehmo/gum/internal/help", Min: 99.0, Bead: "gum-5wkg"},               // 100.0%
 	{Package: "github.com/ehmo/gum/internal/httputil", Min: 99.0, Bead: "gum-5wkg"},           // 100.0%
 	{Package: "github.com/ehmo/gum/internal/output/fieldmask", Min: 99.0, Bead: "gum-5wkg"},   // 100.0%
-	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 61.0, Bead: "gum-ejek"},          // 61.1% on Linux Go 1.26.4 public CI; darwin-only backend files make macOS report 100%. Deliberately NOT raised: the macOS reading is the platform skew, not a coverage gain.
+	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 61.0, Bead: "gum-ejek"},          // 61.1% on Linux Go 1.26.4 public CI. macOS reads 52% because its darwin-only backend files have no tests; only the linux reading is enforced.
 }
 
 // GatedPackages returns the `go test` patterns whose coverage MUST be
@@ -233,8 +233,7 @@ type Opportunity struct {
 // gate never fails the build; cmd/coverage-floor surfaces it as a hint.
 //
 // Off the baseline platform the result is always empty: acting on a hint
-// derived from a different GOOS raises a baseline linux CI cannot hold. On
-// darwin, internal/pluginenv alone would report a 39-point phantom gain.
+// derived from a different GOOS raises a baseline linux CI cannot hold.
 func Opportunities(readings []Reading) []Opportunity {
 	return OpportunitiesOn(readings, runtime.GOOS)
 }

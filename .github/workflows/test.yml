@@ -47,7 +47,7 @@ jobs:
         run: go vet ./...
       # CI runs on Ubicloud, which has no macOS runners. Vetting for darwin
       # keeps darwin-only files compiling, including the sandbox-exec runner
-      # in internal/pluginenv/runner_darwin.go and its test file.
+      # in internal/pluginenv/runner_darwin.go.
       - name: vet (darwin)
         run: GOOS=darwin GOARCH=arm64 go vet ./...
       - name: staticcheck

@@ -236,11 +236,11 @@ func TestOpportunitiesEmptyWhenNoneImproved(t *testing.T) {
 }
 
 // TestOpportunitiesSuppressedOffBaselinePlatform pins the reason the platform
-// argument exists. internal/pluginenv reads 61% on linux and 100% on darwin
-// because its Landlock files are build-tagged; a hint derived from the darwin
-// reading would raise a baseline that linux CI cannot hold, which is exactly
-// how the v1.0.2 coverage-floor break happened. A reading that clears the
-// margin by a mile must still produce no hint off-baseline.
+// argument exists. internal/pluginenv once read 61% on linux and 100% on
+// darwin because its backend files are build-tagged; a hint derived from the
+// darwin reading would raise a baseline that linux CI cannot hold, which is
+// exactly how the v1.0.2 coverage-floor break happened. A reading that clears
+// the margin by a mile must still produce no hint off-baseline.
 func TestOpportunitiesSuppressedOffBaselinePlatform(t *testing.T) {
 	withSyntheticRatchets(t, []Ratchet{{Package: "skewed/pkg", Min: 61.0, Bead: "test-only"}})
 	readings := []Reading{{Package: "skewed/pkg", Percent: 100.0, HasTests: true}}

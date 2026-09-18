@@ -38,8 +38,9 @@ func main() {
 		fmt.Printf("measured on GOOS=%s (baseline platform)\n\n", runtime.GOOS)
 	} else {
 		fmt.Printf("measured on GOOS=%s; baselines were measured on %s. "+
-			"Readings for build-tagged packages will differ from CI, and "+
-			"ratchet hints are suppressed.\n\n", runtime.GOOS, coverage.BaselineGOOS)
+			"Readings for build-tagged packages will differ from CI, "+
+			"ratchet hints are suppressed, and floor violations are "+
+			"warnings.\n\n", runtime.GOOS, coverage.BaselineGOOS)
 	}
 
 	fmt.Printf("%-60s %-9s %-9s\n", "PACKAGE", "COVERAGE", "FLOOR")
@@ -70,11 +71,23 @@ func main() {
 		fmt.Println()
 	}
 
-	if len(violations) > 0 {
-		fmt.Fprintln(os.Stderr, "coverage-floor: per-package floor violations:")
-		fmt.Fprint(os.Stderr, coverage.FormatViolations(violations))
-		fmt.Fprintf(os.Stderr, "\nFloor: %.1f%% (internal/coverage.FloorPercent); ratchets track follow-up beads.\n",
-			coverage.FloorPercent)
-		os.Exit(1)
+	if len(violations) == 0 {
+		return
 	}
+
+	fmt.Fprintln(os.Stderr, "coverage-floor: per-package floor violations:")
+	fmt.Fprint(os.Stderr, coverage.FormatViolations(violations))
+	fmt.Fprintf(os.Stderr, "\nFloor: %.1f%% (internal/coverage.FloorPercent); ratchets track follow-up beads.\n",
+		coverage.FloorPercent)
+
+	// Only a linux reading can fail the run. internal/pluginenv has no
+	// tests for its darwin files, so on darwin it always reads below the
+	// linux baseline.
+	if !coverage.OnBaselinePlatform() {
+		fmt.Fprintf(os.Stderr, "Not failing: GOOS=%s is not the baseline platform. CI enforces these floors on %s.\n",
+			runtime.GOOS, coverage.BaselineGOOS)
+		return
+	}
+
+	os.Exit(1)
 }
