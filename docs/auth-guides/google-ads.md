@@ -71,6 +71,55 @@ such as `geoTargetConstants/2840`. `language` takes one id, as `1000` or
 and the
 [language ids](https://developers.google.com/google-ads/api/data/codes-formats#languages).
 
+### Default location and language
+
+Store the pair in the profile config so every `keywordPlanIdeas` call sends it:
+
+```shell
+gum config set googleads.geo_target_constants=2840
+gum config set googleads.language=1000
+gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"keywords":["horse breeds"]}'
+```
+
+`GUM_GOOGLE_ADS_GEO_TARGET_CONSTANTS` and `GUM_GOOGLE_ADS_LANGUAGE` set the same
+defaults from the environment. Both the variable and the config key take a
+comma-separated list for the geo targets and one id for the language. A call
+argument wins over the environment, and the environment wins over the profile
+config. To ask one call for worldwide figures, pass `"geoTargetConstants":[]`
+and `"language":""`.
+
+The defaults reach only the three `keywordPlanIdeas` operations, because they
+are the operations that declare the two fields. With neither default set the
+request carries no location and no language, which is the earlier behavior.
+
+Each id must be digits, alone or behind its own resource prefix, so
+`languageConstants/1000` is rejected for the geo key. A malformed default fails
+the call with `INVALID_ARGS` and names the variable or config key that holds it.
+
+### Merged keyword results
+
+Google merges close variants of the submitted keywords into one result and keys
+it by its own normalized text. A batch of 245 keywords returned 243 results on
+September 18, 2026. Nothing in the response says which submitted string a result
+answers, so a caller that joins on `text` reads the merged keywords as zero
+volume.
+
+gum maps the inputs back on the shaped formats. A result that answers for more
+than one submitted keyword, or for one keyword that differs from its `text`,
+carries `matchedInputs` with those submitted strings. Submitted keywords that
+reached no result are listed in top-level `unmatchedInputs`. A batch whose
+results already map one to one carries neither field.
+
+```shell
+gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"keywords":["akhal-teke horse","akhal teke horse"]}'
+```
+
+That call returns one result with `"text":"akhal teke horse"` and
+`"matchedInputs":["akhal-teke horse","akhal teke horse"]`. The result count
+always matches the upstream response; gum adds no result objects. `--format raw`
+returns the upstream body, which carries Google's own `closeVariants` and no
+`matchedInputs`.
+
 A worldwide figure cannot be scaled down to one country afterwards. On
 September 17, 2026, historical metrics returned these average monthly searches:
 

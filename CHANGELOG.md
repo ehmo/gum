@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-18
+
+### Added
+
+- Keyword Planner location and language defaults.
+  `GUM_GOOGLE_ADS_GEO_TARGET_CONSTANTS`, `GUM_GOOGLE_ADS_LANGUAGE`, and the
+  profile keys `googleads.geo_target_constants` and `googleads.language` fill
+  `geoTargetConstants` and `language` when a `googleads.keywordPlanIdeas` call
+  omits them. A call argument wins over the environment, and the environment
+  wins over the profile config. Passing `"geoTargetConstants":[]` and
+  `"language":""` asks one call for worldwide figures.
+- `matchedInputs` and `unmatchedInputs` on
+  `googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics`. Google merges
+  close variants of the submitted keywords into one result, so a batch of 245
+  keywords can return 243 results. `matchedInputs` names the submitted keywords
+  a merged result covers, and `unmatchedInputs` lists the keywords that reached
+  no result. `--format raw` still returns the upstream body.
+
+### Changed
+
+- An adapter can add fields to an upstream response before the expression
+  profile runs. Specification §9.1 states the rule: an adapter may add fields,
+  may not drop or rewrite upstream fields, and never runs on `--format raw` or
+  on the recovery artifact.
+
+### Fixed
+
+- `gum config set googleads.geo_target_constants 2840` reported
+  `accepts 1 arg(s), received 2` and named no accepted form. The error now
+  names the `key=value` form and rewrites the caller's own tokens into a
+  runnable example, including `--profile` when the caller passed it.
+
 ## [1.4.0] - 2026-09-18
 
 ### Added

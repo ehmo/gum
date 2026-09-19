@@ -96,17 +96,17 @@ func newConfigSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set <key>=<value>",
 		Short: "Persist a config key=value pair to the active profile",
-		Args:  cobra.ExactArgs(1),
+		Args:  configSetArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kv := args[0]
 			idx := strings.IndexByte(kv, '=')
 			if idx < 0 {
-				return fmt.Errorf("config: expected key=value, got %q", kv)
+				return fmt.Errorf("config: expected key=value, got %q; try: %s", kv, configSetExample(cmd, args))
 			}
 			key := strings.TrimSpace(kv[:idx])
 			value := strings.TrimSpace(kv[idx+1:])
 			if key == "" || value == "" {
-				return fmt.Errorf("config: empty key or value in %q", kv)
+				return fmt.Errorf("config: empty key or value in %q; try: %s", kv, configSetExample(cmd, args))
 			}
 			profile := resolveProfileFlag(cmd)
 			c, _, err := config.Load(profile)
@@ -117,6 +117,70 @@ func newConfigSetCmd() *cobra.Command {
 			return config.Save(profile, c)
 		},
 	}
+}
+
+// configSetArgs replaces cobra.ExactArgs(1) on `config set`. `config set <key>
+// <value>` is the form git and gcloud take, so callers reach for it first, and
+// cobra's own "accepts 1 arg(s), received 2" names neither the accepted form
+// nor a way out of it (gum-ea9v).
+func configSetArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 1 {
+		return nil
+	}
+
+	return fmt.Errorf("config set takes one key=value argument, got %d; try: %s",
+		len(args), configSetExample(cmd, args))
+}
+
+// configSetExample rewrites the caller's own tokens into a runnable key=value
+// command, so the suggestion can be pasted rather than translated. Missing
+// parts become placeholders.
+func configSetExample(cmd *cobra.Command, args []string) string {
+	prefix := "gum config set" + configProfileFlag(cmd)
+	if len(args) == 0 {
+		return prefix + " <key>=<value>"
+	}
+
+	joined := strings.Join(args, " ")
+	key, value := joined, ""
+	if idx := strings.IndexByte(joined, '='); idx >= 0 {
+		key, value = joined[:idx], strings.TrimSpace(joined[idx+1:])
+	} else if len(args) > 1 {
+		key, value = args[0], strings.Join(args[1:], " ")
+	}
+
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = "<key>"
+	}
+	if value == "" {
+		return prefix + " " + key + "=<value>"
+	}
+
+	return prefix + " " + key + "=" + shellQuoteValue(value)
+}
+
+// configProfileFlag echoes a non-default --profile back into the suggestion so
+// the pasted command writes the same profile the caller addressed.
+func configProfileFlag(cmd *cobra.Command) string {
+	profile := resolveProfileFlag(cmd)
+	if profile == profilepkg.DefaultName.String() {
+		return ""
+	}
+
+	return " --profile " + profile
+}
+
+// shellQuoteValue double-quotes a value the shell would otherwise split or
+// expand. An unquoted value with a space is what produced the extra argument in
+// the first place.
+func shellQuoteValue(s string) string {
+	if !strings.ContainsAny(s, " \t\n\"'\\$`&|;<>()*?[]{}#~!") {
+		return s
+	}
+
+	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "$", `\$`, "`", "\\`").Replace(s)
+	return `"` + escaped + `"`
 }
 
 // resolveProfileFlag returns the --profile persistent flag value from the root

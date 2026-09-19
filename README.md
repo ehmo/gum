@@ -31,8 +31,8 @@ to operate.
 
 ## What gum covers
 
-gum v1.4.0 ships with 228 operations across 33 services. See the
-[release notes](docs/release-notes-v1.4.0.md) and
+gum v1.5.0 ships with 228 operations across 33 services. See the
+[release notes](docs/release-notes-v1.5.0.md) and
 [operations by service](docs/services/README.md).
 
 | Surface | Examples | Auth |

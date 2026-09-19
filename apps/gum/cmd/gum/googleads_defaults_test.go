@@ -26,6 +26,8 @@ func isolateAdsDefaults(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	t.Setenv(envAdsCustomerID, "")
 	t.Setenv(envAdsLoginCustomerID, "")
+	t.Setenv(envAdsGeoTargets, "")
+	t.Setenv(envAdsLanguage, "")
 }
 
 func saveAdsConfig(t *testing.T, profile string, values map[string]string) {

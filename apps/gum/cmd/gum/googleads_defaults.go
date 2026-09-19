@@ -23,16 +23,51 @@ const (
 	adsAccountIDDigits    = 10
 )
 
-type adsAccountDefault struct {
+// Keyword Planner targeting defaults (gum-0nn2). An omitted geo target returns
+// worldwide volume and an omitted language returns all languages, and neither
+// result is marked, so a caller who wants one country has to repeat the pair on
+// every call. These defaults hold it once per profile.
+const (
+	envAdsGeoTargets  = "GUM_GOOGLE_ADS_GEO_TARGET_CONSTANTS"
+	envAdsLanguage    = "GUM_GOOGLE_ADS_LANGUAGE"
+	cfgAdsGeoTargets  = "googleads.geo_target_constants"
+	cfgAdsLanguage    = "googleads.language"
+	geoTargetResource = "geoTargetConstants"
+	languageResource  = "languageConstants"
+)
+
+type adsDefault struct {
 	arg    string
 	env    string
 	cfgKey string
+	// normalize converts the stored text into the argument value, and reports
+	// false when the text cannot be one. expects names the accepted form in
+	// that rejection.
+	normalize func(raw string) (any, bool)
+	expects   string
 }
 
-var adsAccountDefaults = []adsAccountDefault{
-	{arg: "customerId", env: envAdsCustomerID, cfgKey: cfgAdsCustomerID},
-	{arg: "loginCustomerId", env: envAdsLoginCustomerID, cfgKey: cfgAdsLoginCustomerID},
+// adsAccountDefaults also drives the missing-argument hint, so it stays
+// separate from the targeting table.
+var adsAccountDefaults = []adsDefault{
+	{arg: "customerId", env: envAdsCustomerID, cfgKey: cfgAdsCustomerID,
+		normalize: normalizeAdsAccount, expects: adsAccountForm},
+	{arg: "loginCustomerId", env: envAdsLoginCustomerID, cfgKey: cfgAdsLoginCustomerID,
+		normalize: normalizeAdsAccount, expects: adsAccountForm},
 }
+
+var adsTargetingDefaults = []adsDefault{
+	{arg: "geoTargetConstants", env: envAdsGeoTargets, cfgKey: cfgAdsGeoTargets,
+		normalize: normalizeGeoTargets,
+		expects:   "a comma-separated list of geo target ids or resource names (2840 or geoTargetConstants/2840)"},
+	{arg: "language", env: envAdsLanguage, cfgKey: cfgAdsLanguage,
+		normalize: normalizeLanguage,
+		expects:   "a language id or resource name (1000 or languageConstants/1000)"},
+}
+
+var adsDefaults = append(append([]adsDefault{}, adsAccountDefaults...), adsTargetingDefaults...)
+
+const adsAccountForm = "a 10-digit Google Ads account id (dashes allowed)"
 
 // adsArgDefaulter implements dispatch.ArgDefaulter for Google Ads ops. It
 // reads env and config on every call, so `gum config set` takes effect in a
@@ -55,7 +90,7 @@ func (d adsArgDefaulter) ArgDefaults(op *catalog.Op, args map[string]any) (map[s
 	var cfg *config.Config
 	cfgLoaded := false
 	out := map[string]any{}
-	for _, def := range adsAccountDefaults {
+	for _, def := range adsDefaults {
 		if !opDeclaresField(op, def.arg) {
 			continue
 		}
@@ -80,12 +115,12 @@ func (d adsArgDefaulter) ArgDefaults(op *catalog.Op, args map[string]any) (map[s
 			continue
 		}
 
-		id, ok := normalizeAdsAccountID(raw)
+		value, ok := def.normalize(raw)
 		if !ok {
-			return nil, fmt.Errorf("%s is %q, which is not a %d-digit Google Ads account id (dashes allowed); it was the default for %s",
-				source, raw, adsAccountIDDigits, def.arg)
+			return nil, fmt.Errorf("%s is %q, which is not %s; it was the default for %s",
+				source, raw, def.expects, def.arg)
 		}
-		out[def.arg] = id
+		out[def.arg] = value
 	}
 	return out, nil
 }
@@ -126,6 +161,61 @@ func opDeclaresField(op *catalog.Op, name string) bool {
 		}
 	}
 	return false
+}
+
+// normalizeAdsAccount adapts the account id check to the adsDefault table.
+func normalizeAdsAccount(raw string) (any, bool) {
+	id, ok := normalizeAdsAccountID(raw)
+	if !ok {
+		return nil, false
+	}
+	return id, true
+}
+
+// normalizeGeoTargets accepts one or more comma-separated geo targets and
+// returns them unchanged; the adapter adds the resource prefix to a bare id.
+func normalizeGeoTargets(raw string) (any, bool) {
+	out := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if !validAdsConstant(part, geoTargetResource) {
+			return nil, false
+		}
+		out = append(out, part)
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
+}
+
+// normalizeLanguage accepts one language id or resource name. Google Ads takes
+// a single language per request, so a list is a mistake worth naming.
+func normalizeLanguage(raw string) (any, bool) {
+	v := strings.TrimSpace(raw)
+	if !validAdsConstant(v, languageResource) {
+		return nil, false
+	}
+	return v, true
+}
+
+// validAdsConstant reports whether raw is a bare numeric id or that same id
+// behind its own resource prefix. A language resource name therefore fails a
+// geo check, and the reverse.
+func validAdsConstant(raw, resource string) bool {
+	id := strings.TrimPrefix(strings.TrimSpace(raw), resource+"/")
+	if id == "" {
+		return false
+	}
+	for _, r := range id {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // normalizeAdsAccountID strips dashes and spaces and requires exactly 10

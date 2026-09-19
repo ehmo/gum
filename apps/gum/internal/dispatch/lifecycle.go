@@ -206,6 +206,26 @@ type Adapter interface {
 	Execute(ctx context.Context, inv *Invocation, rv *ResolvedVariant, creds *Credentials) (*Response, error)
 }
 
+// ResponseAnnotator is the optional half of Adapter for upstream responses that
+// need a field the service does not send. The kernel calls it inside step 8,
+// on the shaping path only, which pins two properties the annotation would
+// otherwise break:
+//
+//   - `--format raw` returns the upstream bytes, because step 8 bypasses
+//     shaping for that format before the annotator runs.
+//   - The step 7b semantic cache stores the unannotated executor body, so a
+//     warm call re-runs the annotation for its own format instead of serving
+//     another format's.
+//
+// The kernel stays generic: what to add and when belongs to the adapter.
+type ResponseAnnotator interface {
+	// AnnotateResponse returns the body to shape. It must not modify body in
+	// place. Returning body unchanged is both the normal answer and the answer
+	// for a response the adapter cannot read: the upstream body is still a
+	// correct response, so an unrecognised shape is not an error.
+	AnnotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) []byte
+}
+
 // NewDispatcher constructs the dispatch kernel with a catalog snapshot and a map of adapters keyed
 // by adapter_key (e.g. "code.risor").
 func NewDispatcher(snapshot *catalog.Catalog, adapters map[string]Adapter) Dispatcher {
@@ -1533,7 +1553,7 @@ func (d *dispatcher) executeAdapter(ctx context.Context, inv *Invocation, rv *Re
 //   - "json" → re-encode JSON (no field-mask profile wiring yet — Phase 4)
 //   - ""     → default to TOON
 //   - other  → INVALID_ARGS structured error with field=format, value=<input>
-func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, _ *ResolvedVariant, resp *Response) (*ShapedResponse, error) {
+func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *ResolvedVariant, resp *Response) (*ShapedResponse, error) {
 	format := inv.Format
 	if format == "" {
 		format = "toon"
@@ -1552,6 +1572,13 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, _ *Resolv
 		return &ShapedResponse{Body: resp.Body, Format: "raw"}, nil
 	}
 
+	// A caller who asked for raw wants the upstream bytes, so the annotator runs
+	// only on the shaped path.
+	body := resp.Body
+	if format != "raw" {
+		body = d.annotateResponse(inv, rv, body)
+	}
+
 	// Step 8: apply the resolved expression profile (§9.1). inv.OutputProfile is
 	// set in step 3a (catalog-embedded) or by a presentation layer (filesystem
 	// overrides); nil means no profile applies → default shaping.
@@ -1560,14 +1587,14 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, _ *Resolv
 		prof = &profile.Profile{}
 	}
 	out, err := profile.Apply(prof, profile.ApplyInput{
-		Body:       resp.Body,
+		Body:       body,
 		UserFormat: format,
 	})
 	if err != nil {
 		return nil, err
 	}
 	var structured any
-	if jerr := json.Unmarshal(resp.Body, &structured); jerr != nil {
+	if jerr := json.Unmarshal(body, &structured); jerr != nil {
 		// raw bypass already handled above; if we got here resp.Body was valid
 		// JSON for profile.Apply, so this branch only fires under a race or a
 		// non-deterministic upstream — drop structuredContent rather than fail.
@@ -1579,6 +1606,26 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, _ *Resolv
 		StructuredContent: structured,
 		DroppedPaths:      out.DroppedPaths,
 	}, nil
+}
+
+// annotateResponse gives the executing adapter a chance to add fields the
+// upstream response lacks. An adapter that does not implement
+// ResponseAnnotator returns body as is.
+func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) []byte {
+	if rv == nil {
+		return body
+	}
+
+	annotator, ok := d.adapters[rv.AdapterKey].(ResponseAnnotator)
+	if !ok {
+		return body
+	}
+
+	out := annotator.AnnotateResponse(inv, rv, body)
+	if out == nil {
+		return body
+	}
+	return out
 }
 
 // Step 9 — record audit / gain ledger and return (spec §3.1 line 237).

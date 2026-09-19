@@ -12,6 +12,7 @@ fixture-backed token-savings measurements.
 
 | Version | Date | Notes |
 | --- | --- | --- |
+| `v1.5.0` | 2026-09-18 | [Keyword Planner location and language defaults, and a merged-keyword input map.](release-notes-v1.5.0.md) |
 | `v1.4.0` | 2026-09-18 | [Default Google Ads account, Keyword Planner location guidance, and gRPC security update.](release-notes-v1.4.0.md) |
 | `v1.3.0` | 2026-09-07 | [Data Manager event ingestion, diagnostics, and upload safety fixes.](release-notes-v1.3.0.md) |
 | `v1.2.0` | 2026-09-06 | [Google Ads reporting, guarded mutations, and conversion uploads.](release-notes-v1.2.0.md) |

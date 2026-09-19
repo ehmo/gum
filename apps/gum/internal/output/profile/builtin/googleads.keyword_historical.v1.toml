@@ -1,11 +1,14 @@
 # Compact profile for googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics.
 # Keeps the headline per-keyword metrics AND the per-month volume history, which
 # is the payload the op advertises; drops closeVariants and the rest.
+# matchedInputs and unmatchedInputs are the adapter's map from the submitted
+# keywords to the merged results (gum-o84f); they replace closeVariants for the
+# one question closeVariants answered, so they have to survive the whitelist.
 # recovery = "local_artifact" so the dropped fields stay recoverable and the
 # caller gets a notice naming them (gum-bpx0).
 # NOTE: the profile parser is line-based — keep_fields must stay on one line.
 default_format = "toon"
-keep_fields = ["results.text", "results.keywordMetrics.avgMonthlySearches", "results.keywordMetrics.monthlySearchVolumes", "results.keywordMetrics.competition", "results.keywordMetrics.competitionIndex", "results.keywordMetrics.lowTopOfPageBidMicros", "results.keywordMetrics.highTopOfPageBidMicros"]
+keep_fields = ["results.text", "results.keywordMetrics.avgMonthlySearches", "results.keywordMetrics.monthlySearchVolumes", "results.keywordMetrics.competition", "results.keywordMetrics.competitionIndex", "results.keywordMetrics.lowTopOfPageBidMicros", "results.keywordMetrics.highTopOfPageBidMicros", "results.matchedInputs", "unmatchedInputs"]
 collapse_arrays = { max_items = 100 }
 on_empty = "No historical metrics for those keywords."
 recovery = "local_artifact"
