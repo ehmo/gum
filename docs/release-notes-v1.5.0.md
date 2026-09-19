@@ -129,15 +129,41 @@ gum gain --fixture-replay --format=json
 | `toon` | 10 | 3,922 | 0 | 0 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
 
+## Verification
+
+All seven jobs in the [v1.5.0 release workflow](https://github.com/ehmo/gum/actions/runs/35409257008)
+passed: tag validation, live docs match, tests, `govulncheck`, the GoReleaser
+build, the independent four-platform rebuild, and the provenance comparison.
+
+The four downloaded archives matched `checksums.txt`, and each one matched its
+subject digest in `gum-v1.5.0.intoto.jsonl`. The extracted darwin/arm64 binary
+matched `release-binaries.sha256`, and a local rebuild with the command below
+produced the same hash, `478f47deb1024d85133a38c39a704fcf596583eae3eb21b552d4c62e4ece1d6b`.
+
+The Homebrew installation reports 1.5.0 and reproduces the token savings
+figures above. Homebrew's formula audit and package tests passed. Live Keyword
+Planner calls confirmed both features against a real account:
+
+- `keywords:["horse breeds"]` with no `geoTargetConstants` or `language`
+  argument returned 60,500 average monthly searches, the United States figure.
+  The same call with `"geoTargetConstants":[]` and `"language":""` returned
+  135,000, the worldwide figure.
+- `keywords:["akhal-teke horse","akhal teke horse","trail rides","trail riding"]`
+  returned two results. The first carried
+  `matchedInputs:["akhal-teke horse","akhal teke horse"]`, the second
+  `matchedInputs:["trail rides","trail riding"]`. The same call with
+  `--format raw` carried the upstream `closeVariants` and no `matchedInputs`.
+
+`unmatchedInputs` is covered by unit tests only. Google returned a result for
+every submitted keyword in the live calls above, so no live case produced it.
+
 ## Reproducibility
 
 ```sh
 git checkout v1.5.0
 cd apps/gum
-CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=1.5.0' ./cmd/gum
+GOTOOLCHAIN=go1.26.7 CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=1.5.0' ./cmd/gum
 sha256sum gum
 ```
 
-Match the release's Go toolchain. `go version <downloaded-binary>` prints the
-version the published artifacts were built with; pass it as `GOTOOLCHAIN` to
-the command above.
+All four published binaries report `go1.26.7`.
