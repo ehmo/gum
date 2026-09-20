@@ -273,15 +273,48 @@ gum gain --fixture-replay --format=json
 | `toon` | 10 | 3,922 | 0 | 0 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
 
+## Verification
+
+All seven jobs in the [v2.0.0 release workflow](https://github.com/ehmo/gum/actions/runs/35527377730)
+passed: tag validation, live docs match, tests, `govulncheck`, the GoReleaser
+build, the independent four-platform rebuild, and the provenance comparison.
+
+The four downloaded archives matched `checksums.txt`, and each one matched its
+subject digest in `gum-v2.0.0.intoto.jsonl`. The extracted darwin/arm64 binary
+matched `release-binaries.sha256`.
+
+A local rebuild reproduced all four published binaries. The command in
+Reproducibility below, run from a clean clone at tag `v2.0.0` on one darwin/arm64
+host with `GOTOOLCHAIN=go1.26.7`, produced these hashes:
+
+| Target | sha256 |
+| --- | --- |
+| darwin/amd64 | `e7cfd445523b3ea6bbddd4a24cf728f4c4b75d003f0f1f1a365187962d7304a5` |
+| darwin/arm64 | `332081264900db51e6602826ffc4fa94b2bbe156885185752a27bc0e138c51d0` |
+| linux/amd64 | `4b258174657c55210caef26a0fbe37ff8201d1d3373caf368638859202423af5` |
+| linux/arm64 | `1cc2dba8270dda1b4274732487552070f84f8fc0d49a5f5769b3a182df4fc156` |
+
+Each hash matches the matching line in `release-binaries.sha256`.
+
+The Homebrew installation reports 2.0.0 and `gum doctor` passed every check.
+`brew audit --strict --online --os=all --arch=all ehmo/tap/gum` and
+`brew test ehmo/tap/gum` both passed.
+
 ## Reproducibility
 
 ```sh
-git checkout v2.0.0
+git clone https://github.com/ehmo/gum.git
+cd gum && git checkout v2.0.0
 cd apps/gum
-CGO_ENABLED=0 go build -trimpath -ldflags='-s -w -X main.version=2.0.0' ./cmd/gum
+GOTOOLCHAIN=go1.26.7 CGO_ENABLED=0 GOOS=<os> GOARCH=<arch> go build -trimpath \
+  -ldflags='-s -w -X main.version=2.0.0' ./cmd/gum
 sha256sum gum
 ```
 
-Match the release's Go toolchain. `go version <downloaded-binary>` prints the
-version the published artifacts were built with; pass it as `GOTOOLCHAIN` to
-the command above.
+All four published binaries were built with `go1.26.7`. The hashes above were
+produced by cross-compiling every target from one host, so a single machine can
+check the whole set.
+
+Build from a full clone, not from a linked `git worktree`. Go embeds the commit
+revision in the binary, and it silently skips that stamp in a linked worktree,
+which changes the hash.
