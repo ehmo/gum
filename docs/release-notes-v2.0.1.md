@@ -103,6 +103,37 @@ gum gain --fixture-replay --format=json
 | `toon` | 10 | 3,922 | 0 | 0 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
 
+## Verification
+
+All seven jobs in the [v2.0.1 release workflow](https://github.com/ehmo/gum/actions/runs/35530321049)
+passed: tag validation, live docs match, tests, `govulncheck`, the GoReleaser
+build, the independent four-platform rebuild, and the provenance comparison.
+The `pre-release-tests` job ran the new `gofmt` step and it passed, which is the
+check the v2.0.0 tree failed.
+
+The four downloaded archives matched `checksums.txt`, and each one matched its
+subject digest in `gum-v2.0.1.intoto.jsonl` at commit
+`2557cfe4ac6b5bf98b83b83813f80991223adaca`. The binary extracted from each of
+the four archives matched its entry in `release-binaries.sha256`.
+
+A local rebuild reproduced all four published binaries. The command in
+Reproducibility below, run from a clean clone at tag `v2.0.1` on one darwin/arm64
+host with `GOTOOLCHAIN=go1.26.7`, produced these hashes:
+
+| Target | sha256 |
+| --- | --- |
+| darwin/amd64 | `791a418ba73f850b3685fd146fa34e2bf04cd22a993337328aa8390be7a15a47` |
+| darwin/arm64 | `bf563a8d1041f92bdf8255acf856a377011cd53e55cb653cb985f4590c5cabc8` |
+| linux/amd64 | `f0336ce18ff1b475d3c341a3804a1dd59f08f5b7301ec332a9a37bd7dc870f7c` |
+| linux/arm64 | `c8a794e183b47d66f6fdd79bc3f9c53e9bc01414ee7e093c1312a644aa7b1907` |
+
+Each hash matches the matching line in `release-binaries.sha256`.
+
+The Homebrew installation reports 2.0.1 and `gum doctor` passed every check.
+`brew audit --strict --online --os=all --arch=all ehmo/tap/gum` and
+`brew test ehmo/tap/gum` both passed, and the `tap-drift` workflow confirms both
+formulae point at this release.
+
 ## Reproducibility
 
 ```sh
