@@ -359,12 +359,12 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		return auth.LookupDeveloperToken(auth.NewOSKeyring(), gadsProfile)
 	})
 	return map[string]dispatch.Adapter{
-		"code.risor":                     cr,
-		"rest.typed-rest-sdk":            rest,
-		"rest.discovery-rest":            rest,
-		"rest.raw-http":                  rest,
-		"plugin.mcp":                     pluginMCP,
-		"googleads.generateKeywordIdeas": gads,
+		"code.risor":                                 cr,
+		"rest.typed-rest-sdk":                        rest,
+		"rest.discovery-rest":                        rest,
+		"rest.raw-http":                              rest,
+		"plugin.mcp":                                 pluginMCP,
+		"googleads.generateKeywordIdeas":             gads,
 		"googleads.generateKeywordHistoricalMetrics": gads,
 		"googleads.generateKeywordForecastMetrics":   gads,
 		"googleads.search":                           gads,

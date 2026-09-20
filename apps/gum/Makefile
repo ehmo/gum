@@ -25,13 +25,28 @@ stubs:
 # gofmt drift is invisible to vet, staticcheck and golangci-lint's default
 # set, so it accumulated to 71 files before this gate existed (gum-ln4c).
 # gen/ is generated and gitignored, so it is excluded.
+#
+# gofmt's alignment rules change between Go minor versions: 1.27 splits a map
+# literal's alignment group where 1.26 keeps one. A bare `gofmt` from PATH
+# therefore makes this gate disagree with CI, which runs 1.26.x. Pin the
+# toolchain here, the way golangci-lint and staticcheck are pinned below.
+# CI already runs the pinned minor, so use its gofmt there and fetch the pinned
+# toolchain only on a host running something else.
+GOFMT_MINOR ?= go1.26
+GOFMT_TOOLCHAIN ?= $(GOFMT_MINOR).7
+GOFMT ?= $(shell if go version | grep -q ' $(GOFMT_MINOR)\.'; then go env GOROOT; \
+	else GOTOOLCHAIN=$(GOFMT_TOOLCHAIN) go env GOROOT; fi)/bin/gofmt
+
 fmt-check:
-	@unformatted=$$(gofmt -l ./cmd ./internal); \
+	@unformatted=$$($(GOFMT) -l ./cmd ./internal); \
 	if [ -n "$$unformatted" ]; then \
-		echo "gofmt drift (run: gofmt -w ./cmd ./internal):"; \
+		echo "gofmt drift (run: make fmt):"; \
 		echo "$$unformatted"; \
 		exit 1; \
 	fi
+
+fmt:
+	$(GOFMT) -w ./cmd ./internal
 
 # Same linter set and versions the `test` workflow runs. Requires
 # golangci-lint v2.12.1 on PATH; staticcheck is pinned here and fetched on
