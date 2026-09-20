@@ -115,6 +115,12 @@ jobs:
       # Runs before vet so the stubs are vetted too.
       - name: generate dispatch stubs
         run: make stubs
+      # v2.0.0 shipped on a commit whose test workflow was red: gofmt drift
+      # blocked `test` and no release job checked formatting, so the tag went
+      # out anyway. A release must not publish a tree the test workflow
+      # rejects.
+      - name: gofmt
+        run: make fmt-check
       - name: vet
         run: go vet ./...
       - name: test (race)
