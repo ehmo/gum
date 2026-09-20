@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-09-20
+
+No code change. The binary behaves exactly like v2.0.0; the only Go difference
+is column alignment inside one map literal in `cmd/gum/root.go`.
+
+### Changed
+
+- `make fmt-check` resolves `gofmt` from the Go minor that CI pins, set by
+  `GOFMT_MINOR` and defaulting to `go1.26`, instead of whatever is on `PATH`.
+  A host on a different minor fetches `GOFMT_TOOLCHAIN`, default `go1.26.7`.
+- `make fmt` is a new target and is the supported way to format this module.
+- The `pre-release-tests` job in the release workflow runs `make fmt-check`, so
+  a tag cannot publish a tree the `test` workflow rejects.
+
+### Fixed
+
+- The v2.0.0 tree failed `make fmt-check` under the Go minor CI pins. `gofmt`
+  changed its alignment rules between Go 1.26 and Go 1.27, so a 1.26 runner
+  rejected the adapter map literal that a 1.27 host had written. The `test`
+  workflow had failed on that one file since commit `e73ee74`, including on the
+  commit that v2.0.0 tags.
+
 ## [2.0.0] - 2026-09-20
 
 This release closes the gap between what the specification promised and what

@@ -1,6 +1,6 @@
 # gum Google Service Coverage Matrix
 
-Current generated catalog: 228 operations across 33 services in gum v2.0.0.
+Current generated catalog: 228 operations across 33 services in gum v2.0.1.
 
 The v1 release supports broad catalog discovery and dispatch. Google auth is
 operator-owned: users bring their own OAuth client, API key, service account,
