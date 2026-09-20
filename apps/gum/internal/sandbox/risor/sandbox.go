@@ -7,6 +7,7 @@ package risor
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -104,9 +105,18 @@ func Run(ctx context.Context, source string, opts Options) (*Output, error) {
 
 	// Always inject the sandbox's gum_print that writes to buf.
 	// If the caller provided their own gum_print, call it too (for side effects).
-	globals["gum_print"] = func(value any) any {
-		s := fmt.Sprint(value)
-		b := []byte(s)
+	//
+	// This is a native Risor builtin rather than a func(any) any global for two
+	// reasons. Risor converts a Go `any` parameter through reflect.ValueOf, and
+	// a nil argument yields the zero Value, so `gum_print(nil)` aborted the whole
+	// script with "reflect: Call using zero Value argument". And the object form
+	// keeps the Risor value intact until printValue decides how to encode it.
+	globals["gum_print"] = object.NewBuiltin("gum_print", func(_ context.Context, args ...object.Object) (object.Object, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("gum_print: want 1 argument, got %d", len(args))
+		}
+		value := risorObjectToGo(args[0])
+		b := []byte(printValue(value))
 		remaining := printByteCap - buf.Len()
 		if remaining > 0 {
 			if len(b) > remaining {
@@ -123,8 +133,8 @@ func Run(ctx context.Context, source string, opts Options) (*Output, error) {
 				fn(fmt.Sprint(value))
 			}
 		}
-		return nil
-	}
+		return object.Nil, nil
+	})
 
 	// Install default panic stubs for caller-injectable builtins if not provided.
 	if _, ok := globals["gum_call"]; !ok {
@@ -291,10 +301,9 @@ func matchHostAllowlist(host string, allowlist []string) bool {
 		if strings.HasPrefix(e, "*.") {
 			// Wildcard: strip "*." and require host to end with ".<suffix>"
 			// with at least one character before the dot.
+			// e != "*." is guaranteed by the guard above, so the suffix is
+			// always non-empty here.
 			suffix := e[2:] // e.g. "example.com"
-			if suffix == "" {
-				continue
-			}
 			// host must be "<something>.<suffix>" where <something> is non-empty.
 			required := "." + suffix
 			if strings.HasSuffix(h, required) && len(h) > len(required) {
@@ -308,6 +317,31 @@ func matchHostAllowlist(host string, allowlist []string) bool {
 		}
 	}
 	return false
+}
+
+// printValue renders one gum_print argument for the response body.
+//
+// A string prints verbatim, so a script that assembles its own text is not
+// handed back a quoted copy of it. Everything else is JSON: the printed stream
+// is the gum.code response body, which the MCP layer hands to a client as the
+// §13 `data` member, and Go's default rendering of a map ("map[a:1 b:x]") is
+// not parseable by anything. The canonical §6.3 line
+// `gum_print(gum_parallel([...]))` produced exactly that dump.
+//
+// HTML escaping is off because this is a response body, not an HTML document;
+// with it on, a printed URL query string came back full of \u0026. A value JSON
+// cannot encode falls back to the Go rendering rather than losing the print.
+func printValue(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return fmt.Sprint(v)
+	}
+	return strings.TrimSuffix(buf.String(), "\n")
 }
 
 // risorObjectToGo converts a Risor object to a native Go value. It mirrors

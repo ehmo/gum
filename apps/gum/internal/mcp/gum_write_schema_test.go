@@ -1,7 +1,7 @@
 // Package mcp — Red Team failing tests for bead gum-9vuq.4.
 //
 // These tests assert the acceptance criteria for gum.write schema conformance:
-//   - 9-parameter input schema (op_id, args, variant_id, fields, page_size,
+//   - 10-parameter input schema (op_id, args, variant_id, fields, page_size,
 //     page_token, format, confirmed, confirmation_token)
 //   - additionalProperties:false
 //   - required: at minimum op_id
@@ -67,24 +67,21 @@ func gumWriteProps(t *testing.T) map[string]any {
 
 // --- Test 1 ---------------------------------------------------------------
 
-// TestGumWriteSchemaHasAllNineParams asserts that the gum.write input schema
-// has exactly the 9 parameters from spec.md §4.1 line ~283:
+// TestGumWriteSchemaHasAllTenParams asserts that the gum.write input schema
+// has exactly the 10 parameters from spec.md §4.1 line ~283:
 //
 //	op_id, args, variant_id, fields, page_size, page_token, format,
-//	confirmed, confirmation_token
+//	max_items, confirmed, confirmation_token
 //
 // Schema MUST also set additionalProperties:false and require at minimum op_id.
-//
-// Failure: current schemas.go gum.write case (line ~135) has only 4 params
-// (op_id, args, allow_write, format) — missing variant_id, fields, page_size,
-// page_token, confirmed, confirmation_token; also has a spurious allow_write
-// that is not in the spec §4.1 9-param list. format enum is also wrong.
-func TestGumWriteSchemaHasAllNineParams(t *testing.T) {
+// A param absent here is a param an MCP client cannot send: the schema sets
+// additionalProperties:false, so an unlisted key is rejected before dispatch.
+func TestGumWriteSchemaHasAllTenParams(t *testing.T) {
 	raw := getGumWriteSchema(t)
 	schema := parseSchemaMap(t, raw) // from gum_code_schema_test.go
 	props := schemaProps(t, schema)  // from gum_code_schema_test.go
 
-	// Spec §4.1 line ~283: the canonical 9 params for gum.write.
+	// Spec §4.1 line ~283: the canonical 10 params for gum.write.
 	wantParams := []string{
 		"op_id",
 		"args",
@@ -93,6 +90,7 @@ func TestGumWriteSchemaHasAllNineParams(t *testing.T) {
 		"page_size",
 		"page_token",
 		"format",
+		"max_items",
 		"confirmed",
 		"confirmation_token",
 	}
@@ -100,14 +98,14 @@ func TestGumWriteSchemaHasAllNineParams(t *testing.T) {
 	for _, param := range wantParams {
 		if _, ok := props[param]; !ok {
 			t.Errorf(`gum.write schema is missing property %q; `+
-				`spec.md §4.1 table (line ~283) requires all 9 params: %v`,
+				`spec.md §4.1 table (line ~283) requires all 10 params: %v`,
 				param, wantParams)
 		}
 	}
 
-	// Exact count: 9. Any extra params (e.g. spurious allow_write) must be removed.
-	if got := len(props); got != 9 {
-		t.Errorf("gum.write schema has %d properties; want exactly 9 (spec.md §4.1). "+
+	// Exact count: 10. Any extra params (e.g. spurious allow_write) must be removed.
+	if got := len(props); got != 10 {
+		t.Errorf("gum.write schema has %d properties; want exactly 10 (spec.md §4.1). "+
 			"Current keys: %v", got, propertyKeys(props)) // propertyKeys from gum_code_schema_test.go
 	}
 

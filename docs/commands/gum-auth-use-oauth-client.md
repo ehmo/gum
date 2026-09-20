@@ -9,6 +9,8 @@ automatically; no gcloud dependency. Create one at:
 Google issues a client_secret for Desktop-app clients and its token endpoint REQUIRES it
 even with PKCE, so pipe the secret via --secret-stdin (it never enters shell history).
 Only a true public client, rare for Google, may omit the secret.
+Re-running this for the same client ID without a secret flag keeps the stored secret;
+pipe an empty --secret-stdin to clear it.
 
 ## Usage
 

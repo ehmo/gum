@@ -167,7 +167,7 @@ func run() error {
 		cat.Ops = append(cat.Ops, BuildDataManagerOps()...)
 		cat.Ops = append(cat.Ops, BuildUnofficialPluginOps()...)
 		cat.Ops = append(cat.Ops, BuildMetaOps()...)
-		if err := cat.Validate(); err != nil {
+		if err := validateGeneratedCatalog(cat); err != nil {
 			return fmt.Errorf("validate catalog with searchconsole + calendar write + tasks + flights + docs + sheets + slides + drive + gmail-tier-b + calendar-tier-b + admin-directory + unofficial-plugin + meta ops: %w", err)
 		}
 	}
@@ -261,7 +261,7 @@ func emitStubsOffline(catalogPath, stubsDir string) error {
 	// Without this, a malformed in-source builder op (dup op_id, empty summary,
 	// dangling default_variant_id, bad enum) would silently produce stubs for an
 	// invalid catalog instead of failing fast here.
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("offline stubs: validate augmented catalog: %w", err)
 	}
 	n, err := WriteDispatchStubs(&cat, stubsDir)
@@ -304,7 +304,7 @@ func injectMeta(catalogPath string) error {
 		added++
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("inject-meta: validate catalog with meta ops: %w", err)
 	}
 
@@ -383,7 +383,7 @@ func injectOpsOffline(catalogPath string, ops []catalog.Op, label string) error 
 		added++
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("inject-%s: validate catalog with %s ops: %w", label, label, err)
 	}
 
@@ -431,6 +431,11 @@ func refreshSourceOps(catalogPath string) error {
 	for _, op := range BuildAdminDirectoryOps() {
 		rebuilt[op.OpID] = op
 	}
+	// flights.search is here so the variant's output_profile can be corrected
+	// offline. The build gate validates before the write, so an op whose stale
+	// snapshot row fails the gate must be rebuilt on this path or the refresh
+	// can never run (gum-36f5).
+	rebuilt[BuildFlightsOp().OpID] = BuildFlightsOp()
 
 	replaced := 0
 	matched := map[string]bool{}
@@ -452,7 +457,7 @@ func refreshSourceOps(catalogPath string) error {
 		}
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("refresh-source-ops: validate catalog: %w", err)
 	}
 
@@ -506,7 +511,7 @@ func applyRequestFields(catalogPath string) error {
 		}
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("apply-request-fields: validate catalog: %w", err)
 	}
 
@@ -726,7 +731,7 @@ func GenerateFromDiscovery(disco io.Reader) (*catalog.Catalog, error) {
 		Ops:                  ops,
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(cat); err != nil {
 		return nil, fmt.Errorf("gen-catalog: catalog validation failed: %w", err)
 	}
 
@@ -939,7 +944,7 @@ func GenerateFromDiscoveries(gmailDisco, calendarDisco io.Reader) (*catalog.Cata
 		Ops:                  ops,
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(cat); err != nil {
 		return nil, fmt.Errorf("gen-catalog: catalog validation failed: %w", err)
 	}
 

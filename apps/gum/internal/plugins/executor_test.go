@@ -3,8 +3,10 @@ package plugins_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -39,6 +41,7 @@ func TestMain(m *testing.M) {
 //	"crash"       terminates without responding so Start handshake times out
 //	"rate_limit"  echo tool returns an IsError envelope carrying a plugin
 //	              RATE_LIMIT code — exercises §8 error-code mapping
+//	"report_env"  echo tool returns os.Environ() as a JSON array
 func runFakePlugin(mode string) {
 	if mode == "child_write_once" {
 		if err := os.WriteFile(os.Getenv("FAKE_PLUGIN_WRITE_PATH"), []byte("child probe\n"), 0o644); err != nil {
@@ -70,6 +73,16 @@ func runFakePlugin(mode string) {
 				_ = conn.Close()
 			}
 			return probeToolResult(err), nil
+		case "report_env":
+			// gum-yq50: report the subprocess env verbatim so a test can prove
+			// which names the host actually handed down.
+			data, err := json.Marshal(os.Environ())
+			if err != nil {
+				return probeToolResult(err), nil
+			}
+			return &sdkmcp.CallToolResult{
+				Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: string(data)}},
+			}, nil
 		case "child_write_file":
 			exe, err := os.Executable()
 			if err != nil {
@@ -184,6 +197,18 @@ func installFakePlugin(t fakePluginTB, installRoot, mode string, network bool, f
 	}
 	if err := os.WriteFile(filepath.Join(pluginDir, "manifest.json"), data, 0o600); err != nil {
 		t.Fatalf("write manifest: %v", err)
+	}
+
+	// Host.Start verifies the executable against the install-time digest on
+	// every spawn and refuses when the sidecar is absent, so a hand-built
+	// install dir has to record it the way Install would.
+	raw, err := os.ReadFile(dst)
+	if err != nil {
+		t.Fatalf("read test binary: %v", err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(raw))
+	if err := os.WriteFile(filepath.Join(pluginDir, ".executable.sha256"), []byte(digest+"\n"), 0o600); err != nil {
+		t.Fatalf("write digest sidecar: %v", err)
 	}
 
 	t.Setenv("FAKE_PLUGIN_MODE", mode)

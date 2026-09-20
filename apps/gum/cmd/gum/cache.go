@@ -50,11 +50,18 @@ func newCacheMigrateCmd() *cobra.Command {
 			})
 			if err != nil {
 				if errors.Is(err, cache.ErrRsyncAmbiguity) {
-					return writeJSON(cmd.OutOrStdout(), map[string]any{
+					// The envelope is the machine-readable report, but the
+					// migration did not run, so the command must still fail.
+					// Returning nil here told a script the cache had been
+					// migrated while http.db was still the live store.
+					if werr := writeJSON(cmd.OutOrStdout(), map[string]any{
 						"ok":    false,
 						"error": "RSYNC_AMBIGUITY",
 						"hint":  "rerun with --force to discard http-wal.db and restart migration from http.db",
-					})
+					}); werr != nil {
+						return werr
+					}
+					return errRendered{err}
 				}
 				return err
 			}
@@ -170,8 +177,11 @@ func newCacheClearCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					count := c.EvictExpired()
+					count, evictErr := c.EvictExpired()
 					_ = c.Close()
+					if evictErr != nil {
+						return evictErr
+					}
 					result["expired_removed"] = count
 				}
 			}

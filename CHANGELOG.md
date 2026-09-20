@@ -5,6 +5,291 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-20
+
+This release closes the gap between what the specification promised and what
+the binary did. Several fixes reject input that earlier versions accepted, so
+the major version changes even though no specification promise was withdrawn.
+
+### Breaking
+
+- The expression-profile key is `format`, not `default_format`, and its enum is
+  `toon|csv|json|markdown`. The parser read `default_format` with a
+  `toon|json|raw` enum, so every profile printed in the specification and in
+  `docs/expression-profile-dsl.md` failed on line 1. A profile still using
+  `default_format` now fails with a message naming the new spelling. The
+  config key `output.default_format` is unchanged.
+- `field_mask_mode="dual_fetch"` is rejected with `INVALID_ARGS` before any
+  upstream request. The mode promised a second unmasked fetch to feed the
+  recovery artifact; the kernel only ever issued one request, so it billed one
+  request, wrote a masked artifact under a promise of pre-mask recovery, and
+  stamped the audit log with a fetch that never happened. The enum value still
+  parses, so profiles keep validating.
+- `gum cache migrate` exits non-zero on `RSYNC_AMBIGUITY`. The envelope said
+  `ok:false` while the exit code said success, so `migrate || handle` never
+  fired. stdout is unchanged.
+- `gum auth use-api-key` and `gum auth use-ads-developer-token` exit non-zero
+  when the keychain write fails. They returned 0, so a script that piped in a
+  secret was told the secret was stored. A platform with no keychain backend at
+  all keeps the environment-variable fallback and still exits 0.
+- The nine MCP meta-tools, the two skill helpers, and the 18 convenience tools
+  validate arguments against the `inputSchema` they advertise. A closed enum, a
+  required property, a declared type, and `additionalProperties:false` were all
+  advisory before, and a bad value reached the handler as a zero value. A
+  violation now returns a §7 `INVALID_ARGS` envelope.
+- The 18 convenience tool schemas move to the §4.1 argument names of their
+  backing ops. `gmail_search` takes `q`, not `query`; `flights_search` takes
+  `departure_date`, not `departureDate`; the four Gmail rows declare the
+  required `userId`; `calendar_upcoming` declares `calendarId` as required.
+  `drive.get_file` drops `mimeType` and `drive.share` drops `emailMessage`,
+  because neither op declares them. `gmail_get_message` no longer takes a
+  `format` key, since `gmail.users.messages.get` declares its own.
+- `gum.read`, `gum.write`, and `gum.destructive` ignore `allow_write` and
+  `allow_destructive` in their arguments. The per-tier switch is the only writer
+  of those flags.
+- `gum.code`'s `destructive_scope` items are `{op_id, resource_key}` objects,
+  not strings. The executor's scope extractor dropped strings, so a caller
+  following the old schema ran destructive code with no scope.
+- `gum.poll` registers `RawJsonResult` and returns `isError=true` on
+  `LRO_TIMEOUT`. It previously reported a timed-out poll as a success.
+- `gum.describe_op`, `gum.gain`, and `gum.cache_stats` register the result
+  schemas §2256 to §2258 name, not `SingleObjectResult`. `skills_get` drops its
+  output schema.
+- TOON keeps the keys of a map whose values are all empty.
+  `{"error":"","status":null}` encoded as `{}` with both key names gone and no
+  lossy flag. The `{}` sentinel now covers a map with no fields only.
+- `truncate_strings` puts the ellipsis inside the limit. A profile asking for
+  180 characters received 181.
+- `gum_print` encodes a non-string value as JSON. A map printed as
+  `map[a:1 b:x]`, which is not parseable in the §13 `data` member that carries
+  it. `gum_print(nil)` aborted the script and now prints `null`.
+- Response numbers decode through `json.Number`. An integer above 2^53 came back
+  with different digits, so a Google Ads customer id lost its low bits and two
+  distinct ids could collide into one dedupe key.
+- The per-op semantic TTL table is keyed on catalog op ids. Seven of eleven keys
+  matched no op, so the whole 24h tier was dead and `gmail.users.getProfile`
+  expired every 60 seconds.
+- `gum profile test` gains `--name` to select one definition from a
+  multi-profile file. It is not spelled `--profile`, which the root command owns.
+
+### Added
+
+- `gum plugin info <name>`, specified at §12 line 2495 and missing from the
+  binary. `--format=json` emits the same object the `gum://plugin/{name}` MCP
+  resource carries, through the same JCS canonicaliser.
+- `--max-items` on `gum read|write|destructive|call` and `max_items` on the
+  three MCP risk tools. It replaces the profile's `collapse_arrays` cap for one
+  invocation; `all` skips the stage. The override stays off the arguments, so it
+  does not change the cache key or the args hash.
+- Real `csv` and `markdown` encoders at stage 8. Both names were in the closed
+  format enum; every name but `json` fell through to the TOON arm while the
+  reported format kept the requested name, so a client that asked for `csv` got
+  TOON bytes and a client that asked for `markdown` got a JSON tree in a field
+  the specification says holds a string.
+- The `_expression` envelope on every §13 result shape. No production path
+  emitted one, so an MCP client could not tell that a profile had dropped fields
+  or collapsed rows. On the CLI the same information goes to stderr as a
+  one-line shaping notice, leaving stdout the payload root.
+- `unsupported_capabilities` on `catalog.Variant`, required by §925 on every
+  non-`full` `execution_support` branch. `gum.describe_op` reused the variant's
+  whole `capabilities[]` list, which §918's own worked example contradicts.
+- `"partial"` in both `DescribeOpResult` `execution_support` enums and its
+  `oneOf`. A variant legal under §918 produced structured content that failed
+  the schema §3175 binds it to.
+- `[output_profiles."<name>"]`, `[override_bindings]`, and top-level
+  `[[tests]]` in a profile file. The parser accepted bare top-level keys only,
+  so every documented example failed to validate and `[override_bindings]` had
+  no parser case, no runtime consumer, and no producer for
+  `OVERRIDE_BINDING_INVALID`. Bindings now reach dispatch: a `variant_id`
+  binding beats an `op_id` binding, both beat the variant's own
+  `output_profile`, and a caller-supplied profile beats all three.
+- `occurrence_count` on a deduped row, required by §9.1 stage 7. It is written
+  only for a group above one row, and never over an upstream field of that name.
+- `<field>_truncated` siblings from `truncate_strings`, required by §2.8 and
+  §9.1 stage 6.
+- `GUM_KEYRING_TIMEOUT` to override the keychain call bound.
+- `--destructive-budget` and repeatable `--destructive-scope` on `gum code`.
+  `--allow-destructive` could never execute: the adapter rejects a budget
+  outside 1..20 and the CLI had no flag to set one, so every run failed
+  `INVALID_ARGS` before the first line of script.
+- `internal/lint/imports_test.go`, the §14 import-graph gate the specification
+  names and the tree did not contain.
+- Five profile DSL keys documented that parsed only in Go: `projection`,
+  `flatten_singletons`, `sort_by`, `limit`, `omit_zero_counts`. Each parsed and
+  then failed schema validation against `additionalProperties:false`.
+
+### Changed
+
+- Stage 1 injects the variant's `default_fields` as the upstream field mask when
+  a profile states none, which is what the §9.1 field table has always said. No
+  shipped variant declares `default_fields`, so nothing new goes upstream today.
+- `results` joins `items`, `data`, and `messages` as a recognised record-array
+  key, and the row stages resolve that array through the same helper the counts
+  use. Two top-level arrays made the heuristic give up, so a 243-keyword call
+  reported `result_count` 0 with 100 rows in the body.
+- The shaping notice states the row counts that `dedupe` and `limit` removed,
+  not only the dropped field names. Stage 7 recorded nothing, so a caller read a
+  shortened result as a complete one.
+- `_expression.omitted_count` counts every row shaping drops, not only the ones
+  `collapse_arrays` writes a sibling for. `_expression.lossy` reads the cap in
+  force, so a caller `max_items` that truncates a lossless profile no longer
+  reports `lossy:false` beside `omitted_count:95`.
+- CSV encodes top-level scalars as repeated columns and secondary arrays as one
+  count column each. It wrote the primary record table alone, so `nextPageToken`
+  vanished with nothing recorded in `lossy`, `dropped_paths`, or the notice.
+  Markdown no longer truncates cells at 60 columns; that limit is an
+  80-column terminal layout and the ASCII table keeps it.
+- Every kernel error carries a §7 envelope. An adapter error travelled out
+  unwrapped and the MCP seam returned a bare sentence with no `error_code` and
+  no `retryable` flag. Anything unstructured becomes `SERVICE_DOWN` with the
+  cause kept in the chain.
+- A non-`gum_oauth` auth failure carries `auth_strategy`, `missing_components`,
+  and `setup_command`, and keeps its own code. `AUTH_KEYCHAIN_UNAVAILABLE`,
+  `BYO_OAUTH_CLIENT_NOT_CONFIGURED`, `AUTH_STRATEGY_NOT_IMPLEMENTED`, and
+  `GUM_OAUTH_MANAGED_CLIENT_NOT_READY` all arrived as `AUTH_REQUIRED`, and the
+  CLI answered every one with a hint naming `gcloud`, which gum does not depend
+  on.
+- `gum plugin remove` and reinstall run as registry transactions. A torn publish
+  rolls back, and a reinstall merges the existing row instead of replacing it.
+- The response renderer moves from `cmd/gum` to `internal/output/render`, so the
+  CLI and the MCP seam produce the same bytes.
+- Catalog variants sort by `variant_id` before JCS hashing, as §8.7 requires.
+  Two profiles that installed the same plugins in a different order wrote
+  byte-different catalogs with identical content.
+- `gen-catalog` validates every variant's `output_profile` against the built-in
+  profile set and runs the bound-profile checks. `flights.v1.plugin.search`
+  shipped naming a profile body that has never existed.
+- The release savings gate is two floors, a registration floor and a response
+  floor, instead of one blended 0.80 that sat at 0.80004 because it charged gum
+  every output-schema byte against a baseline that declares none.
+- `staticcheck` pins to v0.8.1. v0.7.0 cannot read Go 1.26 export data.
+
+### Fixed
+
+- `gum` hung forever at startup on a Linux host whose Secret Service collection
+  is locked, which covers headless, SSH, container, and CI. go-keyring parks on
+  a D-Bus unlock prompt nobody can answer, and every invocation reached it
+  through `GrantedScopes`. Every keychain call is now bounded: 20s interactive,
+  2s background.
+- `tee_mode="failures"` wrote nothing. The write lived at lifecycle step 7c and
+  the step-7 error path returns before it, so the one mode that exists for
+  failures was dead. Adapter errors now carry the verbatim non-2xx body into the
+  artifact.
+- A cache hit skipped the recovery artifact, so a warm response named dropped
+  paths with no artifact to recover them from and a `recovery=resource_link`
+  profile answered with no `gum://results` link.
+- The gain ledger was never written. Nothing set `dispatch.Config.Ledger`
+  outside tests, so `gum gain` reported an empty ledger however much traffic a
+  profile had served. Four divergences went with it: the default path ignored
+  the profile segment and `XDG_DATA_HOME`, the file was created 0644 instead of
+  0600, `gain.enabled=false` was not honoured, and `NewLedger` parsed the whole
+  file on open.
+- TOON `Decode` split on every newline without tracking quoting, so a string
+  holding a newline, which is ordinary Gmail and Docs data, was cut in half.
+  `{"a": "x\ny=z"}` decoded to `{"a": "\"x", "y": "z\""}`: truncated, with a
+  dangling quote and a fabricated field, and a nil error. Verified with 30s of
+  `FuzzToonDecode`, 11.2M executions, no crash.
+- `dedupe`, `sort_by`, and `limit` required a top-level array, which no real
+  Google list response is and which stage 5 rewrites away. `dedupe` also keyed a
+  row on all-absent fields, collapsing a result set to one row.
+- `k=-1` on `gum.search_apis` panicked the stdio server on a slice bound.
+  `gum.read` forwarded a fractional `page_size` upstream for an opaque 400.
+- A confirmation token's replay marker was keyed on the caller's hex signature
+  string, and `hex.DecodeString` accepts upper-case, so re-spelling the field
+  missed both the marker file and the in-memory map and one approval authorized
+  unbounded executions. The binding hash also omitted `caller` and `risk_class`,
+  so a token approved on one surface replayed on the other.
+- `canonicalizeArgs` serializes through JCS and drops null-valued keys at every
+  depth, per §10.0 rule 1, so an argument spelled as null and an omitted
+  argument share one cache key. `semanticFields` keeps projection and keep-field
+  lists in separate labelled groups; concatenating them let two profiles collide
+  and a warm call was served the other profile's narrower body.
+- An adapter returning `(nil, nil)` dereferenced nil in the shaping step. A
+  panic inside a response annotator ended the whole `gum mcp --stdio` session.
+- `gum cache clear --expired` printed every matched key as removed even when the
+  delete transaction failed and the rows were still on disk. An over-size store
+  that could no longer evict grew past `max_size_bytes` silently. `Get` read a
+  hot-tier timestamp outside the lock, reproducible under `-race`.
+- The HTTP cache migration ran one autocommit per row, rewrote every key as
+  `<bucket>/<key>` so migrated `gum-cache` responses became permanently
+  unreachable, and wrote every row with ttl 0, resurrecting expired entries and
+  stripping the deadline from live ones. `--force`, the documented recovery for
+  `ErrSQLiteCorrupt`, returned the very error it exists to clear.
+- A quarantined plugin whose subprocess died is respawned; a canary spawn of a
+  quarantined plugin is refused; a passing setup canary clears quarantine; and
+  an install writes the initial state §8 specifies.
+- Stored plugin credentials reach the subprocess. `gum plugin setup` wrote each
+  one to the keychain and nothing read it back, so every plugin needing a
+  credential failed its canary and was quarantined with no retry time.
+- `gum plugin setup` failed with "no input provided" on the second credential of
+  a two-credential manifest, because it built one scanner per descriptor and the
+  first buffered the whole stream.
+- `gum auth use-oauth-client` erased the stored client secret when re-run
+  without a secret flag, and the next token exchange failed `invalid_client`.
+- `gum auth logout` returned early when no BYO client was registered, so the
+  `gum_oauth` vault purge never ran and legacy refresh tokens stayed in the
+  keychain under a "nothing to clear" message.
+- `--raw` and `--no-field-mask` were parsed and discarded.
+- The MCP `OP_NOT_FOUND` envelope carried five suggestions where §4.1 caps it at
+  three.
+- A typed scalar nested in `body:='{"mode":5}'` skipped the enum check the flat
+  form gets, so a bad value reached the API as a 400 instead of a local
+  `CLI_ARG_INVALID`.
+- `applyCollapseArrays` panicked on a negative `max_items`.
+- The audit log's §11 omit-when-false rule was broken: `marshalEntry` dropped
+  `risk_override_reason`, `shaping_bypassed`, and `sanitizer_bypassed` from the
+  canonical block without recording the skip, so the extras pass re-added them
+  in alphabetical position. Latent; no shipped caller passes those keys.
+- The fsync-fallback warning goes to the audit log instead of stderr.
+- The fixture harness measured the source body, so `expect_result_count`
+  asserted the upstream row count and `expect_omitted_count` could only match 0.
+
+### Security
+
+- A symlinked confirmation signing key is refused on both read paths. The
+  lost-race adopt path used `os.ReadFile`, which follows symlinks, so anyone able
+  to write the data directory could plant a link at
+  `confirmation-signing.key` and have gum sign destructive-confirmation tokens
+  with a key they control.
+- `gum.read` with `variant_id` pinned to a destructive variant executed it. The
+  risk-tier pre-check compared the tier against the op's default variant while
+  the kernel honoured the pin, and the same handler copied `allow_destructive`
+  out of the arguments. Reachable only through a plugin-contributed catalog,
+  since no shipped op has variants of differing risk class.
+- `gum plugin setup` echoed every typed secret to the terminal and into
+  scrollback. The prompt now clears ECHO around each read.
+- A quarantined plugin with no retry time was spawned anyway, because the window
+  check read a zero time as elapsed.
+- Deleting one file disabled the plugin executable trust check: the digest
+  sidecar read returned `("", nil)` when missing and `Start` skipped
+  verification on an empty wanted digest. `plugins.lock` is now authoritative
+  and the sidecar must agree with it.
+- A plugin manifest may not claim a host-owned environment variable in
+  `needs_user_creds` or `env_allow`. Without the gate a manifest could list
+  `GUM_OAUTH_CLIENT_SECRET` and plugin setup would prompt the operator for it by
+  display name alone.
+- A plugin-catalog `schema_hashes` value became a path segment with no
+  validation, so a row carrying `json/../../secret` read any file the process
+  could reach. The value must be lowercase sha256 hex.
+- On GCE, Cloud Run, and GKE every workload derived the same auth subject
+  fingerprint, because `FindDefaultCredentials` fills JSON only when it loaded a
+  credential file. That fingerprint keys tee artifact HMACs, `gum://results`
+  handles, cache entries, and gain-ledger rows, so two service accounts sharing
+  a profile directory could read and overwrite each other's artifacts. Resolve
+  reads the default service-account email from the metadata server and fails
+  with `ADC_SUBJECT_UNKNOWN` when it cannot.
+- The `byo_oauth` principal fingerprint is keyed on the account, not the refresh
+  token. Google rotates that token on every re-login, so one account walked to a
+  new fingerprint and left its cache rows, result handles, and ledger rows
+  unreachable.
+- Confirmation tokens no longer bind an empty principal.
+  `ConfirmationParams.AuthFingerprint` read a field no path assigns, hashing the
+  empty string on every call while reading as a wrong-account guarantee.
+- `TestNoManagedOAuthInjectionInBuildSurfaces` scans GoReleaser ldflags,
+  workflow environment blocks, HASP targets, and build scripts for an injected
+  OAuth client secret. The previous gate scanned committed `.go` files only,
+  which all four surfaces bypass.
+
 ## [1.5.0] - 2026-09-18
 
 ### Added

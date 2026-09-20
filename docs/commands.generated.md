@@ -43,6 +43,7 @@ Generated from `gum schema --json`.
   - [`gum logout [flags]`](commands/gum-logout.md) - Clear gum's stored OAuth credentials (switch or sign out of a Google account)
   - [`gum mcp [flags]`](commands/gum-mcp.md) - Run the gum MCP server. The public release supports --stdio transport.
   - [`gum plugin`](commands/gum-plugin.md) - Manage gum plugins: install, list, run, and curate third-party subprocess
+    - [`gum plugin info <name> [flags]`](commands/gum-plugin-info.md) - Prints the plugin record assembled from plugins.lock, plugin-state.json and
     - [`gum plugin install <local-dir> [flags]`](commands/gum-plugin-install.md) - Installs a plugin through an atomic registry update: validates the manifest,
     - [`gum plugin list`](commands/gum-plugin-list.md) - List installed plugins with their quarantine state
     - [`gum plugin reload <id>`](commands/gum-plugin-reload.md) - Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.
@@ -53,7 +54,7 @@ Generated from `gum schema --json`.
     - [`gum plugin unquarantine <id>`](commands/gum-plugin-unquarantine.md) - Resets quarantined, retry_count, backoff_step, and next_retry_at in plugin-state.json so the plugin can be invoked on the next call. Use when the operator has independently verified the plugin is healthy and wants to bypass the exponential-backoff window.
   - [`gum profile`](commands/gum-profile.md) - Validate or test an expression profile
     - [`gum profile test <profile-path> [flags]`](commands/gum-profile-test.md) - When --input is set, applies the profile to that file (optionally comparing against --golden). When --input is omitted, runs every [[tests]] fixture in the profile file through the expression pipeline and prints a ProfileFixtureResult[] JSON envelope (--format=json).
-    - [`gum profile validate <path>`](commands/gum-profile-validate.md) - Parse an expression-profile DSL file and report any errors. Use this in CI to catch malformed catalog profiles before release.
+    - [`gum profile validate <path> [flags]`](commands/gum-profile-validate.md) - Parse an expression-profile DSL file and report any errors. Use this in CI to catch malformed catalog profiles before release.
   - [`gum read <op_id> [flags]`](commands/gum-read.md) - Invoke a read-class catalog op
   - [`gum schema [flags]`](commands/gum-schema.md) - Print a JSON description of the active gum command tree, including command paths, aliases, arguments, and flags.
   - [`gum search <query> [flags]`](commands/gum-search.md) - BM25 search the embedded catalog (TTY table, pipe JSON)

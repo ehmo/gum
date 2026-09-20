@@ -14,8 +14,11 @@ import "github.com/ehmo/gum/internal/catalog"
 // executor. `tool_name=flights_search` matches the convenience tool name the
 // host registers in MCP (spec line 1578).
 //
-// The output_profile name `flights.search.v1` matches the convenience ABI
-// declared in internal/mcp/tier_a_abi.go and the spec §4.1 row.
+// The variant declares no output_profile. It used to name `flights.search.v1`,
+// which has never existed in internal/output/profile/builtin, so the name
+// resolved to nothing at dispatch while `gum.describe_op flights.search`
+// advertised it to callers (gum-36f5). The catalog now says what is true: this
+// variant ships unshaped until a profile body exists to name.
 //
 // Required args per spec §4.1: origin, destination, departure_date.
 // Optional args: return_date, adults, cabin.
@@ -47,7 +50,6 @@ func BuildFlightsOp() catalog.Op {
 				RiskClass:            catalog.RiskClassRead,
 				AuthStrategy:         catalog.AuthStrategyPluginManaged,
 				Scopes:               []string{},
-				OutputProfile:        "flights.search.v1",
 				Binding: &catalog.Binding{
 					BindingSchemaVersion: 1,
 					AdapterKey:           "plugin.mcp",

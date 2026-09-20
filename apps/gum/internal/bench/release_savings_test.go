@@ -16,14 +16,44 @@ import (
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/embedded"
 	gummcp "github.com/ehmo/gum/internal/mcp"
+	"github.com/ehmo/gum/internal/output/gain"
 )
 
-// gumToolsListJSONViaInMemory connects an in-memory MCP client to a
-// fresh gummcp.Server (stubDispatcher), calls tools/list, and returns
-// the wire-shape JSON the naive baseline test compares against. The
-// envelope mirrors NaiveToolsListJSON: `{"tools": [...]}` with each
-// tool's name, description, and inputSchema fields preserved.
-func gumToolsListJSONViaInMemory(t *testing.T) []byte {
+// encodeToolsEnvelope renders `{"tools": ...}` with the exact encoder
+// settings NaiveToolsListJSON uses, so both sides of the registration
+// comparison pay the same whitespace and escaping cost.
+func encodeToolsEnvelope(t *testing.T, tools any) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(map[string]any{"tools": tools}); err != nil {
+		t.Fatalf("marshal gum tools/list: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// gumToolsListViaInMemory connects an in-memory MCP client to a fresh
+// gummcp.Server (stubDispatcher), calls tools/list, and returns two
+// renderings of the same reply:
+//
+//   - wire: every field the server actually sends, output schemas
+//     included. This is GUM's real session-start registration cost.
+//   - naiveFieldSet: the same tools projected onto bench.NaiveTool's
+//     three fields (name, description, inputSchema), which is the field
+//     set the spec §2 baseline emits.
+//
+// The split exists because the baseline declares no output schema. It
+// returns the raw upstream body unchanged (§2 item 3), so it has no
+// shaped output to describe, and the catalog carries nothing to
+// synthesise one from: `response_ref` is empty on all 228 ops. Output
+// schemas are not a rounding term either. Measured on this checkout they
+// are 21935 of GUM's 28142 registration tokens, so charging them to the
+// numerator with no counterpart in the denominator decides the result.
+// TestGainReleaseFixtureSavingsFloor therefore gates both renderings and
+// logs both numbers (bead gum-ph5c).
+func gumToolsListViaInMemory(t *testing.T) (wire, naiveFieldSet []byte) {
 	t.Helper()
 
 	srv := gummcp.NewServer(stubDispatcher{})
@@ -56,15 +86,20 @@ func gumToolsListJSONViaInMemory(t *testing.T) []byte {
 		t.Error("server did not stop within 3s")
 	}
 
-	envelope := map[string]any{"tools": res.Tools}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(envelope); err != nil {
-		t.Fatalf("marshal gum tools/list: %v", err)
+	projected := make([]bench.NaiveTool, 0, len(res.Tools))
+	for _, tool := range res.Tools {
+		schema, merr := json.Marshal(tool.InputSchema)
+		if merr != nil {
+			t.Fatalf("marshal inputSchema for %s: %v", tool.Name, merr)
+		}
+		projected = append(projected, bench.NaiveTool{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: schema,
+		})
 	}
-	return buf.Bytes()
+
+	return encodeToolsEnvelope(t, res.Tools), encodeToolsEnvelope(t, projected)
 }
 
 // releaseFixtureDir resolves internal/bench/fixtures/release/ from this
@@ -87,13 +122,26 @@ func loadEmbeddedCatalog(t *testing.T) *catalog.Catalog {
 	return &c
 }
 
-// TestGainReleaseFixtureSavingsFloor (spec §1/§2, bead gum-wqk4):
-// asserts that ComputeReleaseSavings clears the ≥0.80 aggregate savings
-// floor on internal/bench/fixtures/release/. The naive registration
-// overhead is the catalog-derived NaiveToolsListJSON; the GUM
-// registration overhead is the live MCP server's tools/list reply
-// (9 meta + 18 convenience tools). Per-call savings come from
-// profile.Apply over the release profile registry (release_profiles.go).
+// registrationFloor gates the like-for-like comparison: the same three
+// fields on both sides. Reset from a measurement of 0.8428 on this
+// checkout, not chosen to clear the spec number. Output-schema growth
+// does not move it, which was the point of splitting the two gates.
+const registrationFloor = 0.84
+
+// wireFloor is the spec §2 / §12.3 normative ">=80% reduction in
+// MCP-layer tokens". Tool-definition schema tokens include GUM's output
+// schemas, so this gate charges GUM its full wire cost against a
+// baseline that carries none. It is the published claim and it must not
+// slip silently.
+const wireFloor = 0.80
+
+// TestGainReleaseFixtureSavingsFloor (spec §1/§2, beads gum-wqk4 and
+// gum-ph5c): asserts both savings floors on
+// internal/bench/fixtures/release/. The naive registration overhead is
+// the catalog-derived NaiveToolsListJSON; the GUM registration overhead
+// is the live MCP server's tools/list reply (9 meta + 18 convenience
+// tools). Per-call savings come from profile.Apply over the release
+// profile registry (release_profiles.go).
 func TestGainReleaseFixtureSavingsFloor(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
@@ -116,24 +164,44 @@ func TestGainReleaseFixtureSavingsFloor(t *testing.T) {
 		t.Fatalf("NaiveToolsListJSON: %v", err)
 	}
 
-	gum := gumToolsListJSONViaInMemory(t)
+	gumWire, gumNaiveFieldSet := gumToolsListViaInMemory(t)
 
-	report, err := bench.ComputeReleaseSavings(dir, naive, gum)
+	report, err := bench.ComputeReleaseSavings(dir, naive, gumNaiveFieldSet)
 	if err != nil {
 		t.Fatalf("ComputeReleaseSavings: %v", err)
 	}
 
-	const floor = 0.80
-	if report.AggregateSavingsPct < floor {
-		t.Errorf("aggregate savings %.4f < %.2f floor\n"+
+	if report.AggregateSavingsPct < registrationFloor {
+		t.Errorf("like-for-like savings %.4f < %.2f floor\n"+
+			"  both sides carry name+description+inputSchema only\n"+
 			"  fixtures=%d\n"+
 			"  naive: tools_list=%d response_sum=%d total=%d\n"+
 			"  gum:   tools_list=%d shaped_sum=%d total=%d",
-			report.AggregateSavingsPct, floor,
+			report.AggregateSavingsPct, registrationFloor,
 			report.Fixtures,
 			report.NaiveToolsListTokens, report.NaiveResponseTokensSum, report.NaiveTotalTokens,
 			report.GumToolsListTokens, report.GumShapedResponseTokensSum, report.GumTotalTokens)
 	}
+
+	wireTokens, err := gain.MeasureTokensCl100k(gumWire)
+	if err != nil {
+		t.Fatalf("tokenize gum wire tools/list: %v", err)
+	}
+	wireTotal := wireTokens + report.GumShapedResponseTokensSum
+	wireSavings := 1.0 - float64(wireTotal)/float64(report.NaiveTotalTokens)
+	if wireSavings < wireFloor {
+		t.Errorf("full-wire savings %.4f < %.2f spec floor\n"+
+			"  gum tools_list on the wire=%d, %d of it beyond name+description+inputSchema\n"+
+			"  the spec §2 baseline declares no output schema, so every\n"+
+			"  registered outputSchema byte lands on GUM's side alone.\n"+
+			"  Shrink the schemas or improve response shaping; do not\n"+
+			"  move this floor, it is the published claim.\n"+
+			"  naive total=%d gum total=%d",
+			wireSavings, wireFloor,
+			wireTokens, wireTokens-report.GumToolsListTokens,
+			report.NaiveTotalTokens, wireTotal)
+	}
+
 	if !report.ReplayResult.Deterministic {
 		t.Error("shaped replay is not byte-deterministic across runs")
 	}
@@ -141,10 +209,11 @@ func TestGainReleaseFixtureSavingsFloor(t *testing.T) {
 		t.Errorf("fixture count %d < 200 (spec §12.3 release-set composition)", report.Fixtures)
 	}
 
-	t.Logf("release-fixture savings: fixtures=%d savings=%.4f\n"+
+	t.Logf("release-fixture savings: fixtures=%d like_for_like=%.4f full_wire=%.4f\n"+
 		"  naive: tools_list=%d response_sum=%d total=%d\n"+
-		"  gum:   tools_list=%d shaped_sum=%d total=%d",
-		report.Fixtures, report.AggregateSavingsPct,
+		"  gum:   tools_list=%d (wire %d) shaped_sum=%d total=%d (wire %d)",
+		report.Fixtures, report.AggregateSavingsPct, wireSavings,
 		report.NaiveToolsListTokens, report.NaiveResponseTokensSum, report.NaiveTotalTokens,
-		report.GumToolsListTokens, report.GumShapedResponseTokensSum, report.GumTotalTokens)
+		report.GumToolsListTokens, wireTokens, report.GumShapedResponseTokensSum,
+		report.GumTotalTokens, wireTotal)
 }

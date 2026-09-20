@@ -20,7 +20,7 @@ func TestParseTestFixtureKeyErrorBranches(t *testing.T) {
 		{"profile_bad_literal", "profile", `unquoted`, "tests.profile:"},
 		{"fixture_bad_literal", "fixture", `unquoted`, "tests.fixture:"},
 		{"expect_format_bad_literal", "expect_format", `unquoted`, "tests.expect_format:"},
-		{"expect_format_invalid_enum", "expect_format", `"yaml"`, "must be toon, json, or raw"},
+		{"expect_format_invalid_enum", "expect_format", `"yaml"`, "must be toon, csv, json, markdown, or raw"},
 		{"expect_max_tokens_not_int", "expect_max_tokens", `abc`, "tests.expect_max_tokens:"},
 		{"expect_max_tokens_negative", "expect_max_tokens", `-1`, "must be >= 0"},
 		{"expect_lossy_not_bool", "expect_lossy", `maybe`, "tests.expect_lossy:"},

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/ehmo/gum/internal/cache"
 	"github.com/ehmo/gum/internal/catalog"
+	"github.com/ehmo/gum/internal/output/jcs"
 	"github.com/ehmo/gum/internal/output/profile"
 )
 
@@ -62,6 +64,18 @@ type Invocation struct {
 	// artifact (spec §9.0). The presentation layer is responsible for
 	// resolution (catalog-embedded → user-global → project-local).
 	OutputProfile *profile.Profile
+
+	// SuppressFieldMask reports that the caller asked for no upstream field
+	// mask at all (--no-field-mask on the CLI). It is distinct from "the
+	// caller sent no fields arg": the latter lets the profile's field_mask
+	// supply one, this one forbids it. Spec §12.0.
+	SuppressFieldMask bool
+
+	// MaxItems, when set, replaces the active profile's collapse_arrays cap
+	// for this one invocation. The presentation layer maps its own surface
+	// (--max-items on the CLI, max_items in MCP) onto it. The zero value
+	// leaves the profile's own cap in force (gum-pmbp).
+	MaxItems profile.MaxItemsOverride
 
 	// AuthSubjectFingerprint is the stable per-principal opaque ID used as the
 	// fourth component of the tee artifact hash (spec §9.0 line 1846,
@@ -127,12 +141,16 @@ type Response struct {
 
 // ShapedResponse is the final output after step 8 (output pipeline).
 //
-// StructuredContent, when non-nil, carries the JSON-shaped data underlying Body
-// — populated whenever Body is encoded from a parseable JSON tree (i.e. for
-// "toon" and "json" formats). Raw passes leave it nil. MCP handlers project
-// StructuredContent into CallToolResult.StructuredContent for clients that
-// consume the machine-readable schema-validated shape; the encoded text in
-// Body goes into the text content block.
+// StructuredContent, when non-nil, carries the shaped JSON tree underlying Body
+// — the same value Body encodes, before encoding. MCP handlers project it into
+// CallToolResult.StructuredContent for clients that consume the
+// machine-readable schema-validated shape; the encoded text in Body goes into
+// the text content block.
+//
+// It is the shaped tree, not the upstream body. Building it from the upstream
+// body made structuredContent contradict Body on every profiled op: a client
+// reading it got every field the profile removed, the full row count the cap
+// had trimmed, and none of the token saving (spec §13 line 2134).
 type ShapedResponse struct {
 	Body              []byte
 	Format            string
@@ -173,6 +191,28 @@ type ShapedResponse struct {
 	// incomplete JSON, and the caller has no signal to look for the rest
 	// (gum-bpx0).
 	DroppedPaths []string
+
+	// CollapsedArrays lists the arrays collapse_arrays truncated, with the
+	// kept and omitted counts and the sibling key holding the count. The
+	// presentation layer names the omitted rows in its shaping notice, because
+	// a notice that reports only the removed fields points the reader at the
+	// smaller loss (gum-pmbp).
+	CollapsedArrays []profile.CollapsedArray
+
+	// DedupedRows and LimitedRows count the rows stage 7's dedupe and the
+	// profile's limit removed. Neither writes a count into the body, so the
+	// shaping notice is the only place the caller learns the result is short.
+	DedupedRows int
+	LimitedRows int
+
+	// Expression is the spec §13 `_expression` envelope describing what the
+	// shaping pipeline did. Non-nil on every success path, including a raw
+	// pass-through, because §13 makes profile, op_id, variant_id, lossy and
+	// result_count required on every shaped result.
+	//
+	// The presentation layer projects it verbatim: MCP into structuredContent,
+	// the CLI into its stderr shaping notice.
+	Expression *ExpressionMeta
 }
 
 // CacheLayerStats holds a point-in-time snapshot of the semantic (in-process)
@@ -252,10 +292,13 @@ type dispatcher struct {
 	teeConfig               TeeConfig                                  // gum-66wd: filesystem tee artifact policy (spec §9.0)
 	normalizeDatetimes      bool                                       // gum-y1n: spec §10.0 Rule 4 UTC normalization of RFC 3339 datetime args
 	profileLookup           func(name string) (*profile.Profile, bool) // §9.2 catalog-embedded profile resolver (step 8)
+	profileBindings         func() map[string]string                   // §9.2 [override_bindings]: op_id/variant_id -> profile name
 	argDefaulter            ArgDefaulter                               // gum-puum: configured arg defaults (step 1)
 
 	opIndexOnce sync.Once              // builds opIndex on first findOp (review gum-yvam)
 	opIndex     map[string]*catalog.Op // canonical op_id + alias → *Op; snapshot is immutable post-construction
+
+	retries retryTracker // §12.3 is_retry window: session+op_family+args_hash seen inside 5 minutes
 }
 
 // opByID returns a lazily-built lookup of canonical op_ids and their deprecated
@@ -341,23 +384,41 @@ func semanticFields(inv *Invocation) string {
 	if len(p.Projection) == 0 && len(p.KeepFields) == 0 {
 		return ""
 	}
-	all := make([]string, 0, len(p.Projection)+len(p.KeepFields))
-	all = append(all, p.Projection...)
-	all = append(all, p.KeepFields...)
-	sort.Strings(all)
-	out := ""
-	for i, k := range all {
-		if i > 0 {
-			out += ","
-		}
-		out += k
-	}
-	return out
+	// The two lists are kept in separate, labelled groups. Concatenating and
+	// sorting them collapsed projection=["a"] keep=["b"] and projection=["b"]
+	// keep=["a"] to the same "a,b" key, and because the cache stores the
+	// upstream body (masked by the adapter to the projection), a warm call
+	// under one profile was served the other profile's narrower body.
+	return "p=" + joinSorted(p.Projection) + ";k=" + joinSorted(p.KeepFields)
 }
 
-// Dispatch drives all 9 lifecycle steps.
+func joinSorted(in []string) string {
+	if len(in) == 0 {
+		return ""
+	}
+	sorted := make([]string, len(in))
+	copy(sorted, in)
+	sort.Strings(sorted)
+	return strings.Join(sorted, ",")
+}
+
+// Dispatch drives all 9 lifecycle steps and guarantees the §7 envelope.
+//
+// dispatchSteps holds the lifecycle. It can return a raw error, because an
+// adapter or an injected collaborator is free to fail with plain fmt.Errorf,
+// and such an error used to travel out of the kernel unwrapped: the caller got
+// free text with no error_code, no retryable flag, and nothing to branch on.
+// wrapKernelError is the single place that closes that hole.
 func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResponse, error) {
-	dispatchStart := time.Now()
+	shaped, err := d.dispatchSteps(ctx, inv)
+	if err != nil {
+		return shaped, wrapKernelError(inv, err)
+	}
+	return shaped, nil
+}
+
+// dispatchSteps is the lifecycle body. Call Dispatch, not this.
+func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*ShapedResponse, error) {
 	requestID := inv.RequestID
 	if requestID == "" {
 		requestID = newRequestID()
@@ -435,17 +496,29 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 	// name via the injected ProfileLookup. A miss leaves it nil → default
 	// (empty-profile) shaping, so ops without a defined profile are unchanged.
 	// Resolved here (before tee + shape) so recovery/tee and step-8 shaping agree.
-	if inv.OutputProfile == nil && d.profileLookup != nil && rv.Variant != nil && rv.Variant.OutputProfile != "" {
-		if p, ok := d.profileLookup(rv.Variant.OutputProfile); ok && p != nil {
-			inv.OutputProfile = p
+	if inv.OutputProfile == nil && d.profileLookup != nil && rv.Variant != nil {
+		name := d.profileNameFor(inv, rv)
+		if name != "" {
+			if p, ok := d.profileLookup(name); ok && p != nil {
+				inv.OutputProfile = p
+			}
 		}
 	}
 
-	// Step 3b: spec §9.1 field_mask_mode="dual_fetch" gate. The catalog
-	// generator rejects ineligible variants at build time; this runtime check
-	// guards profiles authored independently (user-global overrides). A
-	// rejection surfaces as INVALID_ARGS with the failing variant_id + reason
-	// so the operator sees which constraint failed.
+	// Step 3b: spec §9.1 field_mask_mode="dual_fetch" gate, then refusal.
+	//
+	// The eligibility check runs first so an ineligible variant still reports
+	// the constraint it broke; the catalog generator rejects those at build
+	// time, and this guards profiles authored independently (user-global
+	// overrides).
+	//
+	// An eligible variant is refused too. dual_fetch owes the caller two
+	// upstream requests: the shaped one and an unmasked recovery fetch that
+	// feeds the stage-9 artifact. The kernel issues one. Accepting the mode
+	// therefore billed one request, wrote a masked artifact under a promise of
+	// pre-mask recovery, and stamped the audit log with a fetch that never
+	// happened. Refusing keeps the enum parseable, so profiles still validate,
+	// while nothing acts on a guarantee the kernel cannot keep.
 	if inv.OutputProfile != nil && inv.OutputProfile.FieldMaskMode == profile.FieldMaskModeDualFetch {
 		if gateErr := profile.ValidateDualFetchGate(inv.OutputProfile.FieldMaskMode, rv.Variant); gateErr != nil {
 			return nil, NewStructuredError(ErrCodeInvalidArgs, "field_mask_mode=dual_fetch rejected: "+gateErr.Error()).
@@ -453,6 +526,41 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 				WithDetail("value", inv.OutputProfile.FieldMaskMode).
 				WithDetail("op_id", inv.OpID).
 				WithDetail("variant_id", rv.Variant.VariantID)
+		}
+		return nil, NewStructuredError(ErrCodeInvalidArgs,
+			"field_mask_mode=dual_fetch is not implemented in this release: the unmasked recovery fetch does not exist, so the artifact cannot hold pre-field-mask data; use field_mask_mode=\"none\" for full-fidelity recovery").
+			WithDetail("field", "field_mask_mode").
+			WithDetail("value", inv.OutputProfile.FieldMaskMode).
+			WithDetail("op_id", inv.OpID).
+			WithDetail("variant_id", rv.Variant.VariantID)
+	}
+
+	// Step 3c: spec §9.1 stage 1, upstream projection. The only mask gum puts
+	// on the wire is the universal Google `fields` query parameter, so the
+	// profile's field_mask is injected as that arg. It runs before step 4 auth
+	// and step 5 cache so the mask is part of the §10.3 cache key: two calls
+	// that differ only by mask must not share a cached body.
+	//
+	// The §9.1 DSL field table defaults `field_mask` to the variant's
+	// `default_fields`, so a profile that omits the key still projects. Without
+	// the fallback the documented default never fired and an omitted key was
+	// field_mask_mode="none" on the wire (gum-jnxs).
+	//
+	// Three things veto the injection. An explicit caller `fields` arg wins,
+	// because it is the narrower instruction. field_mask_mode="none" selects
+	// host-side shaping only. SuppressFieldMask is --no-field-mask, which
+	// already deleted any caller mask and must not have one put back.
+	if inv.OutputProfile != nil && !inv.SuppressFieldMask &&
+		inv.OutputProfile.FieldMaskMode != profile.FieldMaskModeNone {
+		mask := inv.OutputProfile.FieldMask
+		if mask == "" && rv.Variant != nil {
+			mask = rv.Variant.DefaultFields
+		}
+		if mask != "" {
+			// inv.Args is never nil here: step 1 (parseAndValidate) normalizes it.
+			if existing, ok := inv.Args["fields"].(string); !ok || strings.TrimSpace(existing) == "" {
+				inv.Args["fields"] = mask
+			}
 		}
 	}
 
@@ -502,14 +610,35 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 			// adapter whose Format the cache did not preserve) must not fail a
 			// call that would have succeeded cold: serve it verbatim.
 			slog.Warn("cached body failed shaping; serving verbatim", "op_id", inv.OpID, "err", serr)
-			shaped = &ShapedResponse{Body: cached.Body, Format: cached.Format}
+			shaped = &ShapedResponse{
+				Body:   cached.Body,
+				Format: cached.Format,
+				// Nothing was shaped, so the envelope reports the "_raw"
+				// sentinel rather than naming a profile that did not run.
+				Expression: newExpressionMeta(inv, rv, nil, &profile.ApplyOutput{Format: "raw"}),
+			}
 			var structured any
 			if json.Unmarshal(cached.Body, &structured) == nil {
 				shaped.StructuredContent = structured
 			}
 		}
+		// Step 7c on the warm path. A hit fires the same expression profile as a
+		// cold call, so it drops the same fields and spec §9.0 owes it the same
+		// recovery artifact. Skipping it left the warm response naming dropped
+		// paths with nothing to recover them from, and a resource_link profile
+		// answered with no link at all. Writing after shaping keeps a rejected
+		// inv.Format from leaving a stray artifact behind. A cached response
+		// carries no StatusCode, so tee_mode="failures" correctly writes
+		// nothing: a served cache entry is a successful read.
+		teeArt, terr := d.writeTeeArtifact(inv, rv, creds, cachedResp)
+		if terr != nil {
+			slog.Warn("tee artifact write failed", "op_id", inv.OpID, "err", terr)
+		}
+		d.attachTeeHandles(shaped, teeArt)
 		shaped.ValidationWarnings = append(shaped.ValidationWarnings, validationWarnings...)
-		return d.recordAndReturn(ctx, inv, rv, shaped, cachedResp, dispatchStart, true)
+		// A served hit was by definition cache-eligible, so the ledger reports
+		// "hit" rather than the "not_applicable" an ineligible op would get.
+		return d.recordAndReturn(ctx, inv, rv, creds, shaped, cachedResp, true, true)
 	}
 	if err := checkCancelled(ctx, "cache_check"); err != nil {
 		return nil, err
@@ -531,6 +660,11 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 	resp, err := d.executeAdapter(ctx, inv, rv, creds)
 	if err != nil {
 		logEvent(EventExecuteAdapter, t0)
+		// Step 7c, failure branch. tee_mode = "failures" exists for exactly this
+		// path, and the success-side write below is unreachable from here. Only
+		// step-7 errors reach this line, which is what keeps the normative
+		// pre-step-7 exclusion in docs/expression-profile-dsl.md true.
+		d.writeFailureTee(inv, rv, creds, resp, err)
 		// An adapter that returns BOTH a non-nil response body AND an error has
 		// packed a structured error envelope into the body (the plugin path).
 		// Surface its error_code/retryable/retry_after_ms instead of dropping
@@ -593,14 +727,7 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 		logEvent(EventShapeResponse, t0)
 		return nil, err
 	}
-	if shaped != nil && teeArt != nil {
-		shaped.FullResultPath = teeArt.Path
-		size := teeArt.Size
-		shaped.FullResultSize = &size
-		if teeArt.Recovery == "resource_link" {
-			shaped.FullResultResource = "gum://results/" + teeArt.Hash
-		}
-	}
+	d.attachTeeHandles(shaped, teeArt)
 	if shaped != nil && len(validationWarnings) > 0 {
 		shaped.ValidationWarnings = append(shaped.ValidationWarnings, validationWarnings...)
 	}
@@ -608,7 +735,7 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 
 	// Step 9: record and return
 	t0 = time.Now()
-	result, err := d.recordAndReturn(ctx, inv, rv, shaped, resp, dispatchStart, false)
+	result, err := d.recordAndReturn(ctx, inv, rv, creds, shaped, resp, false, cacheable && d.cacheConfigured())
 	logEvent(EventRecordAndReturn, t0)
 	return result, err
 }
@@ -797,21 +924,26 @@ func (d *dispatcher) missingArgHint(op *catalog.Op, missing []string) string {
 	return d.argDefaulter.MissingArgHint(op, missing)
 }
 
-func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, typeErrors []string) {
+// AllowedArgKeys returns every top-level arg name op accepts: its declared
+// params, its non-body RequestFields, the reserved "body" key when it carries
+// any body-located field, plus the permanent allowlist below. A nil result
+// means the op declares no schema at all, so every key is allowed.
+//
+// validateParams and the MCP convenience-schema gate both read this set, so a
+// schema cannot advertise a property the kernel would reject as unknown.
+func AllowedArgKeys(op *catalog.Op) map[string]struct{} {
 	hasParams := len(op.ParamsRequired) > 0 || len(op.ParamsOptional) > 0
 	hasFields := len(op.RequestFields) > 0
 	if !hasParams && !hasFields {
 		// Truly open schema: the op declares no params and no RequestFields, so
 		// accept any args (e.g. searchconsole.sites.list, calendar.colors.get).
-		return nil, nil, nil
+		return nil
 	}
 	// When the op has RequestFields but no hand-authored params lists (the 84
 	// Discovery-enriched ops), the RequestFields below form the allowed set, so
 	// unknown args (typos like emailq=foo) are rejected locally instead of being
 	// forwarded to Google as spurious query params (gum-gatw).
-
-	// Build allowed-key set once; used for unknown-key detection.
-	allowed := make(map[string]struct{}, len(op.ParamsRequired)+len(op.ParamsOptional)+len(op.RequestFields)+5)
+	allowed := make(map[string]struct{}, len(op.ParamsRequired)+len(op.ParamsOptional)+len(op.RequestFields)+len(permanentArgKeys))
 	for _, pair := range op.ParamsRequired {
 		if len(pair) == 2 {
 			allowed[pair[0]] = struct{}{}
@@ -829,36 +961,45 @@ func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, type
 	// Body-located fields are assembled into the reserved "body" arg.
 	for _, f := range op.RequestFields {
 		if f.Location == catalog.RequestFieldBody {
-			allowed["body"] = struct{}{}
+			allowed[bodyArgKey] = struct{}{}
 		} else {
 			allowed[f.Name] = struct{}{}
 		}
 	}
-	// Permanent allowlist: keys that are always valid but absent from the
-	// per-op schema, so they must never be flagged unknown.
-	//
-	//  (a) Host-control keys the CLI (call.go) and MCP handler (handlers.go)
-	//      inject into Args AFTER consulting the catalog schema:
-	//        body       — POST ops carry a body from body:=json even when no
-	//                     body-location RequestField exists.
-	//        pageToken  — pagination continuation (--page-token).
-	//        pageSize   — pagination size for newer Google APIs (--page-size).
-	//        maxResults — pagination size for older Google APIs (--page-size).
-	//
-	//  (b) Google API global "system parameters" — valid on EVERY method but
-	//      listed only at the top level of the Discovery doc, not per-method, so
-	//      the Discovery walker never puts them in RequestFields. Rejecting them
-	//      would wrongly fail a valid call (e.g. alt=json, quotaUser=…) on the
-	//      84 enriched ops. (fields is both a host-control flag and a system
-	//      parameter.) See cloud.google.com/apis/docs/system-parameters.
-	permanent := []string{
-		"body", "pageToken", "pageSize", "maxResults",
-		"alt", "fields", "prettyPrint", "quotaUser", "userIp", "key",
-		"oauth_token", "access_token", "callback", "uploadType",
-		"upload_protocol", "$.xgafv",
-	}
-	for _, k := range permanent {
+	for _, k := range permanentArgKeys {
 		allowed[k] = struct{}{}
+	}
+	return allowed
+}
+
+// permanentArgKeys are always valid but absent from the per-op schema, so they
+// must never be flagged unknown.
+//
+//	(a) Host-control keys the CLI (call.go) and MCP handler (handlers.go)
+//	    inject into Args AFTER consulting the catalog schema:
+//	      body       — POST ops carry a body from body:=json even when no
+//	                   body-location RequestField exists.
+//	      pageToken  — pagination continuation (--page-token).
+//	      pageSize   — pagination size for newer Google APIs (--page-size).
+//	      maxResults — pagination size for older Google APIs (--page-size).
+//
+//	(b) Google API global "system parameters" — valid on EVERY method but
+//	    listed only at the top level of the Discovery doc, not per-method, so
+//	    the Discovery walker never puts them in RequestFields. Rejecting them
+//	    would wrongly fail a valid call (e.g. alt=json, quotaUser=…) on the
+//	    84 enriched ops. (fields is both a host-control flag and a system
+//	    parameter.) See cloud.google.com/apis/docs/system-parameters.
+var permanentArgKeys = []string{
+	"body", "pageToken", "pageSize", "maxResults",
+	"alt", "fields", "prettyPrint", "quotaUser", "userIp", "key",
+	"oauth_token", "access_token", "callback", "uploadType",
+	"upload_protocol", "$.xgafv",
+}
+
+func validateParams(op *catalog.Op, args map[string]any) (missing, unknown, typeErrors []string) {
+	allowed := AllowedArgKeys(op)
+	if allowed == nil {
+		return nil, nil, nil
 	}
 
 	// Check required params: presence + type.
@@ -960,7 +1101,7 @@ func (d *dispatcher) parseAndValidate(ctx context.Context, inv *Invocation) (*pa
 	if resolvedOp == nil {
 		return nil, NewStructuredError(ErrCodeOpNotFound, fmt.Sprintf("op not found: %s", inv.OpID)).
 			WithDetail("op_id", inv.OpID).
-			WithDetail("suggestions", suggestOpIDs(inv.OpID, d.opIDCandidates(), 3))
+			WithDetail("suggestions", suggestOpIDs(inv.OpID, d.opIDCandidates(), MaxOpSuggestions))
 	}
 
 	// Mutate inv.OpID to the canonical id (so downstream steps see it).
@@ -1339,7 +1480,7 @@ func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*Reso
 	if op == nil {
 		return nil, NewStructuredError(ErrCodeOpNotFound, fmt.Sprintf("op not found: %s", inv.OpID)).
 			WithDetail("op_id", inv.OpID).
-			WithDetail("suggestions", suggestOpIDs(inv.OpID, d.opIDCandidates(), 3))
+			WithDetail("suggestions", suggestOpIDs(inv.OpID, d.opIDCandidates(), MaxOpSuggestions))
 	}
 	// A catalog op must declare at least one variant. Guard the [0] indexing
 	// below (and the default/stability paths) against a malformed zero-variant
@@ -1430,6 +1571,13 @@ func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*Reso
 // wins when both are wired. creds are resolved before this runs (gum-vd63.1), so
 // the lookup keys on the SAME auth-subject fingerprint the step-7b store uses —
 // otherwise authenticated reads never hit.
+// cacheConfigured reports whether any §10.3 cache is wired and usable on this
+// dispatcher. A dispatcher with no cache never has a miss to report, so the
+// gain ledger records "not_applicable" rather than blaming the op.
+func (d *dispatcher) cacheConfigured() bool {
+	return d.semanticCache != nil || (d.cache != nil && d.auth == nil)
+}
+
 func (d *dispatcher) cacheCheck(ctx context.Context, inv *Invocation, rv *ResolvedVariant, creds *Credentials) (*CachedResponse, bool, error) {
 	if d.semanticCache != nil {
 		key := cache.SemanticKey(
@@ -1488,6 +1636,15 @@ func (d *dispatcher) resolveAuth(ctx context.Context, inv *Invocation, rv *Resol
 	if errors.As(err, &se) {
 		return nil, err
 	}
+	// An *auth.AuthError carries the full §7 envelope but is not a
+	// *StructuredError, so errors.As above cannot see it. Ask it for its own
+	// envelope rather than flattening four distinct codes into AUTH_REQUIRED.
+	var carrier StructuredErrorCarrier
+	if errors.As(err, &carrier) {
+		if envelope := carrier.AsStructuredError(); envelope != nil {
+			return nil, envelope
+		}
+	}
 	return nil, NewStructuredError(ErrCodeAuthRequired, err.Error()).
 		WithDetail("op_id", inv.OpID)
 }
@@ -1542,7 +1699,39 @@ func (d *dispatcher) executeAdapter(ctx context.Context, inv *Invocation, rv *Re
 	if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
 		return nil, newCancelledError(err)
 	}
+	if err == nil && resp == nil {
+		// The Adapter contract requires a response on the success path. A
+		// third-party or plugin adapter that returns (nil, nil) — the obvious
+		// early return for an empty result set — used to reach shapeResponse,
+		// which dereferences resp.Format after the recover window closed and
+		// took the whole gum mcp --stdio session down (spec §3.1 step 7).
+		return nil, NewStructuredError(ErrCodeServiceDown, "adapter returned no response").
+			WithDetail("adapter_key", rv.AdapterKey).
+			WithDetail("op_id", inv.OpID).
+			WithRetryable(false)
+	}
 	return resp, err
+}
+
+// attachTeeHandles projects a step-7c artifact onto the shaped response.
+//
+// The cold path and the cache-hit path share it because both run step 8: the
+// handle belongs to the profile that fired, not to where the payload came from.
+func (d *dispatcher) attachTeeHandles(shaped *ShapedResponse, art *teeArtifact) {
+	if shaped == nil || art == nil {
+		return
+	}
+	shaped.FullResultPath = art.Path
+	size := art.Size
+	shaped.FullResultSize = &size
+	if art.Recovery == "resource_link" {
+		shaped.FullResultResource = "gum://results/" + art.Hash
+	}
+	// The artifact was written moments ago, so its expiry is now plus the
+	// retention window. Clients poll this instead of discovering expiry on a
+	// failed gum://results read (spec §7, §3269).
+	shaped.Expression.attachArtifactHandles(
+		shaped.FullResultPath, shaped.FullResultResource, d.teeConfig.RetentionHours, time.Now())
 }
 
 // Step 8 — shape response (output pipeline).
@@ -1554,6 +1743,11 @@ func (d *dispatcher) executeAdapter(ctx context.Context, inv *Invocation, rv *Re
 //   - ""     → default to TOON
 //   - other  → INVALID_ARGS structured error with field=format, value=<input>
 func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *ResolvedVariant, resp *Response) (*ShapedResponse, error) {
+	if resp == nil {
+		return nil, NewStructuredError(ErrCodeServiceDown, "adapter returned no response").
+			WithDetail("op_id", inv.OpID).
+			WithRetryable(false)
+	}
 	format := inv.Format
 	if format == "" {
 		format = "toon"
@@ -1567,9 +1761,14 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 	}
 
 	// Executor signals opaque bytes (e.g. gum.code Risor printed output): bypass
-	// the JSON-parsing profile pipeline regardless of inv.Format.
+	// the JSON-parsing profile pipeline regardless of inv.Format. The envelope
+	// still goes out, reporting the "_raw" sentinel profile (spec §2705).
 	if resp.Format == "raw" {
-		return &ShapedResponse{Body: resp.Body, Format: "raw"}, nil
+		return &ShapedResponse{
+			Body:       resp.Body,
+			Format:     "raw",
+			Expression: newExpressionMeta(inv, rv, nil, &profile.ApplyOutput{Format: "raw"}),
+		}, nil
 	}
 
 	// A caller who asked for raw wants the upstream bytes, so the annotator runs
@@ -1589,22 +1788,22 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 	out, err := profile.Apply(prof, profile.ApplyInput{
 		Body:       body,
 		UserFormat: format,
+		MaxItems:   inv.MaxItems,
 	})
 	if err != nil {
 		return nil, err
 	}
-	var structured any
-	if jerr := json.Unmarshal(body, &structured); jerr != nil {
-		// raw bypass already handled above; if we got here resp.Body was valid
-		// JSON for profile.Apply, so this branch only fires under a race or a
-		// non-deterministic upstream — drop structuredContent rather than fail.
-		structured = nil
-	}
 	return &ShapedResponse{
-		Body:              out.Body,
-		Format:            out.Format,
-		StructuredContent: structured,
+		Body:   out.Body,
+		Format: out.Format,
+		// The shaped tree, which is what Body encodes. Nil only when the body
+		// was not JSON, which the raw bypass above has already handled.
+		StructuredContent: out.Shaped,
 		DroppedPaths:      out.DroppedPaths,
+		CollapsedArrays:   out.CollapsedArrays,
+		DedupedRows:       out.DedupedRows,
+		LimitedRows:       out.LimitedRows,
+		Expression:        newExpressionMeta(inv, rv, prof, &out),
 	}, nil
 }
 
@@ -1621,11 +1820,37 @@ func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body
 		return body
 	}
 
-	out := annotator.AnnotateResponse(inv, rv, body)
+	// AnnotateResponse is adapter-owned code running after executeAdapter's
+	// recover has already returned. A panic here used to terminate the process,
+	// which spec §3.1 step 7 forbids for a long-running mcp --stdio session.
+	// The annotation is additive by contract, so dropping it and serving the
+	// upstream body is strictly better than failing the call.
+	out := d.annotateSafely(annotator, inv, rv, body)
 	if out == nil {
 		return body
 	}
 	return out
+}
+
+func (d *dispatcher) annotateSafely(annotator ResponseAnnotator, inv *Invocation, rv *ResolvedVariant, body []byte) (out []byte) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		slog.Error("response annotator panic",
+			"op_id", inv.OpID,
+			"adapter_key", rv.AdapterKey,
+			"request_id", inv.RequestID,
+			"panic_value", fmt.Sprintf("%v", r),
+			"stack", sanitizeStackForLog(string(debug.Stack())),
+		)
+		if d.auditSink != nil {
+			d.auditSink.Append(panicAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
+		}
+		out = nil
+	}()
+	return annotator.AnnotateResponse(inv, rv, body)
 }
 
 // Step 9 — record audit / gain ledger and return (spec §3.1 line 237).
@@ -1634,31 +1859,13 @@ func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body
 // — the caller already has a valid shaped response, and corrupting the success
 // path because the ledger journal is full would hide useful work behind a
 // bookkeeping problem.
-func (d *dispatcher) recordAndReturn(_ context.Context, inv *Invocation, rv *ResolvedVariant, shaped *ShapedResponse, raw *Response, start time.Time, fromCache bool) (*ShapedResponse, error) {
+func (d *dispatcher) recordAndReturn(_ context.Context, inv *Invocation, rv *ResolvedVariant, creds *Credentials, shaped *ShapedResponse, raw *Response, fromCache, cacheable bool) (*ShapedResponse, error) {
 	d.appendSuccessAudit(inv, rv)
 
 	if d.gainLedger == nil {
 		return shaped, nil
 	}
-	bytesIn := 0
-	if raw != nil {
-		bytesIn = len(raw.Body)
-	}
-	variantID := ""
-	if rv != nil && rv.Variant != nil {
-		variantID = rv.Variant.VariantID
-	}
-	entry := GainEntry{
-		OpID:      inv.OpID,
-		VariantID: variantID,
-		Format:    shaped.Format,
-		BytesIn:   bytesIn,
-		BytesOut:  len(shaped.Body),
-		WallMs:    time.Since(start).Milliseconds(),
-		CacheHit:  fromCache,
-		Timestamp: time.Now().UTC(),
-	}
-	if err := d.gainLedger.Append(entry); err != nil {
+	if err := d.gainLedger.Append(d.buildGainEntry(inv, rv, creds, shaped, raw, fromCache, cacheable)); err != nil {
 		slog.Warn("gain ledger append failed", "op_id", inv.OpID, "err", err)
 	}
 	return shaped, nil
@@ -1675,20 +1882,66 @@ func (d *dispatcher) appendSuccessAudit(inv *Invocation, rv *ResolvedVariant) {
 	d.auditSink.Append(successAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
 }
 
-// canonicalizeArgs produces a deterministic JSON serialisation of inv.Args for use
-// as a cache key component. Keys are sorted so map iteration order doesn't affect
-// the output.
+// canonicalizeArgs produces the spec §10.0 args_canonical string: the RFC 8785
+// JCS serialization of args with null-valued keys removed (Rule 1). It is the
+// shared input to the cache key, the audit args_hash, the gain ledger and the
+// tee artifact hash, so every one of those must see the same bytes for two
+// callers who differ only in whether they spelled an absent optional field as
+// null.
+//
+// jcs.Marshal supplies UTF-16 key ordering and JCS number and string rules that
+// the previous hand-rolled sort.Strings + json.Marshal loop did not: json.Marshal
+// escapes < > & to \u003c and friends, which JCS does not, so an externally
+// computed hash never matched gum's.
 func canonicalizeArgs(args map[string]any) string {
 	if len(args) == 0 {
 		return "{}"
 	}
+	pruned, _ := pruneNullsForJCS(args).(map[string]any)
+	if len(pruned) == 0 {
+		return "{}"
+	}
+	if out, err := jcs.Marshal(pruned); err == nil {
+		return string(out)
+	}
+	// jcs.Marshal rejects values with no JSON form (NaN, chan, func). Args come
+	// from decoded JSON in every production path, so this is a programming-error
+	// fallback: stay deterministic rather than collapse distinct arg sets to "{}".
+	return fallbackCanonicalArgs(pruned)
+}
+
+// pruneNullsForJCS removes every map key whose value is nil, at every depth,
+// per spec §10.0 Rule 1. Array elements keep their nulls: dropping one would
+// renumber the array and change what the caller sent.
+func pruneNullsForJCS(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			if val == nil {
+				continue
+			}
+			out[k] = pruneNullsForJCS(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = pruneNullsForJCS(item)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func fallbackCanonicalArgs(args map[string]any) string {
 	keys := make([]string, 0, len(args))
 	for k := range args {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	// Marshal as object with sorted keys.
 	buf := []byte{'{'}
 	for i, k := range keys {
 		keyB, _ := json.Marshal(k)
@@ -1702,4 +1955,21 @@ func canonicalizeArgs(args map[string]any) string {
 	}
 	buf = append(buf, '}')
 	return string(buf)
+}
+
+// profileNameFor picks the expression-profile name for one invocation. A §9.2
+// [override_bindings] entry wins over the variant's own output_profile, the
+// resolved variant_id being more specific than the op_id. An empty result means
+// no profile applies and shaping falls back to the default.
+func (d *dispatcher) profileNameFor(inv *Invocation, rv *ResolvedVariant) string {
+	if d.profileBindings != nil {
+		bindings := d.profileBindings()
+		if name, ok := bindings[rv.Variant.VariantID]; ok {
+			return name
+		}
+		if name, ok := bindings[inv.OpID]; ok {
+			return name
+		}
+	}
+	return rv.Variant.OutputProfile
 }

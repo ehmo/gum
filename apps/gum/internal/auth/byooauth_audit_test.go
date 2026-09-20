@@ -22,7 +22,7 @@ func TestStoreLoginGrantUsesGrantedScopesNotAccumulated(t *testing.T) {
 	}
 	// New login: a different account that granted only A and B.
 	b := NewByoOAuth(ByoOAuthConfig{ClientID: "cid", Scopes: []string{"scopeA"}}, kb)
-	if err := b.storeLoginGrant("rt-new", "scopeA scopeB"); err != nil {
+	if err := b.storeLoginGrant("rt-new", "scopeA scopeB", ""); err != nil {
 		t.Fatalf("storeLoginGrant: %v", err)
 	}
 	grant, ok, _ := b.loadGrant()
@@ -52,7 +52,7 @@ func TestStoreLoginGrantEmptyScopeUsesRequestedNotAccumulated(t *testing.T) {
 		t.Fatalf("seed prior grant: %v", err)
 	}
 	b := NewByoOAuth(ByoOAuthConfig{ClientID: "cid", Scopes: []string{"scopeA"}}, kb)
-	if err := b.storeLoginGrant("rt-new", ""); err != nil {
+	if err := b.storeLoginGrant("rt-new", "", ""); err != nil {
 		t.Fatalf("storeLoginGrant: %v", err)
 	}
 	grant, _, _ := b.loadGrant()

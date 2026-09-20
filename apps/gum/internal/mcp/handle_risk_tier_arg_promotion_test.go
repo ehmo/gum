@@ -12,11 +12,14 @@ import (
 // TestHandleWriteVariantIDAndFlagsPromoteToInvocation pins handleRiskTier's
 // arg-promotion arms at handlers.go:264-280 + 285-286:
 //   - variant_id stripped from Args, promoted to inv.RequestedVariantID
-//   - allow_write/allow_destructive/confirmed/confirmation_token mirrored
+//   - confirmed/confirmation_token mirrored
 //   - switch RiskClassWrite → AllowWrite=true (the policy gate would
 //     otherwise reject the write-class op).
 //
-// Drives all four arms through handleWrite with a write-class op so the
+// It also pins the negative: allow_destructive is not a declared gum.write
+// parameter, so an args map carrying it must not reach inv.AllowDestructive.
+//
+// Drives the arms through handleWrite with a write-class op so the
 // dispatch reaches the captureDispatcher (no risk mismatch). The
 // captureDispatcher records the Invocation we then introspect.
 func TestHandleWriteVariantIDAndFlagsPromoteToInvocation(t *testing.T) {
@@ -80,8 +83,8 @@ func TestHandleWriteVariantIDAndFlagsPromoteToInvocation(t *testing.T) {
 	if !inv.AllowWrite {
 		t.Errorf("AllowWrite=false; want true (RiskClassWrite switch case must default it)")
 	}
-	if !inv.AllowDestructive {
-		t.Errorf("AllowDestructive=false; want true (caller arg must mirror)")
+	if inv.AllowDestructive {
+		t.Error("AllowDestructive=true; want false (undeclared arg must not grant the flag)")
 	}
 	if !inv.Confirmed {
 		t.Errorf("Confirmed=false; want true (caller arg must mirror)")

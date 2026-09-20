@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ehmo/gum/internal/output/gain"
 )
@@ -126,10 +127,26 @@ func runOneFixture(p *Profile, t TestFixture, baseDir string) (ProfileFixtureRes
 	}
 	r.ActualTokens = tokens
 
-	// Parse the shaped body for result-count / omitted-count introspection.
-	// Tolerate raw or TOON bodies — those produce zero counts but no error.
-	r.ActualResultCount, r.ActualOmittedCount = inspectShape(body, out)
-	r.ActualLossy = isLossy(p)
+	// Introspect the *shaped* body. expect_result_count and expect_omitted_count
+	// describe what the profile emits, not what the fixture contained: the DSL
+	// reference pairs expect_result_count = 20 with expect_omitted_count = 80 for
+	// a 100-row fixture. Measuring the fixture made the first assertion report the
+	// upstream row count and the second always 0, because the omitted_count
+	// sibling is written by stage 5 and never exists in the source body.
+	//
+	// A TOON body is opaque to a JSON decode, so re-shape the same fixture as
+	// JSON. Both runs apply identical stages; only the encoder differs.
+	shaped := out.Body
+	if out.Format != "json" {
+		jsonOut, jerr := Apply(p, ApplyInput{Body: body, UserFormat: "json"})
+		if jerr != nil {
+			r.Failures = append(r.Failures, fmt.Sprintf("introspect shaped body: %v", jerr))
+			return r, nil
+		}
+		shaped = jsonOut.Body
+	}
+	r.ActualResultCount, r.ActualOmittedCount = inspectShape(shaped)
+	r.ActualLossy = isLossy(p, p.CollapseArrays)
 
 	// Evaluate expectations.
 	if t.ExpectFormat != "" && out.Format != t.ExpectFormat {
@@ -157,11 +174,18 @@ func runOneFixture(p *Profile, t TestFixture, baseDir string) (ProfileFixtureRes
 	return r, nil
 }
 
-// isLossy reports whether profile p applies any data-dropping transform. The
-// definition mirrors the DSL fields that, by construction, cannot be inverted
-// from output alone: projection, keep/drop_fields, strip_nulls, collapse_arrays,
-// truncate_strings, dedupe, and any non-zero limit.
-func isLossy(p *Profile) bool {
+// isLossy reports whether the pipeline that ran applies any data-dropping
+// transform. The definition mirrors the DSL fields that, by construction,
+// cannot be inverted from output alone: projection, keep/drop_fields,
+// strip_nulls, collapse_arrays, truncate_strings, dedupe, and any non-zero
+// limit.
+//
+// collapse is the cap in force for this call, not p.CollapseArrays: a caller's
+// max_items caps arrays a profile never capped, and max_items=all skips stage 5
+// altogether. Reading the profile alone answered lossy:false beside
+// omitted_count:95 on the first, and lossy:true on the second after returning
+// every row upstream sent.
+func isLossy(p *Profile, collapse *CollapseArraysSpec) bool {
 	if p == nil {
 		return false
 	}
@@ -169,41 +193,94 @@ func isLossy(p *Profile) bool {
 		len(p.KeepFields) > 0 ||
 		len(p.DropFields) > 0 ||
 		p.StripNulls ||
-		p.CollapseArrays != nil ||
+		collapse != nil ||
 		p.TruncateStrings != nil ||
 		p.Dedupe != nil ||
 		p.Limit > 0
 }
 
-// inspectShape returns (resultCount, omittedCount) for an applied profile by
-// re-parsing the original body as JSON and counting top-level array length or
-// `items` array length, then reading any `omitted_count` field. Tolerates
-// non-JSON bodies (TOON, raw) by returning zeros.
-func inspectShape(srcBody []byte, out ApplyOutput) (int, int) {
-	// Re-decode the *source* body to get an accurate result count even when
-	// the shaped output is TOON-encoded (and therefore opaque to JSON decode).
+// inspectShape returns (resultCount, omittedCount) for a shaped body encoded as
+// JSON. The result count is the top-level array length, or the length of the
+// record array in a top-level object: the first of "items", "data", "messages",
+// "results", else the single array-valued field. The omitted count is the sum of every
+// omitted_count field stage 5 wrote, which is "omitted_count" for a collapsed
+// bare array and "<key>_omitted_count" for each collapsed field of an object.
+// A body that is not JSON yields zeros rather than an error.
+func inspectShape(shaped []byte) (int, int) {
 	var v any
-	if err := json.Unmarshal(srcBody, &v); err != nil {
+	if err := json.Unmarshal(shaped, &v); err != nil {
 		return 0, 0
 	}
 	switch t := v.(type) {
 	case []any:
 		return len(t), 0
 	case map[string]any:
-		var rc, oc int
-		if arr, ok := t["items"].([]any); ok {
-			rc = len(arr)
-		} else if arr, ok := t["data"].([]any); ok {
-			rc = len(arr)
-		} else if arr, ok := t["messages"].([]any); ok {
-			rc = len(arr)
-		}
-		if n, ok := t["omitted_count"].(float64); ok {
-			oc = int(n)
-		}
-		return rc, oc
+		return len(recordArray(t)), sumOmittedCounts(t)
 	}
 	return 0, 0
+}
+
+// recordArrayKeys are the record-array field names, in precedence order. A
+// named key wins over the single-array fallback so a response carrying a second
+// array still reports its records: the Google Ads keyword-history adapter adds
+// unmatchedInputs beside results, and without "results" here a 243-row response
+// reported result_count 0 with 100 rows in the body (gum-36zi).
+var recordArrayKeys = []string{"items", "data", "messages", "results"}
+
+// recordArrayKey returns the key holding the record array of a shaped top-level
+// object, or "" when the object has none. Named keys win; otherwise a lone
+// array-valued field is the records, which covers both the stage-5 wrap and a
+// service-specific key such as "files". An object with two or more unnamed
+// arrays has no record array, because guessing between them would count or
+// reorder the wrong one.
+func recordArrayKey(m map[string]any) string {
+	for _, key := range recordArrayKeys {
+		if _, ok := m[key].([]any); ok {
+			return key
+		}
+	}
+	only := ""
+	found := 0
+	for key, val := range m {
+		if _, ok := val.([]any); !ok {
+			continue
+		}
+		found++
+		if found > 1 {
+			return ""
+		}
+		only = key
+	}
+	return only
+}
+
+// recordArray returns the record array of a shaped top-level object, or nil when
+// the object has none.
+func recordArray(m map[string]any) []any {
+	key := recordArrayKey(m)
+	if key == "" {
+		return nil
+	}
+	arr, _ := m[key].([]any)
+	return arr
+}
+
+// sumOmittedCounts totals the omitted_count fields of a shaped top-level object.
+// An object whose arrays were collapsed field-by-field carries one count per
+// collapsed field, so a single lookup would under-report.
+func sumOmittedCounts(m map[string]any) int {
+	total := 0
+	for key, val := range m {
+		if key != "omitted_count" && !strings.HasSuffix(key, "_omitted_count") {
+			continue
+		}
+		// toFloat, not a float64 assertion: the applier decodes with UseNumber,
+		// so a count on a shaped tree is a json.Number.
+		if n, ok := toFloat(val); ok {
+			total += int(n)
+		}
+	}
+	return total
 }
 
 // bodyContainsField reports whether the shaped body contains the named field

@@ -131,10 +131,7 @@ func (s *Scheduler) RunOnce(ctx context.Context) (map[string]CanaryState, error)
 	registry["scopes"] = scopesSlice
 
 	// Serialize and atomic-write.
-	out, err := json.Marshal(registry)
-	if err != nil {
-		return nil, fmt.Errorf("canary: marshal registry: %w", err)
-	}
+	out, _ := json.Marshal(registry)
 
 	// fsatomic, not a hand-rolled `<path>.tmp` + rename: the old form used a
 	// fixed temp name (two concurrent canary runs clobbered each other), never

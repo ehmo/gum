@@ -151,16 +151,18 @@ func ParseProfile(body string) map[string]float64 {
 	return out
 }
 
-// goTestEmptyRe matches the per-package "no test files" line emitted
-// by `go test` so empty-test packages can be tagged HasTests=false.
-var goTestEmptyRe = regexp.MustCompile(`^\?\s+(\S+)\s+\[no test files\]\s*$`)
+// goTestEmptyRe matches the per-package "no test files" report emitted
+// by `go test` so empty-test packages can be tagged HasTests=false. It
+// is deliberately unanchored: `go test` ends the status line of a
+// package that reports no coverage percentage without a newline, so in
+// a mixed run the "?" marker lands mid-line behind the previous
+// package, e.g. "\tmod/cmd/gum\t\t?   \tmod/internal/bare\t[no test files]".
+var goTestEmptyRe = regexp.MustCompile(`\?\s+(\S+)\s+\[no test files\]`)
 
 func parseGoTestEmptyPackages(out string) []Reading {
 	var readings []Reading
-	for _, line := range strings.Split(out, "\n") {
-		if m := goTestEmptyRe.FindStringSubmatch(line); m != nil {
-			readings = append(readings, Reading{Package: m[1], HasTests: false})
-		}
+	for _, m := range goTestEmptyRe.FindAllStringSubmatch(out, -1) {
+		readings = append(readings, Reading{Package: m[1], HasTests: false})
 	}
 	return readings
 }

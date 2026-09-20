@@ -58,6 +58,9 @@
         "flatten": {
           "type": "boolean"
         },
+        "flatten_singletons": {
+          "type": "boolean"
+        },
         "format": {
           "enum": [
             "toon",
@@ -76,8 +79,21 @@
           },
           "type": "array"
         },
+        "limit": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "omit_zero_counts": {
+          "type": "boolean"
+        },
         "on_empty": {
           "type": "string"
+        },
+        "projection": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "recovery": {
           "enum": [
@@ -85,6 +101,9 @@
             "local_artifact",
             "resource_link"
           ],
+          "type": "string"
+        },
+        "sort_by": {
           "type": "string"
         },
         "strip_nulls": {

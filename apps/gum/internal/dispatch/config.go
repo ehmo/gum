@@ -2,10 +2,10 @@ package dispatch
 
 import (
 	"context"
-	"time"
 
 	"github.com/ehmo/gum/internal/cache"
 	"github.com/ehmo/gum/internal/catalog"
+	"github.com/ehmo/gum/internal/output/gain"
 	"github.com/ehmo/gum/internal/output/profile"
 )
 
@@ -17,25 +17,19 @@ type TokenBucket interface {
 	Wait(ctx context.Context, opID, credsID string) error
 }
 
-// GainEntry is the typed payload appended to a gain ledger by step 9. It is a
-// dispatch-local view of the gain.Entry contract; the gain package's ledger
-// satisfies GainLedger via a thin adapter (gain.LedgerAdapter) so this package
-// never imports internal/output/gain.
-type GainEntry struct {
-	OpID      string
-	VariantID string
-	Format    string
-	BytesIn   int
-	BytesOut  int
-	WallMs    int64
-	CacheHit  bool
-	Timestamp time.Time
-}
-
-// GainLedger is the typed seam between the dispatch kernel and the gain ledger.
-// Implementations append entries in step 9 (spec §3.1 line 237).
+// GainLedger is the typed seam between the dispatch kernel and the gain
+// ledger. Step 9 (spec §3.1 line 237) appends one spec §12.3 entry per
+// dispatch. *gain.Ledger satisfies it directly; tests substitute a capture.
+//
+// The seam used to carry a reduced dispatch-local GainEntry (op_id, format,
+// byte counts) on the theory that this package must not import
+// internal/output/gain. It already does, transitively through
+// internal/output/profile, and the reduced view could not express the entry
+// spec §12.3 requires: it had no token counts at all, so gain.Stats -- which
+// sums raw_tokens minus shaped_tokens -- would have reported zero savings on
+// every call even once a ledger was wired.
 type GainLedger interface {
-	Append(e GainEntry) error
+	Append(e gain.Entry) error
 }
 
 // AuthResolver is the typed seam between the dispatch kernel and the auth package.
@@ -101,7 +95,8 @@ type DispatcherConfig struct {
 	// to break ties when two variants share the same stability rank (step 3).
 	// The first entry that matches a candidate variant wins.
 	PreferredInterfaceKinds []string
-	// Ledger, when non-nil, receives a GainEntry append in step 9.
+	// Ledger, when non-nil, receives one gain.Entry append in step 9, for
+	// both cache hits and cold calls. A nil Ledger disables accounting.
 	Ledger GainLedger
 	// Tee configures the §9.0 'artifact' stage filesystem tee. Zero value
 	// disables tee writes (ProfileDir empty).
@@ -128,6 +123,13 @@ type DispatcherConfig struct {
 	// precedence. On a miss, shaping falls back to the default (empty) profile,
 	// so ops without a defined profile are unchanged.
 	ProfileLookup func(name string) (*profile.Profile, bool)
+	// ProfileBindings, when non-nil, returns the merged §9.2
+	// [override_bindings] table: op_id or variant_id to profile name. It is
+	// consulted after variant resolution and before ProfileLookup, so a binding
+	// attaches a profile to an op whose catalog variant names none, and
+	// replaces the name when it names one. Spec §9.2: the binding substitutes
+	// the profile without touching catalog data.
+	ProfileBindings func() map[string]string
 	// ArgDefaults, when non-nil, fills omitted args from configured defaults
 	// and supplies the hint for still-missing required args (gum-puum).
 	ArgDefaults ArgDefaulter
@@ -155,6 +157,7 @@ func NewDispatcherWithConfig(snapshot *catalog.Catalog, adapters map[string]Adap
 		auditSink:               cfg.Audit,
 		normalizeDatetimes:      cfg.NormalizeDatetimes,
 		profileLookup:           cfg.ProfileLookup,
+		profileBindings:         cfg.ProfileBindings,
 		argDefaulter:            cfg.ArgDefaults,
 	}
 }

@@ -352,20 +352,37 @@ func TestGumCodeSchemaDestructiveScopeDefaultsToEmptyArray(t *testing.T) {
 		t.Errorf(`gum.code "destructive_scope".type = %q; want "array" (spec.md §4.1)`, typ)
 	}
 
-	// items must be type:string
+	// items must be the {op_id, resource_key} object of spec §1089. This
+	// assertion used to demand type:string, which no code ever produced or
+	// consumed: the CLI builds objects (addDestructiveArgs) and the executor
+	// reads objects (extractScope, which skips any entry that is not a map).
+	// A caller following the string schema therefore ran destructive code with
+	// its scope silently discarded.
 	itemsRaw, hasItems := scopeMap["items"]
 	if !hasItems {
-		t.Error(`gum.code "destructive_scope" must have "items" with type:string (spec.md §4.1)`)
+		t.Error(`gum.code "destructive_scope" must declare "items" (spec.md §1089)`)
 	} else {
 		itemsMap, ok := itemsRaw.(map[string]any)
 		if !ok {
 			t.Errorf(`gum.code "destructive_scope".items is not a JSON object; got %T`, itemsRaw)
 		} else {
 			itemType, _ := itemsMap["type"].(string)
-			if itemType != "string" {
-				t.Errorf(`gum.code "destructive_scope".items.type = %q; want "string" (spec.md §4.1)`, itemType)
+			if itemType != "object" {
+				t.Errorf(`gum.code "destructive_scope".items.type = %q; want "object" (spec.md §1089)`, itemType)
+			}
+			itemProps, _ := itemsMap["properties"].(map[string]any)
+			for _, want := range []string{"op_id", "resource_key"} {
+				if _, ok := itemProps[want]; !ok {
+					t.Errorf(`gum.code "destructive_scope".items is missing %q (spec.md §1089)`, want)
+				}
 			}
 		}
+	}
+
+	// The 20-entry cap is enforced by the executor (§1083); advertising it
+	// lets the caller see the limit instead of discovering it on a rejection.
+	if maxItems, _ := scopeMap["maxItems"].(float64); maxItems != 20 {
+		t.Errorf(`gum.code "destructive_scope".maxItems = %v; want 20 (spec.md §1083)`, scopeMap["maxItems"])
 	}
 }
 

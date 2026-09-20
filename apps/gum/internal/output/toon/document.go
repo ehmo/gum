@@ -13,6 +13,7 @@ package toon
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -314,6 +315,10 @@ func encodeDocumentCell(v any) (string, error) {
 			return "true", nil
 		}
 		return "false", nil
+	case json.Number:
+		// Verbatim, for the same reason as encodeScalar: the default branch
+		// below would quote the digits as a string cell.
+		return string(val), nil
 	case float64:
 		if val == float64(int64(val)) {
 			return strconv.FormatInt(int64(val), 10), nil

@@ -32,9 +32,10 @@ type ConfirmationParams struct {
 	VariantID            string
 	ArgsHash             string
 	ResourceKey          string // optional; empty = no resource binding
-	AuthFingerprint      string
 	ProfileName          string
 	Scope                string        // JCS-canonical destructive scope or "[]"
+	Caller               string        // presentation surface that asked (spec §6.1.2 binding tuple)
+	RiskClass            string        // variant risk_class at issue time
 	Purpose              string        // closed enum: see ConfirmationPurpose* constants
 	TTL                  time.Duration // consumed by IssueConfirmationToken only
 	ReplayStoreDir       string        // optional profile data dir for durable replay markers
@@ -176,16 +177,24 @@ func VerifyConfirmationToken(token string, params ConfirmationParams) error {
 	// Step 7: replay cache — reject reuse. Dispatch uses durable profile-scoped
 	// markers so one-shot CLI processes cannot reuse a token; tests and
 	// embedders that omit ReplayStoreDir keep the in-memory fallback.
+	//
+	// The key is re-encoded from the decoded signature bytes, never taken from
+	// the caller's field. hex.DecodeString accepts upper-case digits, so
+	// "9F3A…" and "9f3a…" verify as the same signature; keying the replay
+	// marker on the raw field let the second spelling miss both the
+	// case-sensitive filesystem marker and the Go map, and one approval then
+	// authorized 2^64 executions.
+	replayKey := hex.EncodeToString(actualSig)
 	expiryTime := time.Unix(0, expiry)
 	if params.RequireDurableReplay || params.ReplayStoreDir != "" {
-		replayed, err := durableReplaySeen(params.ReplayStoreDir, sigHex, expiryTime)
+		replayed, err := durableReplaySeen(params.ReplayStoreDir, replayKey, expiryTime)
 		if err != nil {
 			return tokenInvalidErr(tokenReasonReplayStore)
 		}
 		if replayed {
 			return tokenInvalidErr(tokenReasonReplayed)
 		}
-	} else if globalReplayCache.seen(sigHex, expiryTime) {
+	} else if globalReplayCache.seen(replayKey, expiryTime) {
 		return tokenInvalidErr(tokenReasonReplayed)
 	}
 
@@ -202,12 +211,26 @@ func VerifyConfirmationToken(token string, params ConfirmationParams) error {
 const tokenVersion = "v1"
 
 func computeBindingHash(p ConfirmationParams, sourceHash string) []byte {
-	// Binding tuple per spec §4.1 / §6.1:
-	//   - Write tier:       opID, variantID, argsHash, resourceKey, authFingerprint, sourceHash
-	//                       (scope excluded — spec §4.1)
-	//   - Destructive tier: opID, variantID, argsHash, resourceKey, authFingerprint, scope, sourceHash
+	// Binding tuple per spec §6.1.2:
+	//   (op_id, variant_id_resolved, args_canonical, caller, risk_class,
+	//    confirmation_purpose) plus gum's own resourceKey, profileName and
+	//    sourceHash. Purpose enters through the signature (computeSignature),
+	//    not this hash.
+	//   - Write tier omits scope (spec §4.1); every other tier includes it.
+	//
+	// caller is part of the tuple so a token the MCP server issued cannot be
+	// replayed through `gum call`, which spec §6.1.2 requires to fail with
+	// reason cli_unsupported.
+	//
+	// The tuple is profile-scoped, not principal-scoped, and no auth-subject
+	// fingerprint enters it. Confirmation runs in step 2 and credentials do not
+	// resolve until step 4, so no principal is known when a token is issued or
+	// verified. A field for one used to sit here and was never populated, which
+	// read as a guarantee gum does not make (gum-b7hq). Spec §10.0.1 names cache
+	// keys, tee handles, gain rows and audit metadata as the per-principal
+	// surfaces; confirmation tokens are not among them.
 	const sep = "\x1f"
-	fields := []string{p.OpID, p.VariantID, p.ArgsHash, p.ResourceKey, p.AuthFingerprint, p.ProfileName}
+	fields := []string{p.OpID, p.VariantID, p.ArgsHash, p.ResourceKey, p.ProfileName, p.Caller, p.RiskClass}
 	if p.Purpose != ConfirmationPurposeWrite {
 		// Destructive (and any future tier) includes destructive_scope_canonical.
 		fields = append(fields, p.Scope)
@@ -427,6 +450,31 @@ func signingKeyPath() (string, error) {
 	return filepath.Join(base, "gum", "confirmation-signing.key"), nil
 }
 
+// readSigningKey fills key from path and reports whether it holds a whole
+// 32-byte key. Both read sites go through here.
+//
+// The open uses O_NOFOLLOW so a symlink swapped in for the key file cannot
+// redirect the read to an attacker-chosen 32-byte file, which would let the
+// attacker forge confirmation tokens (review gum-t8x1). The lost-race adopt
+// path needs the same guard as the fast path: it reads the very same location
+// moments later, so a plain os.ReadFile there re-opened the symlink the fast
+// path had just refused. Full content-integrity (a keychain MAC) is deferred —
+// it would pull the keychain dependency into the pure dispatch kernel; local
+// write access to the data dir is already a severe compromise.
+func readSigningKey(path string, key *[32]byte) bool {
+	f, err := fsatomic.OpenNoFollow(path)
+	if err != nil {
+		return false
+	}
+	b, rerr := io.ReadAll(f)
+	_ = f.Close()
+	if rerr != nil || len(b) != len(key) {
+		return false
+	}
+	copy(key[:], b)
+	return true
+}
+
 // loadOrCreateSigningKey returns the persisted 32-byte signing key, generating
 // and writing it (0600) on first use. An O_EXCL create resolves the rare
 // first-run race between concurrent processes: the loser reads the winner's key.
@@ -436,19 +484,8 @@ func loadOrCreateSigningKey() ([32]byte, bool) {
 	if err != nil {
 		return key, false
 	}
-	// Read with O_NOFOLLOW so a symlink swapped in for the key file can't
-	// redirect the read to an attacker-chosen 32-byte file, letting them forge
-	// confirmation tokens (review gum-t8x1). Full content-integrity (a keychain
-	// MAC) is deferred — it would pull the keychain dependency into the pure
-	// dispatch kernel; local write access to the data dir is already a severe
-	// compromise.
-	if f, oerr := fsatomic.OpenNoFollow(path); oerr == nil {
-		b, rerr := io.ReadAll(f)
-		_ = f.Close()
-		if rerr == nil && len(b) == len(key) {
-			copy(key[:], b)
-			return key, true
-		}
+	if readSigningKey(path, &key) {
+		return key, true
 	}
 	if _, err := rand.Read(key[:]); err != nil {
 		return key, false
@@ -460,8 +497,7 @@ func loadOrCreateSigningKey() ([32]byte, bool) {
 	if err != nil {
 		// Another process created it first (or a non-race error): adopt the
 		// on-disk key so both processes agree.
-		if b, rerr := os.ReadFile(path); rerr == nil && len(b) == len(key) {
-			copy(key[:], b)
+		if readSigningKey(path, &key) {
 			return key, true
 		}
 		return key, false

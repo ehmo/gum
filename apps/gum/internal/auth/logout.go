@@ -63,24 +63,26 @@ func Logout(ctx context.Context, kb KeyringBackend, profile string, forgetClient
 		// can explain it rather than silently ignoring --forget-client.
 		res.ForgetClientSkipped = true
 	}
-	switch {
-	case registered:
+	// A BYO grant only exists when a client is registered. The gum_oauth vault
+	// purge below does not depend on one, so it must not sit behind this
+	// branch: a machine that used gum_oauth before the BYO flow existed has
+	// vault entries and no client, and an explicit logout has to clear them.
+	if registered {
 		res.ClientID = client.ClientID
-	default:
-		return res, nil
-	}
 
-	b := NewByoOAuth(ByoOAuthConfig{ClientID: client.ClientID, Profile: profile}, kb)
-	// Determine grant presence from the raw entry rather than a parsed grant:
-	// a corrupt/unparseable value still represents stored state that Revoke
-	// removes, so it must count as cleared (loadGrant would report it absent).
-	raw, getErr := kb.Get(b.keyringKey())
-	if getErr != nil {
-		return res, getErr
-	}
-	res.GrantCleared = strings.TrimSpace(raw) != ""
-	if err := b.Revoke(ctx); err != nil {
-		return res, err
+		b := NewByoOAuth(ByoOAuthConfig{ClientID: client.ClientID, Profile: profile}, kb)
+		// Determine grant presence from the raw entry rather than a parsed
+		// grant: a corrupt/unparseable value still represents stored state that
+		// Revoke removes, so it must count as cleared (loadGrant would report
+		// it absent).
+		raw, getErr := kb.Get(b.keyringKey())
+		if getErr != nil {
+			return res, getErr
+		}
+		res.GrantCleared = strings.TrimSpace(raw) != ""
+		if err := b.Revoke(ctx); err != nil {
+			return res, err
+		}
 	}
 
 	// Purge any gum_oauth refresh tokens tracked by the vault index. gum_oauth

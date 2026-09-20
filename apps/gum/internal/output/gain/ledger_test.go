@@ -12,6 +12,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/ehmo/gum/internal/output/gain"
+	"github.com/ehmo/gum/internal/profile"
 )
 
 // requiredEntryFields enumerates the spec §12.3 normative entry record
@@ -343,13 +344,16 @@ func TestGainParallelOuterEntrySchema(t *testing.T) {
 }
 
 // TestNewLedgerDefaultPathUsesHome verifies NewLedger("") falls back to
-// $HOME/.local/share/gum/gain-ledger.jsonl. The test overrides $HOME to
-// a temp dir so it never touches a real user's ledger.
+// $HOME/.local/share/gum/default/gain-ledger.jsonl. The <profile> segment is
+// required by spec §12.3: without it every profile appended to one file and
+// `gum --profile work gain` reported the default profile's calls.
+// The test overrides $HOME to a temp dir so it never touches a real ledger.
 func TestNewLedgerDefaultPathUsesHome(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "")
 
 	l, err := gain.NewLedger("")
 	if err != nil {
@@ -357,9 +361,55 @@ func TestNewLedgerDefaultPathUsesHome(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = l.Close() })
 
-	wantPath := filepath.Join(home, ".local", "share", "gum", "gain-ledger.jsonl")
+	wantPath := filepath.Join(home, ".local", "share", "gum", "default", "gain-ledger.jsonl")
 	if _, err := os.Stat(wantPath); err != nil {
 		t.Errorf("default ledger path missing: stat %s: %v", wantPath, err)
+	}
+}
+
+// TestNewLedgerDefaultPathHonorsXDGDataHome verifies the default path follows
+// XDG_DATA_HOME, which is what every other gum data file does (profile.DataDir).
+// Ignoring it put the ledger in $HOME while the audit log went to the XDG root.
+func TestNewLedgerDefaultPathHonorsXDGDataHome(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	dataHome := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", dataHome)
+
+	l, err := gain.NewLedger("")
+	if err != nil {
+		t.Fatalf("NewLedger(\"\"): %v", err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+
+	wantPath := filepath.Join(dataHome, "gum", "default", gain.LedgerFileName)
+	if _, err := os.Stat(wantPath); err != nil {
+		t.Errorf("default ledger path missing: stat %s: %v", wantPath, err)
+	}
+}
+
+// TestDefaultPathIsPerProfile verifies two profiles never share one ledger.
+func TestDefaultPathIsPerProfile(t *testing.T) {
+	dataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dataHome)
+
+	def, err := gain.DefaultPath(profile.DefaultName)
+	if err != nil {
+		t.Fatalf("DefaultPath(default): %v", err)
+	}
+	work, err := gain.DefaultPath(profile.Name("work"))
+	if err != nil {
+		t.Fatalf("DefaultPath(work): %v", err)
+	}
+	if def == work {
+		t.Fatalf("both profiles resolved to %s; §12.3 keeps one ledger per profile", def)
+	}
+	if got, want := def, filepath.Join(dataHome, "gum", "default", gain.LedgerFileName); got != want {
+		t.Errorf("DefaultPath(default)=%s want %s", got, want)
+	}
+	if got, want := work, filepath.Join(dataHome, "gum", "work", gain.LedgerFileName); got != want {
+		t.Errorf("DefaultPath(work)=%s want %s", got, want)
 	}
 }
 

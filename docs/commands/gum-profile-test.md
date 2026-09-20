@@ -24,9 +24,10 @@ gum profile test <profile-path> [flags]
 
 | Flag | Type | Default | Help |
 | --- | --- | --- | --- |
-| `--format` | `string` |  | Output format: in fixture-runner mode 'json' (default); in single-fixture mode overrides profile default_format (toon\|json\|raw) |
+| `--format` | `string` |  | Output format: in fixture-runner mode 'json' (default); in single-fixture mode overrides the profile format (toon\|csv\|json\|markdown\|raw) |
 | `--golden` | `string` |  | Path to golden output; if set, compare byte-for-byte |
 | `--input` | `string` |  | Path to input JSON (single-fixture mode) |
+| `--name` | `string` |  | Definition to test when the file declares several [output_profiles."<name>"] tables |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |

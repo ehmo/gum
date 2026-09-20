@@ -1,7 +1,9 @@
 package lro
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -118,5 +120,51 @@ func TestTryRESTMalformedJSONReturnsUnroutable(t *testing.T) {
 	_, err := f.tryREST(context.Background(), "googleapis.com", "/v1/operations/op-1")
 	if !errors.Is(err, ErrUnroutable) {
 		t.Errorf("err=%v; want ErrUnroutable so caller advances to next fallback", err)
+	}
+}
+
+// TestTryRESTUnrequestableURLSurfacesError pins the request-build arm. A host
+// carrying a control character cannot be parsed into a URL, so tryREST must
+// report that instead of dialling.
+func TestTryRESTUnrequestableURLSurfacesError(t *testing.T) {
+	f := &HTTPFetcher{HTTPClient: http.DefaultClient}
+	_, err := f.tryREST(context.Background(), "example.com\x7f", "/v1/operations/x")
+	if err == nil {
+		t.Fatal("tryREST err=nil; want the request-build failure")
+	}
+	if !strings.Contains(err.Error(), "invalid control character") {
+		t.Errorf("err=%v; want the URL parse failure", err)
+	}
+}
+
+// TestTryRESTOversizedBodySurfacesReadError pins the read cap. An operation
+// poll that answers with more than 4 MiB is a hostile or broken upstream, and
+// the body must be refused rather than buffered.
+func TestTryRESTOversizedBodySurfacesReadError(t *testing.T) {
+	chunk := bytes.Repeat([]byte("a"), 1<<20)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		for i := 0; i < 5; i++ {
+			_, _ = w.Write(chunk)
+		}
+	}))
+	defer srv.Close()
+
+	f := &HTTPFetcher{HTTPClient: rewriteForHost(srv)}
+	_, err := f.tryREST(context.Background(), "example.com", "/v1/operations/x")
+	if err == nil {
+		t.Fatal("tryREST err=nil; want the read-cap failure")
+	}
+	if !strings.Contains(err.Error(), "lro: read body from") {
+		t.Errorf("err=%v; want the read-cap arm", err)
+	}
+}
+
+// TestOperationDocRejectsNonObject pins the outer unmarshal arm of
+// operationDoc: a JSON array is well-formed JSON but not an Operation.
+func TestOperationDocRejectsNonObject(t *testing.T) {
+	var op operationDoc
+	if err := json.Unmarshal([]byte(`["not","an","object"]`), &op); err == nil {
+		t.Fatal("Unmarshal err=nil; want a type error")
 	}
 }

@@ -187,41 +187,6 @@ func TestNormalizeRisk(t *testing.T) {
 	}
 }
 
-// TestSelectFormat verifies the mutually-exclusive output-format flag selector.
-func TestSelectFormat(t *testing.T) {
-	cases := []struct {
-		name       string
-		j, t, c, m bool
-		want       string
-		wantErr    bool
-	}{
-		{name: "default_is_json", want: "json"},
-		{name: "json_explicit", j: true, want: "json"},
-		{name: "toon_explicit", t: true, want: "toon"},
-		{name: "csv_explicit", c: true, want: "csv"},
-		{name: "markdown_explicit", m: true, want: "markdown"},
-		{name: "two_flags_rejected", j: true, t: true, wantErr: true},
-		{name: "three_flags_rejected", j: true, c: true, m: true, wantErr: true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := selectFormat(tc.j, tc.t, tc.c, tc.m)
-			if tc.wantErr {
-				if err == nil {
-					t.Errorf("selectFormat: want error")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("selectFormat: %v", err)
-			}
-			if got != tc.want {
-				t.Errorf("selectFormat = %q, want %q", got, tc.want)
-			}
-		})
-	}
-}
-
 // TestAsString covers the variant-risk-class string coercion used inside
 // printDispatchError's RISK_TOOL_MISMATCH hint.
 func TestAsString(t *testing.T) {

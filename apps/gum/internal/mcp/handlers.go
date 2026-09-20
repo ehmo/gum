@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ehmo/gum/internal/adapters"
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/embed"
@@ -33,43 +35,72 @@ var convenienceOpRouting = func() map[string]string {
 
 // makeMetaToolHandler returns the right handler for a named meta-tool.
 // The handler closes over the server so it can reach the dispatcher, the
-// catalog snapshot, and the BM25 index.
+// catalog snapshot, and the BM25 index. Arguments are checked against the
+// tool's registered inputSchema first (see input_validation.go).
 func (s *Server) makeMetaToolHandler(name string) sdkmcp.ToolHandler {
+	var h sdkmcp.ToolHandler
 	switch name {
 	case "gum.search_apis":
-		return s.handleSearchAPIs
+		h = s.handleSearchAPIs
 	case "gum.describe_op":
-		return s.handleDescribeOp
+		h = s.handleDescribeOp
 	case "gum.read":
-		return s.handleRead
+		h = s.handleRead
 	case "gum.write":
-		return s.handleWrite
+		h = s.handleWrite
 	case "gum.destructive":
-		return s.handleDestructive
+		h = s.handleDestructive
 	case "gum.code":
-		return s.handleCode
+		h = s.handleCode
 	case "gum.poll":
-		return s.handlePoll
+		h = s.handlePoll
 	case "gum.cache_stats":
-		return s.handleCacheStats
+		h = s.handleCacheStats
 	case "gum.gain":
-		return s.handleGain
+		h = s.handleGain
+	default:
+		// An unregistered name has no schema to check against, so it goes
+		// straight to the UNKNOWN_TOOL envelope.
+		return s.handleUnknown(name)
 	}
-	return s.handleUnknown(name)
+	return validatedHandler(name, metaToolSchema(name), h)
 }
 
 // makeConvenienceHandler routes a convenience tool through the catalog by
 // looking up its mapped op_id and dispatching with the appropriate risk-class
-// flags.
+// flags. The advertised arguments are the op's own argument names (spec §4.1),
+// so the only rewriting left is the body mapping: validateParams collapses every
+// location=body RequestField into the reserved "body" key, and a caller cannot
+// be asked to hand-assemble that key.
+//
+// The roster runs behind validatedHandler like the meta-tools. That was not
+// possible before gum-n1gi: the schemas named `query` where the op declares `q`
+// and flat `title`/`to`/`subject` where the op wants a body object, so enforcing
+// them would have rejected every call that worked.
 func (s *Server) makeConvenienceHandler(toolName string) sdkmcp.ToolHandler {
-	return func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
+	h := func(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
 		args := parseArgs(req)
 		opID, ok := convenienceOpRouting[toolName]
 		if !ok {
 			return errorResult(fmt.Sprintf("CONVENIENCE_NOT_WIRED: %s has no catalog mapping in v0.1.0", toolName)), nil
 		}
+		abi := ConvenienceToolABI(toolName)
 		invArgs := copyArgsWithoutControls(args, "confirmed", "confirmation_token")
+
+		userFormat := ""
+		if abi.FormatControl {
+			userFormat, _ = invArgs["format"].(string)
+			delete(invArgs, "format")
+		}
+		if err := foldConvenienceBody(abi, invArgs); err != nil {
+			return errorResult(fmt.Sprintf("INVALID_ARGS: %v", err)), nil
+		}
+
 		inv := buildInvocation(opID, invArgs)
+		inv.Format = userFormat
+		if abi.VariantRule != "" && abi.VariantRule != "default" {
+			inv.RequestedVariantID = abi.VariantRule
+		}
 		s.applyRiskFlagsFromCatalog(inv)
 
 		// Confirmation controls are transport metadata; the kernel owns token
@@ -85,11 +116,53 @@ func (s *Server) makeConvenienceHandler(toolName string) sdkmcp.ToolHandler {
 
 		return s.dispatchToolCall(ctx, req, inv)
 	}
+	return validatedHandler(toolName, convenienceToolSchema(toolName), h)
+}
+
+// foldConvenienceBody rewrites the advertised body arguments of one convenience
+// tool into the single reserved "body" key the kernel expects. BodyArg carries
+// the whole body object (drive_share's `permission`); each BodyFields entry
+// becomes one field under its own name (sheets_write's `values`). gmail_send
+// uses both: `message` spreads across the body, then top-level `threadId`
+// overlays it.
+func foldConvenienceBody(abi *ConvenienceABI, args map[string]any) error {
+	if abi == nil || (abi.BodyArg == "" && len(abi.BodyFields) == 0) {
+		return nil
+	}
+
+	body := map[string]any{}
+	if abi.BodyArg != "" {
+		if v, ok := args[abi.BodyArg]; ok {
+			obj, isObj := v.(map[string]any)
+			if !isObj {
+				return fmt.Errorf("%s takes an object", abi.BodyArg)
+			}
+			for k, val := range obj {
+				body[k] = val
+			}
+			delete(args, abi.BodyArg)
+		}
+	}
+
+	for _, name := range abi.BodyFields {
+		if v, ok := args[name]; ok {
+			body[name] = v
+			delete(args, name)
+		}
+	}
+
+	if len(body) > 0 {
+		args[adapters.BodyArgKey] = body
+	}
+	return nil
 }
 
 // handleSearchAPIs runs a BM25 query and returns spec §4.1 / §2129 TOON tuples.
 // The response is routed through profile.Apply with the spec §2129 implicit
 // profile (hardcoded, not user-overridable per spec §9.4).
+// searchAPIsToolName is the op_id gum.search_apis reports in its §13 envelope.
+const searchAPIsToolName = "gum.search_apis"
+
 func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
 	args := parseArgs(req)
 	query := stringArg(args, "query")
@@ -97,7 +170,10 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 		return errorResult("INVALID_ARGS: query is required"), nil
 	}
 	tuning := loadSearchAPIsTuning(s.profile.String())
-	k := intArg(args, "k", tuning.k)
+	k, kOK := searchAPIsK(args["k"], tuning.k)
+	if !kOK {
+		return errorResult(fmt.Sprintf("INVALID_ARGS: k takes an integer in %d..%d", searchAPIsKMin, searchAPIsKMax)), nil
+	}
 
 	tuples := []map[string]any{} // empty array — important for on_empty firing
 	if s.snapshot != nil && len(s.snapshot.Ops) > 0 {
@@ -122,7 +198,8 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 		return errorResult(fmt.Sprintf("JSON_ENCODE_FAILED: %v", err)), nil
 	}
 
-	out, err := profile.Apply(searchAPIsProfile(k, tuning), profile.ApplyInput{
+	prof := searchAPIsProfile(k, tuning)
+	out, err := profile.Apply(prof, profile.ApplyInput{
 		Body:       bodyJSON,
 		UserFormat: "", // spec §9.4: meta-tool profiles are not overridable
 	})
@@ -130,9 +207,46 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 		return errorResult(fmt.Sprintf("PROFILE_APPLY_FAILED: %v", err)), nil
 	}
 
-	return &sdkmcp.CallToolResult{
+	res := &sdkmcp.CallToolResult{
 		Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: string(out.Body)}},
-	}, nil
+	}
+
+	// §9.1 rule 2: zero matches surface the profile's on_empty string. It rides
+	// its own text block, because the TOON body for zero rows is "[]" and an
+	// LLM reading that cannot tell a failed search from a broken index.
+	if out.OnEmptyMessage != "" {
+		res.Content = append(res.Content, &sdkmcp.TextContent{Text: out.OnEmptyMessage})
+	}
+
+	// §13 ToonResult. gum.search_apis registers an output schema, so it owes
+	// the client a conforming structuredContent value.
+	//
+	// variant_id is null: a meta tool resolves no catalog variant, and naming
+	// the tool there would invent one.
+	res.StructuredContent = map[string]any{
+		"format": "toon",
+		"toon":   string(out.Body),
+		"op":     searchAPIsToolName,
+		"_expression": &dispatch.ExpressionMeta{
+			Profile:        prof.Name,
+			OpID:           searchAPIsToolName,
+			VariantID:      nil,
+			Lossy:          out.Lossy,
+			ResultCount:    out.ResultCount,
+			OmittedCount:   out.OmittedCount,
+			OnEmptyMessage: onEmptyStringPtr(out.OnEmptyMessage),
+		},
+	}
+	return res, nil
+}
+
+// onEmptyStringPtr returns nil for the empty string so _expression.on_empty_message
+// stays null rather than becoming "" (§13 makes the field nullable, not optional).
+func onEmptyStringPtr(msg string) *string {
+	if msg == "" {
+		return nil
+	}
+	return &msg
 }
 
 // shapeSearchAPIsRow remaps one BM25 hit to the spec §4.1 line 291 tuple:
@@ -193,7 +307,7 @@ func (s *Server) handleDescribeOp(ctx context.Context, req *sdkmcp.CallToolReque
 		}), nil
 	}
 	result := buildDescribeOpResult(op, defaultMaxVariants)
-	return jsonResult(result), nil
+	return structuredJSONResult(result), nil
 }
 
 // handleRead dispatches the inner op_id with risk_class assertion=read.
@@ -224,7 +338,7 @@ func (s *Server) handleRiskTier(ctx context.Context, req *sdkmcp.CallToolRequest
 		if op == nil {
 			suggestions := []string{}
 			if idx, err := s.searchIndex(); err == nil {
-				hits := idx.Search(opID, 5)
+				hits := idx.Search(opID, dispatch.MaxOpSuggestions)
 				for _, h := range hits {
 					suggestions = append(suggestions, h.OpID)
 				}
@@ -236,8 +350,11 @@ func (s *Server) handleRiskTier(ctx context.Context, req *sdkmcp.CallToolRequest
 			}), nil
 		}
 
-		// Verify the catalog op's risk_class matches the meta-tool tier.
-		v := defaultVariant(op)
+		// Verify the catalog op's risk_class matches the meta-tool tier. The
+		// check runs against the variant the call will execute, so a pinned
+		// variant_id is honoured here: gating on the default variant let a
+		// caller pin a destructive variant through gum.read.
+		v := gateVariant(op, stringArg(args, "variant_id"))
 		if v != nil && v.RiskClass != want {
 			rc := string(v.RiskClass) // already lowercase per catalog.RiskClass constants
 			return jsonErrorResult(map[string]any{
@@ -267,9 +384,14 @@ func (s *Server) handleRiskTier(ctx context.Context, req *sdkmcp.CallToolRequest
 	// `pageSize > 0` guard. A zero/negative page_size has no valid Google
 	// pagination meaning (it returns an empty page or a 400 depending on the
 	// API); the CLI silently treats it as "unset", so the MCP path must too.
+	// A fractional value is rejected here rather than forwarded: pageSize=25.5
+	// used to reach the API and come back as an opaque upstream 400.
 	if v, ok := args["page_size"]; ok {
 		if n, isNum := numericArg(v); isNum && n > 0 {
-			innerArgs[s.canonicalPageSizeParam(opID)] = v
+			if n != math.Trunc(n) {
+				return errorResult("INVALID_ARGS: page_size takes a positive integer"), nil
+			}
+			innerArgs[s.canonicalPageSizeParam(opID)] = n
 		}
 	}
 
@@ -281,13 +403,12 @@ func (s *Server) handleRiskTier(ctx context.Context, req *sdkmcp.CallToolRequest
 		inv.RequestedVariantID = vid
 		delete(inv.Args, "variant_id")
 	}
-	// Inherit per-tier flags from the outer args.
-	if v, ok := args["allow_write"].(bool); ok {
-		inv.AllowWrite = v
-	}
-	if v, ok := args["allow_destructive"].(bool); ok {
-		inv.AllowDestructive = v
-	}
+	// allow_write and allow_destructive are deliberately NOT read from args.
+	// None of gum.read, gum.write or gum.destructive declares them, all three
+	// schemas set additionalProperties:false, and nothing validates the input
+	// schema at runtime, so honouring them let `gum.read {allow_destructive:
+	// true}` hand the kernel policy gate a flag the read tier must never grant.
+	// The per-tier switch below is the only writer.
 	if v, ok := args["confirmed"].(bool); ok {
 		inv.Confirmed = v
 	}
@@ -295,6 +416,11 @@ func (s *Server) handleRiskTier(ctx context.Context, req *sdkmcp.CallToolRequest
 		inv.ConfirmationToken = v
 	}
 	inv.Format = stringArg(args, "format")
+	itemCap, ok := maxItemsOverride(args["max_items"])
+	if !ok {
+		return errorResult(`INVALID_ARGS: max_items takes a positive integer or "all"`), nil
+	}
+	inv.MaxItems = itemCap
 
 	// Set per-tier defaults so the policy gate accepts the dispatch.
 	switch want {
@@ -372,7 +498,11 @@ func (s *Server) handlePoll(ctx context.Context, req *sdkmcp.CallToolRequest) (*
 	if err != nil {
 		var te *lro.TimeoutError
 		if errors.As(err, &te) {
-			return jsonResult(map[string]any{
+			// LRO_TIMEOUT is a §1527 terminal error code: the poll ended without
+			// a result. Returning it with IsError=false told the agent the call
+			// succeeded and handed it an envelope its outputSchema rejects. The
+			// LRO_FAILED branch below already used jsonErrorResult.
+			return jsonErrorResult(map[string]any{
 				"error_code":     "LRO_TIMEOUT",
 				"operation_name": te.OperationName,
 				"resume_handle":  te.OperationName,
@@ -382,7 +512,7 @@ func (s *Server) handlePoll(ctx context.Context, req *sdkmcp.CallToolRequest) (*
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return errorResult(`{"error_code":"CANCELLED"}`), nil
 		}
-		return errorResult(err.Error()), nil
+		return failureResult(err), nil
 	}
 	// A done LRO that carries an `error` field is a FAILED operation. Google LROs
 	// signal failure with done=true + error:{code,message}. Surface it as an error
@@ -397,7 +527,37 @@ func (s *Server) handlePoll(ctx context.Context, req *sdkmcp.CallToolRequest) (*
 			}), nil
 		}
 	}
-	return jsonResult(result), nil
+	res := jsonResult(result)
+	if res.IsError {
+		return res, nil
+	}
+	res.StructuredContent = pollResultEnvelope(result)
+	return res, nil
+}
+
+// rawPassThroughProfile is the §13 profile name a response reports when it
+// never entered the expression pipeline. It mirrors the dispatch package's
+// unexported `_raw` sentinel (§2705); gum.poll returns the upstream Operation
+// untouched, so no profile name would be truthful.
+const rawPassThroughProfile = "_raw"
+
+const pollToolName = "gum.poll"
+
+// pollResultEnvelope wraps a terminal LRO Operation in the §13 RawJsonResult
+// shape that gum.poll's registered outputSchema promises. The MCP text content
+// stays the bare Operation JSON, which is what CLI and test callers read.
+func pollResultEnvelope(result any) map[string]any {
+	return map[string]any{
+		"format": "json",
+		"data":   result,
+		"_expression": &dispatch.ExpressionMeta{
+			Profile:     rawPassThroughProfile,
+			OpID:        pollToolName,
+			VariantID:   nil,
+			Lossy:       false,
+			ResultCount: 1,
+		},
+	}
 }
 
 // cacheStatProvider is the internal seam used by handleCacheStats to read live
@@ -414,7 +574,7 @@ func (s *Server) handleCacheStats(_ context.Context, req *sdkmcp.CallToolRequest
 	if csp, ok := s.disp.(cacheStatProvider); ok {
 		sem = csp.CacheStats()
 	}
-	return jsonResult(cacheStatsEnvelope(sem, s.auditBroken(), clientSupportsPromptCache(req))), nil
+	return structuredJSONResult(cacheStatsEnvelope(sem, s.auditBroken(), clientSupportsPromptCache(req))), nil
 }
 
 // auditBroken returns true when the audit.broken sentinel file exists at
@@ -459,12 +619,23 @@ func cacheStatsEnvelope(sem dispatch.CacheLayerStats, auditBroken, promptSupport
 
 // handleGain returns the spec §2793 GainResult envelope.
 func (s *Server) handleGain(_ context.Context, _ *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-	// Spec §2570: GAIN_DISABLED terminal error.
-	if os.Getenv("GUM_GAIN_DISABLED") == "1" {
+	// Spec §2570 + §2689: GAIN_DISABLED terminal error. The documented opt-out
+	// is `gum config set gain.enabled=false`, so read the profile config, not
+	// just the env override.
+	if !gain.Enabled(s.profile) {
 		return jsonErrorResult(map[string]any{"error_code": "GAIN_DISABLED"}), nil
 	}
 	// Spec §2541: GAIN_LEDGER_UNAVAILABLE terminal error.
-	ledger, err := gain.NewLedger("")
+	// The ledger is per profile (§12.3), so an MCP server bound to --profile
+	// work must not report the default profile's savings.
+	path, err := gain.DefaultPath(s.profile)
+	if err != nil {
+		return jsonErrorResult(map[string]any{
+			"error_code": "GAIN_LEDGER_UNAVAILABLE",
+			"hint":       "Enable server-side gain ledger storage or configure telemetry export for product analytics.",
+		}), nil
+	}
+	ledger, err := gain.NewLedger(path)
 	if err != nil {
 		return jsonErrorResult(map[string]any{
 			"error_code": "GAIN_LEDGER_UNAVAILABLE",
@@ -472,7 +643,7 @@ func (s *Server) handleGain(_ context.Context, _ *sdkmcp.CallToolRequest) (*sdkm
 		}), nil
 	}
 	defer func() { _ = ledger.Close() }()
-	return jsonResult(gainSuccessEnvelope(ledger.Stats())), nil
+	return structuredJSONResult(gainSuccessEnvelope(ledger.Stats())), nil
 }
 
 // gainSuccessEnvelope builds the 9-key spec §2793 GainResult map from ledger
@@ -517,7 +688,7 @@ func (s *Server) handleSkillsList(_ context.Context, req *sdkmcp.CallToolRequest
 	if len(req.Params.Arguments) > 0 && strings.TrimSpace(string(req.Params.Arguments)) != "{}" {
 		return errorResult("INVALID_ARGS: skills_list takes no arguments"), nil
 	}
-	return jsonResult(map[string]any{"skills": skillreg.DefaultRegistry().List()}), nil
+	return structuredJSONResult(map[string]any{"skills": skillreg.DefaultRegistry().List()}), nil
 }
 
 type skillsGetArgs struct {
@@ -548,7 +719,7 @@ func (s *Server) handleSkillsGet(_ context.Context, req *sdkmcp.CallToolRequest)
 		if errors.Is(err, skillreg.ErrUnknownVersion) {
 			return errorResult("UNKNOWN_SKILL_VERSION: " + args.Name + "@" + args.Version), nil
 		}
-		return errorResult(err.Error()), nil
+		return failureResult(err), nil
 	}
 	truncated := false
 	if args.MaxBytes > 0 && len([]byte(skill.Body)) > args.MaxBytes {
@@ -556,6 +727,8 @@ func (s *Server) handleSkillsGet(_ context.Context, req *sdkmcp.CallToolRequest)
 		skill.Body = string(body[:args.MaxBytes])
 		truncated = true
 	}
+	// No structuredContent: skills_get registers no outputSchema, so the body
+	// ships once, in the text content. See registerSkillTools.
 	return jsonResult(map[string]any{"skill": skill, "truncated": truncated}), nil
 }
 
@@ -597,6 +770,30 @@ func (s *Server) canonicalPageSizeParam(opID string) string {
 		return "maxResults"
 	}
 	return "pageSize"
+}
+
+// gateVariant returns the variant the risk gate must evaluate: the pinned one
+// when variant_id names an active variant, otherwise the op default. It mirrors
+// the kernel's policyVariant so the tool-routing check and the policy gate
+// agree on which variant a call will execute.
+//
+// A pin naming an unknown or quarantined variant returns nil, which skips the
+// gate. That is safe: the kernel rejects those with VARIANT_NOT_FOUND or
+// VARIANT_QUARANTINED before any execution.
+func gateVariant(op *catalog.Op, pinnedID string) *catalog.Variant {
+	if pinnedID == "" {
+		return defaultVariant(op)
+	}
+	for i := range op.Variants {
+		if op.Variants[i].VariantID != pinnedID {
+			continue
+		}
+		if op.Variants[i].Quarantined {
+			return nil
+		}
+		return &op.Variants[i]
+	}
+	return nil
 }
 
 func defaultVariant(op *catalog.Op) *catalog.Variant {
@@ -661,7 +858,7 @@ func (s *Server) dispatchToolCall(ctx context.Context, req *sdkmcp.CallToolReque
 		if projErr != nil {
 			return jsonErrorResult(projectRootRequiredEnvelope(projErr)), nil
 		}
-		if profName := s.profileNameForOp(inv.OpID); profName != "" {
+		if profName := s.profileNameForRequest(rootPath, inv); profName != "" {
 			if p, _, err := profile.ResolveProfile(rootPath, profName, nil); err == nil {
 				inv.OutputProfile = p
 			}
@@ -682,6 +879,25 @@ func stringFromMeta(req *sdkmcp.CallToolRequest, key string) string {
 	return ""
 }
 
+// profileNameForRequest picks the profile name for one tool call under the
+// client's project root. A §9.2 [override_bindings] entry beats the catalog
+// default, the pinned variant_id beating the op_id: that is what lets a project
+// attach a profile to an op whose catalog variant names none.
+func (s *Server) profileNameForRequest(rootPath string, inv *dispatch.Invocation) string {
+	bindings, err := profile.LoadOverrideBindings(rootPath)
+	if err == nil {
+		if inv.RequestedVariantID != "" {
+			if name, ok := bindings[inv.RequestedVariantID]; ok {
+				return name
+			}
+		}
+		if name, ok := bindings[inv.OpID]; ok {
+			return name
+		}
+	}
+	return s.profileNameForOp(inv.OpID)
+}
+
 // profileNameForOp returns the catalog default variant's output_profile name
 // for the given op, or "" when the op or variant is unknown.
 func (s *Server) profileNameForOp(opID string) string {
@@ -699,26 +915,32 @@ func (s *Server) profileNameForOp(opID string) string {
 func (s *Server) dispatchAndShape(ctx context.Context, inv *dispatch.Invocation) (*sdkmcp.CallToolResult, error) {
 	shaped, err := s.disp.Dispatch(ctx, inv)
 	if err != nil {
-		// Render structured errors as JSON envelopes (spec §1421) so the
-		// MCP caller sees a parseable object with error_code, message, and
-		// flattened detail fields (e.g. confirmation_token, reason).
-		var se *dispatch.StructuredError
-		if errors.As(err, &se) {
-			return jsonErrorResult(se), nil
-		}
-		return errorResult(err.Error()), nil
+		return failureResult(err), nil
 	}
 	res := &sdkmcp.CallToolResult{
 		Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: string(shaped.Body)}},
 	}
-	if shaped.StructuredContent != nil {
-		res.StructuredContent = shaped.StructuredContent
+	// Spec §13: structuredContent is the ToonResult / SingleObjectResult /
+	// RawJsonResult envelope, which carries the `_expression` metadata block
+	// alongside the payload.
+	if wrapped := tierAResult(shaped); wrapped != nil {
+		res.StructuredContent = wrapped
 	}
 	// A profile whitelist removes fields with no marker in the shaped text. Name
 	// them in their own text block so the caller can tell an absent field from a
 	// field the upstream API never returned (gum-bpx0). The block names the
 	// recovery artifact when tee wrote one.
-	if msg := profile.DroppedPathsNotice(shaped.DroppedPaths, `format: "raw"`, shaped.FullResultPath); msg != "" {
+	notice := profile.ShapingNotice(profile.NoticeInput{
+		DroppedPaths:    shaped.DroppedPaths,
+		CollapsedArrays: shaped.CollapsedArrays,
+		DedupedRows:     shaped.DedupedRows,
+		LimitedRows:     shaped.LimitedRows,
+		RawHint:         `format: "raw"`,
+		MaxItemsHint:    `max_items: "all"`,
+		FullResultPath:  shaped.FullResultPath,
+		OnEmptyMessage:  onEmptyMessageOf(shaped),
+	})
+	if msg := notice; msg != "" {
 		res.Content = append(res.Content, &sdkmcp.TextContent{Text: msg})
 	}
 	// Spec §9.0 lines 1845-1847: when the active profile uses
@@ -738,6 +960,17 @@ func (s *Server) dispatchAndShape(ctx context.Context, inv *dispatch.Invocation)
 		})
 	}
 	return res, nil
+}
+
+// onEmptyMessageOf returns the profile's on_empty string when shaping left an
+// empty result set. A client that reads only the text blocks needs it there
+// too: structuredContent carries it as _expression.on_empty_message, but the
+// text block would otherwise show a bare empty list.
+func onEmptyMessageOf(shaped *dispatch.ShapedResponse) string {
+	if shaped == nil || shaped.Expression == nil || shaped.Expression.OnEmptyMessage == nil {
+		return ""
+	}
+	return *shaped.Expression.OnEmptyMessage
 }
 
 // recoveryResourceLinkDescription returns the short hint surfaced on the
@@ -777,6 +1010,26 @@ func parseArgs(req *sdkmcp.CallToolRequest) map[string]any {
 	return args
 }
 
+// searchAPIsK parses the gum.search_apis k argument. The registered schema
+// declares integer/minimum 1/maximum 20, but this SDK does not validate tool
+// input against the schema, so the handler has to. k reached
+// CollapseArraysSpec.MaxItems unchecked and a negative value panicked the
+// stdio server on a slice bound (spec §3.1: a handler fault must not end the
+// session).
+func searchAPIsK(raw any, def int) (int, bool) {
+	if raw == nil {
+		return def, true
+	}
+	n, isNum := numericArg(raw)
+	if !isNum || n != math.Trunc(n) {
+		return 0, false
+	}
+	if n < searchAPIsKMin || n > searchAPIsKMax {
+		return 0, false
+	}
+	return int(n), true
+}
+
 func intArg(args map[string]any, key string, def int) int {
 	switch v := args[key].(type) {
 	case float64:
@@ -805,6 +1058,27 @@ func errorResult(msg string) *sdkmcp.CallToolResult {
 	}
 }
 
+// failureResult is the one error path for a failure the handler could not
+// classify itself.
+//
+// A structured error renders as its own JSON envelope (spec §1421), so the
+// caller sees error_code, message, and the flattened detail fields
+// (confirmation_token, reason, scope). Anything else used to fall through to
+// free text with IsError=true and no code at all, which left the agent a bare
+// sentence to parse. Such an error now gets the SERVICE_DOWN envelope spec §3.1
+// step 7 already assigns to an internal failure the caller cannot classify.
+func failureResult(err error) *sdkmcp.CallToolResult {
+	var se *dispatch.StructuredError
+	if errors.As(err, &se) {
+		return jsonErrorResult(se)
+	}
+	return jsonErrorResult(map[string]any{
+		"error_code": string(dispatch.ErrCodeServiceDown),
+		"message":    err.Error(),
+		"retryable":  false,
+	})
+}
+
 // jsonErrorResult marshals v to JSON and returns it as an error result.
 // Use instead of errorResult(string(mustJSON(v))) to avoid the marshal/cast duplication.
 func jsonErrorResult(v any) *sdkmcp.CallToolResult {
@@ -823,4 +1097,21 @@ func jsonResult(v any) *sdkmcp.CallToolResult {
 	return &sdkmcp.CallToolResult{
 		Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: string(b)}},
 	}
+}
+
+// structuredJSONResult is jsonResult plus the structuredContent the tool's
+// registered outputSchema promises. A tool that advertises an outputSchema and
+// returns text only violates spec §3175; the pinned go-sdk's low-level AddTool
+// leaves that validation to the caller and catches nothing, so the pairing is
+// enforced by TestEveryRegisteredToolPairsOutputSchemaWithStructuredContent.
+//
+// Content stays byte-identical to jsonResult: v is marshalled once for the
+// text body and handed to the SDK unchanged for structuredContent.
+func structuredJSONResult(v any) *sdkmcp.CallToolResult {
+	res := jsonResult(v)
+	if res.IsError {
+		return res
+	}
+	res.StructuredContent = v
+	return res
 }

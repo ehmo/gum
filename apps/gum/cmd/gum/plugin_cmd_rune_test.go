@@ -393,3 +393,58 @@ func TestPluginTransferNamespaceCmdRunENewOwner(t *testing.T) {
 		t.Error("transfer-namespace --new-owner produced no output on success")
 	}
 }
+
+// TestPluginRemoveCmdClearsRegistry pins the cobra wiring for §8.7 remove: the
+// subcommand must reach DispatchPluginCommandWithRegistry with the resolved
+// profile dir. Routing it through DispatchPluginCommand hard-codes profileDir
+// to "", which silently degrades every CLI removal to the file-only path and
+// leaves the namespace lease, catalog variants, and quarantine row behind.
+func TestPluginRemoveCmdClearsRegistry(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+
+	profileDir, err := resolveProfileDir("default")
+	if err != nil {
+		t.Fatalf("resolveProfileDir: %v", err)
+	}
+	reg := registry.New(profileDir)
+
+	src := filepath.Join(t.TempDir(), "src")
+	writePluginSource(t, src, "cli-remove-plugin")
+	host := plugins.NewHost(plugins.HostConfig{
+		InstallRoot: filepath.Join(home, ".local", "share", "gum", "plugins"),
+	})
+	id, err := host.InstallWithRegistry(context.Background(), src, plugins.InstallOptions{Registry: reg})
+	if err != nil {
+		t.Fatalf("InstallWithRegistry: %v", err)
+	}
+
+	before, err := reg.Load()
+	if err != nil {
+		t.Fatalf("Load before remove: %v", err)
+	}
+	if len(before.Lock.Plugins) == 0 {
+		t.Fatalf("install wrote no plugins.lock row; the test proves nothing")
+	}
+
+	cmd := newPluginRemoveCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.RunE(cmd, []string{id}); err != nil {
+		t.Fatalf("remove RunE: %v", err)
+	}
+
+	after, err := reg.Load()
+	if err != nil {
+		t.Fatalf("Load after remove: %v", err)
+	}
+	if got := len(after.Lock.Plugins); got != 0 {
+		t.Errorf("plugins.lock rows = %d after CLI remove; want 0", got)
+	}
+	if got := len(after.Catalog.Variants); got != 0 {
+		t.Errorf("plugin-catalog variants = %d after CLI remove; want 0", got)
+	}
+	if got := len(after.State.Plugins); got != 0 {
+		t.Errorf("plugin-state rows = %d after CLI remove; want 0", got)
+	}
+}

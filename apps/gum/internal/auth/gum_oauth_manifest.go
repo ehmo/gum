@@ -73,7 +73,13 @@ func loadManagedScopesManifest(body []byte) (*managedScopesManifest, error) {
 // manifest as testing-allowed or active. The public v1 login path does not use
 // this set; it remains a manifest helper for gum_oauth internals and tests.
 func ManagedSupportedScopes() ([]string, error) {
-	m, err := loadManagedScopesManifest(nil)
+	return managedSupportedScopes(nil)
+}
+
+// managedSupportedScopes is ManagedSupportedScopes with the manifest body
+// injectable, so tests can drive a malformed or duplicate-scope manifest.
+func managedSupportedScopes(body []byte) ([]string, error) {
+	m, err := loadManagedScopesManifest(body)
 	if err != nil {
 		return nil, err
 	}

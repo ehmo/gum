@@ -69,6 +69,22 @@ func TestParseGoTestEmptyPackages(t *testing.T) {
 	}
 }
 
+// TestParseGoTestEmptyPackagesHandlesRunOnLines pins the unanchored
+// match. Under -coverprofile `go test` ends the status line of a
+// package that reports no coverage percentage without a newline, so the
+// next package's "?" marker lands mid-line. A line-anchored regex drops
+// that package from the report entirely.
+func TestParseGoTestEmptyPackagesHandlesRunOnLines(t *testing.T) {
+	out := "\texample.com/m/cmd/gum\t\t?   \texample.com/m/internal/bare\t[no test files]"
+	readings := parseGoTestEmptyPackages(out)
+	if len(readings) != 1 {
+		t.Fatalf("readings = %+v; want the one run-on [no test files] package", readings)
+	}
+	if got, want := readings[0].Package, "example.com/m/internal/bare"; got != want {
+		t.Errorf("package = %s; want %s", got, want)
+	}
+}
+
 func approxEqual(a, b float64) bool {
 	return math.Abs(a-b) < 0.001
 }

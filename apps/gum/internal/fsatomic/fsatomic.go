@@ -12,13 +12,30 @@ import (
 	"path/filepath"
 )
 
+// tempFile is the subset of *os.File that WriteFile drives. It exists so the
+// write, chmod, sync and close failure arms can be exercised; nothing but a
+// real *os.File is ever passed in outside tests.
+type tempFile interface {
+	Name() string
+	Write(p []byte) (int, error)
+	Chmod(mode os.FileMode) error
+	Sync() error
+	Close() error
+}
+
+// createTemp is os.CreateTemp behind the tempFile interface. Tests replace it
+// to inject I/O faults that no portable filesystem operation can produce.
+var createTemp = func(dir, pattern string) (tempFile, error) {
+	return os.CreateTemp(dir, pattern)
+}
+
 // WriteFile writes data to path atomically: it creates a temp file in the same
 // directory, writes and fsyncs it, chmods to mode, then renames over path. The
 // parent directory must already exist. On any error the temp file is removed
 // and path is left untouched.
 func WriteFile(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".gum-*.tmp")
+	tmp, err := createTemp(dir, ".gum-*.tmp")
 	if err != nil {
 		return fmt.Errorf("fsatomic: tempfile in %s: %w", dir, err)
 	}

@@ -17,10 +17,19 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+// hotLastAccessRefreshSeconds is how stale a hot entry's last-access stamp may
+// get before a Get rewrites it. Refreshing on every hit would take the write
+// lock on every read.
+const hotLastAccessRefreshSeconds = 60
+
 // errCacheClosed is returned by the guarded db helpers once the cache is
 // closed. It is internal: Get treats it as a miss and Set surfaces it as a
 // write error.
 var errCacheClosed = errors.New("cache: closed")
+
+// errBucketMissing means the cache file exists but lacks the bucket Open
+// creates, so the database is not a gum cache.
+var errBucketMissing = errors.New("cache: bucket missing")
 
 // BBoltCache is a process-restart-surviving cache backed by bbolt at the
 // configured path (default ~/.cache/gum/cache.db). Hot tier is the existing
@@ -172,9 +181,13 @@ func (c *BBoltCache) Get(key string) ([]byte, bool) {
 		if he.expiresAtUnix == 0 || he.expiresAtUnix > now {
 			payload := make([]byte, len(he.payload))
 			copy(payload, he.payload)
+			// Copy lastAccessUnix while the read lock still holds it. The write
+			// below mutates that same field of that same pointer under the
+			// write lock, so reading it afterwards is a data race.
+			lastAccess := he.lastAccessUnix
 			c.mu.RUnlock()
 			// Lazy update last_access (amortize writes)
-			if now-he.lastAccessUnix > 60 {
+			if now-lastAccess > hotLastAccessRefreshSeconds {
 				c.mu.Lock()
 				if he2, ok2 := c.hot[key]; ok2 {
 					he2.lastAccessUnix = now
@@ -257,7 +270,7 @@ func (c *BBoltCache) Set(key string, payload []byte, ttl time.Duration) error {
 	if err := c.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
-			return fmt.Errorf("cache: bucket missing")
+			return errBucketMissing
 		}
 		return b.Put([]byte(key), data)
 	}); err != nil {
@@ -269,21 +282,31 @@ func (c *BBoltCache) Set(key string, payload []byte, ttl time.Duration) error {
 	c.promoteToHot(key, payload, expiresAt, now.Unix())
 	c.mu.Unlock()
 
-	// Check total size and evict if needed
-	c.evictIfOverSize()
+	// Check total size and evict if needed. A failed eviction leaves the cache
+	// over MaxSizeBytes, so the caller hears about it instead of the cache
+	// growing without bound in silence.
+	if err := c.evictIfOverSize(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 // EvictExpired scans all entries in bbolt, removes those whose TTL has elapsed,
-// and returns the count of removed entries. It also evicts the corresponding
-// hot-tier entries. Callers should schedule EvictExpired periodically; it is
-// not called automatically (no background goroutine — goleak must pass).
-func (c *BBoltCache) EvictExpired() int {
+// and returns the count of entries it actually deleted. It also evicts the
+// corresponding hot-tier entries. Callers should schedule EvictExpired
+// periodically; it is not called automatically (no background goroutine —
+// goleak must pass).
+//
+// The count is the number of committed deletions, not the number of expired
+// keys the scan found. When the delete transaction fails the count is 0 and the
+// error says why, so `gum cache clear --expired` cannot report entries as
+// removed that are still on disk (review gum-fbst).
+func (c *BBoltCache) EvictExpired() (int, error) {
 	now := time.Now().Unix()
 	var expiredKeys []string
 
-	_ = c.view(func(tx *bolt.Tx) error {
+	if err := c.view(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
 			return nil
@@ -299,22 +322,32 @@ func (c *BBoltCache) EvictExpired() int {
 			}
 			return nil
 		})
-	})
-
-	if len(expiredKeys) == 0 {
-		return 0
+	}); err != nil {
+		return 0, fmt.Errorf("cache: scan for expired entries: %w", err)
 	}
 
-	_ = c.update(func(tx *bolt.Tx) error {
+	if len(expiredKeys) == 0 {
+		return 0, nil
+	}
+
+	deleted := 0
+	if err := c.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
-			return nil
+			return errBucketMissing
 		}
 		for _, k := range expiredKeys {
-			_ = b.Delete([]byte(k))
+			if err := b.Delete([]byte(k)); err != nil {
+				return fmt.Errorf("delete %q: %w", k, err)
+			}
+			deleted++
 		}
 		return nil
-	})
+	}); err != nil {
+		// The transaction rolled back, so nothing was deleted and the hot tier
+		// must keep mirroring what is still on disk.
+		return 0, fmt.Errorf("cache: evict expired entries: %w", err)
+	}
 
 	// Remove from hot tier
 	c.mu.Lock()
@@ -324,7 +357,7 @@ func (c *BBoltCache) EvictExpired() int {
 	}
 	c.mu.Unlock()
 
-	return len(expiredKeys)
+	return deleted, nil
 }
 
 // promoteToHot adds/updates an entry in the hot tier. Must be called with c.mu held (write).
@@ -362,8 +395,10 @@ func (c *BBoltCache) removeFromHotOrder(key string) {
 	}
 }
 
-// evictIfOverSize evicts LRU entries from bbolt and hot tier if total size exceeds MaxSizeBytes.
-func (c *BBoltCache) evictIfOverSize() {
+// evictIfOverSize evicts LRU entries from bbolt and hot tier if total size
+// exceeds MaxSizeBytes. It returns the first error that stopped the eviction;
+// the caller must not treat a failed sweep as a cache that stayed under the cap.
+func (c *BBoltCache) evictIfOverSize() error {
 	// Compute total size
 	type entry struct {
 		key            string
@@ -374,7 +409,7 @@ func (c *BBoltCache) evictIfOverSize() {
 	var entries []entry
 	var totalSize int64
 
-	_ = c.view(func(tx *bolt.Tx) error {
+	if err := c.view(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
 			return nil
@@ -392,10 +427,12 @@ func (c *BBoltCache) evictIfOverSize() {
 			})
 			return nil
 		})
-	})
+	}); err != nil {
+		return fmt.Errorf("cache: scan for over-size eviction: %w", err)
+	}
 
 	if totalSize <= c.cfg.MaxSizeBytes {
-		return
+		return nil
 	}
 
 	// Sort by lastAccessUnix ascending (oldest first). sort.Slice is O(n log n);
@@ -416,19 +453,24 @@ func (c *BBoltCache) evictIfOverSize() {
 	}
 
 	if len(evictKeys) == 0 {
-		return
+		return nil
 	}
 
-	_ = c.update(func(tx *bolt.Tx) error {
+	if err := c.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
-			return nil
+			return errBucketMissing
 		}
 		for _, k := range evictKeys {
-			_ = b.Delete([]byte(k))
+			if err := b.Delete([]byte(k)); err != nil {
+				return fmt.Errorf("delete %q: %w", k, err)
+			}
 		}
 		return nil
-	})
+	}); err != nil {
+		// Rolled back: the entries are still on disk, so the hot tier keeps them.
+		return fmt.Errorf("cache: evict over-size entries: %w", err)
+	}
 
 	c.mu.Lock()
 	for _, k := range evictKeys {
@@ -436,4 +478,6 @@ func (c *BBoltCache) evictIfOverSize() {
 		c.removeFromHotOrder(k)
 	}
 	c.mu.Unlock()
+
+	return nil
 }

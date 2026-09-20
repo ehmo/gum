@@ -142,7 +142,9 @@ func (r *ServiceAccountResolver) Resolve(ctx context.Context, scopes []string) (
 // per-principal identifier; hashing keeps the audit log shape consistent
 // with the other resolvers (which all emit hex digests).
 func serviceAccountFingerprint(email string) string {
-	sum := sha256.Sum256([]byte(email))
+	// §10.0.1 requires the lower-cased SA email, so two spellings of one
+	// principal do not key separate cache entries and tee artifacts.
+	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(email))))
 	return hex.EncodeToString(sum[:])
 }
 

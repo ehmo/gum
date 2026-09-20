@@ -120,3 +120,35 @@ func TestAuthKeychainUnavailable(t *testing.T) {
 		}
 	})
 }
+
+// TestKeychainUnavailableClassifiesCause pins the sentinel contract:
+// ErrKeychainUnsupported appears in the cause chain only when the platform has
+// no keychain backend. Every other fault must stay a bare
+// AUTH_KEYCHAIN_UNAVAILABLE so CLI callers exit non-zero instead of printing
+// env-var instructions and reporting success.
+func TestKeychainUnavailableClassifiesCause(t *testing.T) {
+	unsupported := keychainUnavailable(keyring.ErrUnsupportedPlatform)
+	if !errors.Is(unsupported, ErrKeychainUnsupported) {
+		t.Errorf("ErrUnsupportedPlatform did not map to ErrKeychainUnsupported: %v", unsupported)
+	}
+	if unsupported.Code != "AUTH_KEYCHAIN_UNAVAILABLE" {
+		t.Errorf("Code = %q; want AUTH_KEYCHAIN_UNAVAILABLE", unsupported.Code)
+	}
+
+	locked := keychainUnavailable(errors.New("keychain is locked"))
+	if errors.Is(locked, ErrKeychainUnsupported) {
+		t.Errorf("a locked keychain was classified as an unsupported platform: %v", locked)
+	}
+	if !strings.Contains(locked.HumanRemediation, "keychain is locked") {
+		t.Errorf("HumanRemediation = %q; want the underlying reason", locked.HumanRemediation)
+	}
+
+	// The §7 envelope has a fixed field set, so Cause must not leak into it.
+	b, err := locked.MarshalJSON()
+	if err != nil {
+		t.Fatalf("MarshalJSON: %v", err)
+	}
+	if strings.Contains(string(b), "Cause") || strings.Contains(string(b), "cause") {
+		t.Errorf("envelope leaked the cause field: %s", b)
+	}
+}

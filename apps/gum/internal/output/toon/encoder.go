@@ -9,7 +9,8 @@
 //   - Null values are encoded as the empty string on the right-hand side of "=".
 //   - Strings that contain commas, double-quotes, or newlines are CSV-quoted (RFC 4180).
 //   - Zero-valued integer fields are omitted when EncoderOptions.OmitZeroCounts is true.
-//   - An object with all-empty fields encodes as "{}" (empty object sentinel), not "<empty>".
+//   - An object with no fields encodes as "{}" (empty object sentinel), not "<empty>".
+//     An object that has fields keeps them even when every value is empty.
 //
 // TOON is NOT a general replacement for JSON; it is scoped to the output profiles
 // used by gum's response shaping pipeline.
@@ -93,6 +94,14 @@ func encodeScalar(v any) (string, error) {
 		}
 		// Whole-but-huge or fractional: shortest non-scientific representation.
 		return strconv.FormatFloat(val, 'f', -1, 64), nil
+	case json.Number:
+		// The shaping pipeline decodes upstream bodies with UseNumber so wide
+		// integers keep their digits (internal/output/profile.Apply). Emit the
+		// literal verbatim; quoting it would turn a number into a string.
+		if val == "" {
+			return "", fmt.Errorf("toon: cannot encode empty json.Number")
+		}
+		return string(val), nil
 	case string:
 		return encodeString(val), nil
 	case int:
@@ -118,6 +127,11 @@ func encodeScalar(v any) (string, error) {
 // isZeroVal returns true if v is an integer or float with value 0.
 func isZeroVal(v any) bool {
 	switch val := v.(type) {
+	case json.Number:
+		// A UseNumber-decoded zero must still count as zero, or OmitZeroCounts
+		// would stop dropping zero counts on every shaped body.
+		f, err := val.Float64()
+		return err == nil && f == 0
 	case float64:
 		return val == 0
 	case int:
@@ -166,45 +180,18 @@ func encodeValue(v any, opts EncoderOptions) ([]byte, error) {
 	}
 }
 
-// isSentinelEmpty returns true if a value is considered "empty" for the {} sentinel:
-// nil, empty string, or numeric zero.
-func isSentinelEmpty(v any) bool {
-	if v == nil {
-		return true
-	}
-	if s, ok := v.(string); ok {
-		return s == ""
-	}
-	// Numbers carry real information even when 0, so a zero-valued field is NOT
-	// sentinel-empty — otherwise an all-zero object like {quota_remaining:0,
-	// errors:0} would silently encode as {} and an LLM would see an empty object
-	// instead of the real metrics. (This is the only change from the prior
-	// behavior, which delegated to isZeroVal here; OmitZeroCounts, when
-	// explicitly enabled, still drops zero values via isZeroVal in the loop.)
-	// Collections and other scalars keep their prior non-sentinel treatment.
-	return false
-}
-
-// allSentinelEmpty returns true if all map values are sentinel-empty.
-func allSentinelEmpty(m map[string]any) bool {
-	for _, v := range m {
-		if !isSentinelEmpty(v) {
-			return false
-		}
-	}
-	return true
-}
-
 // encodeMap encodes a map[string]any.
 func encodeMap(m map[string]any, opts EncoderOptions) ([]byte, error) {
 	if len(m) == 0 {
 		return []byte("{}\n"), nil
 	}
 
-	// If all values are empty/zero (sentinel check), encode as {}.
-	if allSentinelEmpty(m) {
-		return []byte("{}\n"), nil
-	}
+	// A populated map keeps its keys even when every value is empty. Spec
+	// §"Null representation (normative)" makes an empty field null and a
+	// quoted empty field the empty string, and calls TOON lossless for that
+	// distinction; collapsing {"error":"","status":null} to {} dropped both
+	// key names and set no lossy flag. Dropping empty fields is the expression
+	// pipeline's strip_nulls stage (§9.1), which the caller opts into.
 
 	// Collect keys sorted alphabetically.
 	keys := make([]string, 0, len(m))
@@ -423,7 +410,12 @@ func Decode(data []byte) (any, error) {
 		return decodeHeadersFormat(s)
 	}
 
-	lines := strings.Split(s, "\n")
+	// Logical, not physical, lines: a CSV-quoted value may carry a raw newline
+	// (an API snippet, a description), and splitting on every "\n" would cut
+	// such a value in half. The tail half then reaches the dispatch below as if
+	// it were a line of its own, which used to fabricate a field when the tail
+	// contained "=" and truncate the value when it did not.
+	lines := splitTOONLines(s)
 	firstNonBlank := ""
 	for _, l := range lines {
 		if strings.TrimSpace(l) != "" {
@@ -432,14 +424,14 @@ func Decode(data []byte) (any, error) {
 		}
 	}
 
-	// Key=value object format: first non-blank line contains "=".
-	if strings.Contains(firstNonBlank, "=") {
+	// Key=value object format: first non-blank line has an unquoted "=".
+	if unquotedIndexByte(firstNonBlank, '=') >= 0 {
 		return decodeKeyValue(lines)
 	}
 
 	// Array (CSV table format without # headers:): first line has no "=" but has commas.
 	// OR it could be a single header row followed by data rows.
-	if strings.Contains(firstNonBlank, ",") || isHeaderLine(firstNonBlank, lines) {
+	if unquotedIndexByte(firstNonBlank, ',') >= 0 || isHeaderLine(firstNonBlank, lines) {
 		return decodeCSVTable(s)
 	}
 
@@ -453,7 +445,88 @@ func isHeaderLine(firstLine string, lines []string) bool {
 		return false
 	}
 	// If there are multiple lines and no "=" in first line, treat as CSV table.
-	return !strings.Contains(firstLine, "=") && len(lines) >= 2
+	return unquotedIndexByte(firstLine, '=') < 0 && len(lines) >= 2
+}
+
+// splitTOONLines splits a TOON document into logical lines, treating a newline
+// inside a CSV-quoted field as data rather than a line break. A quoted span
+// opens only at a field start (line start, or just after "=" or ","), which is
+// where the encoder puts its quotes, so a stray quote inside an unquoted token
+// cannot swallow the rest of the document.
+func splitTOONLines(s string) []string {
+	var lines []string
+	var cur strings.Builder
+	inQuotes := false
+	atFieldStart := true
+
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+
+		switch {
+		case inQuotes && ch == '"':
+			if i+1 < len(s) && s[i+1] == '"' {
+				// Doubled "" is an escaped quote; keep both bytes so
+				// unquoteCSV still sees the escape.
+				cur.WriteString(`""`)
+				i++
+				continue
+			}
+			inQuotes = false
+			cur.WriteByte(ch)
+		case !inQuotes && ch == '"' && atFieldStart:
+			inQuotes = true
+			cur.WriteByte(ch)
+		case !inQuotes && ch == '\n':
+			lines = append(lines, cur.String())
+			cur.Reset()
+			atFieldStart = true
+			continue
+		default:
+			cur.WriteByte(ch)
+		}
+
+		atFieldStart = !inQuotes && (ch == '=' || ch == ',')
+	}
+
+	return append(lines, cur.String())
+}
+
+// unquotedIndexByte returns the index of the first b in s that sits outside a
+// CSV-quoted field, or -1. It is what separates a real key/value delimiter from
+// one that is part of a value, e.g. the "=" in {"a=b": v}, which encodes as
+// `"a=b"=v`.
+func unquotedIndexByte(s string, b byte) int {
+	inQuotes := false
+	atFieldStart := true
+
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+
+		if inQuotes {
+			if ch == '"' {
+				if i+1 < len(s) && s[i+1] == '"' {
+					i++
+					continue
+				}
+				inQuotes = false
+			}
+			atFieldStart = false
+			continue
+		}
+
+		if ch == '"' && atFieldStart {
+			inQuotes = true
+			atFieldStart = false
+			continue
+		}
+		if ch == b {
+			return i
+		}
+
+		atFieldStart = ch == '=' || ch == ','
+	}
+
+	return -1
 }
 
 // decodeHeadersFormat decodes the "# headers: ..." format.

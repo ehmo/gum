@@ -84,7 +84,7 @@ func TestLoadPluginSchemaMissingStateRowReturnsFalse(t *testing.T) {
 }
 
 // TestLoadPluginSchemaBodyFileMissingReturnsFalse pins the
-// `os.ReadFile err → return nil, false` arm (schema_resource.go:151-153).
+// `os.ReadFile err → return nil, false` arm (schema_resource.go:171-174).
 // Catalog + active state row both point at ref X under
 // plugin-schemas/X.<hash>.json, but the file isn't on disk — the
 // resolver must surface RESOURCE_NOT_FOUND instead of panicking.
@@ -94,7 +94,7 @@ func TestLoadPluginSchemaBodyFileMissingReturnsFalse(t *testing.T) {
 		"variants": []any{
 			map[string]any{
 				"owner_plugin":  "active-plugin",
-				"schema_hashes": map[string]any{"present.ref": "hash1"},
+				"schema_hashes": map[string]any{"present.ref": "1111111111111111111111111111111111111111111111111111111111111111"},
 			},
 		},
 	})
@@ -103,7 +103,8 @@ func TestLoadPluginSchemaBodyFileMissingReturnsFalse(t *testing.T) {
 			map[string]any{"name": "active-plugin"},
 		},
 	})
-	// Intentionally do NOT write plugin-schemas/present.ref.hash1.json.
+	// Intentionally do NOT write the body file. The hash is 64 hex
+	// chars so isSchemaHash lets the read through to os.ReadFile.
 	s := &Server{profile: "default"}
 	body, ok := s.loadPluginSchema("present.ref")
 	if ok || body != nil {
@@ -113,7 +114,7 @@ func TestLoadPluginSchemaBodyFileMissingReturnsFalse(t *testing.T) {
 
 // TestLoadPluginSchemaBodyFileBadJSONReturnsFalse pins the
 // `jcsCanonicaliseBytes err → return nil, false` arm
-// (schema_resource.go:155-157). Catalog + state agree, body file
+// (schema_resource.go:175-178). Catalog + state agree, body file
 // exists but contains junk — canonicalisation fails and the resolver
 // must NOT return invalid bytes downstream.
 func TestLoadPluginSchemaBodyFileBadJSONReturnsFalse(t *testing.T) {
@@ -122,7 +123,7 @@ func TestLoadPluginSchemaBodyFileBadJSONReturnsFalse(t *testing.T) {
 		"variants": []any{
 			map[string]any{
 				"owner_plugin":  "active-plugin",
-				"schema_hashes": map[string]any{"corrupt.ref": "hash2"},
+				"schema_hashes": map[string]any{"corrupt.ref": "2222222222222222222222222222222222222222222222222222222222222222"},
 			},
 		},
 	})
@@ -131,7 +132,7 @@ func TestLoadPluginSchemaBodyFileBadJSONReturnsFalse(t *testing.T) {
 			map[string]any{"name": "active-plugin"},
 		},
 	})
-	bodyPath := filepath.Join(dir, "plugin-schemas", "corrupt.ref.hash2.json")
+	bodyPath := filepath.Join(dir, "plugin-schemas", "corrupt.ref.2222222222222222222222222222222222222222222222222222222222222222.json")
 	if err := os.WriteFile(bodyPath, []byte("{not valid json"), 0o600); err != nil {
 		t.Fatalf("write corrupt body: %v", err)
 	}

@@ -88,11 +88,11 @@ func TestMetaToolStaysSilentWhenNothingDropped(t *testing.T) {
 	}
 }
 
-// TestStructuredRenderSkipsDroppedFieldNotice: --output=table renders from
-// StructuredContent, which carries the pre-shaping body, so the fields the
-// profile removed from the text body are still on screen. Printing the notice
-// there would tell the caller data is missing that they can see.
-func TestStructuredRenderSkipsDroppedFieldNotice(t *testing.T) {
+// TestStructuredRenderNamesDroppedFields: --output=table renders from
+// StructuredContent, which is the shaped tree, so the table hides exactly what
+// the text body hides and needs the same notice. While StructuredContent
+// carried the pre-shaping body this test asserted the opposite.
+func TestStructuredRenderNamesDroppedFields(t *testing.T) {
 	orig := newMetaToolDispatcher
 	t.Cleanup(func() { newMetaToolDispatcher = orig })
 	newMetaToolDispatcher = func(string) dispatch.Dispatcher {
@@ -110,8 +110,8 @@ func TestStructuredRenderSkipsDroppedFieldNotice(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if strings.Contains(errOut.String(), "rows.page") {
-		t.Errorf("structured render printed a dropped-field notice; got:\n%s", errOut.String())
+	if !strings.Contains(errOut.String(), "rows.page") {
+		t.Errorf("structured render did not name the dropped field; stderr:\n%s", errOut.String())
 	}
 }
 

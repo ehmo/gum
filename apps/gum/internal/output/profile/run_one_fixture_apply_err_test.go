@@ -20,7 +20,7 @@ func TestRunFixturesApplyErrorFails(t *testing.T) {
 		t.Fatalf("seed bad fixture: %v", err)
 	}
 
-	p, err := profile.Parse("default_format = \"toon\"\n\n[[tests]]\nname = \"badjson\"\nfixture = \"bad.json\"\n")
+	p, err := profile.Parse("format = \"toon\"\n\n[[tests]]\nname = \"badjson\"\nfixture = \"bad.json\"\n")
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}

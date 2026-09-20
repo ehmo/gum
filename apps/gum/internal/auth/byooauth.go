@@ -117,6 +117,12 @@ func (b *ByoOAuth) keyringKey() string {
 type byoGrant struct {
 	RefreshToken string   `json:"refresh_token"`
 	Scopes       []string `json:"scopes"`
+	// Subject is the spec §10.0.1 principal for this grant: the lower-case
+	// account email from the id_token, or its `sub` claim. It is stored so the
+	// silent refresh path, whose response may carry no id_token, derives the
+	// same auth_subject_fingerprint the login path did. Empty on grants written
+	// before gum-mc67 and on grants written by StoreRefreshToken.
+	Subject string `json:"subject,omitempty"`
 }
 
 // loadGrant reads the stored grant for this client. ok=false means no usable
@@ -180,6 +186,7 @@ type tokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
 	Scope       string `json:"scope"`
+	IDToken     string `json:"id_token"`
 }
 
 // Acquire looks up the cached refresh token from the KeyringBackend, exchanges it
@@ -272,12 +279,26 @@ func (b *ByoOAuth) Acquire(ctx context.Context) (*Credentials, error) {
 		}
 	}
 
+	// A refresh response carries an id_token whenever openid was granted, so a
+	// grant stored before gum-mc67 heals on its next refresh instead of waiting
+	// for a re-login.
+	subject := grant.Subject
+	if subject == "" {
+		if s := oauthSubjectFromIDToken(tr.IDToken); s != "" {
+			subject = s
+			grant.Subject = s
+			if blob, mErr := json.Marshal(grant); mErr == nil {
+				_ = b.kb.Set(b.keyringKey(), string(blob))
+			}
+		}
+	}
+
 	creds := &Credentials{
 		Token:              tr.AccessToken,
 		ExpiresAt:          time.Now().Add(time.Duration(tr.ExpiresIn) * time.Second),
 		Scopes:             b.cfg.Scopes,
 		StrategyName:       "byo_oauth",
-		SubjectFingerprint: DeriveSubjectFingerprint("byo_oauth:" + refreshToken),
+		SubjectFingerprint: byoSubjectFingerprint(subject, refreshToken),
 	}
 	b.cached = creds
 	return creds, nil
@@ -291,10 +312,14 @@ func (b *ByoOAuth) Acquire(ctx context.Context) (*Credentials, error) {
 // not clobber an earlier one.
 func (b *ByoOAuth) StoreRefreshToken(rt string) error {
 	scopes := sortedUniqueScopes(b.cfg.Scopes)
+	var subject string
 	if existing, ok, _ := b.loadGrant(); ok {
 		scopes = sortedUniqueScopes(existing.Scopes, scopes)
+		// The caller hands over a token, not an identity. Keep whatever
+		// principal the last login established so the fingerprint holds.
+		subject = existing.Subject
 	}
-	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: scopes})
+	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: scopes, Subject: subject})
 	return b.kb.Set(b.keyringKey(), string(blob))
 }
 
@@ -308,7 +333,7 @@ func (b *ByoOAuth) StoreRefreshToken(rt string) error {
 // account's scopes — Acquire would then refresh for a scope the new account
 // never authorized and the API would return a silent 403. When the server omits
 // `scope`, it falls back to StoreRefreshToken so incremental auth never regresses.
-func (b *ByoOAuth) storeLoginGrant(rt, grantedScope string) error {
+func (b *ByoOAuth) storeLoginGrant(rt, grantedScope, subject string) error {
 	granted := sortedUniqueScopes(strings.Fields(grantedScope))
 	if len(granted) == 0 {
 		// Server omitted the scope field (RFC 6749: granted == requested). Store
@@ -320,7 +345,7 @@ func (b *ByoOAuth) storeLoginGrant(rt, grantedScope string) error {
 		// accumulation here only costs a harmless extra consent on the next call.
 		granted = sortedUniqueScopes(b.cfg.Scopes)
 	}
-	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: granted})
+	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: granted, Subject: subject})
 	return b.kb.Set(b.keyringKey(), string(blob))
 }
 

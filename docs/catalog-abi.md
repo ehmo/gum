@@ -22,9 +22,11 @@ Additive fields are allowed when older binaries can ignore them without changing
 - `op_id` is the stable LLM-facing capability identity.
 - `variant_id` is the executable backend identity.
 - `profile` is a user/account configuration context.
-- `output_profile` names an expression-profile DSL record.
+- `output_profile` names an expression-profile DSL record. The name MUST resolve to a profile body shipped in `apps/gum/internal/output/profile/builtin/`; catalog build rejects a name that resolves to nothing, because the catalog and the built-in profile set ship in the same binary.
 - `schema_ref` names a JSON Schema 2020-12 document. Served schema refs MUST match `^[a-z0-9][a-z0-9._-]{0,127}$`, MUST NOT contain `..`, and MUST NOT contain raw or percent-encoded path separators or control characters.
 - `capabilities[]` is a closed enum except for `x-*` metadata-only atoms on schema-only variants.
+- `execution_support` is the closed enum owned by `spec.md` §5.8 (`full`, `partial`, `typed_executor_required`, `schema_only`). An omitted value means `full`.
+- `unsupported_capabilities[]` names the atoms of `capabilities[]` the variant cannot execute. It is the declaration `gum.describe_op` reads; nothing infers it from `capabilities[]`.
 - `auth_strategy` and `auth_components[]` describe how a variant is authorized.
   `auth_strategy` uses the closed enum owned by `spec.md` §7
   (`gum_oauth`, `byo_oauth`, `adc`, `service_account`, `api_key`, `compound`,
@@ -50,6 +52,18 @@ Deprecated variants stay invokable by explicit `variant_id` for 90 days unless q
 Unknown executable capability atoms fail closed with `UNKNOWN_CAPABILITY`. Experimental atoms must be prefixed `x-` and may only appear on variants with `execution_support = "schema_only"`.
 
 Adding a new executable capability class requires generator validation, executor support, describe/invoke behavior, documentation, and fixture-backed tests. The full normative checklist lives in `spec.md` §5.8; the test-matrix gates live in `docs/test-matrix.md`.
+
+### `execution_support` and `unsupported_capabilities`
+
+`spec.md` §5.8 binds the two fields. A catalog record MUST satisfy the binding, and `Op.Validate` checks it:
+
+- `execution_support` MUST be one of `full`, `partial`, `typed_executor_required`, `schema_only`, or absent. An absent value resolves to `full`.
+- A `full` variant MUST NOT carry `unsupported_capabilities`.
+- Every atom in `unsupported_capabilities` MUST also appear in `capabilities[]`.
+- A `partial` variant MUST list at least one atom and MUST leave at least one declared atom off the list. A variant that blocks every declared atom is `typed_executor_required`, not `partial`.
+- A `typed_executor_required` or `schema_only` variant MUST list every atom it declares. A variant that declares no atoms lists none.
+
+A variant that violates any of these fails `Op.Validate` with `ErrUnknownExecutionSupport`, `ErrUnexpectedUnsupportedCapabilities`, `ErrUndeclaredUnsupportedCapability`, `ErrMissingUnsupportedCapabilities`, or `ErrPartialWithNoExecutableCapability`. `cmd/gen-catalog` runs `Catalog.Validate` on every build, so a generated record cannot ship with a broken binding. `gum plugin install` does not run catalog validation today, so a plugin-supplied variant reaches the registry unchecked.
 
 ## Admin Write Policy
 
@@ -152,7 +166,7 @@ Adding a new stable `interface_kind` value follows the same PR requirements as `
 
 1. Land the experimental `x-<name>` value first in a PR that adds the row to this table with `ABI stability: unstable`, ships catalog records using it under `execution_support = "schema_only"`, and adds at least one fixture-backed test exercising the schema-only path.
 2. Implement the runtime adapter for the kind under `internal/adapters/<kind>/`. The adapter MUST accept the binding schema, validate selector fields, and route invocations through the dispatch kernel.
-3. In a separate PR, promote the kind by renaming `x-<name>` to `<name>` in this table (drop the `x-` prefix), set its `ABI stability` column to `stable`, register it in `cmd/gen-catalog`'s closed-enum validator, and flip the catalog records' `execution_support` from `schema_only` to `executable`. The promotion PR MUST update `docs/test-matrix.md` to add a `TestInterfaceKind<Name>` row, ship a fixture-backed contract test for the executable path, and update `spec.md` §5.4.2 if the new kind imposes a new capability-class requirement.
+3. In a separate PR, promote the kind by renaming `x-<name>` to `<name>` in this table (drop the `x-` prefix), set its `ABI stability` column to `stable`, register it in `cmd/gen-catalog`'s closed-enum validator, and flip the catalog records' `execution_support` from `schema_only` to `full`. The promotion PR MUST update `docs/test-matrix.md` to add a `TestInterfaceKind<Name>` row, ship a fixture-backed contract test for the executable path, and update `spec.md` §5.4.2 if the new kind imposes a new capability-class requirement.
 4. Removing or renaming a stable `interface_kind` value requires a deprecation cycle: the old value remains in the table marked `deprecated; superseded by <new>` for at least one minor release with `execution_support` retained, then drops out.
 
 Catalog rebuilds during the promotion window MUST treat the experimental `x-<name>` and the stable `<name>` as distinct values; the migration is not silent. `TestInterfaceKindClosedEnum` enforces the closed-enum membership at build time.

@@ -87,6 +87,13 @@ var (
 	)
 )
 
+// budgetCodec returns the cl100k tokenizer that rules 4 and 5 count with.
+// It is a package var so a test can drive the two SANITIZER_TOKENIZER_FAILED
+// arms; production always gets the real cl100k_base codec.
+var budgetCodec = func() (tokenizer.Codec, error) {
+	return tokenizer.Get(tokenizer.Cl100kBase)
+}
+
 // Sanitize returns the rewritten description and any violations.
 //
 //   - toolKind ∈ {"meta","convenience"}; if empty, no token-budget rule fires.
@@ -129,7 +136,7 @@ func Sanitize(description, toolKind, riskClass string) (string, []Violation, err
 
 	// Rules 4 & 5: Token budget (only when toolKind is set)
 	if toolKind == "convenience" || toolKind == "meta" {
-		enc, err := tokenizer.Get(tokenizer.Cl100kBase)
+		enc, err := budgetCodec()
 		if err != nil {
 			return "", nil, fmt.Errorf("SANITIZER_TOKENIZER_FAILED: %w", err)
 		}

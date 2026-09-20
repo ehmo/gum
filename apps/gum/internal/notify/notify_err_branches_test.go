@@ -206,3 +206,29 @@ func TestSplitSemverNonNumericSegmentReturnsNil(t *testing.T) {
 		t.Errorf("CompareVersions(v1.x.0, v2.0.0)=%d; want 0 (malformed → equal)", got)
 	}
 }
+
+// TestCachePathRejectsInvalidProfile pins the profile-parse arm of CachePath.
+// The profile name reaches a filesystem path, so a name with a separator must
+// be refused before it is joined.
+func TestCachePathRejectsInvalidProfile(t *testing.T) {
+	path, err := notify.CachePath("bad/name")
+	if err == nil {
+		t.Fatalf("CachePath(%q) err=nil, path=%q; want a parse failure", "bad/name", path)
+	}
+	if path != "" {
+		t.Errorf("path=%q; want empty on failure", path)
+	}
+}
+
+// TestHTTPFetcherRejectsUnrequestableRepo pins the NewRequestWithContext arm.
+// A repo slug carrying a control character cannot be spliced into a URL, and
+// the fetcher must report that instead of dialling.
+func TestHTTPFetcherRejectsUnrequestableRepo(t *testing.T) {
+	_, err := notify.HTTPFetcher{}.Latest(context.Background(), "ehmo/\x7fgum")
+	if err == nil {
+		t.Fatal("Latest err=nil; want the request-build failure")
+	}
+	if !strings.Contains(err.Error(), "invalid control character") {
+		t.Errorf("err=%v; want the URL parse failure", err)
+	}
+}

@@ -26,30 +26,21 @@ var SchemaFS embed.FS
 //go:embed data/auth-managed-scopes.v1.json
 var AuthManagedScopesJSON []byte
 
-// GumOAuthClientID is the public client_id of gum's built-in managed Desktop
-// OAuth client (the "gum-oauth" Google Cloud project). It is non-confidential
-// by Google's Installed-App classification, but it is NOT committed: the managed
-// client is rotated out-of-band, so a hard-coded id goes stale the moment the
-// client is rebuilt. Like the secret, it is delivered from the HASP vault
-// (GUM_OAUTH_CLIENT_ID) and injected at build/release time via the linker, e.g.
+// GumOAuthClientID and GumOAuthClientSecret are vestigial in v1. gum owns no
+// OAuth client: no production code reads either variable, and a byo_oauth
+// variant with no operator-registered client returns
+// BYO_OAUTH_CLIENT_NOT_CONFIGURED pointing at `gum auth use-oauth-client`.
 //
-//	-ldflags "-X github.com/ehmo/gum/internal/embedded.GumOAuthClientID=$GUM_OAUTH_CLIENT_ID"
-//
-// When empty (plain dev builds, no HASP) the built-in managed client is treated
-// as unavailable and callers fall back to the registered-client (BYO) path.
-var GumOAuthClientID = ""
-
-// GumOAuthClientSecret is the managed Desktop client's secret. Google requires
-// it at the token-exchange step even for PKCE Installed-App clients, but it is
-// NEVER committed: it stays empty in source (and therefore in dev builds) and
-// is injected only at build/release time via the linker, e.g.
-//
-//	-ldflags "-X github.com/ehmo/gum/internal/embedded.GumOAuthClientSecret=$GUM_OAUTH_CLIENT_SECRET"
-//
-// from the HASP vault item GUM_OAUTH_CLIENT_SECRET. When empty (dev builds)
-// the built-in managed client is treated as unavailable and callers fall back
-// to the registered-client path.
-var GumOAuthClientSecret = ""
+// Both stay empty in every build. Release builds MUST NOT inject them through
+// ldflags, CI environment, HASP targets, or build scripts, and the names
+// GUM_OAUTH_CLIENT_ID and GUM_OAUTH_CLIENT_SECRET must not appear in any build
+// surface. They are declared only so the regression tests can set them and
+// prove that an injected managed client changes nothing: see
+// auth.TestResolveAuthIgnoresInjectedManagedClient.
+var (
+	GumOAuthClientID     = ""
+	GumOAuthClientSecret = ""
+)
 
 //go:embed data/auth-managed-scopes.v1.schema.json
 var AuthManagedScopesSchemaJSON []byte

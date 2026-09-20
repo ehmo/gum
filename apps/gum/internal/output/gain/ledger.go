@@ -1,7 +1,8 @@
 // Package gain provides the gum gain ledger: an append-only JSONL file recording
 // token-savings metrics for each dispatch invocation.
 //
-// Ledger path: ~/.local/share/gum/gain-ledger.jsonl (default; override via NewLedger).
+// Ledger path: <XDG_DATA_HOME|~/.local/share>/gum/<profile>/gain-ledger.jsonl
+// (default; override via NewLedger).
 // Rotation: the file is rotated when it exceeds 100 MB; the old file is renamed to
 // gain-ledger-<unix-timestamp>.jsonl.
 //
@@ -29,6 +30,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ehmo/gum/internal/profile"
 	"github.com/tiktoken-go/tokenizer"
 )
 
@@ -40,10 +42,37 @@ const (
 	SchemaVersion    = 1
 )
 
+// LedgerFileName is the ledger's basename inside a profile data directory.
+// Callers that know the active profile join it onto profile.Name.DataDir();
+// spec §12.3 puts the ledger at <XDG_DATA_HOME>/gum/<profile>/, one file per
+// profile, so a team profile's evidence never mixes with the default one's.
+const LedgerFileName = "gain-ledger.jsonl"
+
+// DefaultPath returns the spec §12.3 ledger path for one profile:
+// <XDG_DATA_HOME|~/.local/share>/gum/<profile>/gain-ledger.jsonl.
+//
+// The profile segment is load-bearing. Without it every profile appended to
+// one shared file, so a team profile's evidence and a personal profile's
+// evidence produced a single gain figure that described neither, and
+// `gum --profile work gain` reported calls the work profile never made.
+func DefaultPath(name profile.Name) (string, error) {
+	dir, err := name.DataDir()
+	if err != nil {
+		return "", fmt.Errorf("gain: resolve data dir: %w", err)
+	}
+	return filepath.Join(dir, LedgerFileName), nil
+}
+
 // maxLedgerSize is the soft size threshold that triggers automatic rotation
 // in Append. Declared as a package-level var (not const) so package-internal
 // tests can shrink it to exercise the rotation branch without writing 100 MB.
 var maxLedgerSize int64 = 100 * 1024 * 1024
+
+// maxLedgerLineBytes caps one JSONL record on the read path. bufio.Scanner
+// defaults to 64 KiB and stops the whole scan on a longer line, which would
+// drop every entry after an unusually long args_hash-bearing record rather
+// than just that one.
+const maxLedgerLineBytes = 4 * 1024 * 1024
 
 // Header is the first JSONL record written to every gain-ledger file
 // (spec §12.3 line "first JSONL record is a header"). It pins the
@@ -251,10 +280,68 @@ type Stats struct {
 
 // Ledger is an append-only gain ledger backed by a JSONL file.
 type Ledger struct {
-	path    string
-	file    *os.File
-	mu      sync.Mutex
+	path string
+	file *os.File
+	mu   sync.Mutex
+
+	// entries is the read-side view, populated on the first Stats call and
+	// kept current by Append thereafter. loaded distinguishes "no entries on
+	// disk" from "not read yet", so an empty ledger is not re-scanned on
+	// every Stats call.
+	loaded  bool
 	entries []Entry
+}
+
+// ensureLoadedLocked reads the on-disk ledger into l.entries once. Caller
+// must hold l.mu.
+//
+// A read error leaves l.entries empty and marks the ledger loaded: Stats has
+// no error return, and a torn line must not make `gum gain` spin re-parsing a
+// file it cannot finish.
+func (l *Ledger) ensureLoadedLocked() {
+	if l.loaded {
+		return
+	}
+	l.loaded = true
+
+	f, err := os.Open(l.path)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	if info, statErr := f.Stat(); statErr == nil && info.IsDir() {
+		return
+	}
+
+	scanner := bufio.NewScanner(f)
+	// A single entry can exceed bufio's 64 KiB default line cap once a
+	// response body's op args are long; a dropped line silently understates
+	// the savings figure.
+	scanner.Buffer(make([]byte, 0, 64*1024), maxLedgerLineBytes)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		// Skip header records; only entries contribute to Stats.
+		var head struct {
+			RecordType string `json:"record_type"`
+		}
+		if err := json.Unmarshal(line, &head); err != nil {
+			continue
+		}
+		if head.RecordType != RecordTypeEntry {
+			continue
+		}
+		var e Entry
+		if err := json.Unmarshal(line, &e); err == nil {
+			l.entries = append(l.entries, e)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		slog.Warn("gain: scan ledger", "path", l.path, "err", err)
+	}
 }
 
 // cachedCodec holds the cached tokenizer to avoid repeated initialization.
@@ -287,69 +374,48 @@ func MeasureTokensCl100k(data []byte) (int, error) {
 }
 
 // NewLedger opens (or creates) a gain ledger at path.
-// If path is "" the default path ~/.local/share/gum/gain-ledger.jsonl is used.
+// If path is "" the default profile's path (see DefaultPath) is used.
 // The parent directory is created with 0o755 permissions if it does not exist.
 //
 // A spec §12.3 header record is written as the first line of any file that
 // is empty when opened (newly created or pre-existing 0-byte).
+//
+// Opening does not read the existing file. Every dispatch opens the ledger to
+// append one line, and the ledger rotates at 100 MB, so scanning at open cost
+// every `gum call` a parse of up to 100 MB of JSONL before it did any work.
+// The Stats readers load on first use instead (see ensureLoadedLocked).
 func NewLedger(path string) (*Ledger, error) {
 	if path == "" {
-		home, err := os.UserHomeDir()
+		p, err := DefaultPath(profile.DefaultName)
 		if err != nil {
-			return nil, fmt.Errorf("gain: get home dir: %w", err)
+			return nil, err
 		}
-		path = filepath.Join(home, ".local", "share", "gum", "gain-ledger.jsonl")
+		path = p
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// Spec §12.3 stores the ledger at mode 600, matching the §11 audit log.
+	// Entries carry args hashes and the auth-subject fingerprint, so a
+	// world-readable file hands any local account the shape of this profile's
+	// traffic.
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("gain: create ledger dir: %w", err)
 	}
 
-	var entries []Entry
-	if data, err := os.Open(path); err == nil {
-		if info, statErr := data.Stat(); statErr == nil && info.IsDir() {
-			_ = data.Close()
-		} else {
-			scanner := bufio.NewScanner(data)
-			for scanner.Scan() {
-				line := scanner.Bytes()
-				if len(line) == 0 {
-					continue
-				}
-				// Skip header records; only entries contribute to Stats.
-				var head struct {
-					RecordType string `json:"record_type"`
-				}
-				if err := json.Unmarshal(line, &head); err != nil {
-					continue
-				}
-				if head.RecordType != RecordTypeEntry {
-					continue
-				}
-				var e Entry
-				if err := json.Unmarshal(line, &e); err == nil {
-					entries = append(entries, e)
-				}
-			}
-			if err := scanner.Err(); err != nil {
-				_ = data.Close()
-				return nil, fmt.Errorf("gain: scan ledger: %w", err)
-			}
-			if err := data.Close(); err != nil {
-				return nil, fmt.Errorf("gain: close ledger after scan: %w", err)
-			}
-		}
-	}
-
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("gain: open ledger: %w", err)
 	}
+	// A ledger a pre-0.1.0 gum created at 0o644 keeps that mode through
+	// O_CREATE, so tighten it explicitly rather than leaving it readable for
+	// the rest of its life. A chmod failure is not fatal: refusing to record
+	// gain would be a worse outcome than a permission gum could not narrow.
+	if cerr := f.Chmod(0o600); cerr != nil {
+		slog.Warn("gain: could not tighten ledger permissions", "path", path, "err", cerr)
+	}
 
 	l := &Ledger{
-		path:    path,
-		file:    f,
-		entries: entries,
+		path: path,
+		file: f,
 	}
 
 	if info, statErr := f.Stat(); statErr == nil && info.Size() == 0 {
@@ -397,7 +463,12 @@ func (l *Ledger) Append(e Entry) error {
 	if _, err := l.file.Write(data); err != nil {
 		return fmt.Errorf("gain: write entry: %w", err)
 	}
-	l.entries = append(l.entries, e)
+	// Only track in memory when the read side is live. Otherwise the next
+	// Stats call reads this entry back off disk, and holding it here too
+	// would double-count it.
+	if l.loaded {
+		l.entries = append(l.entries, e)
+	}
 
 	info, err := l.file.Stat()
 	if err == nil && info.Size() > maxLedgerSize {
@@ -429,7 +500,7 @@ func (l *Ledger) rotateLocked() error {
 	if err := os.Rename(l.path, rotated); err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
-	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(l.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("open new: %w", err)
 	}
@@ -440,6 +511,7 @@ func (l *Ledger) rotateLocked() error {
 // Stats computes summary statistics over all entries currently in the ledger.
 func (l *Ledger) Stats() Stats {
 	l.mu.Lock()
+	l.ensureLoadedLocked()
 	entries := make([]Entry, len(l.entries))
 	copy(entries, l.entries)
 	l.mu.Unlock()
@@ -457,6 +529,7 @@ func (l *Ledger) Stats() Stats {
 // rotate the ledger first or filter the JSONL externally.
 func (l *Ledger) StatsBetween(since, until time.Time) Stats {
 	l.mu.Lock()
+	l.ensureLoadedLocked()
 	entries := make([]Entry, 0, len(l.entries))
 	for _, e := range l.entries {
 		if !entryInWindow(e, since, until) {
@@ -474,6 +547,7 @@ func (l *Ledger) StatsBetween(since, until time.Time) Stats {
 // `gum gain --by-op` (review gum-y5wb).
 func (l *Ledger) StatsByOp(since, until time.Time) map[string]Stats {
 	l.mu.Lock()
+	l.ensureLoadedLocked()
 	byOp := make(map[string][]Entry)
 	for _, e := range l.entries {
 		if !entryInWindow(e, since, until) {
@@ -530,18 +604,12 @@ func computeStats(entries []Entry) Stats {
 	sort.Slice(savings, func(i, j int) bool { return savings[i] < savings[j] })
 
 	n := len(savings)
-	// Nearest-rank percentile (0-based): ceil(p/100 * n) - 1, clamped. The old
+	// Nearest-rank percentile (0-based): ceil(p/100 * n) - 1. The old
 	// floor(p/100 * n) was biased one rank high — e.g. for n=2 it returned the
-	// MAX as the P50. Integer ceil avoids a math import.
+	// MAX as the P50. Integer ceil avoids a math import. The clamp only
+	// matters for a p outside 1..99; the three callers below stay in range.
 	pctIdx := func(p int) int {
-		idx := (p*n+99)/100 - 1
-		if idx < 0 {
-			idx = 0
-		}
-		if idx >= n {
-			idx = n - 1
-		}
-		return idx
+		return min(max((p*n+99)/100-1, 0), n-1)
 	}
 	p50 := savings[pctIdx(50)]
 	p95 := savings[pctIdx(95)]

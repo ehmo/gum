@@ -2,6 +2,7 @@ package adapters_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -22,16 +23,19 @@ func TestCodeRunnerExecuteNilArgsTreatedAsEmpty(t *testing.T) {
 	inv := &dispatch.Invocation{OpID: "gum.code", Args: nil}
 	_, err := cr.Execute(context.Background(), inv, minimalCodeVariant(), nil)
 	if err == nil {
-		t.Fatal("Execute(nil args)=nil err; want LANGUAGE_NOT_SUPPORTED")
+		t.Fatal("Execute(nil args)=nil err; want INVALID_ARGS")
 	}
 	// Empty args → language == "" → fails the "must be risor" check.
-	if !strings.Contains(err.Error(), "LANGUAGE_NOT_SUPPORTED") {
-		t.Errorf("err=%q; want LANGUAGE_NOT_SUPPORTED (proves nil-args was normalized to empty map and the language guard fired)", err)
+	if !dispatch.IsStructuredError(err, dispatch.ErrCodeInvalidArgs) {
+		t.Errorf("err=%q; want INVALID_ARGS (proves nil-args was normalized to empty map and the language guard fired)", err)
+	}
+	if !strings.Contains(err.Error(), "only risor") {
+		t.Errorf("err=%q; want the language guard's message, not the source guard's", err)
 	}
 }
 
 // TestCodeRunnerExecuteRejectsNonRisorLanguage pins the
-// `language != "risor" → LANGUAGE_NOT_SUPPORTED` guard. v0.1.0 is
+// `language != "risor" → INVALID_ARGS` guard. v0.1.0 is
 // Risor-only; the guard makes that contract visible to the caller
 // (operators may set `language: "python"` expecting future support).
 // Without the guard the empty-source path would surface a
@@ -44,10 +48,20 @@ func TestCodeRunnerExecuteRejectsNonRisorLanguage(t *testing.T) {
 	}
 	_, err := cr.Execute(context.Background(), inv, minimalCodeVariant(), nil)
 	if err == nil {
-		t.Fatal("Execute(python)=nil err; want LANGUAGE_NOT_SUPPORTED")
+		t.Fatal("Execute(python)=nil err; want INVALID_ARGS")
 	}
-	if !strings.Contains(err.Error(), "LANGUAGE_NOT_SUPPORTED") {
-		t.Errorf("err=%q; want LANGUAGE_NOT_SUPPORTED", err)
+	var se *dispatch.StructuredError
+	if !errors.As(err, &se) {
+		t.Fatalf("err=%T (%v); want a *dispatch.StructuredError the caller can branch on", err, err)
+	}
+	if se.ErrCode != dispatch.ErrCodeInvalidArgs {
+		t.Errorf("error_code=%q; want INVALID_ARGS", se.ErrCode)
+	}
+	if se.Detail["field"] != "language" {
+		t.Errorf("detail field=%v; want language so the agent knows which arg to fix", se.Detail["field"])
+	}
+	if se.Detail["value"] != "python" {
+		t.Errorf("detail value=%v; want the rejected language echoed back", se.Detail["value"])
 	}
 }
 

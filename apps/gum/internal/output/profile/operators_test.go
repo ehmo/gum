@@ -299,9 +299,9 @@ func TestApplyTruncateStringsDefault(t *testing.T) {
 	if !ok {
 		t.Fatalf("truncate_strings: expected 'a' to be a string, got %T", m["a"])
 	}
-	// Must be truncated to 5 chars with truncation marker "…".
-	if !strings.HasPrefix(val, "abcde") {
-		t.Errorf("truncate_strings default: first 5 chars must be 'abcde', got %q", val)
+	// Must be clamped to 5 runes total, the last of which is the "…" marker.
+	if val != "abcd…" {
+		t.Errorf("truncate_strings default: want abcd… (5 runes including the marker), got %q", val)
 	}
 	if !strings.Contains(val, "…") {
 		t.Errorf("truncate_strings default: truncation marker '…' must be present in %q", val)
@@ -407,8 +407,9 @@ func TestApplyDedupeByStableKey(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestApplyOnEmptySentinelFires verifies that on_empty="No results." is
-// surfaced when the pipeline produces an empty array. The response body
-// must contain the sentinel string.
+// surfaced when the pipeline produces an empty array. The string reaches the
+// caller as ApplyOutput.OnEmptyMessage, which dispatch copies to
+// _expression.on_empty_message (spec §9.1 rule 2). It never replaces the body.
 // Spec: expression-profile-dsl.md Field Reference: on_empty.
 func TestApplyOnEmptySentinelFires(t *testing.T) {
 	p := &profile.Profile{
@@ -425,9 +426,14 @@ func TestApplyOnEmptySentinelFires(t *testing.T) {
 		t.Fatalf("Apply on_empty: %v", err)
 	}
 
-	bodyStr := string(out.Body)
-	if !strings.Contains(bodyStr, "No results.") {
-		t.Errorf("on_empty: output body must contain sentinel %q, got: %s", "No results.", bodyStr)
+	if out.OnEmptyMessage != "No results." {
+		t.Errorf("on_empty: OnEmptyMessage = %q, want %q", out.OnEmptyMessage, "No results.")
+	}
+	if out.ResultCount != 0 {
+		t.Errorf("on_empty: ResultCount = %d, want 0", out.ResultCount)
+	}
+	if string(out.Body) != "[]" {
+		t.Errorf("on_empty: body = %q, want %q; the sentinel rides the envelope, not the payload", out.Body, "[]")
 	}
 }
 

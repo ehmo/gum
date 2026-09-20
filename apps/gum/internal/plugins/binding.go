@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -10,9 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/ehmo/gum/internal/plugins/registry"
 )
 
 // ErrExecutableUntrusted is the host-side rendering of the spec §11 sentinel
@@ -125,33 +121,4 @@ func equalDigest(got, want string) bool {
 		return s
 	}
 	return clean(got) == clean(want)
-}
-
-// QuarantinePlugin records a runtime quarantine in plugin-state.json under
-// the spec §8.7 protocol: set quarantined=true, quarantined_at=now (RFC 3339
-// UTC), last_error_code=<sentinel>. The mutation runs inside a registry
-// write transaction so it shares one (install_generation, install_txid) pair
-// with the other two files.
-//
-// If the plugin row is absent (e.g. a stray quarantine call), QuarantinePlugin
-// returns nil — the operator has presumably removed the install already and
-// there is nothing to mark.
-func QuarantinePlugin(ctx context.Context, reg *registry.Registry, pluginName, errorCode string) error {
-	return reg.WriteTransaction(ctx, func(f *registry.Files) error {
-		for i, raw := range f.State.Plugins {
-			m, ok := raw.(map[string]any)
-			if !ok {
-				continue
-			}
-			if name, _ := m["name"].(string); name != pluginName {
-				continue
-			}
-			m["quarantined"] = true
-			m["quarantined_at"] = time.Now().UTC().Format(time.RFC3339)
-			m["last_error_code"] = errorCode
-			f.State.Plugins[i] = m
-			return nil
-		}
-		return nil
-	})
 }

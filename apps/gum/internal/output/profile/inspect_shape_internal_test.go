@@ -27,7 +27,7 @@ func TestInspectShapeBranches(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rc, oc := inspectShape([]byte(tc.body), ApplyOutput{})
+			rc, oc := inspectShape([]byte(tc.body))
 			if rc != tc.wantRc || oc != tc.wantOc {
 				t.Errorf("inspectShape(%q) = (%d,%d); want (%d,%d)",
 					tc.body, rc, oc, tc.wantRc, tc.wantOc)

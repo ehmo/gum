@@ -21,29 +21,11 @@ const StatusInstalledPendingRestart = "installed_pending_restart"
 // PromotePendingRestart.
 const StatusActive = "active"
 
-// MarkInstalledPendingRestart writes (or updates) the plugin-state.json row
-// for pluginName with status=installed_pending_restart and installed_at=now.
-// Existing supervisor fields (quarantined, retry_count, backoff_step) are
-// left untouched so a re-install does not silently clear quarantine.
-//
-// Spec §8.7: a newly installed plugin is inventory-visible (a row exists)
-// but not runtime-active (status pins it out of completions) until the next
-// process boot.
-func MarkInstalledPendingRestart(ctx context.Context, reg *registry.Registry, pluginName string, now time.Time) error {
-	return reg.WriteTransaction(ctx, func(f *registry.Files) error {
-		row, idx := findOrAppendRow(f, pluginName)
-		row["status"] = StatusInstalledPendingRestart
-		if _, ok := row["installed_at"]; !ok {
-			row["installed_at"] = now.UTC().Format(time.RFC3339)
-		}
-		// re-installing a previously active plugin must demote it back to
-		// pending so the running process keeps dispatching the old code path
-		// (it does not pick up the new binary until the next boot).
-		delete(row, "activated_at")
-		f.State.Plugins[idx] = row
-		return nil
-	})
-}
+// StatusNeedsConfiguration marks a plugin whose manifest declares
+// needs_user_creds that no `gum plugin setup` run has stored yet. Boot
+// promotion skips these rows: the credential prompt and its live canary are
+// what clear the status (spec §8.7 step 2 + §7).
+const StatusNeedsConfiguration = "needs_configuration"
 
 // PromotePendingRestart scans plugin-state.json and flips every row whose
 // status is installed_pending_restart to status=active, stamping
@@ -53,15 +35,21 @@ func MarkInstalledPendingRestart(ctx context.Context, reg *registry.Registry, pl
 // Returns the names of promoted plugins so the caller can log a structured
 // "plugin promoted" event per row.
 func PromotePendingRestart(ctx context.Context, reg *registry.Registry, now time.Time) ([]string, error) {
+	// Every startup calls this, so a registry with nothing to promote must not
+	// take the install lock or burn an install_generation.
+	pending, err := hasPendingRestart(reg)
+	if err != nil || !pending {
+		return nil, err
+	}
+
 	var promoted []string
-	err := reg.WriteTransaction(ctx, func(f *registry.Files) error {
+	err = reg.WriteTransaction(ctx, func(f *registry.Files) error {
 		for i, raw := range f.State.Plugins {
 			row, ok := raw.(map[string]any)
 			if !ok {
 				continue
 			}
-			status, _ := row["status"].(string)
-			if status != StatusInstalledPendingRestart {
+			if !promotableAtStartup(row) {
 				continue
 			}
 			name, _ := row["name"].(string)
@@ -77,48 +65,34 @@ func PromotePendingRestart(ctx context.Context, reg *registry.Registry, now time
 	return promoted, err
 }
 
-// ActivePluginNames returns the plugin names currently eligible for runtime
-// dispatch — every row whose status is anything other than
-// installed_pending_restart. Quarantined plugins are still returned by this
-// helper (the supervisor decides whether to spawn them); only the
-// pending-restart filter is applied here.
-//
-// Used by the MCP roster filter (gum.search_apis, completion handlers) and
-// by callers that need to honour spec §8.7's "not invokable until restart"
-// rule without re-implementing the JSON scan.
-func ActivePluginNames(reg *registry.Registry) ([]string, error) {
+// hasPendingRestart reports whether any row is promotable, reading the files
+// directly so the caller can skip the write transaction entirely.
+func hasPendingRestart(reg *registry.Registry) (bool, error) {
 	files, err := reg.Load()
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	var out []string
 	for _, raw := range files.State.Plugins {
 		row, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		status, _ := row["status"].(string)
-		if status == StatusInstalledPendingRestart {
-			continue
-		}
-		if name, _ := row["name"].(string); name != "" {
-			out = append(out, name)
+		if promotableAtStartup(row) {
+			return true, nil
 		}
 	}
-	return out, nil
+	return false, nil
 }
 
-// InventoryPluginNames returns every plugin name in plugin-state.json,
-// including installed_pending_restart rows, sorted by name. Callers that also
-// need the quarantine state use InventoryRows.
-func InventoryPluginNames(reg *registry.Registry) ([]string, error) {
-	rows, err := InventoryRows(reg)
-	if err != nil {
-		return nil, err
+// promotableAtStartup is the spec §8.7 startup-activation filter: a
+// pending-restart row that is not quarantined. A quarantined plugin keeps its
+// pending status so the operator clears the quarantine first; promoting it
+// would hand the supervisor a row that claims to be active and still refuses
+// to spawn. needs_configuration rows carry a different status and never match.
+func promotableAtStartup(row map[string]any) bool {
+	if status, _ := row["status"].(string); status != StatusInstalledPendingRestart {
+		return false
 	}
-	var out []string
-	for _, r := range rows {
-		out = append(out, r.Name)
-	}
-	return out, nil
+	quarantined, _ := row["quarantined"].(bool)
+	return !quarantined
 }

@@ -117,3 +117,94 @@ func TestAllScopesEmptyCatalog(t *testing.T) {
 		t.Fatalf("AllScopes(empty) = %v, want nil", got)
 	}
 }
+
+// serviceScopeCatalog builds a catalog whose ops carry a Service, so the
+// service-filtered union can be asserted. drive deliberately declares an empty
+// scope string and a duplicate of the sheets scope.
+func serviceScopeCatalog() *catalog.Catalog {
+	return &catalog.Catalog{
+		CatalogSchemaVersion: 1,
+		Ops: []catalog.Op{
+			{
+				OpID:             "drive.files.list",
+				Service:          "drive",
+				DefaultVariantID: "drive.files.list.v1",
+				Variants: []catalog.Variant{
+					{VariantID: "drive.files.list.v1", Scopes: []string{"https://www.googleapis.com/auth/drive.readonly", ""}},
+					{VariantID: "drive.files.list.v2", Scopes: []string{"https://www.googleapis.com/auth/spreadsheets"}},
+				},
+			},
+			{
+				OpID:             "sheets.values.get",
+				Service:          "sheets",
+				DefaultVariantID: "sheets.values.get.v1",
+				Variants: []catalog.Variant{
+					{VariantID: "sheets.values.get.v1", Scopes: []string{"https://www.googleapis.com/auth/spreadsheets"}},
+				},
+			},
+			{
+				OpID:             "plugin.thing",
+				Service:          "plugin",
+				DefaultVariantID: "plugin.thing.v1",
+				Variants:         []catalog.Variant{{VariantID: "plugin.thing.v1"}},
+			},
+		},
+	}
+}
+
+// TestScopesForServicesUnionsRequestedServicesOnly verifies the helper unions
+// every variant scope of the named services, dedupes, sorts, and drops ops from
+// services the caller did not ask for.
+func TestScopesForServicesUnionsRequestedServicesOnly(t *testing.T) {
+	got := serviceScopeCatalog().ScopesForServices([]string{"drive"})
+	want := []string{
+		"https://www.googleapis.com/auth/drive.readonly",
+		"https://www.googleapis.com/auth/spreadsheets",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ScopesForServices([drive]) = %v, want %v", got, want)
+	}
+}
+
+// TestScopesForServicesDedupesAcrossServices verifies a scope shared by two
+// requested services appears once.
+func TestScopesForServicesDedupesAcrossServices(t *testing.T) {
+	got := serviceScopeCatalog().ScopesForServices([]string{"drive", "sheets"})
+	want := []string{
+		"https://www.googleapis.com/auth/drive.readonly",
+		"https://www.googleapis.com/auth/spreadsheets",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ScopesForServices([drive sheets]) = %v, want %v", got, want)
+	}
+}
+
+// TestScopesForServicesScopelessServiceReturnsNil verifies a service whose ops
+// declare no scopes yields nil, so `gum login --service` can skip the consent
+// screen instead of opening an empty one.
+func TestScopesForServicesScopelessServiceReturnsNil(t *testing.T) {
+	if got := serviceScopeCatalog().ScopesForServices([]string{"plugin"}); got != nil {
+		t.Fatalf("ScopesForServices([plugin]) = %v, want nil", got)
+	}
+}
+
+// TestScopesForServicesUnknownServiceReturnsNil verifies an unmatched service
+// name yields nil rather than the full catalog union.
+func TestScopesForServicesUnknownServiceReturnsNil(t *testing.T) {
+	if got := serviceScopeCatalog().ScopesForServices([]string{"nosuchservice"}); got != nil {
+		t.Fatalf("ScopesForServices([nosuchservice]) = %v, want nil", got)
+	}
+}
+
+// TestAllScopesSkipsEmptyScopeStrings verifies an empty scope entry never
+// reaches the consent screen as a blank scope.
+func TestAllScopesSkipsEmptyScopeStrings(t *testing.T) {
+	got := serviceScopeCatalog().AllScopes()
+	want := []string{
+		"https://www.googleapis.com/auth/drive.readonly",
+		"https://www.googleapis.com/auth/spreadsheets",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("AllScopes() = %v, want %v", got, want)
+	}
+}

@@ -44,7 +44,7 @@ fmt-check:
 # with a binary that can actually execute.
 lint:
 	golangci-lint run ./...
-	@GOOS= GOARCH= go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+	@GOOS= GOARCH= go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
 	@"$$(GOOS= GOARCH= go env GOPATH)"/bin/staticcheck ./...
 
 test-matrix:

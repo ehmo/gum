@@ -19,12 +19,12 @@ func TestSetupCredentialsPromptAndStoreErrorWrapsWithAlias(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
 		Alias:       "session",
-		Env:         "GUM_SECRET_ENV", // raw env var that MUST NOT appear in errors
+		Env:         "PLUG_SECRET_ENV", // raw env var that MUST NOT appear in errors
 		Kind:        "session",
 		DisplayName: "Session",
 		SetupHint:   "see docs",
 	}}
-	writeTestManifest(t, installRoot, "p", []string{"GUM_SECRET_ENV"}, descs)
+	writeTestManifest(t, installRoot, "p", []string{"PLUG_SECRET_ENV"}, descs)
 
 	err := SetupCredentials(context.Background(), "p", SetupOptions{
 		Registry:    registry.New(t.TempDir()),
@@ -40,7 +40,7 @@ func TestSetupCredentialsPromptAndStoreErrorWrapsWithAlias(t *testing.T) {
 	if !strings.Contains(err.Error(), "session") {
 		t.Errorf("err=%v; want credential alias 'session' in wrap", err)
 	}
-	if strings.Contains(err.Error(), "GUM_SECRET_ENV") {
+	if strings.Contains(err.Error(), "PLUG_SECRET_ENV") {
 		t.Errorf("err leaks raw env var name: %v", err)
 	}
 }
@@ -54,11 +54,11 @@ func TestSetupCredentialsCanaryNilUsesDefaultSuccess(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
 		Alias:       "session",
-		Env:         "GUM_SECRET_ENV",
+		Env:         "PLUG_SECRET_ENV",
 		Kind:        "session",
 		DisplayName: "Session",
 	}}
-	writeTestManifest(t, installRoot, "p", []string{"GUM_SECRET_ENV"}, descs)
+	writeTestManifest(t, installRoot, "p", []string{"PLUG_SECRET_ENV"}, descs)
 
 	reg := registry.New(t.TempDir())
 	err := SetupCredentials(context.Background(), "p", SetupOptions{

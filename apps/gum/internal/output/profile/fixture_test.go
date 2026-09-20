@@ -13,7 +13,7 @@ import (
 // section headers and accumulates fields into Profile.Tests (spec §12.1,
 // docs/expression-profile-dsl.md "Test Format").
 func TestParserAcceptsTestsBlock(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 limit = 2
 
 [[tests]]
@@ -63,7 +63,7 @@ expect_fields = ["id", "name"]
 // TestParserAcceptsMultipleTestsBlocks verifies that multiple [[tests]] blocks
 // accumulate into Profile.Tests in declaration order.
 func TestParserAcceptsMultipleTestsBlocks(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "first"
@@ -88,7 +88,7 @@ fixture = "b.json"
 // TestParserRejectsUnknownTestsKey verifies that unknown keys inside [[tests]]
 // blocks are rejected to match the strict-DSL contract.
 func TestParserRejectsUnknownTestsKey(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "x"
@@ -106,7 +106,7 @@ expect_galaxy = 7
 // TestParserRejectsUnknownSectionHeader verifies that section headers other
 // than [[tests]] are rejected (no silent acceptance of mistyped tables).
 func TestParserRejectsUnknownSectionHeader(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 [unknown_section]
 key = "value"
 `
@@ -168,7 +168,7 @@ func TestRunFixturesGmailList(t *testing.T) {
 // shaped output exceeds expect_max_tokens fails with a ceiling-violation entry
 // and increments TokenBudget.CeilingViolations.
 func TestRunFixturesDetectsTokenCeilingViolation(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "tiny ceiling"

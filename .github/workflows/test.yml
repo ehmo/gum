@@ -52,7 +52,7 @@ jobs:
         run: GOOS=darwin GOARCH=arm64 go vet ./...
       - name: staticcheck
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
           "$(go env GOPATH)"/bin/staticcheck ./...
       # vet and staticcheck both miss unchecked errors; errcheck (bundled in
       # golangci-lint's default set) is what found the dropped json.Unmarshal

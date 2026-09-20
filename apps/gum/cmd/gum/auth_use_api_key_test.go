@@ -13,7 +13,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,10 +148,11 @@ func TestAuthUseAPIKeyFromFileMissingFails(t *testing.T) {
 }
 
 // TestAuthUseAPIKeyKeyringUnavailableFallback pins the no-backend
-// branch: when StoreAPIKey fails, the CLI prints env-var instructions
-// and MUST NOT echo the key bytes.
+// branch: on a platform with no keychain at all, the CLI prints env-var
+// instructions, exits 0, and MUST NOT echo the key bytes. Every other keychain
+// fault exits non-zero instead — see TestSecretStoreFailureExitsNonZero.
 func TestAuthUseAPIKeyKeyringUnavailableFallback(t *testing.T) {
-	keyringlib.MockInitWithError(errors.New("backend unavailable"))
+	keyringlib.MockInitWithError(keyringlib.ErrUnsupportedPlatform)
 	t.Cleanup(keyringlib.MockInit)
 
 	const key = "AIza-keyring-down-secret"

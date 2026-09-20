@@ -20,7 +20,7 @@ func TestMCPCompletions(t *testing.T) {
 	ctx, cs, _, cleanup := connectResourceClient(t)
 	defer cleanup()
 
-	// Empty prefix → all eight topics in sorted order.
+	// Empty prefix → every topic in sorted order.
 	all := topics.Names()
 	sort.Strings(all)
 	res, err := cs.Complete(ctx, &sdkmcp.CompleteParams{

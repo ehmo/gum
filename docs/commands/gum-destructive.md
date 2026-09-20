@@ -27,6 +27,7 @@ gum destructive <op_id> [flags]
 | `--args` | `string` |  | JSON object of op arguments |
 | `--confirmed` | `bool` | false | Set the confirmed flag |
 | `--format` | `string` |  | Output format (toon\|json\|raw) |
+| `--max-items` | `string` |  | Result cap for this call: a positive integer, or "all" for every result (default: the profile's cap) |
 | `-o`<br>`--output` | `string` |  | Human output format: table\|json\|toon\|csv\|markdown\|raw\|value(<path>) (default: kernel TOON) |
 | `--token` | `string` |  | HMAC-SHA256 confirmation token |
 | `--log-format` | `string` | json | Log format: json\|text |

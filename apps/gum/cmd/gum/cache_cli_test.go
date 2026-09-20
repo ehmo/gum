@@ -595,10 +595,12 @@ func TestCacheMigrateHomeFallback(t *testing.T) {
 	}
 }
 
-// TestCacheMigrateRsyncAmbiguityWithoutForce confirms the CLI surfaces
-// the spec §10.2 rsync-ambiguity error as a JSON envelope with
-// ok=false + error=RSYNC_AMBIGUITY (no shell error so scripts can
-// branch on the envelope).
+// TestCacheMigrateRsyncAmbiguityWithoutForce confirms the CLI surfaces the
+// spec §10.2 rsync-ambiguity error as a JSON envelope with ok=false +
+// error=RSYNC_AMBIGUITY, AND exits non-zero. The envelope alone is not enough:
+// the migration did not run, so `gum cache migrate || handle-failure` must see
+// a failure. An earlier revision returned nil here, which reported success to
+// every script that checked the exit code rather than parsing stdout.
 func TestCacheMigrateRsyncAmbiguityWithoutForce(t *testing.T) {
 	root := withTempCacheRootCLI(t)
 	profileDir := filepath.Join(root, "gum", "default")
@@ -615,17 +617,27 @@ func TestCacheMigrateRsyncAmbiguityWithoutForce(t *testing.T) {
 	_ = s.Close()
 
 	out, err := runCLI(t, "cache", "migrate")
-	if err != nil {
-		t.Fatalf("gum cache migrate (ambiguous): unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("gum cache migrate (ambiguous) exited 0; stdout: %q", out)
 	}
 	var result map[string]any
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("stdout JSON parse: %v\nstdout: %q", err, out)
+	if jerr := json.Unmarshal([]byte(out), &result); jerr != nil {
+		t.Fatalf("stdout JSON parse: %v\nstdout: %q", jerr, out)
 	}
 	if ok, _ := result["ok"].(bool); ok {
 		t.Errorf("ok=true on ambiguity; want false")
 	}
 	if got, _ := result["error"].(string); got != "RSYNC_AMBIGUITY" {
 		t.Errorf("error=%q; want RSYNC_AMBIGUITY", got)
+	}
+	if hint, _ := result["hint"].(string); !strings.Contains(hint, "--force") {
+		t.Errorf("hint=%q; want it to name --force", hint)
+	}
+	// A refused migration must not mutate the cache directory.
+	if _, statErr := os.Stat(filepath.Join(profileDir, "http.db")); statErr != nil {
+		t.Errorf("http.db removed on a refused migration: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(profileDir, "http-wal.db")); statErr != nil {
+		t.Errorf("http-wal.db removed on a refused migration: %v", statErr)
 	}
 }

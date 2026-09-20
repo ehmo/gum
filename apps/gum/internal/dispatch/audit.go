@@ -115,9 +115,6 @@ func successAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[s
 	if riskOverride && riskOverrideReason != nil {
 		entry["risk_override_reason"] = riskOverrideReason
 	}
-	if inv.OutputProfile != nil && inv.OutputProfile.FieldMaskMode == "dual_fetch" {
-		entry["dual_fetch"] = true
-	}
 	return entry
 }
 

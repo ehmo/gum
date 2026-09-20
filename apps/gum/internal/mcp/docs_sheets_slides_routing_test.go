@@ -6,8 +6,11 @@
 //  1. Resolve to the right catalog op_id so dispatch.resolveVariant finds
 //     a variant — the missing-op smoke test fails with OP_NOT_FOUND before
 //     gum-45d ships these catalog entries.
-//  2. Forward the spec's required args verbatim so the typed-rest-sdk
-//     adapter can stamp the URL path placeholders.
+//  2. Forward the spec's required args under the names the op declares, so the
+//     typed-rest-sdk adapter can stamp the URL path placeholders. Arguments
+//     the op reads from the request body arrive under the reserved "body"
+//     key: docs_create's `document` is the body, sheets_write's `values` is
+//     one body field.
 //
 // We don't exercise the live REST executor (that needs BYO OAuth + the
 // network — that part of the spec acceptance lives in gum-45d's smoke-test
@@ -20,6 +23,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -41,16 +45,30 @@ func (d *workspaceCapturingDispatcher) Dispatch(_ context.Context, inv *dispatch
 	return &dispatch.ShapedResponse{Body: []byte(`{}`)}, nil
 }
 
+// sortedKeys returns a map's keys in a stable order so a failure message is
+// reproducible.
+func sortedKeys(m map[string]any) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // TestDocsSheetsSlidesConvenienceRouting drives every gum-45d convenience
 // handler with the spec's required-arg payload and pins the captured op_id
-// to the spec §4.1 row. Forwards-only assertion on args — the convenience
-// layer does not transform field names; the typed-rest-sdk adapter does.
+// to the spec §4.1 row. Path and query args forward under their own names;
+// body args land under the reserved "body" key, which wantBodyField pins.
 func TestDocsSheetsSlidesConvenienceRouting(t *testing.T) {
 	cases := []struct {
 		tool        string
 		wantOpID    string
 		args        string
 		requiredArg string
+		// wantBodyField names a field that must appear inside the folded
+		// "body" object. Empty means the tool sends no body.
+		wantBodyField string
 	}{
 		{
 			tool:        "docs_get",
@@ -62,10 +80,11 @@ func TestDocsSheetsSlidesConvenienceRouting(t *testing.T) {
 			// Write tools must include confirmed:true to clear the REQUIRES_
 			// CONFIRMATION gate (spec §4.1 / §6.1); without it the convenience
 			// handler short-circuits before Dispatch is reached.
-			tool:        "docs_create",
-			wantOpID:    "docs.documents.create",
-			args:        `{"document":{"title":"Draft"},"confirmed":true}`,
-			requiredArg: "document",
+			tool:          "docs_create",
+			wantOpID:      "docs.documents.create",
+			args:          `{"document":{"title":"Draft"},"confirmed":true}`,
+			requiredArg:   "body",
+			wantBodyField: "title",
 		},
 		{
 			tool:        "sheets_read",
@@ -74,10 +93,11 @@ func TestDocsSheetsSlidesConvenienceRouting(t *testing.T) {
 			requiredArg: "spreadsheetId",
 		},
 		{
-			tool:        "sheets_write",
-			wantOpID:    "sheets.spreadsheets.values.update",
-			args:        `{"spreadsheetId":"SS1","range":"Sheet1!A1","values":[["x"]],"confirmed":true}`,
-			requiredArg: "values",
+			tool:          "sheets_write",
+			wantOpID:      "sheets.spreadsheets.values.update",
+			args:          `{"spreadsheetId":"SS1","range":"Sheet1!A1","values":[["x"]],"confirmed":true}`,
+			requiredArg:   "body",
+			wantBodyField: "values",
 		},
 		{
 			tool:        "slides_get",
@@ -104,9 +124,19 @@ func TestDocsSheetsSlidesConvenienceRouting(t *testing.T) {
 			if disp.gotOpID != tc.wantOpID {
 				t.Errorf("dispatcher saw op_id=%q; want %q (spec §4.1)", disp.gotOpID, tc.wantOpID)
 			}
-			if _, ok := disp.gotArgs[tc.requiredArg]; !ok {
-				t.Errorf("Invocation.Args missing required arg %q for tool %q (forward-verbatim contract)",
-					tc.requiredArg, tc.tool)
+			got, ok := disp.gotArgs[tc.requiredArg]
+			if !ok {
+				t.Fatalf("Invocation.Args missing required arg %q for tool %q", tc.requiredArg, tc.tool)
+			}
+			if tc.wantBodyField == "" {
+				return
+			}
+			body, isObj := got.(map[string]any)
+			if !isObj {
+				t.Fatalf("%s: Args[%q] is %T; want map[string]any", tc.tool, tc.requiredArg, got)
+			}
+			if _, ok := body[tc.wantBodyField]; !ok {
+				t.Errorf("%s: body missing field %q; got keys %v", tc.tool, tc.wantBodyField, sortedKeys(body))
 			}
 		})
 	}

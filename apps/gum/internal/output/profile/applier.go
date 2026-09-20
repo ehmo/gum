@@ -1,13 +1,21 @@
 package profile
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/ehmo/gum/internal/output/render"
 	"github.com/ehmo/gum/internal/output/toon"
 )
+
+// occurrenceCountKey is the field stage 7 writes on the surviving row of a
+// collapsed duplicate group, carrying how many rows shared its key (spec §9.1
+// stage 7). It sits beside collapse_arrays' "<field>_omitted_count" siblings:
+// both put the count of what went missing in the body that lost it.
+const occurrenceCountKey = "occurrence_count"
 
 // ApplyInput carries the raw executor response body and the user-requested output
 // format (from Invocation.Format).
@@ -18,6 +26,58 @@ type ApplyInput struct {
 	// UserFormat is the format requested by the caller: "toon", "json", "raw", or "".
 	// When non-empty it overrides Profile.DefaultFormat.
 	UserFormat string
+
+	// MaxItems, when set, replaces the profile's collapse_arrays.max_items for
+	// this one call. The zero value leaves the profile's own rule in force.
+	MaxItems MaxItemsOverride
+}
+
+// MaxItemsMode selects where the collapse_arrays cap comes from for one
+// invocation.
+type MaxItemsMode int
+
+const (
+	// MaxItemsFromProfile leaves the active profile's collapse_arrays rule in
+	// force. It is the zero value, so an invocation that says nothing about
+	// the cap keeps the shipped behaviour.
+	MaxItemsFromProfile MaxItemsMode = iota
+
+	// MaxItemsLimit caps arrays at MaxItemsOverride.Value, whether or not the
+	// profile declares a cap of its own.
+	MaxItemsLimit
+
+	// MaxItemsUnlimited removes the cap for this invocation.
+	MaxItemsUnlimited
+)
+
+// MaxItemsOverride is a per-invocation replacement for the active profile's
+// collapse_arrays.max_items.
+//
+// A profile cap keeps an unbounded upstream array out of an LLM context
+// window. It is the wrong default for a batch op the caller already bounded:
+// a 245-keyword generateKeywordHistoricalMetrics request capped at 100
+// returned 100 results, and the only format that returned all 243 was raw,
+// which carries no adapter annotations (gum-pmbp).
+type MaxItemsOverride struct {
+	Mode  MaxItemsMode
+	Value int
+}
+
+// CollapsedArray records one array that collapse_arrays truncated, so a
+// presentation layer can report how many records are missing and name the
+// sibling key that holds the count.
+type CollapsedArray struct {
+	// Field is the response key whose array was truncated. Empty when the
+	// whole body was an array and collapse wrapped it in {items, omitted_count}.
+	Field string
+
+	// CountKey is the key carrying the omitted count in the shaped body:
+	// "<field>_omitted_count", or "omitted_count" for a bare array body.
+	CountKey string
+
+	// Kept and Omitted sum to the number of elements the upstream returned.
+	Kept    int
+	Omitted int
 }
 
 // ApplyOutput is the result of applying an expression profile to a response body.
@@ -52,6 +112,51 @@ type ApplyOutput struct {
 	// smaller (gum-bpx0). Presentation layers name these paths so the caller
 	// knows to re-run with --format raw or read the recovery artifact.
 	DroppedPaths []string
+
+	// CollapsedArrays lists the arrays collapse_arrays truncated, sorted by
+	// field name. Empty when nothing was truncated.
+	//
+	// The count is already in the body as <field>_omitted_count, but a notice
+	// that names only the removed fields points the reader at the smaller
+	// problem: dropping 143 of 243 results deserves at least equal billing
+	// (gum-pmbp).
+	CollapsedArrays []CollapsedArray
+
+	// Shaped is the shaped value as an in-memory tree, before encoding.
+	//
+	// A presentation layer that hands a caller structured data needs the
+	// shaped tree, not the upstream one. MCP structuredContent was built from
+	// the raw response body, so a client that read it saw every field the
+	// profile had removed and none of the token saving (spec §9.1, §13).
+	Shaped any
+
+	// ResultCount is the number of records the shaped body carries.
+	// OmittedCount totals the omitted counts the body reports. They feed
+	// _expression.result_count and _expression.omitted_count (spec §9.1).
+	ResultCount  int
+	OmittedCount int
+
+	// OnEmptyMessage is the profile's on_empty string, set only when the
+	// shaped body carries an empty record set. Spec §9.1 rule 2 emits it as
+	// _expression.on_empty_message.
+	OnEmptyMessage string
+
+	// Lossy is true when the profile ran at least one stage that can remove
+	// data. It feeds _expression.lossy.
+	Lossy bool
+
+	// IntentionalZeroMaxItems is true when the collapse cap in force for this
+	// call is 0, so the profile dropped every row on purpose. Spec §9.1
+	// discriminator 5 needs it to tell that apart from an upstream empty
+	// response.
+	IntentionalZeroMaxItems bool
+
+	// DedupedRows and LimitedRows count the rows stage 7 collapsed as
+	// duplicates and the rows the profile's limit cut. Neither stage writes a
+	// count into the body the way collapse_arrays does, so the notice is the
+	// only place the caller learns of them (spec §9.1 shaping notice).
+	DedupedRows int
+	LimitedRows int
 }
 
 // Apply applies profile p to in and returns the shaped output.
@@ -60,14 +165,27 @@ type ApplyOutput struct {
 func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 	bytesIn := len(in.Body)
 
-	// Raw bypass: return as-is.
+	// Raw bypass: return as-is. The counts still come from the body, because
+	// _expression.result_count is required on every result (spec §9.1 rule 3)
+	// and a raw pass-through is the one shape whose record count is exactly
+	// what upstream sent. A body that is not JSON leaves them at zero.
 	if in.UserFormat == "raw" {
+		var raw any
+		dec := json.NewDecoder(bytes.NewReader(in.Body))
+		dec.UseNumber()
+		if err := dec.Decode(&raw); err != nil {
+			raw = nil
+		}
+		count, _, omitted := shapeCounts(raw)
 		return ApplyOutput{
 			Body:           in.Body,
 			Format:         "raw",
 			ProfileApplied: false,
 			BytesIn:        bytesIn,
 			BytesOut:       bytesIn,
+			Shaped:         raw,
+			ResultCount:    count,
+			OmittedCount:   omitted,
 		}, nil
 	}
 
@@ -82,12 +200,20 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 			ProfileApplied: false,
 			BytesIn:        bytesIn,
 			BytesOut:       2,
+			Shaped:         map[string]any{},
 		}, nil
 	}
 
-	// Parse body as JSON.
+	// Parse body as JSON. UseNumber keeps every number as its original literal
+	// instead of a float64: float64 holds 53 bits of integer, so a Google Ads
+	// customer id or a YouTube view count above 2^53 came back out of the
+	// pipeline as a different number, and two distinct ids could collide into
+	// one dedupe key. json.Number marshals back to the same digits, and the
+	// numeric comparators below read it through toFloat.
+	dec := json.NewDecoder(bytes.NewReader(in.Body))
+	dec.UseNumber()
 	var v any
-	if err := json.Unmarshal(in.Body, &v); err != nil {
+	if err := dec.Decode(&v); err != nil {
 		return ApplyOutput{}, fmt.Errorf("profile apply: parse JSON: %w", err)
 	}
 
@@ -95,6 +221,11 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 	// or strip passes cannot drop schema reference fragments that other parts
 	// of the document point at via $ref.
 	preservedDefs, preservedKey := captureDefs(v)
+
+	// The upstream record count, taken before any stage runs. Spec §9.1 rule 1
+	// defines omitted_count against it, and no transform below leaves it
+	// recoverable: each one replaces or mutates v.
+	upstreamCount, _, _ := shapeCounts(v)
 
 	// Apply transforms in order.
 	dropped := &dropRecorder{}
@@ -131,9 +262,11 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		}
 	}
 
-	// 5. CollapseArrays.
-	if p.CollapseArrays != nil {
-		v = applyCollapseArrays(v, p.CollapseArrays)
+	// 5. CollapseArrays. The caller's --max-items / max_items override wins
+	// over the profile's own cap (gum-pmbp).
+	collapsed := &collapseRecorder{}
+	if spec := effectiveCollapse(p.CollapseArrays, in.MaxItems); spec != nil {
+		v = applyCollapseArrays(v, spec, collapsed)
 	}
 
 	// 6. TruncateStrings.
@@ -141,25 +274,34 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		v = applyTruncateStrings(v, p.TruncateStrings, "")
 	}
 
-	// 7. Dedupe.
+	// 7. Dedupe. The removed-row counts feed the shaping notice: neither this
+	// stage nor the limit below writes a count into the body the way
+	// collapse_arrays does, so a caller who is not told reads a short result
+	// as a complete one.
+	dedupedRows := 0
 	if p.Dedupe != nil {
-		if arr, ok := v.([]any); ok {
-			v = applyDedupe(arr, p.Dedupe)
-		}
+		v = applyToRowArray(v, func(arr []any) []any {
+			kept, removed := applyDedupe(arr, p.Dedupe)
+			dedupedRows += removed
+			return kept
+		})
 	}
 
 	// SortBy.
 	if p.SortBy != "" {
-		if arr, ok := v.([]any); ok {
-			v = applySortBy(arr, p.SortBy)
-		}
+		v = applyToRowArray(v, func(arr []any) []any { return applySortBy(arr, p.SortBy) })
 	}
 
 	// Limit.
+	limitedRows := 0
 	if p.Limit > 0 {
-		if arr, ok := v.([]any); ok && len(arr) > p.Limit {
-			v = arr[:p.Limit]
-		}
+		v = applyToRowArray(v, func(arr []any) []any {
+			if len(arr) > p.Limit {
+				limitedRows += len(arr) - p.Limit
+				return arr[:p.Limit]
+			}
+			return arr
+		})
 	}
 
 	// Restore $defs / definitions if they were present in the input.
@@ -173,21 +315,49 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		}
 	}
 
-	// OnEmpty sentinel (post-pipeline): fire when stages 2–7 reduce a non-empty
-	// upstream response to an empty body. Spec §9.1 "Empty-output handling".
-	if p.OnEmpty != "" {
-		switch vt := v.(type) {
-		case []any:
-			if len(vt) == 0 {
-				v = p.OnEmpty
-			}
-		case map[string]any:
-			if len(vt) == 0 {
-				v = p.OnEmpty
-			}
-		case nil:
-			v = p.OnEmpty
-		}
+	// Counts for the §9.1 envelope. They read the shaped tree, so they report
+	// what the caller receives rather than what upstream sent.
+	resultCount, hasRecords, omittedCount := shapeCounts(v)
+
+	// Rows no count key accounts for. Only collapse_arrays writes an
+	// omitted_count sibling, so keep_fields, drop_fields, strip_nulls, dedupe
+	// and limit each removed rows that the envelope reported as omitted_count
+	// 0 — the value §9.1 rule 3 defines as "the upstream API returned zero
+	// results". The larger of the two sources wins rather than their sum: a
+	// collapsed record array is counted by both, and a collapsed array nested
+	// inside a surviving row is counted only by the sibling key.
+	if removed := upstreamCount - resultCount; removed > omittedCount {
+		omittedCount = removed
+	}
+
+	// OnEmpty (post-pipeline): spec §9.1 rule 2 emits the profile's string as
+	// _expression.on_empty_message when shaping leaves an empty record set.
+	//
+	// It does not replace the body. Substituting the sentinel string for the
+	// payload destroyed every other field the response carried and left the
+	// caller unable to tell a shaped-empty result from a string-valued one.
+	// The substitution also fired only when the whole shaped value was empty,
+	// which a list response never is: zero rows shape to {"messages": []},
+	// an object of length 1.
+	//
+	// The message is not gated on the upstream having been non-empty. Spec
+	// §9.4 requires gum.search_apis to answer a zero-hit query with its
+	// on_empty string, and §9.1 discriminator 5 needs the message beside an
+	// empty upstream whenever the cap is 0. The pair (result_count,
+	// omitted_count) is what tells the caller which of the two happened, which
+	// is why omitted_count above counts every stage rather than stage 5 alone.
+	onEmptyMessage := ""
+	if p.OnEmpty != "" && resultCount == 0 && (hasRecords || isEmptyShape(v)) {
+		onEmptyMessage = p.OnEmpty
+	}
+
+	// Discriminator 5: the cap in force is 0, so the rows are gone on purpose.
+	// The flag is withheld without a message, because §13 makes
+	// {intentional_zero_max_items: true, on_empty_message: null} a combination
+	// the v0.1.0 runtime must never emit.
+	zeroMaxItems := false
+	if spec := effectiveCollapse(p.CollapseArrays, in.MaxItems); spec != nil && spec.MaxItems == 0 && onEmptyMessage != "" {
+		zeroMaxItems = true
 	}
 
 	// Determine output format.
@@ -199,7 +369,12 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		format = "toon"
 	}
 
-	// Encode output.
+	// Encode output (spec §9.1 stage 8).
+	//
+	// The reported format must be the format the bytes are in. An
+	// unimplemented name falls back to TOON and is renamed, because a consumer
+	// that trusts the label and parses accordingly gets a parse error on bytes
+	// that are valid, just not what the label promised.
 	var outBytes []byte
 	var err error
 	switch format {
@@ -208,12 +383,14 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		if err != nil {
 			return ApplyOutput{}, fmt.Errorf("profile apply: marshal JSON: %w", err)
 		}
-	case "toon":
-		outBytes, err = toon.EncodeWithOptions(v, toon.EncoderOptions{OmitZeroCounts: p.OmitZeroCounts})
-		if err != nil {
-			return ApplyOutput{}, fmt.Errorf("profile apply: encode TOON: %w", err)
+	case "csv", "markdown":
+		var buf bytes.Buffer
+		if err = render.Structured(&buf, format, v); err != nil {
+			return ApplyOutput{}, fmt.Errorf("profile apply: encode %s: %w", format, err)
 		}
+		outBytes = buf.Bytes()
 	default:
+		format = "toon"
 		outBytes, err = toon.EncodeWithOptions(v, toon.EncoderOptions{OmitZeroCounts: p.OmitZeroCounts})
 		if err != nil {
 			return ApplyOutput{}, fmt.Errorf("profile apply: encode TOON: %w", err)
@@ -221,12 +398,21 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 	}
 
 	return ApplyOutput{
-		Body:           outBytes,
-		Format:         format,
-		ProfileApplied: true,
-		BytesIn:        bytesIn,
-		BytesOut:       len(outBytes),
-		DroppedPaths:   dropped.paths(),
+		Body:                    outBytes,
+		Format:                  format,
+		ProfileApplied:          true,
+		BytesIn:                 bytesIn,
+		BytesOut:                len(outBytes),
+		DroppedPaths:            dropped.paths(),
+		CollapsedArrays:         collapsed.arrays,
+		Shaped:                  v,
+		ResultCount:             resultCount,
+		OmittedCount:            omittedCount,
+		OnEmptyMessage:          onEmptyMessage,
+		Lossy:                   isLossy(p, effectiveCollapse(p.CollapseArrays, in.MaxItems)),
+		DedupedRows:             dedupedRows,
+		LimitedRows:             limitedRows,
+		IntentionalZeroMaxItems: zeroMaxItems,
 	}, nil
 }
 
@@ -458,6 +644,15 @@ func toFloat(v any) (float64, bool) {
 		return float64(vt), true
 	case int32:
 		return float64(vt), true
+	case json.Number:
+		// Apply decodes with UseNumber, so every number from an upstream body
+		// arrives here. A literal too large for float64 saturates rather than
+		// failing, which keeps the sort total.
+		f, err := vt.Float64()
+		if err != nil {
+			return 0, false
+		}
+		return f, true
 	default:
 		return 0, false
 	}
@@ -631,12 +826,22 @@ func applyFlatten(v any) any {
 // {"items":[...],"omitted_count":N}; when it is a map, each array-valued field
 // is truncated in-place and a <key>_omitted_count sibling field is added.
 // Spec §9.1 step 5.
-func applyCollapseArrays(v any, spec *CollapseArraysSpec) any {
+//
+// rec collects what was truncated so the caller can tell the user how many
+// records are missing; a nil recorder is a no-op.
+func applyCollapseArrays(v any, spec *CollapseArraysSpec, rec *collapseRecorder) any {
+	if spec == nil || spec.MaxItems < 0 {
+		// A negative cap has no meaning and used to reach arr[:spec.MaxItems],
+		// which panics. Callers validate their own bounds; this is the
+		// defence-in-depth arm so a bad profile cannot crash the process.
+		return v
+	}
 	switch vt := v.(type) {
 	case []any:
 		if len(vt) > spec.MaxItems {
 			original := len(vt)
 			truncated := vt[:spec.MaxItems]
+			rec.record("", "omitted_count", spec.MaxItems, original-spec.MaxItems)
 			return map[string]any{
 				"items":         truncated,
 				"omitted_count": original - spec.MaxItems,
@@ -644,17 +849,98 @@ func applyCollapseArrays(v any, spec *CollapseArraysSpec) any {
 		}
 		return v
 	case map[string]any:
+		// Collect before writing. Adding keys to a map while ranging over it
+		// leaves it unspecified whether the new keys are visited, and the
+		// sibling counts are keys.
+		type collapse struct {
+			key      string
+			kept     []any
+			original int
+		}
+		var pending []collapse
 		for key, val := range vt {
 			if arr, ok := val.([]any); ok && len(arr) > spec.MaxItems {
-				original := len(arr)
-				vt[key] = arr[:spec.MaxItems]
-				vt[key+"_omitted_count"] = original - spec.MaxItems
+				pending = append(pending, collapse{key: key, kept: arr[:spec.MaxItems], original: len(arr)})
 			}
+		}
+		sort.Slice(pending, func(i, j int) bool { return pending[i].key < pending[j].key })
+
+		for _, c := range pending {
+			countKey := c.key + "_omitted_count"
+			vt[c.key] = c.kept
+			vt[countKey] = c.original - spec.MaxItems
+			rec.record(c.key, countKey, spec.MaxItems, c.original-spec.MaxItems)
 		}
 		return vt
 	default:
 		return v
 	}
+}
+
+// effectiveCollapse picks the collapse_arrays rule for one invocation. The
+// caller's override wins over the profile's own cap: a profile author bounds
+// the default response, but the caller bounds their own request, and a batch
+// op whose input names 245 keywords must be able to return 245 results
+// (gum-pmbp). Returns nil when no cap applies.
+func effectiveCollapse(fromProfile *CollapseArraysSpec, override MaxItemsOverride) *CollapseArraysSpec {
+	switch override.Mode {
+	case MaxItemsUnlimited:
+		return nil
+	case MaxItemsLimit:
+		return &CollapseArraysSpec{MaxItems: override.Value}
+	default:
+		return fromProfile
+	}
+}
+
+// shapeCounts reports the record count of a shaped value, whether it carries a
+// record array at all, and the omitted total its count keys declare.
+//
+// hasRecords separates "the profile returned an empty list" from "the operation
+// returned one object". A single-object GET has no record array, so an empty
+// result set is not a thing it can report, and on_empty must stay silent for it.
+func shapeCounts(v any) (count int, hasRecords bool, omitted int) {
+	switch t := v.(type) {
+	case []any:
+		return len(t), true, 0
+	case map[string]any:
+		arr := recordArray(t)
+		return len(arr), arr != nil, sumOmittedCounts(t)
+	}
+	return 0, false, 0
+}
+
+// isEmptyShape reports whether shaping left nothing at all: a null body, or an
+// empty object or array. Spec §9.1 counts "all fields dropped/stripped" as an
+// empty output alongside "zero rows after collapse_arrays".
+func isEmptyShape(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return true
+	case []any:
+		return len(t) == 0
+	case map[string]any:
+		return len(t) == 0
+	}
+	return false
+}
+
+// collapseRecorder collects the arrays collapse_arrays truncated, in the order
+// they were truncated. A nil recorder is a no-op.
+type collapseRecorder struct {
+	arrays []CollapsedArray
+}
+
+func (r *collapseRecorder) record(field, countKey string, kept, omitted int) {
+	if r == nil {
+		return
+	}
+	r.arrays = append(r.arrays, CollapsedArray{
+		Field:    field,
+		CountKey: countKey,
+		Kept:     kept,
+		Omitted:  omitted,
+	})
 }
 
 // applyTruncateStrings recursively truncates string values to the limits in spec.
@@ -682,7 +968,17 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 				} else if l, ok := spec.Fields[key]; ok {
 					limit = l
 				}
-				result[key] = truncateString(sv, limit)
+				clamped, cut := truncateString(sv, limit)
+				result[key] = clamped
+				if cut {
+					// docs/profile-dsl-reference.md §2.8: a truncated value
+					// is followed by sibling metadata <field>_truncated. An
+					// upstream field of that name is overwritten only when
+					// this stage actually clamped its sibling, because a
+					// stale false next to a clamped value is the one outcome
+					// the contract cannot allow.
+					result[key+truncatedSuffix] = true
+				}
 			default:
 				result[key] = applyTruncateStrings(val, spec, childPath)
 			}
@@ -693,7 +989,9 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 		for i, elem := range vt {
 			switch sv := elem.(type) {
 			case string:
-				result[i] = truncateString(sv, spec.DefaultChars)
+				// An array element has no field name, so it gets no sibling
+				// flag; the ellipsis is the only signal available here.
+				result[i], _ = truncateString(sv, spec.DefaultChars)
 			default:
 				result[i] = applyTruncateStrings(elem, spec, fieldPath)
 			}
@@ -704,24 +1002,69 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 	}
 }
 
-// truncateString truncates s to limit runes and appends "…" if truncated.
-// If limit is 0, returns s unchanged.
-func truncateString(s string, limit int) string {
+// truncatedSuffix names the sibling key that marks a clamped string.
+const truncatedSuffix = "_truncated"
+
+// truncateString clamps s to limit runes, counting the "…" it appends, and
+// reports whether it clamped. A limit of 0 or less is a no-op.
+//
+// The ellipsis is inside the limit because the limit describes what the
+// consumer receives: a profile asking for 180 characters used to get 181, which
+// broke any downstream that sized a column or a budget from the same number.
+func truncateString(s string, limit int) (string, bool) {
 	if limit <= 0 {
-		return s
+		return s, false
 	}
 	runes := []rune(s)
 	if len(runes) <= limit {
-		return s
+		return s, false
 	}
-	return string(runes[:limit]) + "…"
+	return string(runes[:limit-1]) + "…", true
+}
+
+// applyToRowArray runs fn over the record array in v and returns v with that
+// array replaced. The record array is the top-level value when it is an array,
+// otherwise the field recordArrayKey names in a top-level object.
+//
+// The row stages (dedupe, sort_by, limit) used to require a top-level array,
+// which made all three dead for real bodies: a Google list response is an
+// object ({"messages":[...],"nextPageToken":"..."}) and stage 5 rewrites a
+// top-level array into {"items":[...],"omitted_count":N}.
+//
+// An object with two or more unnamed array-valued fields has no single record
+// array, so fn does not run: guessing which array is the records would silently
+// reorder or drop rows from the wrong one. The counts in shapeCounts read the
+// same key, so the notice and the envelope describe one array, not two.
+func applyToRowArray(v any, fn func([]any) []any) any {
+	switch vt := v.(type) {
+	case []any:
+		return fn(vt)
+	case map[string]any:
+		rowKey := recordArrayKey(vt)
+		if rowKey == "" {
+			return v
+		}
+		vt[rowKey] = fn(vt[rowKey].([]any))
+		return vt
+	default:
+		return v
+	}
 }
 
 // applyDedupe removes duplicate rows based on the concatenated key fields.
 // First occurrence wins; subsequent rows with the same composite key are dropped.
 // Non-map elements are passed through unchanged. Spec §9.1 step 7.
-func applyDedupe(arr []any, spec *DedupeSpec) []any {
-	seen := make(map[string]bool)
+//
+// The surviving row of a collapsed group carries occurrenceCountKey, the number
+// of rows that shared its key. Spec §9.1 stage 7 collapses repeated rows "with
+// occurrence counts": without it the caller reads one row and cannot tell that
+// forty identical ones stood behind it. A row that already carries the key
+// keeps the upstream value, because an annotation that overwrites a field is
+// the loss the annotation exists to report. Returns the shaped rows and the
+// number of rows removed.
+func applyDedupe(arr []any, spec *DedupeSpec) ([]any, int) {
+	firstAt := make(map[string]int)
+	occurrences := make(map[string]int)
 	result := make([]any, 0, len(arr))
 	for _, elem := range arr {
 		m, ok := elem.(map[string]any)
@@ -733,16 +1076,46 @@ func applyDedupe(arr []any, spec *DedupeSpec) []any {
 		// fmt.Sprintf("%v") would render identically stay distinct — e.g. a JSON
 		// null ("null") vs the string "<nil>" ("\"<nil>\""), and so a value
 		// containing the \x00 separator can't be confused (JSON escapes it).
+		//
+		// A row that carries none of the key fields is not keyable. Keying it on
+		// all-absent fields gave every such row the same null key, so a profile
+		// naming a field the body does not have collapsed the whole result set
+		// to one row. Pass it through unkeyed instead.
 		parts := make([]string, len(spec.By))
+		keyable := false
 		for i, field := range spec.By {
-			b, _ := json.Marshal(m[field])
+			val, present := m[field]
+			if present {
+				keyable = true
+			}
+			b, _ := json.Marshal(val)
 			parts[i] = string(b)
 		}
+		if !keyable {
+			result = append(result, elem)
+			continue
+		}
 		key := strings.Join(parts, "\x00")
-		if !seen[key] {
-			seen[key] = true
+		occurrences[key]++
+		if _, seen := firstAt[key]; !seen {
+			firstAt[key] = len(result)
 			result = append(result, elem)
 		}
 	}
-	return result
+
+	for key, n := range occurrences {
+		if n < 2 {
+			continue
+		}
+		row, ok := result[firstAt[key]].(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, present := row[occurrenceCountKey]; present {
+			continue
+		}
+		row[occurrenceCountKey] = n
+	}
+
+	return result, len(arr) - len(result)
 }

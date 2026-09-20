@@ -134,9 +134,6 @@ func collectSchemaFlags(cmd *cobra.Command) []schemaFlag {
 	seen := map[string]bool{}
 	flags := []schemaFlag{}
 	addSet := func(set *pflag.FlagSet) {
-		if set == nil {
-			return
-		}
 		set.VisitAll(func(flag *pflag.Flag) {
 			if flag.Hidden || seen[flag.Name] {
 				return

@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2/google"
 )
 
@@ -45,6 +47,14 @@ func (r *LiveADCResolver) Resolve(ctx context.Context, scopes []string) (*Creden
 			HumanRemediation: fmt.Sprintf("the ADC credentials were found but token exchange failed: %v", err),
 		}
 	}
+	subject, err := adcSubject(ctx, creds.JSON)
+	if err != nil {
+		return nil, &AuthError{
+			Code:             "ADC_SUBJECT_UNKNOWN",
+			Strategy:         "adc",
+			HumanRemediation: fmt.Sprintf("the ADC token was issued but the credential subject could not be read, so cache entries and tee artifacts cannot be scoped to one principal. Grant the workload read access to computeMetadata/v1/instance/service-accounts/default/email, or configure a service-account key. Underlying error: %v", err),
+		}
+	}
 	expiry := tok.Expiry
 	if expiry.IsZero() {
 		expiry = time.Now().Add(45 * time.Minute)
@@ -55,8 +65,36 @@ func (r *LiveADCResolver) Resolve(ctx context.Context, scopes []string) (*Creden
 		Scopes:             urlScopes,
 		StrategyName:       "adc",
 		QuotaProjectID:     extractQuotaProject(creds.JSON),
-		SubjectFingerprint: DeriveSubjectFingerprint("adc-live:" + extractSubject(creds.JSON)),
+		SubjectFingerprint: DeriveSubjectFingerprint("adc-live:" + subject),
 	}, nil
+}
+
+// adcSubject resolves the spec §10.0.1 subject for an ADC credential.
+//
+// google.FindDefaultCredentials fills JSON only when it loaded a credential
+// file. On GCE, Cloud Run, and GKE the credential comes from the metadata
+// server and JSON is nil, so deriving the subject from JSON alone gives every
+// workload on the platform one shared value. That subject keys tee artifact
+// HMACs, gum://results handles, cache entries, and gain-ledger rows, so sharing
+// it lets two service accounts in one profile directory read and overwrite each
+// other's artifacts. The metadata server's default service-account email is the
+// stable per-principal identifier in that environment.
+func adcSubject(ctx context.Context, adcJSON []byte) (string, error) {
+	if len(adcJSON) > 0 {
+		return extractSubject(adcJSON), nil
+	}
+
+	email, err := metadata.EmailWithContext(ctx, "default")
+	if err != nil {
+		return "", err
+	}
+
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", errors.New("metadata server returned an empty service-account email")
+	}
+
+	return email, nil
 }
 
 // extractSubject pulls a per-principal identifier out of an ADC JSON blob.
@@ -77,7 +115,9 @@ func extractSubject(adcJSON []byte) string {
 	}
 	switch {
 	case parsed.ClientEmail != "":
-		return parsed.ClientEmail
+		// §10.0.1 normalizes an account email to lower case. The other
+		// branches carry case-sensitive material and stay verbatim.
+		return strings.ToLower(parsed.ClientEmail)
 	case parsed.RefreshToken != "":
 		return parsed.RefreshToken
 	case parsed.ClientID != "":

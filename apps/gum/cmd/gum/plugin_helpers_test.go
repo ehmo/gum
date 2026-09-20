@@ -101,10 +101,13 @@ func TestResolveProfileDir(t *testing.T) {
 }
 
 // TestDefaultPluginsHost only verifies the factory returns a non-nil host
-// implementing the interface. The host itself is exercised by plugins/* tests.
+// implementing the interface, with and without a registry-backed digest
+// resolver. The host itself is exercised by plugins/* tests.
 func TestDefaultPluginsHost(t *testing.T) {
-	h := defaultPluginsHost()
-	if h == nil {
-		t.Fatal("defaultPluginsHost returned nil")
+	for _, dir := range []string{"", t.TempDir()} {
+		h := defaultPluginsHost("default", dir)
+		if h == nil {
+			t.Fatalf("defaultPluginsHost(%q) returned nil", dir)
+		}
 	}
 }

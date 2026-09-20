@@ -19,7 +19,15 @@ type upstreamError struct {
 	message    string
 	failures   []string
 	retryMs    int64
+
+	// raw is the verbatim non-2xx response body, read back through
+	// UpstreamBody() so dispatch can artifact the real upstream payload when
+	// tee_mode = "failures" fires.
+	raw []byte
 }
+
+// UpstreamBody satisfies dispatch.UpstreamBodyCarrier.
+func (e *upstreamError) UpstreamBody() []byte { return e.raw }
 
 func (e *upstreamError) Error() string {
 	msg := fmt.Sprintf("googleads upstream error HTTP %d", e.status)
@@ -41,7 +49,7 @@ func (e *upstreamError) RetryAfterMs() int64 { return e.retryMs }
 // newUpstreamError parses the Google Ads JSON error envelope and Retry-After
 // header into an *upstreamError.
 func newUpstreamError(status int, body []byte, headers http.Header) *upstreamError {
-	e := &upstreamError{status: status}
+	e := &upstreamError{status: status, raw: append([]byte(nil), body...)}
 	var env struct {
 		Error struct {
 			Code    int             `json:"code"`

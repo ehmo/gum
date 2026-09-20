@@ -23,14 +23,14 @@ import (
 //	  project/
 //	    .gum/
 //	      profiles/
-//	        gmail_list.toml   -> default_format = "toon"; sort_by = "id"
+//	        gmail_list.toml   -> format = "toon"; sort_by = "id"
 //	    sub/
 //	      deep/               -> for upward-walk tests
 //	  home_config/
 //	    gum/
 //	      profiles/
 //	        gmail_list.toml   -> sort_by = "userglobal"
-//	        only_user.toml    -> default_format = "json"
+//	        only_user.toml    -> format = "json"
 func buildFixtures(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
@@ -42,7 +42,7 @@ func buildFixtures(t *testing.T) string {
 	}
 	if err := os.WriteFile(
 		filepath.Join(projectProfiles, "gmail_list.toml"),
-		[]byte("default_format = \"toon\"\nsort_by = \"id\"\n"),
+		[]byte("format = \"toon\"\nsort_by = \"id\"\n"),
 		0o644,
 	); err != nil {
 		t.Fatalf("write project gmail_list.toml: %v", err)
@@ -67,7 +67,7 @@ func buildFixtures(t *testing.T) string {
 	}
 	if err := os.WriteFile(
 		filepath.Join(userProfiles, "only_user.toml"),
-		[]byte("default_format = \"json\"\n"),
+		[]byte("format = \"json\"\n"),
 		0o644,
 	); err != nil {
 		t.Fatalf("write only_user.toml: %v", err)
@@ -237,7 +237,7 @@ func TestResolveProfileUserGlobalFallsBackToHome(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(profDir, "home_only.toml"),
-		[]byte("default_format = \"toon\"\n"), 0o644); err != nil {
+		[]byte("format = \"toon\"\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -266,7 +266,7 @@ func TestResolveProfileUserGlobalParseErrorSurfaces(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(profDir, "broken.toml"),
-		[]byte("default_format = [unterminated\n"), 0o644); err != nil {
+		[]byte("format = [unterminated\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 

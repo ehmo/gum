@@ -147,21 +147,31 @@ func TestToonRoundTrip(t *testing.T) {
 	}
 }
 
-// TestEncodeEmptyObjectSentinel specifically asserts that encoding an object
-// whose fields are all empty/zero (default values) produces "{}\n" and NOT "<empty>".
+// TestEncodeEmptyObjectSentinel asserts that the {} sentinel belongs to a map
+// with no fields, never to "<empty>", and that a map which does have fields
+// keeps them whatever their values are.
 func TestEncodeEmptyObjectSentinel(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	// A map of only empty/nil values collapses to the {} sentinel.
-	got, err := toon.Encode(map[string]any{"name": "", "value": ""})
+	// A map with no keys is the one case that collapses to the {} sentinel.
+	got, err := toon.Encode(map[string]any{})
 	if err != nil {
 		t.Fatalf("Encode: %v", err)
 	}
 	if bytes.Contains(got, []byte("<empty>")) {
 		t.Errorf("encoded output contains <empty> sentinel; want {}: %q", got)
 	}
-	if !bytes.Contains(got, []byte("{}")) {
-		t.Errorf("all-empty map did not collapse to {}; got: %q", got)
+	if string(got) != "{}\n" {
+		t.Errorf("empty map did not encode as {}; got: %q", got)
+	}
+
+	// Empty values are still data: the keys survive (gum-wzvh).
+	gotEmptyVals, err := toon.Encode(map[string]any{"name": "", "value": ""})
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	if !bytes.Contains(gotEmptyVals, []byte("name=")) || !bytes.Contains(gotEmptyVals, []byte("value=")) {
+		t.Errorf("all-empty map lost its keys; got: %q", gotEmptyVals)
 	}
 
 	// A zero-valued number is REAL data and must be preserved — it must NOT be

@@ -83,7 +83,11 @@ func TestHistoricalProfileReportsWhatItDrops(t *testing.T) {
 	}
 	assertPaths(t, out.DroppedPaths, []string{"results.closeVariants"})
 
-	notice := profile.DroppedPathsNotice(out.DroppedPaths, "--format raw", "")
+	notice := profile.ShapingNotice(profile.NoticeInput{
+		DroppedPaths:    out.DroppedPaths,
+		CollapsedArrays: out.CollapsedArrays,
+		RawHint:         "--format raw",
+	})
 	if notice == "" {
 		t.Fatal("lossy profile produced no notice")
 	}

@@ -62,6 +62,31 @@ API-key fallback. Do not paste credential values into prompts or docs.
 Use [Auth](auth.md) for setup commands and [Safety](safety.md) for agent-facing
 secret handling.
 
+### Keychain call bounds
+
+Every keychain call is bounded, so a keychain that never answers fails the
+command instead of hanging it. A locked Linux Secret Service collection does
+exactly that: its unlock prompt has nobody to answer it on a headless host, an
+SSH session, a container, or CI.
+
+| Call | Bound |
+| --- | --- |
+| A credential read or write you asked for | 20 seconds |
+| A read gum makes on its own behalf, such as the granted-scope lookup on the dispatch path | 2 seconds |
+
+A call that runs past its bound fails with `AUTH_KEYCHAIN_UNAVAILABLE`. The
+granted-scope lookup is best effort: when it times out, gum continues with no
+recorded scopes rather than failing the command.
+
+Set `GUM_KEYRING_TIMEOUT` to a Go duration to change the bounds. Raising it
+lengthens only the first bound, which is what a slow interactive keychain
+prompt needs. Lowering it shortens both. A value that is not a positive
+duration is ignored.
+
+```bash
+GUM_KEYRING_TIMEOUT=60s gum auth use-oauth-client
+```
+
 ## Project-local agent files
 
 `gum setup --scope project` writes agent and MCP client config under the current

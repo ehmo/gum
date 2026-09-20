@@ -7,6 +7,8 @@
 package cache
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -98,6 +100,16 @@ func Migrate(opts MigrateOptions) (*MigrateResult, error) {
 	// Branch 1 / 2: http-wal.db is present.
 	if walExists {
 		s, err := OpenSQLiteWAL(SQLiteConfig{Path: walPath})
+		if errors.Is(err, ErrSQLiteCorrupt) && opts.Force {
+			// sqlite_wal.go documents `gum cache migrate --force` as the only
+			// recovery for a corrupt file. Opening before reading the flag made
+			// that escape hatch return the very error it exists to clear.
+			if rmErr := os.Remove(walPath); rmErr != nil {
+				return nil, fmt.Errorf("cache: delete corrupt wal: %w", rmErr)
+			}
+			res.Warnings = append(res.Warnings, "discarded a corrupt http-wal.db under --force; rebuilding from http.db")
+			return migrateFromBolt(res, boltPath, walPath, bakPath, boltExists)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -135,6 +147,13 @@ func Migrate(opts MigrateOptions) (*MigrateResult, error) {
 		res.WALExisted = true // preserve the "we saw it" signal in the result
 	}
 
+	return migrateFromBolt(res, boltPath, walPath, bakPath, boltExists)
+}
+
+// migrateFromBolt runs branches 3 and 4 once the http-wal.db question is
+// settled: either it was never there, or it held no sentinel and has been
+// deleted.
+func migrateFromBolt(res *MigrateResult, boltPath, walPath, bakPath string, boltExists bool) (*MigrateResult, error) {
 	// Branch 4: neither file exists → fresh bootstrap.
 	if !boltExists {
 		s, err := OpenSQLiteWAL(SQLiteConfig{Path: walPath})
@@ -163,7 +182,7 @@ func Migrate(opts MigrateOptions) (*MigrateResult, error) {
 	res.EntriesMigrated = migrated
 	res.SubBucketsFound = subBuckets
 	res.SentinelWritten = true
-	res.Warnings = warnings
+	res.Warnings = append(res.Warnings, warnings...)
 
 	if err := os.Rename(boltPath, bakPath); err != nil {
 		return nil, fmt.Errorf("cache: rename bolt to bak: %w", err)
@@ -175,9 +194,10 @@ func Migrate(opts MigrateOptions) (*MigrateResult, error) {
 // copyBoltToSQLite opens the BoltDB at boltPath, copies every key (including
 // sub-bucket keys, prefixed with the parent bucket name) into a fresh SQLite
 // file at walPath, writes the sentinel row as the final operation, and
-// returns the count of rows + sub-buckets observed. The sentinel write
-// closes the migration transaction; a crash before it leaves the file
-// without the sentinel, which branch 2 cleans up.
+// returns the count of rows + sub-buckets observed. Everything happens inside
+// one SQLite transaction (spec §10.2 step 3), so another process reading the
+// file sees the whole migration or none of it; a crash before the commit
+// leaves the file without the sentinel, which branch 2 cleans up.
 func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 	db, err := bolt.Open(boltPath, 0o600, nil)
 	if err != nil {
@@ -186,6 +206,13 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 
 	s, err := OpenSQLiteWAL(SQLiteConfig{Path: walPath})
 	if err != nil {
+		_ = db.Close()
+		return 0, 0, nil, err
+	}
+
+	im, err := s.BeginImport()
+	if err != nil {
+		_ = s.Close()
 		_ = db.Close()
 		return 0, 0, nil, err
 	}
@@ -209,14 +236,14 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 							subBuckets++
 							return nil
 						}
-						if err := s.Set(prefix+string(sk), sv, 0); err != nil {
+						if err := addMigratedEntry(im, prefix+string(sk), sv); err != nil {
 							return err
 						}
 						migrated++
 						return nil
 					})
 				}
-				if err := s.Set(string(bucketName)+"/"+string(k), v, 0); err != nil {
+				if err := addMigratedEntry(im, migratedKey(bucketName, k), v); err != nil {
 					return err
 				}
 				migrated++
@@ -228,6 +255,7 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 		})
 	})
 	if err != nil {
+		_ = im.Rollback()
 		_ = s.Close()
 		_ = db.Close()
 		return 0, 0, nil, fmt.Errorf("cache: migrate bolt entries: %w", err)
@@ -237,7 +265,7 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 		warnings = append(warnings, fmt.Sprintf("found %d nested bbolt sub-buckets; v0.1.0 does not create these — migrated with bucket-name prefix", subBuckets))
 	}
 
-	if err := s.WriteSentinel(); err != nil {
+	if err := im.Commit(); err != nil {
 		_ = s.Close()
 		_ = db.Close()
 		return 0, 0, nil, err
@@ -250,6 +278,44 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 		return 0, 0, nil, fmt.Errorf("cache: close migrated bolt: %w", err)
 	}
 	return migrated, subBuckets, warnings, nil
+}
+
+// migratedKey is the key an entry keeps in the new store. BBoltCache writes
+// bare keys into one bucket, so an entry from that bucket has to stay
+// reachable under the key its writer used; prefixing it with the bucket name
+// made every migrated response a permanent miss. Any other top-level bucket
+// keeps its name as a prefix, because the new store's table is flat and two
+// buckets could otherwise collide.
+func migratedKey(bucket, key []byte) string {
+	if bytes.Equal(bucket, cacheBucket) {
+		return string(key)
+	}
+	return string(bucket) + "/" + string(key)
+}
+
+// addMigratedEntry unwraps a BBoltCache record so its payload and its deadline
+// land in the columns the new store reads. Writing every row with no expiry
+// resurrected entries that had already died. A value that is not a record
+// (another writer's bucket) is copied verbatim and never expires.
+func addMigratedEntry(im *Import, key string, value []byte) error {
+	if rec, ok := decodeCacheRecord(value); ok {
+		return im.Add(key, rec.Payload, rec.ExpiresAtUnix)
+	}
+	return im.Add(key, value, 0)
+}
+
+// decodeCacheRecord reports whether value is a BBoltCache record. Size has to
+// agree with the payload length, which a JSON document that merely happens to
+// carry a "payload" key will not.
+func decodeCacheRecord(value []byte) (cacheRecord, bool) {
+	var rec cacheRecord
+	if err := json.Unmarshal(value, &rec); err != nil {
+		return cacheRecord{}, false
+	}
+	if rec.Payload == nil || rec.Size != len(rec.Payload) {
+		return cacheRecord{}, false
+	}
+	return rec, true
 }
 
 // fileExists is a thin wrapper around os.Stat for readability at the

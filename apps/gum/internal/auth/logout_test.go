@@ -321,3 +321,53 @@ func TestLogoutRevokeBestEffort(t *testing.T) {
 		t.Error("grant still present after logout")
 	}
 }
+
+// TestLogoutClearsGumOAuthVaultWithoutByoClient pins gum-yieb: the vault purge
+// must not be gated on a registered BYO client. A machine that used gum_oauth
+// before the BYO flow existed has vault entries and no client; the early return
+// told the operator there was nothing to clear while the refresh tokens stayed
+// in the keychain.
+func TestLogoutClearsGumOAuthVaultWithoutByoClient(t *testing.T) {
+	kb := &mockKeyring{data: map[string]string{}}
+
+	scopes := []string{"https://www.googleapis.com/auth/gmail.readonly"}
+	vault := NewCredentialVault(kb)
+	fp := managedSubjectFingerprintFromSub("subject-legacy")
+	key := vaultKey(gumOAuthStrategyName, fp, scopes)
+	subjectKey := gumOAuthSubjectKey(scopes)
+	if err := vault.StoreRefreshToken(gumOAuthStrategyName, fp, scopes, "rt-legacy"); err != nil {
+		t.Fatalf("seed vault entry: %v", err)
+	}
+	if err := vault.StoreGumOAuthSubject(scopes, fp); err != nil {
+		t.Fatalf("seed subject: %v", err)
+	}
+	if err := vault.TrackGumOAuthKey(key); err != nil {
+		t.Fatalf("track key: %v", err)
+	}
+	if err := vault.TrackGumOAuthKey(subjectKey); err != nil {
+		t.Fatalf("track subject key: %v", err)
+	}
+
+	res, err := Logout(context.Background(), kb, "default", false)
+	if err != nil {
+		t.Fatalf("Logout: %v", err)
+	}
+	if res.ClientID != "" {
+		t.Errorf("ClientID = %q; no BYO client was registered", res.ClientID)
+	}
+	if res.GrantCleared {
+		t.Error("GrantCleared = true; there was no BYO grant")
+	}
+	if !res.GumOAuthVaultCleared {
+		t.Error("GumOAuthVaultCleared = false; legacy vault entries were present")
+	}
+	if v, _ := kb.Get(key); v != "" {
+		t.Errorf("vault key still present after logout: %q", v)
+	}
+	if v, _ := kb.Get(subjectKey); v != "" {
+		t.Errorf("subject key still present after logout: %q", v)
+	}
+	if v, _ := kb.Get(gumOAuthVaultIndexKey); v != "" {
+		t.Errorf("gum_oauth index still present after logout: %q", v)
+	}
+}

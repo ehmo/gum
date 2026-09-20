@@ -7,6 +7,9 @@ each missing credential by display_name and setup_hint, stores secrets in the
 OS keychain, then runs
 'gum canary --plugin=<name> --live' to verify the plugin is functional.
 
+Typed secrets are not echoed when stdin is a terminal. Piping the secrets in,
+one line per descriptor in manifest order, also works.
+
 On canary success the plugin state is set to 'active'.
 On canary failure the plugin is quarantined with CANARY_FAILED;
 run 'gum plugin reload <name>' after correcting credentials.

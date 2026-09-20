@@ -11,12 +11,15 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"encoding/json"
 
+	"github.com/ehmo/gum/internal/auth"
 	"github.com/ehmo/gum/internal/fsatomic"
 	"github.com/ehmo/gum/internal/pluginenv"
+	"github.com/ehmo/gum/internal/plugins/registry"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -116,6 +119,13 @@ func LoadManifest(dir string) (*Manifest, error) {
 	}
 	m.Executable = executable
 
+	// §8.1: refuse a manifest that claims a host-owned credential env var.
+	// Enforced here so both install paths and every spawn share one gate.
+	if err := ValidatePluginEnvNames(m.PluginID, m.Requirements.NeedsUserCreds,
+		m.DeclaredCapabilities.EnvAllow); err != nil {
+		return nil, err
+	}
+
 	for _, tool := range m.AdvertisedTools {
 		if tool.Name == "" {
 			return nil, ErrManifestInvalid
@@ -142,6 +152,22 @@ type Host struct {
 type HostConfig struct {
 	InstallRoot string    // default ~/.local/share/gum/plugins
 	Stderr      io.Writer // plugin subprocess stderr sink; nil discards
+
+	// TrustedDigest resolves the authoritative install-time executable digest
+	// for a plugin, normally from the 0o600 plugins.lock row. Start prefers it
+	// over the 0o644 sidecar that sits in the same world-readable directory as
+	// the binary it protects. A "" result means the caller has no recorded
+	// digest and Start falls back to the sidecar. Nil means the same.
+	TrustedDigest func(pluginID string) (string, error)
+
+	// Profile is the active profile name. It keys the plugin credential
+	// entries `gum plugin setup` writes to the OS keychain
+	// (PluginCredentialKey). Empty means no stored credential is resolved.
+	Profile string
+
+	// Keyring reads back the secrets `gum plugin setup` stored for this
+	// profile. Nil means the spawn env carries only ambient values.
+	Keyring auth.KeyringBackend
 }
 
 // NewHost constructs a Host using the install root.
@@ -237,7 +263,7 @@ func (h *Host) Install(ctx context.Context, source string) (string, error) {
 		return "", fmt.Errorf("plugin install: hash executable: %w", err)
 	}
 	sidecar := filepath.Join(destDir, executableDigestSidecar)
-	if err := os.WriteFile(sidecar, []byte(execSHA256+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(sidecar, []byte(execSHA256+"\n"), 0o600); err != nil {
 		return "", fmt.Errorf("plugin install: write digest sidecar: %w", err)
 	}
 
@@ -323,7 +349,10 @@ func (h *Host) List() ([]*Manifest, error) {
 
 // Start spawns the plugin subprocess and returns a Plugin handle (spec §8.1,
 // §8.3). The subprocess runs with a minimal env set: PATH, locale vars, HOME,
-// TMPDIR, plus the named env vars declared in manifest.declared_capabilities.env_allow.
+// TMPDIR, the manifest's requirements.needs_user_creds names, plus the named env
+// vars declared in manifest.declared_capabilities.env_allow. A needs_user_creds
+// value comes from the profile keychain entry `gum plugin setup` wrote, and from
+// the operator's own environment when no entry exists.
 // Names that match the §8.1 denylist (GOOGLE_APPLICATION_CREDENTIALS, GUM_*,
 // _GUM*, OPENAI_API_KEY, ANTHROPIC_API_KEY, ...) are stripped even when
 // env_allow declares them.
@@ -362,24 +391,26 @@ func (h *Host) Start(ctx context.Context, pluginID string) (*Plugin, error) {
 	// Spec §8.7 line 1690: re-verify the installed binary against the digest
 	// captured at install time on EVERY spawn (no caching). A mutated binary
 	// on disk MUST surface as PLUGIN_EXECUTABLE_UNTRUSTED before exec.
-	wantDigest, err := readExecutableDigestSidecar(installDir)
+	wantDigest, err := h.trustedDigest(pluginID, installDir)
 	if err != nil {
 		return nil, err
 	}
-	if wantDigest != "" {
-		if err := VerifyExecutableBinding(&ExecutableBinding{
-			Name:             pluginID,
-			InstallRoot:      installDir,
-			ExecutablePath:   execPath,
-			ExecutableSHA256: wantDigest,
-		}); err != nil {
-			return nil, err
-		}
+	if err := VerifyExecutableBinding(&ExecutableBinding{
+		Name:             pluginID,
+		InstallRoot:      installDir,
+		ExecutablePath:   execPath,
+		ExecutableSHA256: wantDigest,
+	}); err != nil {
+		return nil, err
 	}
 
 	connectCtx, cancel := context.WithTimeout(ctx, pluginConnectTimeout)
 	defer cancel()
-	subprocessEnv := buildSubprocessEnv(m.DeclaredCapabilities.EnvAllow)
+	subprocessEnv := buildSubprocessEnv(
+		m.DeclaredCapabilities.EnvAllow,
+		m.Requirements.NeedsUserCreds,
+		h.pluginCredentialEnv(pluginID, m),
+	)
 	cmd, err := pluginenv.NewRunner(pluginenv.RunnerConfig{
 		Executable: execPath,
 		WorkDir:    installDir,
@@ -407,11 +438,7 @@ func (h *Host) Start(ctx context.Context, pluginID string) (*Plugin, error) {
 		}
 		return nil, fmt.Errorf("plugin start: %w", err)
 	}
-	return &Plugin{
-		pluginID: pluginID,
-		cs:       cs,
-		cmd:      cmd,
-	}, nil
+	return newPlugin(pluginID, cs, cmd), nil
 }
 
 // Plugin is a running plugin subprocess wired to the MCP go-sdk client.
@@ -419,6 +446,38 @@ type Plugin struct {
 	pluginID string
 	cs       *sdkmcp.ClientSession
 	cmd      *exec.Cmd
+
+	// dead flips once and never back, when the MCP session ends: either the
+	// subprocess exited on its own and the watcher goroutine's cs.Wait
+	// returned, or Stop tore the session down. Callers that cache a handle
+	// read it through Alive. It is atomic because the watcher runs on its own
+	// goroutine, and separate from cs because Stop nils cs without a lock.
+	dead atomic.Bool
+}
+
+// newPlugin wraps a connected session in a handle and starts the watcher that
+// marks it dead when the session ends.
+//
+// A plugin subprocess that crashes gives no synchronous signal: the go-sdk
+// exposes only a blocking ClientSession.Wait, and exec.Cmd.ProcessState may
+// not be read while the transport owns the Wait. So one goroutine per running
+// plugin parks on cs.Wait. It exits as soon as the session closes, which Stop
+// also forces, so a stopped plugin reclaims it too.
+func newPlugin(pluginID string, cs *sdkmcp.ClientSession, cmd *exec.Cmd) *Plugin {
+	p := &Plugin{pluginID: pluginID, cs: cs, cmd: cmd}
+	go func() {
+		_ = cs.Wait()
+		p.dead.Store(true)
+	}()
+	return p
+}
+
+// Alive reports whether the handle may still be dispatched onto. It returns
+// false once the subprocess session has ended, so a caller that caches handles
+// across invocations (internal/adapters.PluginMCP) can drop the corpse and ask
+// for a fresh spawn instead of failing every later call on a closed transport.
+func (p *Plugin) Alive() bool {
+	return p != nil && !p.dead.Load()
 }
 
 // PluginID returns the plugin's manifest plugin_id.
@@ -433,7 +492,13 @@ func (p *Plugin) PluginID() string {
 // implements the spec §8.6 shutdown ladder: close stdin → wait → SIGTERM →
 // wait → SIGKILL. Stop is idempotent.
 func (p *Plugin) Stop(ctx context.Context) error {
-	if p == nil || p.cs == nil {
+	if p == nil {
+		return nil
+	}
+	// Mark first: a stopped handle must never be dispatched onto again, even
+	// if the close ladder below reports an error.
+	p.dead.Store(true)
+	if p.cs == nil {
 		return nil
 	}
 	// ClientSession.Close drives the CommandTransport Close ladder; ignore
@@ -538,22 +603,34 @@ const pluginClientVersion = "0.1.0"
 var passthroughEnv = []string{"PATH", "HOME", "TMPDIR", "LANG"}
 
 // buildSubprocessEnv constructs the env slice for plugin spawn. Result starts
-// from the passthrough set, appends explicitly declared env_allow entries that
-// survive the §8.1 denylist, and never inherits the full os.Environ().
-func buildSubprocessEnv(envAllow []string) []string {
-	seen := make(map[string]bool, len(passthroughEnv)+len(envAllow))
+// from the passthrough set, adds the manifest's needs_user_creds names, appends
+// explicitly declared env_allow entries, and never inherits the full
+// os.Environ(). Every name crosses the §8.1 denylist first, including the ones
+// resolved from the keychain: §8.1 point 3 forbids widening the allowlist
+// through host-side injection.
+//
+// creds maps an env name to the secret `gum plugin setup` stored for it. A
+// needs_user_creds name with no stored secret falls back to the operator's own
+// environment, so a plugin still runs on a host without a keychain.
+func buildSubprocessEnv(envAllow, needsUserCreds []string, creds map[string]string) []string {
+	seen := make(map[string]bool, len(passthroughEnv)+len(needsUserCreds)+len(envAllow))
 	var out []string
-	add := func(key string) {
-		if seen[key] {
-			return
-		}
+	emit := func(key, value string) {
 		seen[key] = true
 		if pluginenv.IsDeniedEnv(key) {
 			return
 		}
-		if v, ok := os.LookupEnv(key); ok {
-			out = append(out, key+"="+v)
+		out = append(out, key+"="+value)
+	}
+	add := func(key string) {
+		if seen[key] {
+			return
 		}
+		if v, ok := os.LookupEnv(key); ok {
+			emit(key, v)
+			return
+		}
+		seen[key] = true
 	}
 	for _, k := range passthroughEnv {
 		add(k)
@@ -568,23 +645,84 @@ func buildSubprocessEnv(envAllow []string) []string {
 			}
 		}
 	}
+	// needs_user_creds runs before env_allow so a name declared in both takes
+	// the stored secret rather than whatever the shell happens to export.
+	for _, k := range needsUserCreds {
+		if seen[k] {
+			continue
+		}
+		if v, ok := creds[k]; ok {
+			emit(k, v)
+			continue
+		}
+		add(k)
+	}
 	for _, k := range envAllow {
 		add(k)
 	}
 	return out
 }
 
-// readExecutableDigestSidecar returns the install-time sha256 digest
-// captured by InstallWithRegistry. A missing sidecar returns "" with no
-// error so the legacy file-copy-only Install() path (no digest captured)
-// still spawns; an unreadable or empty sidecar returns ErrExecutableUntrusted.
+// pluginCredentialEnv resolves the manifest's credential descriptors against the
+// keychain entries `gum plugin setup` wrote for this profile (§8.2). The result
+// is keyed by the descriptor's raw env name, which is what the subprocess reads.
+// An unconfigured host, an absent key, or a keychain read failure all yield no
+// entry for that name; the spawn then falls back to the ambient value and the
+// plugin's own canary reports the missing credential.
+func (h *Host) pluginCredentialEnv(pluginID string, m *Manifest) map[string]string {
+	if h.cfg.Keyring == nil || h.cfg.Profile == "" {
+		return nil
+	}
+	out := make(map[string]string, len(m.Requirements.CredentialDescriptors))
+	for _, d := range m.Requirements.CredentialDescriptors {
+		if d.Env == "" || d.Alias == "" {
+			continue
+		}
+		secret, err := h.cfg.Keyring.Get(PluginCredentialKey(h.cfg.Profile, pluginID, d.Alias))
+		if err != nil || secret == "" {
+			continue
+		}
+		out[d.Env] = secret
+	}
+	return out
+}
+
+// trustedDigest resolves the digest Start verifies the binary against. The
+// registry row wins when the caller supplied a resolver, and it must agree with
+// the sidecar: a disagreement means one of the two was rewritten after install.
+func (h *Host) trustedDigest(pluginID, installDir string) (string, error) {
+	sidecar, sidecarErr := readExecutableDigestSidecar(installDir)
+	if h.cfg.TrustedDigest == nil {
+		return sidecar, sidecarErr
+	}
+
+	authoritative, err := h.cfg.TrustedDigest(pluginID)
+	if err != nil {
+		return "", fmt.Errorf("%w: read recorded digest: %v", ErrExecutableUntrusted, err)
+	}
+	if authoritative == "" {
+		return sidecar, sidecarErr
+	}
+	if sidecarErr != nil {
+		return "", sidecarErr
+	}
+	if !equalDigest(sidecar, authoritative) {
+		return "", fmt.Errorf("%w: sidecar digest disagrees with the recorded digest for %q",
+			ErrExecutableUntrusted, pluginID)
+	}
+	return authoritative, nil
+}
+
+// readExecutableDigestSidecar returns the install-time sha256 digest captured
+// by Install or InstallWithRegistry. Every arm fails closed: a missing,
+// unreadable or empty sidecar returns ErrExecutableUntrusted. Returning ("",
+// nil) for a missing file used to disable verification altogether, so deleting
+// one 0o644 file next to the binary was enough to make a swapped binary spawn
+// with no error at all.
 func readExecutableDigestSidecar(installDir string) (string, error) {
 	path := filepath.Join(installDir, executableDigestSidecar)
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
 		return "", fmt.Errorf("%w: read digest sidecar: %v", ErrExecutableUntrusted, err)
 	}
 	digest := strings.TrimSpace(string(raw))
@@ -705,3 +843,35 @@ var (
 
 // Reader for any io.Reader use, suppress unused import.
 var _ = io.EOF
+
+// RecordedDigestResolver returns a HostConfig.TrustedDigest function backed by
+// the plugins.lock executable_sha256 row. The lock is the authoritative install
+// record; the sidecar next to the binary is a convenience copy that lives in a
+// 0o755 install dir. Requiring the two to agree means rewriting the sidecar
+// alone no longer changes what Start verifies the binary against.
+//
+// A plugin with no lock row (legacy Host.Install, which writes no registry)
+// yields "", which Host.trustedDigest reads as "use the sidecar".
+func RecordedDigestResolver(reg *registry.Registry) func(string) (string, error) {
+	if reg == nil {
+		return nil
+	}
+	return func(pluginID string) (string, error) {
+		files, err := reg.Load()
+		if err != nil {
+			return "", err
+		}
+		for _, raw := range files.Lock.Plugins {
+			row, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			if name, _ := row["name"].(string); name != pluginID {
+				continue
+			}
+			digest, _ := row["executable_sha256"].(string)
+			return digest, nil
+		}
+		return "", nil
+	}
+}

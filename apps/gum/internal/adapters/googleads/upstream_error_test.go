@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/ehmo/gum/internal/dispatch"
 )
 
 // The envelope below is the shape a v24 mutate rejection actually returns:
@@ -102,5 +104,18 @@ func TestUpstreamErrorFallsBackToRawBody(t *testing.T) {
 
 	if !strings.Contains(e.Error(), "upstream is down") {
 		t.Errorf("Error() = %q, want the raw body", e.Error())
+	}
+}
+
+// TestUpstreamErrorKeepsRawBody proves the error satisfies
+// dispatch.UpstreamBodyCarrier and returns the verbatim body, which is what the
+// tee_mode = "failures" artifact records.
+func TestUpstreamErrorKeepsRawBody(t *testing.T) {
+	const body = `{"error":{"code":400,"message":"invalid customer id"}}`
+	e := newUpstreamError(http.StatusBadRequest, []byte(body), http.Header{})
+
+	var carrier dispatch.UpstreamBodyCarrier = e
+	if got := string(carrier.UpstreamBody()); got != body {
+		t.Errorf("UpstreamBody() = %q; want %q", got, body)
 	}
 }

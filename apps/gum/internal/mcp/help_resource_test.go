@@ -22,7 +22,7 @@ var expectedActiveTopics = []string{
 }
 
 // TestHelpTopicsSeedSet is the spec §13 acceptance: the active seed set in
-// docs/help-topics.v1.json matches exactly the eight topics, every active
+// internal/embedded/data/help-topics.v1.json matches exactly the thirteen active topics, every active
 // topic returns a successful resources/read, and no gum://help/{topic}
 // handler exists for a topic absent from the manifest.
 func TestHelpTopicsSeedSet(t *testing.T) {

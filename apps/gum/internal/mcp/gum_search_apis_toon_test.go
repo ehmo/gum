@@ -15,12 +15,14 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ehmo/gum/internal/catalog"
+	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/output/profile"
 )
 
@@ -239,14 +241,39 @@ func TestSearchAPIsOnEmptyFires(t *testing.T) {
 	if len(res.Content) < 1 {
 		t.Fatal("result has no content")
 	}
-	tc, ok := res.Content[0].(*sdkmcp.TextContent)
-	if !ok {
-		t.Fatalf("content[0] is %T; want *sdkmcp.TextContent", res.Content[0])
-	}
 
 	wantSentinel := "No matching operations found. Try a broader query."
-	if !strings.Contains(tc.Text, wantSentinel) {
-		t.Errorf("on_empty sentinel missing from body;\nwant substring: %q\ngot: %s", wantSentinel, tc.Text)
+
+	// The sentinel reaches the caller in a text block. It is its own block, not
+	// a substitute for the payload: replacing the body with the string left a
+	// caller unable to tell an empty result from a string-valued one (§9.1).
+	var texts []string
+	for _, c := range res.Content {
+		if tc, ok := c.(*sdkmcp.TextContent); ok {
+			texts = append(texts, tc.Text)
+		}
+	}
+	if !slices.ContainsFunc(texts, func(t string) bool { return strings.Contains(t, wantSentinel) }) {
+		t.Errorf("on_empty sentinel missing from every text block;\nwant substring: %q\ngot: %q", wantSentinel, texts)
+	}
+
+	// §9.1 rule 2: the machine-readable copy is _expression.on_empty_message.
+	sc, ok := res.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("structuredContent is %T; want the §13 ToonResult object", res.StructuredContent)
+	}
+	meta, ok := sc["_expression"].(*dispatch.ExpressionMeta)
+	if !ok {
+		t.Fatalf("_expression is %T; want *dispatch.ExpressionMeta", sc["_expression"])
+	}
+	if meta.OnEmptyMessage == nil {
+		t.Fatal("_expression.on_empty_message is null; want the profile's on_empty string")
+	}
+	if *meta.OnEmptyMessage != wantSentinel {
+		t.Errorf("_expression.on_empty_message = %q; want %q", *meta.OnEmptyMessage, wantSentinel)
+	}
+	if meta.ResultCount != 0 {
+		t.Errorf("_expression.result_count = %d; want 0", meta.ResultCount)
 	}
 }
 

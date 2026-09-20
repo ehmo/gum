@@ -2,7 +2,7 @@
 //
 // The Phase 4 DSL is a minimal TOML-like format:
 //
-//	default_format = "toon"
+//	format = "toon"
 //	projection = ["id", "subject", "from"]
 //	flatten_singletons = true
 //	omit_zero_counts = true
@@ -31,7 +31,10 @@ type Profile struct {
 	// Resolution is one level deep — chains are rejected. Spec §9.3.
 	Inherits string
 
-	// DefaultFormat is "toon", "json", or "raw". Empty means "inherit from invocation".
+	// DefaultFormat holds the profile's format key: "toon", "csv", "json", or
+	// "markdown". Empty means "inherit from invocation". The field keeps the
+	// Default prefix because output.default_format is the config-level fallback
+	// this value overrides.
 	DefaultFormat string
 
 	// Projection is the ordered list of field names to retain. Empty means keep all.
@@ -48,12 +51,6 @@ type Profile struct {
 
 	// Limit is the maximum number of array elements to return. 0 means no limit.
 	Limit int
-
-	// OverrideBindings maps op_id (or variant_id) to a profile name. Spec §9.2:
-	// the binding is evaluated after the three-level resolution; it substitutes
-	// the named profile as the effective expression profile for the target op
-	// without modifying catalog data.
-	OverrideBindings map[string]string
 
 	// KeepFields is the recursive post-upstream allowlist. Dot paths address
 	// nested fields (e.g. "messages.id"). Empty means keep all. Spec §9.1 step 2.
@@ -97,6 +94,13 @@ type Profile struct {
 	// Spec: expression-profile-dsl.md Field Reference: recovery.
 	Recovery string
 
+	// FieldMask is the upstream projection sent as the universal Google
+	// `fields` query parameter (spec §9.1 stage 1). Empty means no profile
+	// mask. The dispatcher injects it only when the caller sent no `fields`
+	// arg of its own, FieldMaskMode is not "none", and the caller did not pass
+	// --no-field-mask, so an explicit caller mask always wins.
+	FieldMask string
+
 	// FieldMaskMode controls how the upstream field-mask is applied: "upstream"
 	// (default — mask applied upstream), "dual_fetch" (one shaped request plus
 	// one unmasked recovery fetch; allowed only for variants with
@@ -133,7 +137,8 @@ type TestFixture struct {
 	// profile file's directory.
 	Fixture string
 
-	// ExpectFormat is the expected output format ("toon"|"json"|"raw"). Empty
+	// ExpectFormat is the expected reported format: the profile enum plus
+	// "raw", which a fixture run with --format raw reports. Empty
 	// means the format is not asserted.
 	ExpectFormat string
 
@@ -163,7 +168,7 @@ type TestFixture struct {
 // Spec: expression-profile-dsl.md Sub-Fields: collapse_arrays.
 type CollapseArraysSpec struct {
 	// MaxItems is the maximum number of array items to retain. Must be >= 0.
-	// 0 is valid only when OnEmpty is also set (DSL constraint; not enforced here).
+	// Parse rejects 0 unless the profile also sets OnEmpty.
 	MaxItems int
 }
 
@@ -223,14 +228,6 @@ func MergeProfiles(layers ...*Profile) *Profile {
 		if out.Limit == 0 {
 			out.Limit = layer.Limit
 		}
-		for op, prof := range layer.OverrideBindings {
-			if out.OverrideBindings == nil {
-				out.OverrideBindings = make(map[string]string)
-			}
-			if _, present := out.OverrideBindings[op]; !present {
-				out.OverrideBindings[op] = prof
-			}
-		}
 		if len(out.KeepFields) == 0 {
 			out.KeepFields = layer.KeepFields
 		}
@@ -261,6 +258,9 @@ func MergeProfiles(layers ...*Profile) *Profile {
 		if out.TeeMode == "" {
 			out.TeeMode = layer.TeeMode
 		}
+		if out.FieldMask == "" {
+			out.FieldMask = layer.FieldMask
+		}
 		if out.FieldMaskMode == "" {
 			out.FieldMaskMode = layer.FieldMaskMode
 		}
@@ -289,11 +289,26 @@ func ResolveInherits(p *Profile, registry map[string]*Profile) (*Profile, error)
 	return merged, nil
 }
 
-// validFormats is the set of allowed values for default_format.
+// validFormats is the closed enum for the profile's format key (spec §9.1
+// stage 8 and docs/expression-profile-dsl.json #/$defs/profile). "raw" is
+// absent on purpose: it names a caller choice that skips shaping, not an
+// encoder a profile can select.
 var validFormats = map[string]bool{
-	"toon": true,
-	"json": true,
-	"raw":  true,
+	"toon":     true,
+	"csv":      true,
+	"json":     true,
+	"markdown": true,
+}
+
+// validReportedFormats is what ApplyOutput.Format can hold, which is the
+// profile enum plus "raw". A fixture asserts the reported format, and a
+// fixture run with --format raw reports raw.
+var validReportedFormats = map[string]bool{
+	"toon":     true,
+	"csv":      true,
+	"json":     true,
+	"markdown": true,
+	"raw":      true,
 }
 
 // validFieldMaskModes is the closed enum for field_mask_mode (spec §9.1).
@@ -331,15 +346,12 @@ func Parse(src string) (*Profile, error) {
 				curTest = &p.Tests[len(p.Tests)-1]
 				continue
 			}
-			return nil, fmt.Errorf("profile: line %d: unknown section header %q (only [[tests]] supported)", lineNum+1, trimmed)
+			return nil, fmt.Errorf("profile: line %d: unknown section header %q (Parse reads one bare-key profile body; ParseFile reads the [output_profiles] envelope)", lineNum+1, trimmed)
 		}
-		// Split on first "=".
-		idx := strings.IndexByte(line, '=')
-		if idx < 0 {
-			return nil, fmt.Errorf("profile: line %d: expected key = value, got %q", lineNum+1, line)
+		key, rawVal, err := splitKeyValue(line, lineNum+1)
+		if err != nil {
+			return nil, err
 		}
-		key := strings.TrimSpace(line[:idx])
-		rawVal := strings.TrimSpace(line[idx+1:])
 
 		if curTest != nil {
 			if err := parseTestFixtureKey(curTest, key, rawVal, lineNum+1); err != nil {
@@ -348,135 +360,181 @@ func Parse(src string) (*Profile, error) {
 			continue
 		}
 
-		switch key {
-		case "default_format":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: default_format: %w", lineNum+1, err)
-			}
-			if !validFormats[val] {
-				return nil, fmt.Errorf("profile: line %d: default_format: invalid value %q (must be toon, json, or raw)", lineNum+1, val)
-			}
-			p.DefaultFormat = val
-		case "projection":
-			vals, err := parseStringArray(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: projection: %w", lineNum+1, err)
-			}
-			p.Projection = vals
-		case "flatten_singletons":
-			val, err := parseBool(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: flatten_singletons: %w", lineNum+1, err)
-			}
-			p.FlattenSingletons = val
-		case "omit_zero_counts":
-			val, err := parseBool(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: omit_zero_counts: %w", lineNum+1, err)
-			}
-			p.OmitZeroCounts = val
-		case "sort_by":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: sort_by: %w", lineNum+1, err)
-			}
-			p.SortBy = val
-		case "limit":
-			val, err := parseInt(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: limit: %w", lineNum+1, err)
-			}
-			if val < 0 {
-				return nil, fmt.Errorf("profile: line %d: limit: must be >= 0", lineNum+1)
-			}
-			p.Limit = val
-		case "field_mask_mode":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: field_mask_mode: %w", lineNum+1, err)
-			}
-			if !validFieldMaskModes[val] {
-				return nil, fmt.Errorf("profile: line %d: field_mask_mode: invalid value %q (must be upstream, dual_fetch, or none)", lineNum+1, val)
-			}
-			p.FieldMaskMode = val
-		case "inherits":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: inherits: %w", lineNum+1, err)
-			}
-			p.Inherits = val
-		case "keep_fields":
-			vals, err := parseStringArray(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: keep_fields: %w", lineNum+1, err)
-			}
-			p.KeepFields = vals
-		case "drop_fields":
-			vals, err := parseStringArray(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: drop_fields: %w", lineNum+1, err)
-			}
-			p.DropFields = vals
-		case "strip_nulls":
-			val, err := parseBool(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: strip_nulls: %w", lineNum+1, err)
-			}
-			p.StripNulls = val
-		case "flatten":
-			val, err := parseBool(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: flatten: %w", lineNum+1, err)
-			}
-			p.Flatten = val
-		case "on_empty":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: on_empty: %w", lineNum+1, err)
-			}
-			p.OnEmpty = val
-		case "recovery":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: recovery: %w", lineNum+1, err)
-			}
-			if !validRecovery[val] {
-				return nil, fmt.Errorf("profile: line %d: recovery: invalid value %q (must be none, local_artifact, or resource_link)", lineNum+1, val)
-			}
-			p.Recovery = val
-		case "tee_mode":
-			val, err := parseStringLiteral(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: tee_mode: %w", lineNum+1, err)
-			}
-			if !validTeeModes[val] {
-				return nil, fmt.Errorf("profile: line %d: tee_mode: invalid value %q (must be off, failures, or always)", lineNum+1, val)
-			}
-			p.TeeMode = val
-		case "collapse_arrays":
-			spec, err := parseCollapseArrays(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: collapse_arrays: %w", lineNum+1, err)
-			}
-			p.CollapseArrays = spec
-		case "truncate_strings":
-			spec, err := parseTruncateStrings(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: truncate_strings: %w", lineNum+1, err)
-			}
-			p.TruncateStrings = spec
-		case "dedupe":
-			spec, err := parseDedupe(rawVal)
-			if err != nil {
-				return nil, fmt.Errorf("profile: line %d: dedupe: %w", lineNum+1, err)
-			}
-			p.Dedupe = spec
-		default:
-			return nil, fmt.Errorf("profile: line %d: unknown key %q", lineNum+1, key)
+		if err := parseProfileKey(p, key, rawVal, lineNum+1); err != nil {
+			return nil, err
 		}
 	}
+
+	if err := checkCollapseOnEmpty(p); err != nil {
+		return nil, err
+	}
+
 	return p, nil
+}
+
+// splitKeyValue splits one `key = value` line on its first "=".
+func splitKeyValue(line string, lineNum int) (string, string, error) {
+	idx := strings.IndexByte(line, '=')
+	if idx < 0 {
+		return "", "", fmt.Errorf("profile: line %d: expected key = value, got %q", lineNum, line)
+	}
+	return strings.TrimSpace(line[:idx]), strings.TrimSpace(line[idx+1:]), nil
+}
+
+// checkCollapseOnEmpty enforces the one cross-field rule that cannot be checked
+// while reading a line, because on_empty may appear below collapse_arrays. A cap
+// of 0 drops every row, and spec §13 forbids the runtime from reporting that
+// without a message saying why, so the profile has to supply one.
+func checkCollapseOnEmpty(p *Profile) error {
+	if p.CollapseArrays != nil && p.CollapseArrays.MaxItems == 0 && p.OnEmpty == "" {
+		return fmt.Errorf("profile: collapse_arrays.max_items = 0 requires on_empty to be set")
+	}
+	return nil
+}
+
+// parseProfileKey applies one `key = value` pair to p. Parse and ParseFile share
+// it so the bare-key and [output_profiles] shapes cannot accept different key
+// sets. lineNum is 1-based and used only for error text.
+func parseProfileKey(p *Profile, key, rawVal string, lineNum int) error {
+	switch key {
+	case "format":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: format: %w", lineNum, err)
+		}
+		if val == "raw" {
+			return fmt.Errorf("profile: line %d: format: %q is a caller choice, not a profile encoder — use --format raw or the MCP format argument", lineNum, val)
+		}
+		if !validFormats[val] {
+			return fmt.Errorf("profile: line %d: format: invalid value %q (must be toon, csv, json, or markdown)", lineNum, val)
+		}
+		p.DefaultFormat = val
+	case "default_format":
+		return fmt.Errorf("profile: line %d: unknown key \"default_format\" — the profile key is \"format\"; output.default_format is the config key", lineNum)
+	case "projection":
+		vals, err := parseStringArray(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: projection: %w", lineNum, err)
+		}
+		p.Projection = vals
+	case "flatten_singletons":
+		val, err := parseBool(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: flatten_singletons: %w", lineNum, err)
+		}
+		p.FlattenSingletons = val
+	case "omit_zero_counts":
+		val, err := parseBool(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: omit_zero_counts: %w", lineNum, err)
+		}
+		p.OmitZeroCounts = val
+	case "sort_by":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: sort_by: %w", lineNum, err)
+		}
+		p.SortBy = val
+	case "limit":
+		val, err := parseInt(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: limit: %w", lineNum, err)
+		}
+		if val < 0 {
+			return fmt.Errorf("profile: line %d: limit: must be >= 0", lineNum)
+		}
+		p.Limit = val
+	case "field_mask":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: field_mask: %w", lineNum, err)
+		}
+		p.FieldMask = val
+	case "field_mask_mode":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: field_mask_mode: %w", lineNum, err)
+		}
+		if !validFieldMaskModes[val] {
+			return fmt.Errorf("profile: line %d: field_mask_mode: invalid value %q (must be upstream, dual_fetch, or none)", lineNum, val)
+		}
+		p.FieldMaskMode = val
+	case "inherits":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: inherits: %w", lineNum, err)
+		}
+		p.Inherits = val
+	case "keep_fields":
+		vals, err := parseStringArray(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: keep_fields: %w", lineNum, err)
+		}
+		p.KeepFields = vals
+	case "drop_fields":
+		vals, err := parseStringArray(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: drop_fields: %w", lineNum, err)
+		}
+		p.DropFields = vals
+	case "strip_nulls":
+		val, err := parseBool(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: strip_nulls: %w", lineNum, err)
+		}
+		p.StripNulls = val
+	case "flatten":
+		val, err := parseBool(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: flatten: %w", lineNum, err)
+		}
+		p.Flatten = val
+	case "on_empty":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: on_empty: %w", lineNum, err)
+		}
+		p.OnEmpty = NormalizeOnEmpty(val)
+	case "recovery":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: recovery: %w", lineNum, err)
+		}
+		if !validRecovery[val] {
+			return fmt.Errorf("profile: line %d: recovery: invalid value %q (must be none, local_artifact, or resource_link)", lineNum, val)
+		}
+		p.Recovery = val
+	case "tee_mode":
+		val, err := parseStringLiteral(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: tee_mode: %w", lineNum, err)
+		}
+		if !validTeeModes[val] {
+			return fmt.Errorf("profile: line %d: tee_mode: invalid value %q (must be off, failures, or always)", lineNum, val)
+		}
+		p.TeeMode = val
+	case "collapse_arrays":
+		spec, err := parseCollapseArrays(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: collapse_arrays: %w", lineNum, err)
+		}
+		p.CollapseArrays = spec
+	case "truncate_strings":
+		spec, err := parseTruncateStrings(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: truncate_strings: %w", lineNum, err)
+		}
+		p.TruncateStrings = spec
+	case "dedupe":
+		spec, err := parseDedupe(rawVal)
+		if err != nil {
+			return fmt.Errorf("profile: line %d: dedupe: %w", lineNum, err)
+		}
+		p.Dedupe = spec
+	default:
+		return fmt.Errorf("profile: line %d: unknown key %q", lineNum, key)
+	}
+	return nil
 }
 
 // parseStringLiteral parses a quoted string literal, e.g. "toon".
@@ -529,8 +587,8 @@ func parseInt(s string) (int, error) {
 // tee_mode keys (docs/expression-profile-dsl.md Field Reference). Cross-field
 // rules (recovery=resource_link requires tee_mode=always) are enforced by the
 // dedicated validators, not here.
-var validRecovery = map[string]bool{"none": true, "local_artifact": true, "resource_link": true}
-var validTeeModes = map[string]bool{"off": true, "failures": true, "always": true}
+var validRecovery = map[string]bool{RecoveryNone: true, RecoveryLocalArtifact: true, RecoveryResourceLink: true}
+var validTeeModes = map[string]bool{TeeModeOff: true, TeeModeFailures: true, TeeModeAlways: true}
 
 // splitTopLevelCommas splits an inline-table body on commas that are not nested
 // inside a {…}, […], or "…" — so `default_chars = 500, fields = { a = 1 }`
@@ -705,8 +763,8 @@ func parseTestFixtureKey(t *TestFixture, key, rawVal string, lineNum int) error 
 		if err != nil {
 			return fmt.Errorf("profile: line %d: tests.expect_format: %w", lineNum, err)
 		}
-		if !validFormats[val] {
-			return fmt.Errorf("profile: line %d: tests.expect_format: invalid value %q (must be toon, json, or raw)", lineNum, val)
+		if !validReportedFormats[val] {
+			return fmt.Errorf("profile: line %d: tests.expect_format: invalid value %q (must be toon, csv, json, markdown, or raw)", lineNum, val)
 		}
 		t.ExpectFormat = val
 	case "expect_max_tokens":
@@ -753,12 +811,12 @@ func parseTestFixtureKey(t *TestFixture, key, rawVal string, lineNum int) error 
 
 // Serialize produces a canonical DSL representation of the Profile that round-trips
 // through Parse. Keys are emitted only when they carry non-zero / non-default values.
-// Keys are emitted in this fixed order: default_format, projection, flatten_singletons,
+// Keys are emitted in this fixed order: format, projection, flatten_singletons,
 // omit_zero_counts, sort_by, limit.
 func (p *Profile) Serialize() string {
 	var sb strings.Builder
 	if p.DefaultFormat != "" {
-		fmt.Fprintf(&sb, "default_format = %q\n", p.DefaultFormat)
+		fmt.Fprintf(&sb, "format = %q\n", p.DefaultFormat)
 	}
 	if len(p.Projection) > 0 {
 		b, _ := json.Marshal(p.Projection)
@@ -775,6 +833,9 @@ func (p *Profile) Serialize() string {
 	}
 	if p.Limit > 0 {
 		fmt.Fprintf(&sb, "limit = %d\n", p.Limit)
+	}
+	if p.FieldMask != "" {
+		fmt.Fprintf(&sb, "field_mask = %q\n", p.FieldMask)
 	}
 	if p.FieldMaskMode != "" {
 		fmt.Fprintf(&sb, "field_mask_mode = %q\n", p.FieldMaskMode)

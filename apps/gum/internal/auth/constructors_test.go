@@ -124,6 +124,10 @@ func TestExtractSubject(t *testing.T) {
 		{name: "empty_bytes", in: nil, want: ""},
 		{name: "invalid_json_falls_back_to_raw", in: []byte("not-json"), want: "not-json"},
 		{name: "client_email_wins", in: []byte(`{"client_email":"sa@x.iam","refresh_token":"r","client_id":"c"}`), want: "sa@x.iam"},
+		// §10.0.1 lower-cases the account email so two spellings of one
+		// principal share a fingerprint. Only this branch is an email.
+		{name: "client_email_lower_cased", in: []byte(`{"client_email":"SA@X.IAM"}`), want: "sa@x.iam"},
+		{name: "refresh_token_case_preserved", in: []byte(`{"refresh_token":"Rt-MiXeD"}`), want: "Rt-MiXeD"},
 		{name: "refresh_token_next", in: []byte(`{"refresh_token":"r","client_id":"c"}`), want: "r"},
 		{name: "client_id_last", in: []byte(`{"client_id":"c"}`), want: "c"},
 		{name: "none_present_falls_back_to_raw", in: []byte(`{}`), want: `{}`},

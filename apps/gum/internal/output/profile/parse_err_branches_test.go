@@ -41,18 +41,18 @@ func TestParseUnknownSectionHeaderSurfacesError(t *testing.T) {
 
 // TestParseDefaultFormatInvalidValueSurfacesError pins Parse's
 // `!validFormats[val] → invalid value` arm (parser.go:356-358).
-// default_format must be one of toon|json|raw — any other quoted
+// format must be one of toon|csv|json|markdown — any other quoted
 // string fails so users get an immediate error rather than silently
 // falling back to the zero value.
-func TestParseDefaultFormatInvalidValueSurfacesError(t *testing.T) {
-	_, err := profile.Parse(`default_format = "xml"`)
+func TestParseFormatInvalidValueSurfacesError(t *testing.T) {
+	_, err := profile.Parse(`format = "xml"`)
 	if err == nil {
-		t.Fatal("Parse(default_format=xml)=nil err; want invalid-format error")
+		t.Fatal("Parse(format=xml)=nil err; want invalid-format error")
 	}
-	if !strings.Contains(err.Error(), "default_format") {
-		t.Errorf("err=%q; want 'default_format'", err)
+	if !strings.Contains(err.Error(), "format") {
+		t.Errorf("err=%q; want 'format'", err)
 	}
-	if !strings.Contains(err.Error(), "must be toon, json, or raw") {
+	if !strings.Contains(err.Error(), "must be toon, csv, json, or markdown") {
 		t.Errorf("err=%q; want enum hint", err)
 	}
 }
@@ -166,7 +166,7 @@ func TestParseFieldMaskModeInvalidValueSurfacesError(t *testing.T) {
 func TestParseStringLiteralInvalidEscapeSurfacesError(t *testing.T) {
 	// "\x" is an invalid JSON escape — passes len>=2 + quote-pair
 	// check but json.Unmarshal rejects.
-	_, err := profile.Parse(`default_format = "\x"`)
+	_, err := profile.Parse(`format = "\x"`)
 	if err == nil {
 		t.Fatal("Parse(default_format with bad escape)=nil err; want invalid-string err")
 	}

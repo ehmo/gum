@@ -144,10 +144,10 @@ func TestApplyDropFieldsScalarPassthrough(t *testing.T) {
 // or maps — collapse is a no-op on them.
 func TestApplyCollapseArraysScalarPassthrough(t *testing.T) {
 	spec := &CollapseArraysSpec{MaxItems: 5}
-	if got := applyCollapseArrays("scalar", spec); got != "scalar" {
+	if got := applyCollapseArrays("scalar", spec, nil); got != "scalar" {
 		t.Errorf("applyCollapseArrays(scalar)=%v; want passthrough", got)
 	}
-	if got := applyCollapseArrays(true, spec); got != true {
+	if got := applyCollapseArrays(true, spec, nil); got != true {
 		t.Errorf("applyCollapseArrays(bool)=%v; want passthrough true", got)
 	}
 }

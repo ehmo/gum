@@ -260,3 +260,10 @@ operation returns data from its upstream source.
   network access and firewall prompts for the installed executable. A timeout
   does not by itself show that the stored grant is invalid. See
   [OAuth connection timeouts](support.md#oauth-connection-timeouts).
+- `AUTH_KEYCHAIN_UNAVAILABLE` saying the keychain did not respond: the OS
+  keychain is reachable but never answered. On Linux this is usually a locked
+  Secret Service collection whose unlock prompt has nobody to answer it, such
+  as a headless host, an SSH session, a container, or CI. Unlock the login
+  keyring, or use a credential path that does not need one:
+  `gum auth use-adc` or `gum auth use-service-account <key.json>`. See
+  [Keychain call bounds](paths.md#keychain-call-bounds).

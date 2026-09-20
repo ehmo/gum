@@ -48,7 +48,17 @@ type UpstreamError struct {
 	// interface so the dispatch boundary can attach retry_after_ms to the
 	// RATE_LIMITED envelope (spec §1635).
 	RetryAfterMillis int64
+
+	// rawBody is the verbatim non-2xx response body. It is unexported so the
+	// struct's JSON shape is unchanged, and it is read back through
+	// UpstreamBody() so dispatch can artifact the real upstream payload when
+	// tee_mode = "failures" fires.
+	rawBody []byte
 }
+
+// UpstreamBody satisfies dispatch.UpstreamBodyCarrier. It returns the verbatim
+// non-2xx response body, or nil when the failure carried none.
+func (e *UpstreamError) UpstreamBody() []byte { return e.rawBody }
 
 func (e *UpstreamError) Error() string {
 	msg := fmt.Sprintf("upstream error HTTP %d (%s/%s): %s", e.HTTPStatus, e.GoogleStatus, e.GoogleCode, e.Message)
@@ -406,7 +416,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 	// or 503) and surfaced as RetryAfterMillis so the dispatch boundary can
 	// attach retry_after_ms to the RATE_LIMITED envelope (spec §1635).
 	parseUpstreamError := func(status int, body []byte, headers http.Header) *UpstreamError {
-		ue := &UpstreamError{HTTPStatus: status}
+		ue := &UpstreamError{HTTPStatus: status, rawBody: append([]byte(nil), body...)}
 		var eb googleErrorBody
 		if jsonErr := json.Unmarshal(body, &eb); jsonErr == nil {
 			ue.GoogleCode = eb.Error.Code.String()

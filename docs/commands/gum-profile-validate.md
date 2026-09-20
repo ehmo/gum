@@ -7,7 +7,7 @@ Parse an expression-profile DSL file and report any errors. Use this in CI to ca
 ## Usage
 
 ```bash
-gum profile validate <path>
+gum profile validate <path> [flags]
 ```
 
 ## Parent
@@ -24,6 +24,7 @@ gum profile validate <path>
 
 | Flag | Type | Default | Help |
 | --- | --- | --- | --- |
+| `--variant` | `string` |  | Catalog variant to bind for the strip_nulls safety check |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |

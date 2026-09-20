@@ -79,12 +79,29 @@ func clampInt(key, raw string, def, lo, hi int) int {
 // admin tuning keys (§2139-§2145) may override the defaults when present.
 //
 // Fields (spec §2129):
-//   - default_format = "toon"
+//   - format = "toon"
 //   - collapse_arrays.max_items = k (or admin-tuned override when set)
 //   - truncate_strings.default_chars = 120 (or admin-tuned)
 //   - truncate_strings.fields.summary = 80
 //   - on_empty = "No matching operations found. Try a broader query."
 //   - recovery = "none"
+//
+// searchAPIsKMin and searchAPIsKMax are the spec §2139 bounds for the
+// gum.search_apis k argument, mirrored in the registered input schema.
+const (
+	searchAPIsKMin = 1
+	searchAPIsKMax = 20
+)
+
+// searchAPIsProfileName is the profile name gum.search_apis reports in its
+// §13 envelope.
+const searchAPIsProfileName = "_meta.search_apis"
+
+// SearchNoResultsMessage is the §9.4 gum.search_apis on_empty string. It is
+// exported so `gum search` reports the same sentence for the same empty query;
+// two copies drifted apart the first time either was reworded.
+const SearchNoResultsMessage = "No matching operations found. Try a broader query."
+
 func searchAPIsProfile(k int, tuning searchAPIsTuning) *profile.Profile {
 	maxItems := k
 	if tuning.maxItemsBound {
@@ -95,6 +112,11 @@ func searchAPIsProfile(k int, tuning searchAPIsTuning) *profile.Profile {
 		defaultChars = 120
 	}
 	return &profile.Profile{
+		// §9.4 profiles are hardcoded and not overridable, so they have no
+		// file to take a name from. The envelope still has to report one, and
+		// an empty string would read as "no profile ran". The leading
+		// underscore follows the "_raw" sentinel convention (§2705).
+		Name:          searchAPIsProfileName,
 		DefaultFormat: "toon",
 		CollapseArrays: &profile.CollapseArraysSpec{
 			MaxItems: maxItems,
@@ -103,7 +125,7 @@ func searchAPIsProfile(k int, tuning searchAPIsTuning) *profile.Profile {
 			DefaultChars: defaultChars,
 			Fields:       map[string]int{"summary": 80},
 		},
-		OnEmpty:  "No matching operations found. Try a broader query.",
+		OnEmpty:  SearchNoResultsMessage,
 		Recovery: "none",
 	}
 }

@@ -66,13 +66,24 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 	langVal := args["language"]
 	language, _ := langVal.(string)
 	if language != "risor" {
-		return nil, fmt.Errorf("LANGUAGE_NOT_SUPPORTED: only risor v0.1.0")
+		// A fake "LANGUAGE_NOT_SUPPORTED:" text prefix used to stand in for a
+		// code here. That string is not in the §7 stable set, so nothing could
+		// branch on it. INVALID_ARGS with field=language is the real code. This
+		// guard is defence in depth: the MCP path rejects an unknown language at
+		// the JSON Schema layer with JSON-RPC -32602 before dispatch (spec §6.1
+		// reserved-language rejection transport).
+		return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
+			"only risor is supported in v0.1.0").
+			WithDetail("field", "language").
+			WithDetail("value", language)
 	}
 
 	codeVal := args["source"]
 	code, _ := codeVal.(string)
 	if code == "" {
-		return nil, fmt.Errorf("INVALID_ARGS: code is required")
+		return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
+			"code is required").
+			WithDetail("field", "code")
 	}
 
 	// Reject pragma headers before sandbox.Run so the error is a structured
@@ -121,20 +132,48 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 	}, nil
 }
 
-// validateDestructiveBudget returns INVALID_ARGS when allow_destructive=true
-// and destructive_budget is outside 1..20.
+// Spec §1083 destructive envelope bounds: a confirmed allow_destructive
+// invocation must declare a budget in minDestructiveBudget..maxDestructiveBudget,
+// and destructive_scope holds at most maxDestructiveScopeEntries entries.
+const (
+	minDestructiveBudget       = 1
+	maxDestructiveBudget       = 20
+	maxDestructiveScopeEntries = 20
+)
+
+// validateDestructiveBudget returns INVALID_ARGS when allow_destructive=true and
+// the destructive envelope is out of bounds: destructive_budget outside
+// 1..20, or more than 20 destructive_scope entries.
 // budget=0 means absent (makeCodeInvocation skips 0); absent counts as invalid.
 func validateDestructiveBudget(inv *dispatch.Invocation, args map[string]any) error {
 	if !inv.AllowDestructive {
 		return nil
 	}
 	budget := extractIntArg(args, "destructive_budget")
-	if budget < 1 || budget > 20 {
+	if budget < minDestructiveBudget || budget > maxDestructiveBudget {
 		return dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
-			fmt.Sprintf("destructive_budget must be in 1..20, got %d", budget)).
+			fmt.Sprintf("destructive_budget must be in %d..%d, got %d", minDestructiveBudget, maxDestructiveBudget, budget)).
 			WithDetail("destructive_budget", budget)
 	}
+	// The cap has to be checked here rather than in extractScope: that helper
+	// returns no error and silently skips malformed entries, so an over-cap
+	// scope would have widened the destructive envelope without a word.
+	if n := scopeEntryCount(args); n > maxDestructiveScopeEntries {
+		return dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
+			fmt.Sprintf("destructive_scope accepts at most %d entries, got %d", maxDestructiveScopeEntries, n)).
+			WithDetail("destructive_scope_count", n)
+	}
 	return nil
+}
+
+// scopeEntryCount reports how many raw destructive_scope entries the caller
+// sent, before extractScope drops the ones it cannot read.
+func scopeEntryCount(args map[string]any) int {
+	list, ok := args["destructive_scope"].([]any)
+	if !ok {
+		return 0
+	}
+	return len(list)
 }
 
 // buildDestructiveState populates a fresh destructiveState from inv/args.

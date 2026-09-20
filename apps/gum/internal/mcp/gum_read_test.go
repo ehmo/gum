@@ -113,7 +113,7 @@ func parseErrorResult(t *testing.T, res *sdkmcp.CallToolResult) map[string]any {
 
 // --- Test 1: Schema has exactly 7 params -------------------------------------
 
-// TestGumReadInputSchemaHas7Params asserts that the gum.read input schema declares
+// TestGumReadInputSchemaHas8Params asserts that the gum.read input schema declares
 // all 7 required properties, the correct format enum, required=["op_id"] only,
 // and additionalProperties:false.
 //
@@ -124,7 +124,7 @@ func parseErrorResult(t *testing.T, res *sdkmcp.CallToolResult) map[string]any {
 // Current schema (schemas.go) declares only 3 properties: op_id, args, format.
 // It also uses the wrong format enum ["toon","json","raw"] instead of
 // ["toon","csv","json","markdown"]. This test must FAIL until fixed.
-func TestGumReadInputSchemaHas7Params(t *testing.T) {
+func TestGumReadInputSchemaHas8Params(t *testing.T) {
 	raw := metaToolSchema("gum.read")
 	if len(raw) == 0 {
 		t.Fatal("metaToolSchema(gum.read) returned empty schema")
@@ -149,19 +149,19 @@ func TestGumReadInputSchemaHas7Params(t *testing.T) {
 		t.Errorf("required[0] must be op_id; got %v", required[0])
 	}
 
-	// 3. properties declares all 7 params
+	// 3. properties declares all 8 params
 	props, ok := s["properties"].(map[string]any)
 	if !ok {
 		t.Fatal("schema missing properties object")
 	}
-	want7 := []string{"op_id", "args", "variant_id", "fields", "page_size", "page_token", "format"}
-	for _, name := range want7 {
+	want8 := []string{"op_id", "args", "variant_id", "fields", "page_size", "page_token", "format", "max_items"}
+	for _, name := range want8 {
 		if _, exists := props[name]; !exists {
-			t.Errorf("schema missing property %q (spec §4.1: gum.read has 7 params)", name)
+			t.Errorf("schema missing property %q (spec §4.1: gum.read has 8 params)", name)
 		}
 	}
-	if len(props) != 7 {
-		t.Errorf("schema has %d properties; want exactly 7: %v", len(props), want7)
+	if len(props) != 8 {
+		t.Errorf("schema has %d properties; want exactly 8: %v", len(props), want8)
 	}
 
 	// 4. format enum is exactly ["toon","csv","json","markdown"]

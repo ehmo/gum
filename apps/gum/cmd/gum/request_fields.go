@@ -390,7 +390,15 @@ func validateEnumArgs(args map[string]any, fields []catalog.RequestField) error 
 					t[i] = canon
 				}
 			default:
-				for _, v := range flattenToStrings(raw) {
+				// Same fallback as the flat-arg loop above: flattenToStrings
+				// returns nil for a bare typed scalar, so render it rather than
+				// letting body:='{"mode":5}' skip the enum check that
+				// mode:=5 gets.
+				vals := flattenToStrings(raw)
+				if vals == nil && raw != nil {
+					vals = []string{fmt.Sprintf("%v", raw)}
+				}
+				for _, v := range vals {
 					if !enumContains(f.Enum, v) {
 						return cliArgInvalid(fmt.Sprintf("%s=%q is not a valid choice: %s", f.Name, v, strings.Join(f.Enum, "|")))
 					}

@@ -186,14 +186,8 @@ func (g *GumOAuth) Login(ctx context.Context, scopes []string) (*Credentials, er
 	defer func() { _ = lis.Close() }()
 	redirectURI := "http://" + lis.Addr().String() + "/oauth/callback"
 
-	state, err := randomURLToken(32)
-	if err != nil {
-		return nil, err
-	}
-	verifier, err := randomURLToken(64)
-	if err != nil {
-		return nil, err
-	}
+	state := randomURLToken(32)
+	verifier := randomURLToken(64)
 	challenge := pkceS256(verifier)
 
 	authQ := url.Values{
@@ -451,12 +445,12 @@ func invalidIDTokenError(detail string) error {
 }
 
 // randomURLToken returns a URL-safe random token of n bytes (pre-encoding).
-func randomURLToken(n int) (string, error) {
+// crypto/rand.Read always fills b or crashes the process, so there is no
+// error to report here.
+func randomURLToken(n int) string {
 	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("gum_oauth: random read: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	_, _ = rand.Read(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // pkceS256 computes the S256 PKCE code_challenge from the verifier.

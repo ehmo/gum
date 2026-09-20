@@ -39,14 +39,13 @@ import (
 // for round-trip tests. All fields are non-empty to exercise the full binding tuple.
 func confirmationBindingParams(ttl time.Duration) ConfirmationParams {
 	return ConfirmationParams{
-		OpID:            "gmail.users.messages.trash",
-		VariantID:       "gmail.v1.rest.users.messages.trash",
-		ArgsHash:        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 hex chars
-		ResourceKey:     "msg001",
-		AuthFingerprint: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		Scope:           `["gmail"]`,
-		Purpose:         ConfirmationPurposeDestructive,
-		TTL:             ttl,
+		OpID:        "gmail.users.messages.trash",
+		VariantID:   "gmail.v1.rest.users.messages.trash",
+		ArgsHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 hex chars
+		ResourceKey: "msg001",
+		Scope:       `["gmail"]`,
+		Purpose:     ConfirmationPurposeDestructive,
+		TTL:         ttl,
 	}
 }
 
@@ -188,20 +187,6 @@ func TestConfirmationTokenMismatchArgsHash(t *testing.T) {
 	assertTokenInvalid(t, VerifyConfirmationToken(tok, verifyParams), "mismatch")
 }
 
-// TestConfirmationTokenMismatchAuthFingerprint (§6.1.2 binding tuple, §1421 reason=mismatch) —
-// auth_subject_fingerprint changed between issue and verify (models cross-principal replay).
-func TestConfirmationTokenMismatchAuthFingerprint(t *testing.T) {
-	issueParams := confirmationBindingParams(5 * time.Minute)
-	tok, err := IssueConfirmationToken(issueParams)
-	if err != nil {
-		t.Fatalf("IssueConfirmationToken: %v", err)
-	}
-
-	verifyParams := confirmationBindingParams(0)
-	verifyParams.AuthFingerprint = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" // different fingerprint
-	assertTokenInvalid(t, VerifyConfirmationToken(tok, verifyParams), "mismatch")
-}
-
 // TestConfirmationTokenMismatchScope (§6.1.2 binding tuple destructive_scope_canonical,
 // §1421 reason=mismatch) — destructive scope changed between issue and verify.
 func TestConfirmationTokenMismatchScope(t *testing.T) {
@@ -331,7 +316,7 @@ func TestConfirmationTokenBLAKE3Used(t *testing.T) {
 	}
 
 	// Part 2: a token produced by the *old* HMAC-SHA256 TokenStore.IssueToken path
-	// (with a matching AllowedPurposes value) MUST NOT verify via VerifyConfirmationToken.
+	// (with a legacy purpose string) MUST NOT verify via VerifyConfirmationToken.
 	// This asserts that the two APIs use distinct signing paths and the new BLAKE3-based
 	// IssueConfirmationToken token format is NOT accepted by the old TokenStore.ConsumeToken,
 	// and vice versa.
@@ -340,7 +325,7 @@ func TestConfirmationTokenBLAKE3Used(t *testing.T) {
 	// Since "delete" is not in the ConfirmationPurpose closed enum the new API recognises,
 	// the call must return "unknown_purpose" (purpose checked before HMAC).
 	legacyPurposeParams := p1
-	legacyPurposeParams.Purpose = "delete" // AllowedPurposes value, not a ConfirmationPurpose constant
+	legacyPurposeParams.Purpose = "delete" // legacy purpose string, not a ConfirmationPurpose constant
 
 	// tok1 was signed for ConfirmationPurposeDestructive; verifying with "delete" as purpose
 	// must fail with unknown_purpose (if "delete" is not in new purpose enum) or mismatch

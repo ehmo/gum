@@ -256,6 +256,10 @@ func (h *listOnlyHost) Remove(context.Context, string) error {
 	panic("Remove not expected in a list test")
 }
 
+func (h *listOnlyHost) RemoveWithRegistry(context.Context, string, plugins.RemoveOptions) error {
+	panic("RemoveWithRegistry not expected in a list test")
+}
+
 func (h *listOnlyHost) Start(context.Context, string) (*plugins.Plugin, error) {
 	panic("Start not expected in a list test")
 }

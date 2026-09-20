@@ -35,6 +35,7 @@ func newCallCmd() *cobra.Command {
 		token       string
 		raw         bool
 		noFieldMask bool
+		maxItems    string
 	)
 	cmd := &cobra.Command{
 		Use:   "call <op_id> --risk=<read|write|destructive> [args...]",
@@ -87,6 +88,18 @@ func newCallCmd() *cobra.Command {
 			if ferr != nil {
 				return ferr
 			}
+			// §12.0 --raw: bypass stages 2-7 of the §9.1 shaping pipeline and
+			// return the post-sanitizer upstream JSON verbatim. The kernel
+			// implements that bypass on Invocation.Format == "raw", so the flag
+			// resolves to a format rather than a separate switch. Raw output is
+			// JSON, so --output json is compatible and every other explicit
+			// selector contradicts the flag.
+			if raw {
+				if explicitCallFormat(output, formatJSON, formatTOON, formatCSV, formatMD) && format != "raw" && format != "json" {
+					return cliArgInvalid(fmt.Sprintf("--raw returns the upstream JSON verbatim, so it cannot render %s output: drop --raw or drop the format selector", format))
+				}
+				format = "raw"
+			}
 			// table/csv/markdown are rendered in the CLI from the structured
 			// result; the dispatch kernel only needs the parsed JSON for them.
 			cliRender := cliFormatNeedsStructured(format)
@@ -136,6 +149,11 @@ func newCallCmd() *cobra.Command {
 				return err
 			}
 
+			itemCap, cerr := parseMaxItems(maxItems)
+			if cerr != nil {
+				return cerr
+			}
+
 			// Build the dispatch invocation.
 			inv := &dispatch.Invocation{
 				OpID:               opID,
@@ -143,6 +161,7 @@ func newCallCmd() *cobra.Command {
 				Format:             dispatchFormat,
 				RequestedVariantID: variantID,
 				Caller:             dispatch.CallerCLI,
+				MaxItems:           itemCap,
 			}
 			switch risk {
 			case "write":
@@ -164,26 +183,30 @@ func newCallCmd() *cobra.Command {
 			// response param, so the --fields flag and a positional fields= target
 			// the SAME canonical arg; when both are given the flag wins (assigned
 			// last). Intentional — not a silent positional drop.
-			if !noFieldMask && fields != "" {
-				if parsed.Args == nil {
-					parsed.Args = map[string]any{}
+			// §12.0 --no-field-mask skips stage 1 (upstream projection). The
+			// only mask gum sends upstream is the universal `fields` param,
+			// which reaches Args either through --fields or a positional
+			// fields=. Deleting the arg skips stage 1 for both forms;
+			// suppressing only the flag left a positional mask on the wire.
+			if noFieldMask {
+				if fields != "" {
+					return cliArgInvalid("--fields and --no-field-mask contradict each other: --no-field-mask skips the upstream field-mask projection, so it cannot carry a mask")
 				}
+				delete(parsed.Args, "fields")
+				// Deleting the arg is not enough on its own: the resolved
+				// profile may carry its own field_mask, which the kernel
+				// injects when no caller mask is present. The flag says "no
+				// upstream mask", so it has to veto that too.
+				inv.SuppressFieldMask = true
+			} else if fields != "" {
 				parsed.Args["fields"] = fields
 			}
 			if pageToken != "" {
-				if parsed.Args == nil {
-					parsed.Args = map[string]any{}
-				}
 				parsed.Args["pageToken"] = pageToken
 			}
 			if pageSize > 0 {
-				if parsed.Args == nil {
-					parsed.Args = map[string]any{}
-				}
 				parsed.Args[pageSizeParam(reqFields)] = pageSize
 			}
-			_ = raw // reserved for §12.0 --raw passthrough (no shaping)
-
 			// Risk-gate the resolved variant before the executor runs.
 			profileName := resolveProfileFlag(cmd)
 			disp := newCallDispatcher(profileName)
@@ -210,7 +233,11 @@ func newCallCmd() *cobra.Command {
 						return fmt.Errorf("gum call: cannot render %s output: upstream response is not JSON (use --output json or --raw): %w", format, jerr)
 					}
 				}
-				return renderStructured(out, format, v)
+				if rerr := renderStructured(out, format, v); rerr != nil {
+					return rerr
+				}
+				printShapingNotice(cmd.ErrOrStderr(), res)
+				return nil
 			}
 			if len(res.Body) > 0 {
 				_, _ = out.Write(res.Body)
@@ -225,6 +252,7 @@ func newCallCmd() *cobra.Command {
 				_, _ = out.Write(b)
 				_, _ = fmt.Fprintln(out)
 			}
+			printShapingNotice(cmd.ErrOrStderr(), res)
 			return nil
 		},
 	}
@@ -245,6 +273,7 @@ func newCallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "HMAC-SHA256 confirmation token returned by a prior destructive attempt")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Return the raw upstream JSON without shaping")
 	cmd.Flags().BoolVar(&noFieldMask, "no-field-mask", false, "Disable upstream field_mask injection")
+	registerMaxItemsFlag(cmd, &maxItems)
 
 	_ = cmd.RegisterFlagCompletionFunc("fields", completeFieldsForOp)
 	_ = cmd.RegisterFlagCompletionFunc("variant-id", completeVariantIDForOp)
@@ -280,27 +309,33 @@ func completeFieldsForOp(_ *cobra.Command, args []string, toComplete string) ([]
 		if v == nil || v.DefaultFields == "" {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		parts := strings.Split(v.DefaultFields, ",")
-		var out []string
-		// Suggest each individual field (so users can pick one piece) plus the
-		// full default mask (so they can accept the whole thing in one tab).
-		seen := map[string]bool{}
-		for _, p := range parts {
-			p = strings.TrimSpace(p)
-			if p == "" || seen[p] {
-				continue
-			}
-			seen[p] = true
-			if toComplete == "" || strings.HasPrefix(p, toComplete) {
-				out = append(out, p)
-			}
-		}
-		if toComplete == "" || strings.HasPrefix(v.DefaultFields, toComplete) {
-			out = append(out, v.DefaultFields)
-		}
-		return out, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+		return fieldMaskCandidates(v.DefaultFields, toComplete),
+			cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 	}
 	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+// fieldMaskCandidates expands a comma-separated default mask into completion
+// candidates: each distinct field (so users can pick one piece) plus the whole
+// mask (so they can accept it in one tab). Candidates are filtered by the
+// prefix the shell has typed so far.
+func fieldMaskCandidates(defaultFields, toComplete string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range strings.Split(defaultFields, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		if toComplete == "" || strings.HasPrefix(p, toComplete) {
+			out = append(out, p)
+		}
+	}
+	if toComplete == "" || strings.HasPrefix(defaultFields, toComplete) {
+		out = append(out, defaultFields)
+	}
+	return out
 }
 
 // completeVariantIDForOp proposes variant_ids known to the op (gum-wcwn item 11).
@@ -339,36 +374,17 @@ func normalizeRisk(s string) (string, bool) {
 	return "", false
 }
 
-// selectFormat resolves the mutually-exclusive boolean output flags. Setting
-// more than one fails with CLI_ARG_DUPLICATE per spec §12.0 line 2422.
-func selectFormat(j, t, c, m bool) (string, error) {
-	picked := []string{}
-	if j {
-		picked = append(picked, "json")
-	}
-	if t {
-		picked = append(picked, "toon")
-	}
-	if c {
-		picked = append(picked, "csv")
-	}
-	if m {
-		picked = append(picked, "markdown")
-	}
-	if len(picked) > 1 {
-		return "", &callargs.Error{Code: "CLI_ARG_DUPLICATE", Key: "format",
-			Reason: "use exactly one of --json|--toon|--csv|--markdown"}
-	}
-	if len(picked) == 0 {
-		return "json", nil // §12.0 default
-	}
-	return picked[0], nil
-}
-
 // resolveCallFormat picks the effective output format for `gum call`. An
 // explicit --output/-o value or one of the §12.0 format booleans wins (setting
 // more than one is CLI_ARG_DUPLICATE). With none, it honors the
 // GUM_DEFAULT_OUTPUT env var if it names a valid format, then falls back to a
+// explicitCallFormat reports whether the caller named an output format, as
+// opposed to inheriting the GUM_DEFAULT_OUTPUT or TTY-aware default. --raw only
+// conflicts with a format the caller actually asked for.
+func explicitCallFormat(output string, j, t, c, m bool) bool {
+	return strings.TrimSpace(output) != "" || j || t || c || m
+}
+
 // TTY-aware default — a human table on a terminal, machine JSON when piped — so
 // interactive use is readable while scripts and agents keep stable JSON.
 func resolveCallFormat(out io.Writer, output string, j, t, c, m bool) (string, error) {

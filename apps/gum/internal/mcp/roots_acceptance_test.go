@@ -43,9 +43,13 @@ import (
 // so dispatchToolCall actually resolves a profile for it. rootsProfileName is
 // that variant's output_profile, i.e. the .toml basename the resolver looks
 // for under <root>/.gum/profiles/ and $XDG_CONFIG_HOME/gum/profiles/.
+//
+// These were flights.search / flights.search.v1 until gum-36f5 removed that
+// name: it resolved to no profile body. The googleads pair is what the shipped
+// catalog actually binds, so the §9.2 layers have a real name to override.
 const (
-	rootsOpID        = "flights.search"
-	rootsProfileName = "flights.search.v1"
+	rootsOpID        = "googleads.keywordPlanIdeas.generateKeywordIdeas"
+	rootsProfileName = "googleads.keyword_ideas.v1"
 )
 
 // recordingDispatcher captures the Invocation the MCP layer built, so a test

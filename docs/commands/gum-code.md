@@ -44,6 +44,8 @@ gum code <script-or-@file> [flags]
 | `--allow-destructive` | `bool` | false | Authorise destructive sandbox ops |
 | `--allow-write` | `bool` | false | Authorise sandbox writes |
 | `--confirmed` | `bool` | false | Set the signed-confirmation flag for elevated sandbox ops |
+| `--destructive-budget` | `int` | 0 | Maximum destructive calls the script may make (1..20); required with --allow-destructive |
+| `--destructive-scope` | `stringArray` | [] | Narrow destructive calls to op_id[:resource_key]; repeatable, at most 20 entries |
 | `--format` | `string` |  | Output format (toon\|json\|raw) |
 | `--language` | `string` | risor | Sandbox language (only risor in v0.1.0) |
 | `-o`<br>`--output` | `string` |  | Output format: json\|toon\|raw (raw script output remains raw) |

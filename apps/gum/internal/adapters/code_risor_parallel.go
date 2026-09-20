@@ -445,12 +445,11 @@ func hoistSharedExpressionFields(results []map[string]any) map[string]any {
 	if len(shared) == 0 {
 		return nil
 	}
-	// Remove hoisted fields from each per-result _expression.
+	// Remove hoisted fields from each per-result _expression. A non-empty
+	// shared pool means every result carried an _expression map: the
+	// allMatch loop above rejects any key a later result cannot produce.
 	for _, r := range results {
-		expr, ok := r["_expression"].(map[string]any)
-		if !ok {
-			continue
-		}
+		expr, _ := r["_expression"].(map[string]any)
 		for key := range shared {
 			delete(expr, key)
 		}
@@ -491,8 +490,8 @@ func toAnySlice(in []map[string]any) []any {
 // (spec §9.0.1: "<8-char hex>" + §11 outer-entry batch_id).
 func newBatchID() string {
 	var buf [4]byte
-	if _, err := rand.Read(buf[:]); err != nil {
-		return "00000000"
-	}
+	// crypto/rand.Read fills the buffer or crashes the program; it has not
+	// returned an error since Go 1.24.
+	_, _ = rand.Read(buf[:])
 	return hex.EncodeToString(buf[:])
 }

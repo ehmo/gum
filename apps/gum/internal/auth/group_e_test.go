@@ -85,7 +85,10 @@ func TestAuthErrorNextAction(t *testing.T) {
 	})
 
 	t.Run("byo_oauth without resolver and without ADC fallback returns setup hint", func(t *testing.T) {
-		r := &CompositeResolver{} // no BYO, no ADC
+		// An empty Keyring, not the default OS keychain: with the real
+		// keychain this subtest reads the developer's own registered OAuth
+		// client, resolves live credentials and sees a nil error.
+		r := &CompositeResolver{Keyring: &mockKeyring{data: map[string]string{}}} // no BYO, no ADC
 		_, err := r.ResolveAuth(context.Background(), &dispatch.Invocation{}, &dispatch.ResolvedVariant{
 			Variant: &catalog.Variant{AuthStrategy: catalog.AuthStrategyBYOOAuth},
 		})

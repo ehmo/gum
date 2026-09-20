@@ -9,9 +9,10 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// errRendered marks a StructuredError that printDispatchError has already
-// written to the error stream as a full JSON envelope. The top-level handler
-// in main.go exits non-zero without printing a duplicate terse "Error:" line.
+// errRendered marks an error whose full JSON envelope is already on an output
+// stream: printDispatchError writes one to stderr, and `gum cache migrate`
+// writes its RSYNC_AMBIGUITY envelope to stdout. The top-level handler in
+// main.go exits non-zero without printing a duplicate terse "Error:" line.
 // It unwraps to the underlying error so errors.As keeps resolving the
 // *dispatch.StructuredError.
 type errRendered struct{ err error }
@@ -105,8 +106,14 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 	case dispatch.ErrCodeConfirmationTokenInvalid:
 		return "Confirmation token expired or did not match the destructive op. Re-issue the call without --confirmed to receive a fresh token."
 	case dispatch.ErrCodeAuthRequired:
-		return "Run `gum auth login` (or `gcloud auth application-default login`) and retry. See `gum doctor` for current auth status."
+		if hint := authEnvelopeHint(se); hint != "" {
+			return hint
+		}
+		return "Run `gum auth login` and retry. See `gum doctor` for current auth status."
 	case dispatch.ErrCodeScopeMissing:
+		if hint := authEnvelopeHint(se); hint != "" {
+			return hint
+		}
 		missing, _ := se.Detail["scopes_missing"].([]any)
 		if len(missing) > 0 {
 			return "Re-authenticate with the missing scopes: " + joinAny(missing) + ". Run `gum auth login --scopes=...`."
@@ -158,10 +165,64 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 	case dispatch.ErrCodePolicyDenied:
 		return "Profile policy denied this op_id. Inspect the active profile's allowlist/denylist or switch profiles via --profile=<name>."
 	}
+	if hint := authEnvelopeHint(se); hint != "" {
+		return hint
+	}
 	if reason := freeText(se.Detail, "reason"); reason != "" {
 		return reason
 	}
 	return ""
+}
+
+// authEnvelopeHint turns the spec §7 auth envelope into the one-line
+// remediation. Spec §7 lines 1378-1381 forbid answering a non-gum_oauth
+// failure with a hint that implies browser OAuth alone will fix it, so the
+// envelope's own setup_command wins over any canned text. Returns "" when the
+// error carries no auth envelope, leaving the caller's default in place.
+//
+// The codes that reach here beyond AUTH_REQUIRED and SCOPE_MISSING are
+// AUTH_KEYCHAIN_UNAVAILABLE, BYO_OAUTH_CLIENT_NOT_CONFIGURED,
+// AUTH_STRATEGY_NOT_IMPLEMENTED, AUTH_RESOLVER_NOT_CONFIGURED and
+// GUM_OAUTH_MANAGED_CLIENT_NOT_READY. None has a case in the switch above,
+// and each needs a different action, so each carries its own user_message.
+func authEnvelopeHint(se *dispatch.StructuredError) string {
+	setup := freeText(se.Detail, "setup_command")
+	user := freeText(se.Detail, "user_message")
+	missing := detailStrings(se.Detail, "missing_components")
+
+	if setup == "" && user == "" && len(missing) == 0 {
+		return ""
+	}
+
+	parts := []string{}
+	if setup != "" {
+		parts = append(parts, "Run `"+setup+"`.")
+	}
+	if len(missing) > 0 {
+		parts = append(parts, "Missing: "+strings.Join(missing, ", ")+".")
+	}
+	if user != "" {
+		parts = append(parts, user)
+	}
+	return strings.Join(parts, " ")
+}
+
+// detailStrings reads a detail value that may be either []string (built in
+// Go by internal/auth) or []any (round-tripped through JSON by MCP).
+func detailStrings(detail map[string]any, key string) []string {
+	switch v := detail[key].(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, e := range v {
+			if s, ok := e.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 func confirmationHintLabel(se *dispatch.StructuredError, extras map[string]any) string {

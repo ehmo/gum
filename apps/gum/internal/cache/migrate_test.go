@@ -125,15 +125,21 @@ func TestMigrateBranch3BoltToWAL(t *testing.T) {
 	if _, err := os.Stat(boltPath); !os.IsNotExist(err) {
 		t.Errorf("http.db still present post-rename: %v", err)
 	}
-	// Verify a migrated row.
+	// Verify a migrated row. An entry from the cache bucket keeps the bare key
+	// its writer used; any other top-level bucket keeps its name as a prefix so
+	// the flat kv table cannot collide.
 	s, err := OpenSQLiteWAL(SQLiteConfig{Path: filepath.Join(dir, HTTPWALDBFile)})
 	if err != nil {
 		t.Fatalf("open wal: %v", err)
 	}
 	defer func() { _ = s.Close() }()
-	got, ok, _ := s.Get("gum-cache/k1")
+	got, ok, _ := s.Get("k1")
 	if !ok || string(got) != "v1" {
-		t.Errorf("Get(gum-cache/k1)=(%q,%v); want (v1,true)", got, ok)
+		t.Errorf("Get(k1)=(%q,%v); want (v1,true)", got, ok)
+	}
+	got, ok, _ = s.Get("meta/foo")
+	if !ok || string(got) != "bar" {
+		t.Errorf("Get(meta/foo)=(%q,%v); want (bar,true)", got, ok)
 	}
 }
 

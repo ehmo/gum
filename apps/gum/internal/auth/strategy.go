@@ -92,7 +92,15 @@ type AuthError struct {
 	// false; compound and scope-missing failures should set this true once
 	// the missing components are resolved.
 	Retryable bool
+	// Cause is the underlying error, when one exists. It is deliberately
+	// absent from the §7 envelope (MarshalJSON has its own field set); it
+	// exists so a caller can errors.Is the root condition instead of matching
+	// on HumanRemediation text. See ErrKeychainUnsupported.
+	Cause error
 }
+
+// Unwrap exposes Cause to errors.Is / errors.As.
+func (e *AuthError) Unwrap() error { return e.Cause }
 
 func (e *AuthError) Error() string {
 	return fmt.Sprintf("auth [%s/%s]: %s", e.Strategy, e.Code, e.HumanRemediation)

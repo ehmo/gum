@@ -26,6 +26,7 @@ gum read <op_id> [flags]
 | --- | --- | --- | --- |
 | `--args` | `string` |  | JSON object of op arguments |
 | `--format` | `string` |  | Output format (toon\|json\|raw) |
+| `--max-items` | `string` |  | Result cap for this call: a positive integer, or "all" for every result (default: the profile's cap) |
 | `-o`<br>`--output` | `string` |  | Human output format: table\|json\|toon\|csv\|markdown\|raw\|value(<path>) (default: kernel TOON) |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |

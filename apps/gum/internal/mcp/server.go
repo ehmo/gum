@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/ehmo/gum/internal/embed"
 	"github.com/ehmo/gum/internal/embedded"
 	"github.com/ehmo/gum/internal/lro"
+	"github.com/ehmo/gum/internal/output/profile"
 	profilepkg "github.com/ehmo/gum/internal/profile"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -180,18 +183,25 @@ func (s *Server) registerSkillTools() {
 		DestructiveHint: boolPtr(false),
 	}
 	for _, def := range []struct {
-		name        string
-		description string
-		schema      json.RawMessage
-		handler     sdkmcp.ToolHandler
+		name         string
+		description  string
+		schema       json.RawMessage
+		outputSchema json.RawMessage
+		handler      sdkmcp.ToolHandler
 	}{
 		{
-			name:        "skills_list",
-			description: "List embedded gum agent skills without returning skill bodies.",
-			schema:      skillsListSchema(),
-			handler:     s.handleSkillsList,
+			name:         "skills_list",
+			description:  "List embedded gum agent skills without returning skill bodies.",
+			schema:       skillsListSchema(),
+			outputSchema: skillsListResultSchema(),
+			handler:      s.handleSkillsList,
 		},
 		{
+			// skills_get registers no outputSchema on purpose. Its payload is
+			// one skill body, and structuredContent would put that body on the
+			// wire a second time beside the text content. The skill helpers sit
+			// outside the Tier A roster (§403, §2709), so no spec rule requires
+			// a schema here, and MCP does not require one.
 			name:        "skills_get",
 			description: "Return one embedded gum agent skill body.",
 			schema:      skillsGetSchema(),
@@ -203,10 +213,10 @@ func (s *Server) registerSkillTools() {
 			Name:         toolDef.name,
 			Description:  toolDef.description,
 			InputSchema:  toolDef.schema,
-			OutputSchema: singleObjectResultSchema(),
+			OutputSchema: toolDef.outputSchema,
 			Annotations:  annotations,
 			Meta:         promptCacheHintMeta(),
-		}, toolDef.handler)
+		}, validatedHandler(toolDef.name, toolDef.schema, toolDef.handler))
 	}
 }
 
@@ -266,6 +276,34 @@ func stringArg(args map[string]any, key string) string {
 		return v
 	}
 	return ""
+}
+
+// maxItemsOverride maps the meta-tool max_items arg onto the output profile's
+// per-invocation cap. An absent arg leaves the active profile's own cap in
+// force. Returns ok=false for a value the schema would have rejected, so a
+// client that ignores the schema gets INVALID_ARGS instead of silent shaping.
+//
+// The arg exists because a profile cap sized for an LLM context window is the
+// wrong bound on a batch the caller already sized: a 245-keyword request capped
+// at 100 could return every result only via format "raw", which carries no
+// adapter annotations (gum-pmbp).
+func maxItemsOverride(v any) (profile.MaxItemsOverride, bool) {
+	if v == nil {
+		return profile.MaxItemsOverride{}, true
+	}
+	if s, isStr := v.(string); isStr {
+		if strings.EqualFold(strings.TrimSpace(s), "all") {
+			return profile.MaxItemsOverride{Mode: profile.MaxItemsUnlimited}, true
+		}
+		return profile.MaxItemsOverride{}, false
+	}
+
+	n, isNum := numericArg(v)
+	if !isNum || n < 1 || n != math.Trunc(n) {
+		return profile.MaxItemsOverride{}, false
+	}
+
+	return profile.MaxItemsOverride{Mode: profile.MaxItemsLimit, Value: int(n)}, true
 }
 
 // numericArg coerces a JSON-decoded value to float64. JSON numbers decode to

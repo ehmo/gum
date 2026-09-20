@@ -45,6 +45,7 @@ type PluginsHostInterface interface {
 	Install(ctx context.Context, source string) (string, error)
 	InstallWithRegistry(ctx context.Context, source string, opts plugins.InstallOptions) (string, error)
 	Remove(ctx context.Context, pluginID string) error
+	RemoveWithRegistry(ctx context.Context, pluginID string, opts plugins.RemoveOptions) error
 	List() ([]*plugins.Manifest, error)
 	Start(ctx context.Context, pluginID string) (*plugins.Plugin, error)
 }
@@ -186,6 +187,21 @@ func DispatchPluginCommandFull(args []string, host pluginsHostInterface, profile
 	case "remove":
 		if len(args) < 2 {
 			return "", fmt.Errorf("gum plugin remove: missing <id> argument")
+		}
+		// Spec §8.7 line 1893: remove drops the catalog variants, the lock row
+		// with its namespace lease, and the state row under the same
+		// transaction protocol install uses. Without a profile there is no
+		// registry, so the removal degrades to deleting the install dir — the
+		// same degradation `install` makes on that path.
+		if profileDir != "" {
+			reg, err := openRegistry(profileDir, regFactory)
+			if err != nil {
+				return "", err
+			}
+			if err := host.RemoveWithRegistry(ctx, args[1], plugins.RemoveOptions{Registry: reg}); err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("removed %s\n", args[1]), nil
 		}
 		if err := host.Remove(ctx, args[1]); err != nil {
 			return "", err
@@ -426,6 +442,35 @@ func emitTransferAudit(profileDir, prefix, oldOwner, newOwner string, release bo
 	})
 }
 
+// registryAuditSink carries registry warnings into the profile audit log. It
+// opens the writer on first Append rather than up front: the only row it
+// currently carries is the §8.7 fsync warning, which fires at most once per
+// profile per process and on a healthy filesystem never fires at all.
+//
+// A write failure is swallowed the way emitTransferAudit swallows one. The
+// on-disk transaction has already committed by then, and failing an install
+// because its warning could not be recorded is the worse outcome.
+type registryAuditSink struct{ profileDir string }
+
+func (s registryAuditSink) Append(entry map[string]any) {
+	if s.profileDir == "" {
+		return
+	}
+	w, err := auditlog.New(s.profileDir)
+	if err != nil {
+		return
+	}
+	defer w.Close() //nolint:errcheck
+	w.Append(entry)
+}
+
+// writableRegistry returns a registry whose publish path can record the §8.7
+// fsync warning. Read-only registries (digest lookups) skip the sink because
+// they never reach the publish step that raises it.
+func writableRegistry(profileDir string) *registry.Registry {
+	return registry.New(profileDir).WithAuditSink(registryAuditSink{profileDir: profileDir})
+}
+
 // openRegistry resolves the registry for the active profile. The factory hook
 // lets tests substitute a tempdir-backed registry.
 func openRegistry(profileDir string, factory PluginRegistryFactory) (*registry.Registry, error) {
@@ -438,7 +483,7 @@ func openRegistry(profileDir string, factory PluginRegistryFactory) (*registry.R
 	if err := os.MkdirAll(profileDir, 0o700); err != nil {
 		return nil, fmt.Errorf("gum plugin: mkdir profile dir: %w", err)
 	}
-	return registry.New(profileDir), nil
+	return writableRegistry(profileDir), nil
 }
 
 // resolveProfileDir returns `<data home>/gum/<profile>` honouring XDG_DATA_HOME.
@@ -454,10 +499,30 @@ func resolveProfileDir(profile string) (string, error) {
 	return dir, nil
 }
 
-// defaultPluginsHostInterface constructs the real *plugins.Host using the
-// default install root. Used by main when not under test.
-func defaultPluginsHost() pluginsHostInterface {
-	return plugins.NewHost(plugins.HostConfig{})
+// defaultPluginsHost constructs the real *plugins.Host using the default
+// install root. Used by main when not under test.
+//
+// profile, when non-empty, names the keychain scope Host.Start reads plugin
+// credentials from; an empty profile leaves the spawn env with ambient values
+// only.
+//
+// profileDir, when non-empty, makes the plugins.lock executable_sha256 row the
+// authoritative digest Host.Start verifies against, with the in-install-dir
+// sidecar as a cross-check. An empty profileDir leaves the sidecar as the only
+// record; Start still refuses to spawn when it is missing.
+func defaultPluginsHost(profile, profileDir string) pluginsHostInterface {
+	cfg := plugins.HostConfig{Profile: profile}
+	if profileDir != "" {
+		cfg.TrustedDigest = plugins.RecordedDigestResolver(registry.New(profileDir))
+	}
+	if profile != "" {
+		// Spec §8.2: `gum plugin setup` stores each plugin credential under
+		// PluginCredentialKey(profile, plugin, alias). Without a keyring the
+		// spawn env carries no stored credential and every plugin that needs
+		// one fails its first upstream call (gum-yq50).
+		cfg.Keyring = auth.NewOSKeyring()
+	}
+	return plugins.NewHost(cfg)
 }
 
 // pluginCommandHelp is a concise overview for `gum plugin --help`. The
@@ -493,6 +558,7 @@ func newPluginCmd() *cobra.Command {
 	cmd.AddCommand(
 		newPluginInstallCmd(),
 		newPluginListCmd(),
+		newPluginInfoCmd(),
 		newPluginRemoveCmd(),
 		newPluginRunCmd(),
 		newPluginSetupCmd(),
@@ -517,6 +583,9 @@ each missing credential by display_name and setup_hint, stores secrets in the
 OS keychain, then runs
 'gum canary --plugin=<name> --live' to verify the plugin is functional.
 
+Typed secrets are not echoed when stdin is a terminal. Piping the secrets in,
+one line per descriptor in manifest order, also works.
+
 On canary success the plugin state is set to 'active'.
 On canary failure the plugin is quarantined with CANARY_FAILED;
 run 'gum plugin reload <name>' after correcting credentials.`,
@@ -530,7 +599,7 @@ run 'gum plugin reload <name>' after correcting credentials.`,
 			}
 			out, err := DispatchPluginCommandFull(
 				append([]string{"setup"}, args...),
-				defaultPluginsHost(),
+				defaultPluginsHost(profile, profileDir),
 				profileDir,
 				nil,
 				PluginInstallOptions{},
@@ -583,7 +652,7 @@ to the namespace lease and has no interactive prompt.`,
 			if yes {
 				dispatchArgs = append(dispatchArgs, "--yes")
 			}
-			out, err := DispatchPluginCommandWithRegistry(dispatchArgs, defaultPluginsHost(), profileDir, nil)
+			out, err := DispatchPluginCommandWithRegistry(dispatchArgs, defaultPluginsHost(profile, profileDir), profileDir, nil)
 			if err != nil {
 				return err
 			}
@@ -609,7 +678,7 @@ func newPluginReloadCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out, err := DispatchPluginCommandWithRegistry(append([]string{"reload"}, args...), defaultPluginsHost(), profileDir, nil)
+			out, err := DispatchPluginCommandWithRegistry(append([]string{"reload"}, args...), defaultPluginsHost(profile, profileDir), profileDir, nil)
 			if err != nil {
 				return err
 			}
@@ -631,7 +700,7 @@ func newPluginUnquarantineCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out, err := DispatchPluginCommandWithRegistry(append([]string{"unquarantine"}, args...), defaultPluginsHost(), profileDir, nil)
+			out, err := DispatchPluginCommandWithRegistry(append([]string{"unquarantine"}, args...), defaultPluginsHost(profile, profileDir), profileDir, nil)
 			if err != nil {
 				return err
 			}
@@ -673,7 +742,7 @@ fails with PLUGIN_NAMESPACE_CONFLICT.`,
 			allowConflict, _ := cmd.Flags().GetBool("dev-allow-namespace-conflict")
 			out, err := DispatchPluginCommandWithOptions(
 				append([]string{"install"}, args...),
-				defaultPluginsHost(),
+				defaultPluginsHost(profile, profileDir),
 				profileDir,
 				nil,
 				PluginInstallOptions{
@@ -703,8 +772,9 @@ func newPluginListCmd() *cobra.Command {
 			// The profile dir carries plugin-state.json. Without it the listing
 			// falls back to manifests alone and cannot report a quarantine, so a
 			// resolve failure is not fatal here: report what we can (gum-mmzr).
-			profileDir, _ := resolveProfileDir(resolveProfileFlag(cmd))
-			out, err := DispatchPluginCommandWithRegistry([]string{"list"}, defaultPluginsHost(), profileDir, nil)
+			profile := resolveProfileFlag(cmd)
+			profileDir, _ := resolveProfileDir(profile)
+			out, err := DispatchPluginCommandWithRegistry([]string{"list"}, defaultPluginsHost(profile, profileDir), profileDir, nil)
 			if err != nil {
 				return err
 			}
@@ -729,7 +799,18 @@ func newPluginRemoveCmd() *cobra.Command {
 		Short: "Remove a plugin by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := DispatchPluginCommand(append([]string{"remove"}, args...), defaultPluginsHost())
+			profile := resolveProfileFlag(cmd)
+			// §8.7 line 1893: removal drops the catalog variants, the lock row
+			// with its namespace lease, and the state row in one transaction.
+			// A resolve failure is not fatal — remove then degrades to deleting
+			// the install dir, the same degradation install makes.
+			profileDir, _ := resolveProfileDir(profile)
+			out, err := DispatchPluginCommandWithRegistry(
+				append([]string{"remove"}, args...),
+				defaultPluginsHost(profile, profileDir),
+				profileDir,
+				nil,
+			)
 			if err != nil {
 				return err
 			}
@@ -745,7 +826,9 @@ func newPluginRunCmd() *cobra.Command {
 		Short: "Call a tool on a running plugin",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := DispatchPluginCommand(append([]string{"run"}, args...), defaultPluginsHost())
+			profile := resolveProfileFlag(cmd)
+			profileDir, _ := resolveProfileDir(profile)
+			out, err := DispatchPluginCommand(append([]string{"run"}, args...), defaultPluginsHost(profile, profileDir))
 			if err != nil {
 				return err
 			}

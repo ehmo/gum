@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/embed"
+	"github.com/ehmo/gum/internal/mcp"
 	outprofile "github.com/ehmo/gum/internal/output/profile"
 	"github.com/spf13/cobra"
 )
@@ -80,16 +83,38 @@ func dispatchToWriterWithFactory(ctx context.Context, profile string, w, errW io
 	return nil
 }
 
-// printShapingNotice writes the dropped-field notice for shaped to errW. It goes
-// to stderr so stdout stays a clean machine-readable body for pipelines, and it
-// is a no-op when the profile removed nothing.
+// printShapingNotice writes the shaping notice for shaped to errW: the profile's
+// on_empty message, the fields it dropped, and the rows it collapsed. It goes to
+// stderr so stdout stays a clean machine-readable body for pipelines (spec §12),
+// and it is a no-op when the profile changed nothing.
 func printShapingNotice(errW io.Writer, shaped *dispatch.ShapedResponse) {
 	if errW == nil || shaped == nil {
 		return
 	}
-	if msg := outprofile.DroppedPathsNotice(shaped.DroppedPaths, "--format raw", shaped.FullResultPath); msg != "" {
+	msg := outprofile.ShapingNotice(outprofile.NoticeInput{
+		DroppedPaths:    shaped.DroppedPaths,
+		CollapsedArrays: shaped.CollapsedArrays,
+		DedupedRows:     shaped.DedupedRows,
+		LimitedRows:     shaped.LimitedRows,
+		RawHint:         "--format raw",
+		MaxItemsHint:    "--max-items all",
+		FullResultPath:  shaped.FullResultPath,
+		OnEmptyMessage:  onEmptyMessageOf(shaped),
+	})
+	if msg != "" {
 		_, _ = fmt.Fprintln(errW, msg)
 	}
+}
+
+// onEmptyMessageOf returns the profile's on_empty string from the §13 envelope,
+// or "" when shaping left records behind. The message lives in the envelope
+// rather than in the body (§9.1 rule 2), so stdout keeps a parseable payload
+// and the operator still learns why it is empty.
+func onEmptyMessageOf(shaped *dispatch.ShapedResponse) string {
+	if shaped == nil || shaped.Expression == nil || shaped.Expression.OnEmptyMessage == nil {
+		return ""
+	}
+	return *shaped.Expression.OnEmptyMessage
 }
 
 // dispatchAndRender dispatches inv and renders the result in format. CLI-only
@@ -112,10 +137,14 @@ func dispatchAndRender(cmd *cobra.Command, inv *dispatch.Invocation, requestedRi
 				return fmt.Errorf("render %s output: upstream response is not JSON (use --output json or --format raw): %w", format, jerr)
 			}
 		}
-		// No dropped-field notice here: table/csv/markdown/value render from
-		// StructuredContent, which carries the pre-shaping body, so nothing the
-		// profile removed is actually missing from what the caller sees.
-		return renderStructured(out, format, v)
+		// table/csv/markdown/value render from StructuredContent, which is the
+		// shaped tree, so these formats hide exactly what the wire formats hide
+		// and need the same notice.
+		if rerr := renderStructured(out, format, v); rerr != nil {
+			return rerr
+		}
+		printShapingNotice(cmd.ErrOrStderr(), shaped)
+		return nil
 	}
 	inv.Format = format
 	return dispatchToWriterWithRisk(cmd.Context(), profile, out, cmd.ErrOrStderr(), inv, requestedRisk)
@@ -156,12 +185,46 @@ func metaToolFormat(output, format string) (string, error) {
 	return "", nil
 }
 
+// maxItemsUsage is the shared --max-items help text.
+const maxItemsUsage = `Result cap for this call: a positive integer, or "all" for every result (default: the profile's cap)`
+
+// registerMaxItemsFlag adds --max-items to cmd, binding it to raw.
+func registerMaxItemsFlag(cmd *cobra.Command, raw *string) {
+	cmd.Flags().StringVar(raw, "max-items", "", maxItemsUsage)
+}
+
+// parseMaxItems maps the --max-items flag onto the profile's per-invocation
+// override. An empty string leaves the active profile's own cap in force.
+//
+// The flag exists because a profile cap that protects an LLM context window is
+// the wrong bound on a batch the caller already sized: a 245-keyword request
+// capped at 100 could return every result only via --format raw, which carries
+// no adapter annotations (gum-pmbp).
+func parseMaxItems(raw string) (outprofile.MaxItemsOverride, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return outprofile.MaxItemsOverride{}, nil
+	}
+	if strings.EqualFold(trimmed, "all") {
+		return outprofile.MaxItemsOverride{Mode: outprofile.MaxItemsUnlimited}, nil
+	}
+
+	n, err := strconv.Atoi(trimmed)
+	if err != nil || n < 1 {
+		return outprofile.MaxItemsOverride{}, cliArgInvalid(
+			fmt.Sprintf("--max-items takes a positive integer or \"all\", got %q", raw))
+	}
+
+	return outprofile.MaxItemsOverride{Mode: outprofile.MaxItemsLimit, Value: n}, nil
+}
+
 // newReadCmd implements `gum read <op_id> [--args=JSON] [--format=...]`.
 func newReadCmd() *cobra.Command {
 	var (
 		argsJSON string
 		format   string
 		output   string
+		maxItems string
 	)
 	cmd := &cobra.Command{
 		Use:   "read <op_id>",
@@ -181,10 +244,15 @@ func newReadCmd() *cobra.Command {
 			if ferr != nil {
 				return ferr
 			}
+			itemCap, cerr := parseMaxItems(maxItems)
+			if cerr != nil {
+				return cerr
+			}
 			inv := &dispatch.Invocation{
-				OpID:   args[0],
-				Args:   parsed,
-				Caller: dispatch.CallerCLI,
+				OpID:     args[0],
+				Args:     parsed,
+				Caller:   dispatch.CallerCLI,
+				MaxItems: itemCap,
 			}
 			return dispatchAndRender(cmd, inv, "read", fmtSel)
 		},
@@ -192,6 +260,7 @@ func newReadCmd() *cobra.Command {
 	cmd.Flags().StringVar(&argsJSON, "args", "", "JSON object of op arguments")
 	cmd.Flags().StringVar(&format, "format", "", "Output format (toon|json|raw)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Human output format: table|json|toon|csv|markdown|raw|value(<path>) (default: kernel TOON)")
+	registerMaxItemsFlag(cmd, &maxItems)
 	return cmd
 }
 
@@ -201,6 +270,7 @@ func newWriteCmd() *cobra.Command {
 		argsJSON   string
 		format     string
 		output     string
+		maxItems   string
 		allowWrite bool
 	)
 	cmd := &cobra.Command{
@@ -218,11 +288,16 @@ func newWriteCmd() *cobra.Command {
 			if ferr != nil {
 				return ferr
 			}
+			itemCap, cerr := parseMaxItems(maxItems)
+			if cerr != nil {
+				return cerr
+			}
 			inv := &dispatch.Invocation{
 				OpID:       args[0],
 				Args:       parsed,
 				AllowWrite: allowWrite,
 				Caller:     dispatch.CallerCLI,
+				MaxItems:   itemCap,
 			}
 			return dispatchAndRender(cmd, inv, "write", fmtSel)
 		},
@@ -231,6 +306,7 @@ func newWriteCmd() *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "", "Output format (toon|json|raw)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Human output format: table|json|toon|csv|markdown|raw|value(<path>) (default: kernel TOON)")
 	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "Authorise this write")
+	registerMaxItemsFlag(cmd, &maxItems)
 	return cmd
 }
 
@@ -240,6 +316,7 @@ func newDestructiveCmd() *cobra.Command {
 		argsJSON  string
 		format    string
 		output    string
+		maxItems  string
 		confirmed bool
 		token     string
 	)
@@ -257,6 +334,10 @@ func newDestructiveCmd() *cobra.Command {
 			if ferr != nil {
 				return ferr
 			}
+			itemCap, cerr := parseMaxItems(maxItems)
+			if cerr != nil {
+				return cerr
+			}
 			inv := &dispatch.Invocation{
 				OpID:              args[0],
 				Args:              parsed,
@@ -264,6 +345,7 @@ func newDestructiveCmd() *cobra.Command {
 				ConfirmationToken: token,
 				AllowDestructive:  true,
 				Caller:            dispatch.CallerCLI,
+				MaxItems:          itemCap,
 			}
 			return dispatchAndRender(cmd, inv, "destructive", fmtSel)
 		},
@@ -273,6 +355,7 @@ func newDestructiveCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Human output format: table|json|toon|csv|markdown|raw|value(<path>) (default: kernel TOON)")
 	cmd.Flags().BoolVar(&confirmed, "confirmed", false, "Set the confirmed flag")
 	cmd.Flags().StringVar(&token, "token", "", "HMAC-SHA256 confirmation token")
+	registerMaxItemsFlag(cmd, &maxItems)
 	return cmd
 }
 
@@ -302,7 +385,7 @@ func newSearchCmd() *cobra.Command {
 					_, _ = fmt.Fprintln(out, "no results (catalog empty)")
 					return nil
 				}
-				return writeJSON(out, map[string]any{"results": []any{}})
+				return writeJSON(out, searchJSONEnvelope(query, []embed.SearchResult{}))
 			}
 			idx, err := embed.Build(snap)
 			if err != nil {
@@ -314,18 +397,32 @@ func newSearchCmd() *cobra.Command {
 				renderSearchTable(out, results)
 				return nil
 			}
-			// Normalize a nil slice (empty/no-match query) to [] so the JSON
-			// envelope is always "results":[] and never "results":null —
-			// consumers never have to special-case nil (gum-l0op #1).
-			if results == nil {
-				results = []embed.SearchResult{}
-			}
-			return writeJSON(out, map[string]any{"results": results})
+			return writeJSON(out, searchJSONEnvelope(query, results))
 		},
 	}
 	cmd.Flags().IntVar(&topK, "top-k", 10, "Maximum number of results")
 	cmd.Flags().StringVar(&format, "format", "", "Output format: json|table (default: TTY=table, pipe=json)")
 	return cmd
+}
+
+// searchJSONEnvelope builds the spec §2515 root for `gum search --format=json`:
+// `{"query", "results", "on_empty_message"?}`. It previously emitted only
+// `results`, so a consumer could not tell which query produced a hit set, and
+// an empty result set carried no explanation.
+//
+// A nil slice is normalized to [] so the key is always an array and never
+// null; consumers never have to special-case nil (gum-l0op #1). The message
+// message is the one the §9.4 implicit gum.search_apis profile uses, so the CLI
+// and the MCP tool say the same thing for the same empty query.
+func searchJSONEnvelope(query string, results []embed.SearchResult) map[string]any {
+	if results == nil {
+		results = []embed.SearchResult{}
+	}
+	env := map[string]any{"query": query, "results": results}
+	if len(results) == 0 {
+		env["on_empty_message"] = mcp.SearchNoResultsMessage
+	}
+	return env
 }
 
 // renderSearchTable prints BM25 results as a compact aligned table for human
@@ -527,18 +624,57 @@ func exampleValueFor(name string) any {
 	return "<" + name + ">"
 }
 
+// addDestructiveArgs puts the --destructive-budget and --destructive-scope flag
+// values into the gum.code arg map in the shape the Risor adapter reads: an int
+// budget and a []any of {op_id, resource_key} maps. The adapter type-asserts the
+// scope to []any, so a []map[string]any would be dropped without an error.
+//
+// It rejects either flag without --allow-destructive, because the adapter reads
+// both only when allow_destructive is true and the flags would otherwise be
+// silently inert. The 1..20 budget range and the 20-entry scope cap are policy
+// (spec §1083) and stay in the adapter, where MCP callers pass through too.
+func addDestructiveArgs(args map[string]any, allowDestructive bool, budget int, scope []string) error {
+	if !allowDestructive {
+		if budget != 0 {
+			return errors.New("--destructive-budget requires --allow-destructive")
+		}
+		if len(scope) > 0 {
+			return errors.New("--destructive-scope requires --allow-destructive")
+		}
+		return nil
+	}
+
+	args["destructive_budget"] = budget
+	if len(scope) == 0 {
+		return nil
+	}
+
+	entries := make([]any, 0, len(scope))
+	for _, raw := range scope {
+		opID, resourceKey, _ := strings.Cut(raw, ":")
+		if opID == "" {
+			return fmt.Errorf("--destructive-scope %q: expected op_id[:resource_key]", raw)
+		}
+		entries = append(entries, map[string]any{"op_id": opID, "resource_key": resourceKey})
+	}
+	args["destructive_scope"] = entries
+	return nil
+}
+
 // newCodeCmd implements `gum code <script> [--allow-write] [--allow-destructive] [--timeout-sec=N]`.
 // The script may be inline or @path/to/file.risor.
 func newCodeCmd() *cobra.Command {
 	var (
-		allowWrite       bool
-		allowDestructive bool
-		timeoutSec       int
-		language         string
-		confirmed        bool
-		token            string
-		format           string
-		output           string
+		allowWrite        bool
+		allowDestructive  bool
+		destructiveBudget int
+		destructiveScope  []string
+		timeoutSec        int
+		language          string
+		confirmed         bool
+		token             string
+		format            string
+		output            string
 	)
 	cmd := &cobra.Command{
 		Use:   "code <script-or-@file>",
@@ -586,6 +722,9 @@ Scripts may be passed inline or as @path/to/file.risor.`,
 			if timeoutSec > 0 {
 				invArgs["timeout_sec"] = timeoutSec
 			}
+			if err := addDestructiveArgs(invArgs, allowDestructive, destructiveBudget, destructiveScope); err != nil {
+				return err
+			}
 			inv := &dispatch.Invocation{
 				OpID:              "gum.code",
 				Args:              invArgs,
@@ -601,6 +740,8 @@ Scripts may be passed inline or as @path/to/file.risor.`,
 	}
 	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "Authorise sandbox writes")
 	cmd.Flags().BoolVar(&allowDestructive, "allow-destructive", false, "Authorise destructive sandbox ops")
+	cmd.Flags().IntVar(&destructiveBudget, "destructive-budget", 0, "Maximum destructive calls the script may make (1..20); required with --allow-destructive")
+	cmd.Flags().StringArrayVar(&destructiveScope, "destructive-scope", nil, "Narrow destructive calls to op_id[:resource_key]; repeatable, at most 20 entries")
 	cmd.Flags().BoolVar(&confirmed, "confirmed", false, "Set the signed-confirmation flag for elevated sandbox ops")
 	cmd.Flags().StringVar(&token, "token", "", "Confirmation token returned by a prior elevated gum code attempt")
 	cmd.Flags().IntVar(&timeoutSec, "timeout-sec", 0, "Per-invocation timeout in seconds (0=default)")

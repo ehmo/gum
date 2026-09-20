@@ -1,9 +1,11 @@
 // Spec §13 line 3158-3166: full gum://plugin/{name} record assembly from the
 // three §8.7 registry files. The MCP resource handler (resource_templates.go)
-// delegates to loadPluginResourceRecord here; keeping the assembly in its own
-// file keeps the precedence rule auditable in one place when v0.2+ extends
-// the field set (e.g., last_error_code wiring once §8.6 quarantine state is
-// emitted by the runtime).
+// and `gum plugin info` (cmd/gum/plugin_info.go) both read the record through
+// LoadPluginInfo here, which is what makes spec line 2520's "same object"
+// requirement structural rather than a convention two call sites must keep.
+// Keeping the assembly in its own file keeps the precedence rule auditable in
+// one place when v0.2+ extends the field set (e.g., last_error_code wiring
+// once §8.6 quarantine state is emitted by the runtime).
 //
 // Source precedence (spec §13 line 3158):
 //   - runtime status (status, reason, quarantined_at, last_error_code,
@@ -30,12 +32,18 @@ import (
 	"sort"
 )
 
-// pluginResourceRecord is the §13 line 3161 wire shape. Status-specific
-// fields are populated by the assembler based on resolvePluginStatus. JSON
-// tags use omitempty so optional fields (executable, activated_at, reason,
-// credential_descriptors, quarantined_at, last_error_code, metadata_warning)
-// stay absent when not applicable.
-type pluginResourceRecord struct {
+// PluginInfo is the §13 line 3161 wire shape, named for the `PluginInfo` root
+// spec §12 line 2520 gives `gum plugin info <name> --format=json`. Status-
+// specific fields are populated by the assembler based on
+// resolvePluginStatus. JSON tags use omitempty so optional fields (executable,
+// activated_at, reason, credential_descriptors, quarantined_at,
+// last_error_code, metadata_warning) stay absent when not applicable.
+//
+// It is exported because the CLI must emit the same object as the MCP
+// resource: spec line 2520 says "Same object carried inside the
+// gum://plugin/{name} JSON resource payload", so both entry points share
+// LoadPluginInfo rather than assembling twice.
+type PluginInfo struct {
 	Name                  string         `json:"name"`
 	Version               string         `json:"version"`
 	Description           string         `json:"description"`
@@ -58,13 +66,19 @@ type pluginResourceRecord struct {
 	MetadataWarning       string         `json:"metadata_warning,omitempty"`
 }
 
-// loadPluginResourceRecord assembles the §13 line 3161 record for a single
-// plugin or returns (nil, false) when no row exists in either plugins.lock or
-// plugin-state.json for that name. Catalog-only entries are intentionally not
-// surfaced as plugins because v0.1.0 installs always write a lock or state
-// row alongside the catalog variant.
-func (s *Server) loadPluginResourceRecord(name string) (*pluginResourceRecord, bool) {
-	profileDir := s.profilePluginDir()
+// loadPluginResourceRecord resolves the active profile's plugin registry dir
+// and delegates to LoadPluginInfo.
+func (s *Server) loadPluginResourceRecord(name string) (*PluginInfo, bool) {
+	return LoadPluginInfo(s.profilePluginDir(), name)
+}
+
+// LoadPluginInfo assembles the §13 line 3161 record for a single plugin from
+// the three §8.7 files under profileDir, or returns (nil, false) when no row
+// exists in either plugins.lock or plugin-state.json for that name.
+// Catalog-only entries are intentionally not surfaced as plugins because
+// v0.1.0 installs always write a lock or state row alongside the catalog
+// variant.
+func LoadPluginInfo(profileDir, name string) (*PluginInfo, bool) {
 	if profileDir == "" || name == "" {
 		return nil, false
 	}
@@ -79,7 +93,7 @@ func (s *Server) loadPluginResourceRecord(name string) (*pluginResourceRecord, b
 	}
 
 	variantIDs := collectPluginVariantIDs(catalogTop, name)
-	rec := &pluginResourceRecord{
+	rec := &PluginInfo{
 		Name:              name,
 		Version:           stringFromRow(lockRow, "version"),
 		Description:       stringFromRow(lockRow, "description"),

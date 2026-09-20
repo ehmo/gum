@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ehmo/gum/internal/plugins/registry"
 )
@@ -60,7 +61,8 @@ func TestPluginExecutableBinding(t *testing.T) {
 	}
 
 	// The host MUST quarantine the plugin once the digest disagrees. Boot a
-	// registry, seed the state row, then call QuarantinePlugin.
+	// registry, seed the state row, then record the failure through
+	// RecordCrash, the production quarantine writer.
 	profileDir := t.TempDir()
 	reg := registry.New(profileDir)
 	if err := reg.WriteTransaction(context.Background(), func(f *registry.Files) error {
@@ -81,8 +83,9 @@ func TestPluginExecutableBinding(t *testing.T) {
 		t.Fatalf("seed install: %v", err)
 	}
 
-	if err := QuarantinePlugin(context.Background(), reg, "google-flights", "PLUGIN_EXECUTABLE_UNTRUSTED"); err != nil {
-		t.Fatalf("QuarantinePlugin: %v", err)
+	crashAt := time.Date(2026, 5, 19, 12, 0, 0, 0, time.UTC)
+	if _, err := RecordCrash(context.Background(), reg, "google-flights", "PLUGIN_EXECUTABLE_UNTRUSTED", crashAt); err != nil {
+		t.Fatalf("RecordCrash: %v", err)
 	}
 	files, err := reg.Load()
 	if err != nil {

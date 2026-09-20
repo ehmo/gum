@@ -1,4 +1,4 @@
-default_format = "toon"
+format = "toon"
 projection = ["id", "summary", "start"]
 flatten_singletons = false
 omit_zero_counts = false

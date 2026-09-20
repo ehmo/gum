@@ -1,7 +1,7 @@
 // gum-9vuq.10 acceptance: flights_search convenience tool wiring.
 //
 // Spec §4.1 line 366: flights_search → flights.search → flights.v1.plugin.search,
-// output_profile=flights.search.v1, format=toon,json. Spec §8.2: the bundled fli
+// no output_profile (gum-36f5), format=toon,json. Spec §8.2: the bundled fli
 // Shape 1 plugin owns the only variant; AdapterKey="plugin.mcp" routes through
 // the mcp-plugin executor (the executor itself is wired by gum-ikg).
 //
@@ -61,7 +61,7 @@ func TestFlightsSearchRoutesToCatalogOp(t *testing.T) {
 			Arguments: json.RawMessage(`{
 				"origin":"SFO",
 				"destination":"JFK",
-				"departureDate":"2026-07-01",
+				"departure_date":"2026-07-01",
 				"adults":1
 			}`),
 		},
@@ -76,9 +76,9 @@ func TestFlightsSearchRoutesToCatalogOp(t *testing.T) {
 	if disp.gotOpID != "flights.search" {
 		t.Errorf("dispatcher saw op_id=%q; want flights.search (spec §4.1 line 366)", disp.gotOpID)
 	}
-	for _, k := range []string{"origin", "destination", "departureDate"} {
+	for _, k := range []string{"origin", "destination", "departure_date"} {
 		if _, ok := disp.gotArgs[k]; !ok {
-			t.Errorf("Invocation.Args missing required arg %q; convenience handler must forward verbatim", k)
+			t.Errorf("Invocation.Args missing required arg %q; the handler must forward it under the op's own name", k)
 		}
 	}
 }
@@ -123,8 +123,11 @@ func TestFlightsSearchVariantIsPluginMCP(t *testing.T) {
 	if len(op.backends) != 1 || op.backends[0] != "mcp-plugin" {
 		t.Errorf("flights.search backend_kinds = %v; want exactly [mcp-plugin] (spec §8.2 line 1582)", op.backends)
 	}
-	if op.profile != "flights.search.v1" {
-		t.Errorf("flights.search output_profile = %q; want flights.search.v1 (spec §4.1 line 366)", op.profile)
+	// gum-36f5: the variant used to name "flights.search.v1", which has never
+	// shipped as a built-in profile body. The build gate in cmd/gen-catalog now
+	// rejects a name that resolves to nothing, so this variant carries none.
+	if op.profile != "" {
+		t.Errorf("flights.search output_profile = %q; want \"\" until a built-in profile of that name exists (gum-36f5)", op.profile)
 	}
 }
 
@@ -141,7 +144,7 @@ func TestFlightsSearchShapesPluginResultIntoToonText(t *testing.T) {
 	req := &sdkmcp.CallToolRequest{
 		Params: &sdkmcp.CallToolParamsRaw{
 			Name:      "flights_search",
-			Arguments: json.RawMessage(`{"origin":"SFO","destination":"JFK","departureDate":"2026-07-01"}`),
+			Arguments: json.RawMessage(`{"origin":"SFO","destination":"JFK","departure_date":"2026-07-01"}`),
 		},
 	}
 

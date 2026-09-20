@@ -9,8 +9,11 @@
 // Mirrors docs_sheets_slides_routing_test.go: a capturing dispatcher records
 // (op_id, args) for each convenience handler so we can assert the
 // convenienceABITable → convenienceOpRouting wiring resolves the spec's
-// op_ids and forwards required args verbatim. Live REST execution lives in
-// the smoke-test gate; this test pins the kernel-side contract.
+// op_ids and forwards each op argument under the name the op declares. Live
+// REST execution lives in the smoke-test gate; this test pins the kernel-side
+// contract. Arguments follow spec §4.1: drive_find takes `q`, and drive_share
+// takes the permission resource as one object, which the handler folds into
+// the reserved "body" key.
 
 package mcp
 
@@ -36,8 +39,8 @@ func TestDriveConvenienceRouting(t *testing.T) {
 		{
 			tool:        "drive_find",
 			wantOpID:    "drive.files.list",
-			args:        `{"query":"name contains 'budget'"}`,
-			requiredArg: "query",
+			args:        `{"q":"name contains 'budget'"}`,
+			requiredArg: "q",
 		},
 		{
 			tool:        "drive_get_file",
@@ -50,7 +53,7 @@ func TestDriveConvenienceRouting(t *testing.T) {
 			// gate so Dispatch is reached.
 			tool:        "drive_share",
 			wantOpID:    "drive.permissions.create",
-			args:        `{"fileId":"FILE123","role":"reader","type":"user","emailAddress":"x@example.com","confirmed":true}`,
+			args:        `{"fileId":"FILE123","permission":{"role":"reader","type":"user","emailAddress":"x@example.com"},"confirmed":true}`,
 			requiredArg: "fileId",
 		},
 	}

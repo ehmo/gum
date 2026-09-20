@@ -8,12 +8,11 @@
 package plugins
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ehmo/gum/internal/auth"
@@ -103,9 +102,15 @@ func SetupCredentials(ctx context.Context, pluginID string, opts SetupOptions) e
 		return nil
 	}
 
-	// 3+4. Prompt for each credential and store in keyring.
+	// 3+4. Prompt for each credential and store in keyring. One reader serves
+	// every prompt: a reader per prompt buffers the lines behind the first and
+	// the second secret then reads as "no input provided".
+	var secrets *secretReader
+	if opts.In != nil {
+		secrets = newSecretReader(opts.In)
+	}
 	for _, d := range descs {
-		if err := promptAndStore(opts, pluginID, d); err != nil {
+		if err := promptAndStore(opts, secrets, pluginID, d); err != nil {
 			// Error messages use alias/display_name only.
 			return fmt.Errorf("plugin setup: credential %q: %w", d.Alias, err)
 		}
@@ -135,15 +140,15 @@ func SetupCredentials(ctx context.Context, pluginID string, opts SetupOptions) e
 }
 
 // promptAndStore prompts the user for descriptor d's secret, reads it from
-// opts.In, and stores it in opts.Keyring. The prompt uses display_name and
-// setup_hint — never the raw env var name.
-func promptAndStore(opts SetupOptions, pluginID string, d CredentialDescriptor) error {
+// secrets, and stores it in opts.Keyring. The prompt uses display_name and
+// setup_hint — never the raw env var name. The typed value is never echoed
+// when the input stream is a terminal.
+func promptAndStore(opts SetupOptions, secrets *secretReader, pluginID string, d CredentialDescriptor) error {
 	w := opts.Out
 	if w == nil {
 		return fmt.Errorf("no output writer")
 	}
-	r := opts.In
-	if r == nil {
+	if secrets == nil {
 		return fmt.Errorf("no input reader")
 	}
 
@@ -153,15 +158,19 @@ func promptAndStore(opts SetupOptions, pluginID string, d CredentialDescriptor) 
 	}
 	_, _ = fmt.Fprintf(w, "Enter value for %q (%s): ", d.DisplayName, d.Kind)
 
-	// Read one line from stdin; the value is never echoed to logs.
-	scanner := bufio.NewScanner(r)
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("reading input: %w", err)
-		}
+	// Read one line; the value is never echoed to the terminal or to logs.
+	secret, echoed, err := secrets.readLine()
+	if errors.Is(err, io.EOF) {
 		return fmt.Errorf("no input provided for %q", d.DisplayName)
 	}
-	secret := strings.TrimRight(scanner.Text(), "\r\n")
+	if err != nil {
+		return fmt.Errorf("reading input: %w", err)
+	}
+	if !echoed {
+		// Echo was off, so the terminal swallowed the user's Enter. Close the
+		// line here or the next prompt overwrites this one.
+		_, _ = fmt.Fprintln(w)
+	}
 	if secret == "" {
 		return fmt.Errorf("empty value provided for %q", d.DisplayName)
 	}
@@ -174,13 +183,20 @@ func promptAndStore(opts SetupOptions, pluginID string, d CredentialDescriptor) 
 	return nil
 }
 
-// setPluginActive writes status=active + activated_at to plugin-state.json.
+// setPluginActive writes status=active + activated_at to plugin-state.json and
+// clears the supervisor quarantine bookkeeping in the same transaction.
+//
+// The clear is not cosmetic: Supervisor.Start gates on quarantined,
+// next_retry_at and permanent_quarantine, never on status. Leaving those fields
+// behind made a passing canary print "configured and activated" while the very
+// next call refused to spawn and asked for `gum plugin unquarantine` (gum-davu).
 func setPluginActive(ctx context.Context, reg *registry.Registry, pluginName string, now time.Time) error {
 	return reg.WriteTransaction(ctx, func(f *registry.Files) error {
 		row, idx := findOrAppendRow(f, pluginName)
 		row["status"] = "active"
 		row["activated_at"] = now.UTC().Format(time.RFC3339)
 		delete(row, "reason")
+		clearQuarantineFields(row)
 		f.State.Plugins[idx] = row
 		return nil
 	})

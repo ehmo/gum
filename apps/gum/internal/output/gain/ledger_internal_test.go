@@ -56,7 +56,7 @@ func TestAppendAutoRotatesOnSizeOverflow(t *testing.T) {
 }
 
 // TestOpFamilyEdgeCases covers the no-dot and dot-at-position-zero
-// branches of opFamilyOf / lastDot.
+// branches of OpFamily / lastDot.
 func TestOpFamilyEdgeCases(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -69,8 +69,8 @@ func TestOpFamilyEdgeCases(t *testing.T) {
 		{in: "a.b", want: "a"},
 	}
 	for _, c := range cases {
-		if got := opFamilyOf(c.in); got != c.want {
-			t.Errorf("opFamilyOf(%q) = %q; want %q", c.in, got, c.want)
+		if got := OpFamily(c.in); got != c.want {
+			t.Errorf("OpFamily(%q) = %q; want %q", c.in, got, c.want)
 		}
 	}
 }

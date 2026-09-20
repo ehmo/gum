@@ -31,7 +31,7 @@ func TestProfileValidateOK(t *testing.T) {
 func TestProfileValidateRejectsBadFormat(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.toml")
-	if err := os.WriteFile(bad, []byte(`default_format = "bogus"`), 0o600); err != nil {
+	if err := os.WriteFile(bad, []byte(`format = "bogus"`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cmd := newRootCmd()
@@ -151,7 +151,7 @@ func TestProfileTestExitsNonZeroOnFixtureFailure(t *testing.T) {
 	// Profile with a 1-token ceiling that cannot accommodate any real output.
 	profilePath := filepath.Join(dir, "failing.toml")
 	flatInput := filepath.Join(root, "internal", "output", "profile", "testdata", "gmail-flat-input.json")
-	src := `default_format = "toon"
+	src := `format = "toon"
 [[tests]]
 name = "tiny"
 fixture = "` + flatInput + `"
@@ -179,7 +179,7 @@ func TestProfileTestErrorBranches(t *testing.T) {
 
 	dir := t.TempDir()
 	badSyntax := filepath.Join(dir, "bad.toml")
-	if err := os.WriteFile(badSyntax, []byte(`default_format = "bogus"`), 0o600); err != nil {
+	if err := os.WriteFile(badSyntax, []byte(`format = "bogus"`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

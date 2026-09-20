@@ -14,6 +14,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -21,39 +22,50 @@ import (
 )
 
 func main() {
-	matrixPath := flag.String("matrix", "../../docs/test-matrix.md", "path to test-matrix.md (relative to -workdir)")
-	workDir := flag.String("workdir", ".", "module directory containing go.mod for the `go test` invocation")
-	deferredPath := flag.String("deferred", "", "newline-delimited list of expected tests outside this release scope; empty disables exceptions")
-	timeout := flag.Duration("timeout", 15*time.Minute, "overall timeout for the matrix sweep")
-	listOnly := flag.Bool("list", false, "print the parsed group/test plan and exit (no go test invocations)")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run holds the whole command so tests can drive it against a fixture
+// matrix without spawning a subprocess. The returned int is the process
+// exit code: 0 clean, 1 a failed group, 2 a usage or parse failure.
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("test-matrix", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	matrixPath := fs.String("matrix", "../../docs/test-matrix.md", "path to test-matrix.md (relative to -workdir)")
+	workDir := fs.String("workdir", ".", "module directory containing go.mod for the `go test` invocation")
+	deferredPath := fs.String("deferred", "", "newline-delimited list of expected tests outside this release scope; empty disables exceptions")
+	timeout := fs.Duration("timeout", 15*time.Minute, "overall timeout for the matrix sweep")
+	listOnly := fs.Bool("list", false, "print the parsed group/test plan and exit (no go test invocations)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	groups, err := testmatrix.ParseFile(*matrixPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "test-matrix: parse %s: %v\n", *matrixPath, err)
-		os.Exit(2)
+		_, _ = fmt.Fprintf(stderr, "test-matrix: parse %s: %v\n", *matrixPath, err)
+		return 2
 	}
 	if len(groups) == 0 {
-		fmt.Fprintf(os.Stderr, "test-matrix: no groups parsed from %s\n", *matrixPath)
-		os.Exit(2)
+		_, _ = fmt.Fprintf(stderr, "test-matrix: no groups parsed from %s\n", *matrixPath)
+		return 2
 	}
 
 	if *listOnly {
 		for _, g := range groups {
-			fmt.Printf("Group %s — %s (%d tests)\n", g.Letter, g.Description, len(g.Tests))
+			_, _ = fmt.Fprintf(stdout, "Group %s — %s (%d tests)\n", g.Letter, g.Description, len(g.Tests))
 			for _, name := range g.Tests {
-				fmt.Printf("  %s\n", name)
+				_, _ = fmt.Fprintf(stdout, "  %s\n", name)
 			}
 		}
-		return
+		return 0
 	}
 
 	deferred := map[string]bool{}
 	if *deferredPath != "" {
 		deferred, err = testmatrix.ParseDeferredFile(*deferredPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "test-matrix: exceptions %s: %v\n", *deferredPath, err)
-			os.Exit(2)
+			_, _ = fmt.Fprintf(stderr, "test-matrix: exceptions %s: %v\n", *deferredPath, err)
+			return 2
 		}
 	}
 
@@ -64,13 +76,14 @@ func main() {
 	results := runner.RunAll(ctx, groups)
 
 	summary := testmatrix.Summarize(results)
-	if err := summary.WriteTable(os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "test-matrix: write summary: %v\n", err)
-		os.Exit(2)
+	if err := summary.WriteTable(stdout); err != nil {
+		_, _ = fmt.Fprintf(stderr, "test-matrix: write summary: %v\n", err)
+		return 2
 	}
 
 	if summary.AnyFailed() {
-		fmt.Fprintln(os.Stderr, "test-matrix: one or more groups failed")
-		os.Exit(1)
+		_, _ = fmt.Fprintln(stderr, "test-matrix: one or more groups failed")
+		return 1
 	}
+	return 0
 }

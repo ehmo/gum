@@ -239,8 +239,8 @@ func TestApplyTruncateStringsDefaultEdge(t *testing.T) {
 	if err := json.Unmarshal(out.Body, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got["s"] != "hello…" {
-		t.Errorf("s=%q, want hello…", got["s"])
+	if got["s"] != "hell…" {
+		t.Errorf("s=%q, want hell… (5 runes including the ellipsis)", got["s"])
 	}
 }
 
@@ -263,11 +263,11 @@ func TestApplyTruncateStringsPerFieldOverrideEdge(t *testing.T) {
 	if err := json.Unmarshal(out.Body, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got["short"] != "abc…" {
-		t.Errorf("short=%q, want abc…", got["short"])
+	if got["short"] != "ab…" {
+		t.Errorf("short=%q, want ab…", got["short"])
 	}
-	if got["long"] != "abcdefgh…" {
-		t.Errorf("long=%q, want abcdefgh…", got["long"])
+	if got["long"] != "abcdefg…" {
+		t.Errorf("long=%q, want abcdefg…", got["long"])
 	}
 }
 
@@ -291,8 +291,8 @@ func TestApplyTruncateStringsDotPathOverride(t *testing.T) {
 		t.Fatalf("unmarshal: %v\nbody: %s", err, string(out.Body))
 	}
 	meta := got["meta"].(map[string]any)
-	if meta["note"] != "he…" {
-		t.Errorf("meta.note=%q, want he…", meta["note"])
+	if meta["note"] != "h…" {
+		t.Errorf("meta.note=%q, want h…", meta["note"])
 	}
 }
 
@@ -312,12 +312,12 @@ func TestApplyTruncateStringsInArray(t *testing.T) {
 	if err := json.Unmarshal(out.Body, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if got[0] != "ab…" {
-		t.Errorf("got[0]=%q, want ab…", got[0])
+	if got[0] != "a…" {
+		t.Errorf("got[0]=%q, want a…", got[0])
 	}
 	inner := got[1].(map[string]any)
-	if inner["k"] != "xy…" {
-		t.Errorf("got[1].k=%q, want xy…", inner["k"])
+	if inner["k"] != "x…" {
+		t.Errorf("got[1].k=%q, want x…", inner["k"])
 	}
 }
 
@@ -460,7 +460,9 @@ func TestApplyDedupeSkipsNonMapElements(t *testing.T) {
 	}
 }
 
-// TestApplyOnEmptySentinelArray covers the empty-array branch of OnEmpty.
+// TestApplyOnEmptySentinelArray covers the empty-array branch of OnEmpty. The
+// message reports through ApplyOutput.OnEmptyMessage (spec §9.1 rule 2); it
+// does not overwrite the body.
 func TestApplyOnEmptySentinelArray(t *testing.T) {
 	p := &profile.Profile{
 		OnEmpty:       "no results",
@@ -470,12 +472,16 @@ func TestApplyOnEmptySentinelArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if string(out.Body) != `"no results"` {
-		t.Errorf("got %q, want \"no results\"", out.Body)
+	if out.OnEmptyMessage != "no results" {
+		t.Errorf("OnEmptyMessage = %q, want %q", out.OnEmptyMessage, "no results")
+	}
+	if string(out.Body) != `[]` {
+		t.Errorf("body = %q, want %q; on_empty reports through the envelope and leaves the body alone", out.Body, `[]`)
 	}
 }
 
 // TestApplyOnEmptySentinelMap covers the empty-map branch of OnEmpty.
+// Reports through the envelope, body untouched.
 func TestApplyOnEmptySentinelMap(t *testing.T) {
 	p := &profile.Profile{
 		OnEmpty:       "no data",
@@ -485,12 +491,16 @@ func TestApplyOnEmptySentinelMap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if string(out.Body) != `"no data"` {
-		t.Errorf("got %q, want \"no data\"", out.Body)
+	if out.OnEmptyMessage != "no data" {
+		t.Errorf("OnEmptyMessage = %q, want %q", out.OnEmptyMessage, "no data")
+	}
+	if string(out.Body) != `{}` {
+		t.Errorf("body = %q, want %q; on_empty reports through the envelope and leaves the body alone", out.Body, `{}`)
 	}
 }
 
 // TestApplyOnEmptySentinelNull covers the nil branch of OnEmpty.
+// Reports through the envelope, body untouched.
 func TestApplyOnEmptySentinelNull(t *testing.T) {
 	p := &profile.Profile{
 		OnEmpty:       "nothing",
@@ -500,8 +510,11 @@ func TestApplyOnEmptySentinelNull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if string(out.Body) != `"nothing"` {
-		t.Errorf("got %q, want \"nothing\"", out.Body)
+	if out.OnEmptyMessage != "nothing" {
+		t.Errorf("OnEmptyMessage = %q, want %q", out.OnEmptyMessage, "nothing")
+	}
+	if string(out.Body) != `null` {
+		t.Errorf("body = %q, want %q; on_empty reports through the envelope and leaves the body alone", out.Body, `null`)
 	}
 }
 
@@ -533,8 +546,10 @@ func TestApplyDefaultFormatToon(t *testing.T) {
 	}
 }
 
-// TestApplyDefaultFormatFallback covers the unknown-format branch (falls
-// back to toon).
+// TestApplyDefaultFormatFallback covers the unknown-format branch: the bytes
+// are TOON and the reported format says so. Echoing the requested name back
+// told the MCP seam and the tee artifact that unparseable-as-requested bytes
+// were the format the caller asked for.
 func TestApplyDefaultFormatFallback(t *testing.T) {
 	p := &profile.Profile{DefaultFormat: "weirdformat"}
 	body := []byte(`{"k":"v"}`)
@@ -542,10 +557,9 @@ func TestApplyDefaultFormatFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if out.Format != "weirdformat" {
-		t.Errorf("Format=%q, want weirdformat (unchanged from input)", out.Format)
+	if out.Format != "toon" {
+		t.Errorf("Format=%q, want toon (the encoder that actually ran)", out.Format)
 	}
-	// The output should still be TOON-encoded bytes.
 	if len(out.Body) == 0 {
 		t.Error("empty body from fallback encoder")
 	}

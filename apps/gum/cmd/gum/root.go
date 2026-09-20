@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -20,8 +22,10 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/embedded"
 	"github.com/ehmo/gum/internal/notify"
+	"github.com/ehmo/gum/internal/output/gain"
 	outprofile "github.com/ehmo/gum/internal/output/profile"
 	"github.com/ehmo/gum/internal/plugins"
+	"github.com/ehmo/gum/internal/plugins/registry"
 	profilepkg "github.com/ehmo/gum/internal/profile"
 	"github.com/spf13/cobra"
 )
@@ -89,7 +93,11 @@ func newRootCmd() *cobra.Command {
 			if err := applyProfileSelection(cmd); err != nil {
 				return err
 			}
-			return applyLoggingFlags(cmd)
+			if err := applyLoggingFlags(cmd); err != nil {
+				return err
+			}
+			promotePendingPlugins(cmd)
+			return nil
 		},
 	}
 	root.SetVersionTemplate("{{.Version}}\n")
@@ -159,6 +167,45 @@ func applyProfileSelection(cmd *cobra.Command) error {
 		return err
 	}
 	return f.Value.Set(name.String())
+}
+
+// promotePendingPlugins runs the spec §8.7 startup activation write: plugins
+// installed by an earlier process flip from installed_pending_restart to
+// active before this process dispatches anything. Both startup kinds the spec
+// names land here, because `gum mcp --stdio` is a subcommand of this root.
+//
+// It is best-effort by design. A registry gum cannot read must not stop the
+// command the operator actually typed, and PromotePendingRestart skips the
+// write entirely when no row is pending, so the common case costs one read of
+// plugin-state.json.
+func promotePendingPlugins(cmd *cobra.Command) {
+	if cmd == nil || cmd.Root() == nil {
+		return
+	}
+	f := cmd.Root().PersistentFlags().Lookup("profile")
+	if f == nil {
+		return
+	}
+	name, err := profilepkg.Parse(f.Value.String())
+	if err != nil {
+		return
+	}
+	dir, err := name.DataDir()
+	if err != nil || dir == "" {
+		return
+	}
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	promoted, err := plugins.PromotePendingRestart(ctx, writableRegistry(dir), time.Now())
+	if err != nil {
+		slog.Warn("plugin startup activation skipped", "profile", name.String(), "err", err)
+		return
+	}
+	for _, p := range promoted {
+		slog.Info("plugin promoted to active", "plugin", p, "profile", name.String())
+	}
 }
 
 // applyLoggingFlags resolves --log-level (with GUM_LOG_LEVEL fallback) and
@@ -279,7 +326,16 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 	// a stricter executor with per-call pre-flight validation hooks.
 	rest := adapters.NewTypedRestSDK()
 	pluginMCP := adapters.NewPluginMCPLazyWithStarter(func() *plugins.Host {
-		return plugins.NewHost(plugins.HostConfig{})
+		// Profile + Keyring let Start resolve the credentials `gum plugin
+		// setup` stored for this profile (§8.2); without them a plugin that
+		// declares needs_user_creds spawns unconfigured (gum-yq50).
+		cfg := plugins.HostConfig{Profile: profile, Keyring: auth.NewOSKeyring()}
+		// The plugins.lock row is the authoritative install-time digest; the
+		// sidecar in the 0o755 install dir is only a cross-check copy.
+		if dir, err := resolveProfileDir(profile); err == nil {
+			cfg.TrustedDigest = plugins.RecordedDigestResolver(registry.New(dir))
+		}
+		return plugins.NewHost(cfg)
 	}, func(ctx context.Context, host *plugins.Host, pluginID string) (*plugins.Plugin, error) {
 		profileDir, err := resolveProfileDir(profile)
 		if err != nil {
@@ -303,12 +359,12 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		return auth.LookupDeveloperToken(auth.NewOSKeyring(), gadsProfile)
 	})
 	return map[string]dispatch.Adapter{
-		"code.risor":                                 cr,
-		"rest.typed-rest-sdk":                        rest,
-		"rest.discovery-rest":                        rest,
-		"rest.raw-http":                              rest,
-		"plugin.mcp":                                 pluginMCP,
-		"googleads.generateKeywordIdeas":             gads,
+		"code.risor":                     cr,
+		"rest.typed-rest-sdk":            rest,
+		"rest.discovery-rest":            rest,
+		"rest.raw-http":                  rest,
+		"plugin.mcp":                     pluginMCP,
+		"googleads.generateKeywordIdeas": gads,
 		"googleads.generateKeywordHistoricalMetrics": gads,
 		"googleads.generateKeywordForecastMetrics":   gads,
 		"googleads.search":                           gads,
@@ -340,6 +396,48 @@ func newDefaultDispatcher() dispatch.Dispatcher {
 // hostile filesystem (read-only volume, missing $HOME) does not block the
 // CLI from running. Synchronous audit append (no buffered channel) — caller
 // gets immediate persist semantics with no Close() to wire.
+// profileHierarchyLookup resolves an expression-profile name through the whole
+// spec §9.2 hierarchy: project-local (`.gum/profiles` at or above the working
+// directory), then user-global (`$XDG_CONFIG_HOME/gum/profiles`), then the
+// catalog-embedded builtins. The kernel previously saw only the third layer, so
+// a project-local file never reached a CLI call.
+//
+// A malformed file in either filesystem layer resolves to no profile and logs a
+// warning. Dropping the profile widens the response rather than narrowing it,
+// so the call still runs; the warning is what keeps a typo from passing unseen.
+func profileHierarchyLookup(name string) (*outprofile.Profile, bool) {
+	p, _, err := outprofile.ResolveProfile(profileSearchRoot(), name, outprofile.BuiltinLookup)
+	if err != nil {
+		if !errors.Is(err, outprofile.ErrProfileNotFound) {
+			slog.Warn("profile resolution failed", "profile", name, "error", err)
+		}
+		return nil, false
+	}
+	return p, true
+}
+
+// profileOverrideBindings returns the merged §9.2 [override_bindings] table for
+// the working directory, project-local beating user-global on a shared key.
+func profileOverrideBindings() map[string]string {
+	bindings, err := outprofile.LoadOverrideBindings(profileSearchRoot())
+	if err != nil {
+		slog.Warn("override_bindings load failed", "error", err)
+		return nil
+	}
+	return bindings
+}
+
+// profileSearchRoot is the project root for filesystem profile resolution. The
+// CLI has no roots handshake, so the working directory stands in for it; the
+// resolver walks upward from there.
+func profileSearchRoot() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return wd
+}
+
 func newDefaultDispatcherForProfile(profile string) dispatch.Dispatcher {
 	disp, _ := newDefaultDispatcherWithCloser(profile, false)
 	return disp
@@ -387,7 +485,11 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 	authResolver.Profile = scopeProfile
 	var allowedScopes []string
 	if loadProfileScopes {
-		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewOSKeyring(), scopeProfile))
+		// Best-effort tier: nobody asked for this read, and a locked keychain
+		// (a headless Linux box whose Secret Service prompt has no one to
+		// answer it) must degrade to "no granted scopes" instead of stalling
+		// every command on the interactive bound.
+		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile))
 	}
 	cfg := dispatch.DispatcherConfig{
 		Auth: authResolver,
@@ -413,7 +515,11 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 		// kernel applies a variant's output_profile when no presentation-layer
 		// override is set on the invocation. Shared by CLI and MCP (both build
 		// the dispatcher here).
-		ProfileLookup: outprofile.BuiltinLookup,
+		ProfileLookup: profileHierarchyLookup,
+		// §9.2 [override_bindings]. A project-local or user-global table binds
+		// an op_id or variant_id to a profile name; the kernel substitutes it
+		// for the variant's own output_profile after routing.
+		ProfileBindings: profileOverrideBindings,
 		// Env and profile-config defaults for omitted args, such as the
 		// Google Ads account ids (gum-puum).
 		ArgDefaults: newArgDefaulter(scopeProfile),
@@ -431,6 +537,26 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 			if buffered {
 				closer = w.Close
 			}
+		}
+	}
+	// Step 9's gain ledger (spec §12.3). Without this the kernel held a nil
+	// sink, so every dispatch skipped the append and `gum gain` reported an
+	// empty ledger no matter how much traffic the profile had served.
+	if dir := profileDataDir; dir != "" && gain.Enabled(name) {
+		if ledger, lerr := gain.NewLedger(filepath.Join(dir, gain.LedgerFileName)); lerr == nil {
+			cfg.Ledger = ledger
+			prev := closer
+			closer = func() error {
+				err := prev()
+				if cerr := ledger.Close(); err == nil {
+					err = cerr
+				}
+				return err
+			}
+		} else {
+			// Accounting is best-effort: a ledger gum cannot open must not
+			// stop the CLI from dispatching.
+			slog.Warn("gain ledger unavailable; step 9 accounting disabled", "profile", profileName, "err", lerr)
 		}
 	}
 	disp := dispatch.NewDispatcherWithConfig(loadCatalog(), adapterMap, cfg)

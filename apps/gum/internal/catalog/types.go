@@ -31,6 +31,12 @@ var (
 	ErrUnsupportedCatalogSchemaVersion = errors.New("catalog: unsupported catalog_schema_version")
 	ErrServiceRootTemplateDeferred     = errors.New("catalog: SERVICE_ROOT_TEMPLATE_DEFERRED")
 	ErrNoDefaultDeclared               = errors.New("catalog: request field declares no default")
+
+	ErrUnknownExecutionSupport           = errors.New("catalog: unknown execution_support")
+	ErrMissingUnsupportedCapabilities    = errors.New("catalog: execution_support requires unsupported_capabilities")
+	ErrUnexpectedUnsupportedCapabilities = errors.New("catalog: execution_support \"full\" forbids unsupported_capabilities")
+	ErrUndeclaredUnsupportedCapability   = errors.New("catalog: unsupported_capabilities atom is not declared in capabilities")
+	ErrPartialWithNoExecutableCapability = errors.New("catalog: execution_support \"partial\" blocks every declared capability")
 )
 
 // SupportedCatalogSchemaVersions is the set of catalog_schema_version values the loader accepts.
@@ -59,6 +65,37 @@ const (
 func (r RiskClass) Valid() bool {
 	switch r {
 	case RiskClassRead, RiskClassWrite, RiskClassDestructive:
+		return true
+	}
+	return false
+}
+
+// ExecutionSupport is a closed enum per spec.md §918. It states how much of a
+// variant's declared `capabilities[]` the dispatcher can actually execute.
+type ExecutionSupport string
+
+const (
+	// ExecutionSupportFull means every declared atom executes. §925 forbids
+	// `unsupported_capabilities` on this value.
+	ExecutionSupportFull ExecutionSupport = "full"
+	// ExecutionSupportPartial means at least one declared atom executes and at
+	// least one does not. §925 requires `unsupported_capabilities` to list
+	// every non-executable atom, which is a strict subset of `capabilities[]`.
+	ExecutionSupportPartial ExecutionSupport = "partial"
+	// ExecutionSupportTypedExecutorRequired means no declared atom executes
+	// through generic dispatch. Invocation returns UNSUPPORTED_CAPABILITY.
+	ExecutionSupportTypedExecutorRequired ExecutionSupport = "typed_executor_required"
+	// ExecutionSupportSchemaOnly means the variant is metadata-only.
+	ExecutionSupportSchemaOnly ExecutionSupport = "schema_only"
+)
+
+// Valid reports whether e is a known ExecutionSupport. The empty string is not
+// valid here; Op.Validate treats an omitted field as ExecutionSupportFull
+// before calling this.
+func (e ExecutionSupport) Valid() bool {
+	switch e {
+	case ExecutionSupportFull, ExecutionSupportPartial,
+		ExecutionSupportTypedExecutorRequired, ExecutionSupportSchemaOnly:
 		return true
 	}
 	return false
@@ -451,6 +488,9 @@ func (op *Op) Validate() error {
 		if v.AuthStrategy != "" && !v.AuthStrategy.Valid() {
 			return fmt.Errorf("op %s: variant %s: %w", op.OpID, v.VariantID, ErrUnknownAuthStrategy)
 		}
+		if err := v.validateExecutionSupport(op.OpID); err != nil {
+			return err
+		}
 		if op.Service == "admin" && v.RiskClass != RiskClassRead {
 			if err := v.AdminPolicy.Validate(); err != nil {
 				return fmt.Errorf("op %s: variant %s: admin_policy: %w", op.OpID, v.VariantID, err)
@@ -475,33 +515,96 @@ func (op *Op) Validate() error {
 	return nil
 }
 
+// validateExecutionSupport enforces the spec §925 binding between a variant's
+// `execution_support` and its `unsupported_capabilities`. The catalog is the
+// declaration site: `gum.describe_op` reads the field straight through, so an
+// unchecked variant here becomes a wrong `DescribeOpResult` downstream.
+//
+// An omitted `execution_support` resolves to "full", which is what every
+// variant shipped today means by leaving it out.
+func (v Variant) validateExecutionSupport(opID string) error {
+	support := v.ExecutionSupport
+	if support == "" {
+		support = ExecutionSupportFull
+	}
+	if !support.Valid() {
+		return fmt.Errorf("op %s: variant %s: execution_support %q: %w", opID, v.VariantID, v.ExecutionSupport, ErrUnknownExecutionSupport)
+	}
+
+	if support == ExecutionSupportFull {
+		if len(v.UnsupportedCapabilities) > 0 {
+			return fmt.Errorf("op %s: variant %s: %w", opID, v.VariantID, ErrUnexpectedUnsupportedCapabilities)
+		}
+		return nil
+	}
+
+	// Every listed atom must be one the variant declares. A name outside
+	// `capabilities[]` is a typo or a stale atom, and it would reach the
+	// describe_op payload unchecked.
+	for _, atom := range v.UnsupportedCapabilities {
+		if !slices.Contains(v.Capabilities, atom) {
+			return fmt.Errorf("op %s: variant %s: unsupported_capabilities %q: %w", opID, v.VariantID, atom, ErrUndeclaredUnsupportedCapability)
+		}
+	}
+
+	if support == ExecutionSupportPartial {
+		// §918 defines "partial" as a mixed variant: at least one declared
+		// atom executes and at least one does not.
+		if len(v.UnsupportedCapabilities) == 0 {
+			return fmt.Errorf("op %s: variant %s: execution_support %q: %w", opID, v.VariantID, support, ErrMissingUnsupportedCapabilities)
+		}
+		for _, atom := range v.Capabilities {
+			if !slices.Contains(v.UnsupportedCapabilities, atom) {
+				return nil
+			}
+		}
+		return fmt.Errorf("op %s: variant %s: %w", opID, v.VariantID, ErrPartialWithNoExecutableCapability)
+	}
+
+	// "typed_executor_required" and "schema_only" block every declared atom,
+	// so the list must name all of them. A variant that declares no atoms has
+	// nothing to list and passes with an empty list.
+	for _, atom := range v.Capabilities {
+		if !slices.Contains(v.UnsupportedCapabilities, atom) {
+			return fmt.Errorf("op %s: variant %s: execution_support %q omits capability %q: %w", opID, v.VariantID, support, atom, ErrMissingUnsupportedCapabilities)
+		}
+	}
+
+	return nil
+}
+
 // Variant is an executable backend variant per spec.md §5.3 and docs/catalog-abi.md.
 type Variant struct {
-	VariantID             string        `json:"variant_id"`
-	VariantSchemaVersion  int           `json:"variant_schema_version"`
-	Version               string        `json:"version,omitempty"`
-	Stability             Stability     `json:"stability"`
-	InterfaceKind         InterfaceKind `json:"interface_kind"`
-	BackendKind           BackendKind   `json:"backend_kind"`
-	Preferred             bool          `json:"preferred,omitempty"`
-	RiskClass             RiskClass     `json:"risk_class"`
-	AuthStrategy          AuthStrategy  `json:"auth_strategy,omitempty"`
-	ConfirmationPolicy    string        `json:"confirmation_policy,omitempty"`
-	Capabilities          []string      `json:"capabilities,omitempty"`
-	Scopes                []string      `json:"scopes,omitempty"`
-	DefaultFields         string        `json:"default_fields,omitempty"`
-	DefaultPageSize       int           `json:"default_page_size,omitempty"`
-	DefaultFormat         string        `json:"default_format,omitempty"`
-	OutputProfile         string        `json:"output_profile,omitempty"`
-	NullElisionSafeFields []string      `json:"null_elision_safe_fields,omitempty"`
-	ExecutionSupport      string        `json:"execution_support,omitempty"`
-	RiskOverride          bool          `json:"risk_override,omitempty"`
-	RiskOverrideReason    string        `json:"risk_override_reason,omitempty"`
-	AdminPolicy           *AdminPolicy  `json:"admin_policy,omitempty"`
-	StubExpires           string        `json:"stub_expires,omitempty"`
-	Quarantined           bool          `json:"quarantined,omitempty"`
-	Annotations           *Annotation   `json:"annotations,omitempty"`
-	Binding               *Binding      `json:"binding,omitempty"`
+	VariantID             string           `json:"variant_id"`
+	VariantSchemaVersion  int              `json:"variant_schema_version"`
+	Version               string           `json:"version,omitempty"`
+	Stability             Stability        `json:"stability"`
+	InterfaceKind         InterfaceKind    `json:"interface_kind"`
+	BackendKind           BackendKind      `json:"backend_kind"`
+	Preferred             bool             `json:"preferred,omitempty"`
+	RiskClass             RiskClass        `json:"risk_class"`
+	AuthStrategy          AuthStrategy     `json:"auth_strategy,omitempty"`
+	ConfirmationPolicy    string           `json:"confirmation_policy,omitempty"`
+	Capabilities          []string         `json:"capabilities,omitempty"`
+	Scopes                []string         `json:"scopes,omitempty"`
+	DefaultFields         string           `json:"default_fields,omitempty"`
+	DefaultPageSize       int              `json:"default_page_size,omitempty"`
+	DefaultFormat         string           `json:"default_format,omitempty"`
+	OutputProfile         string           `json:"output_profile,omitempty"`
+	NullElisionSafeFields []string         `json:"null_elision_safe_fields,omitempty"`
+	ExecutionSupport      ExecutionSupport `json:"execution_support,omitempty"`
+	// UnsupportedCapabilities names the atoms of Capabilities that this variant
+	// cannot execute. §925 binds it to ExecutionSupport: absent on "full",
+	// every non-executable atom on "partial", every blocking atom on
+	// "typed_executor_required" and "schema_only".
+	UnsupportedCapabilities []string     `json:"unsupported_capabilities,omitempty"`
+	RiskOverride            bool         `json:"risk_override,omitempty"`
+	RiskOverrideReason      string       `json:"risk_override_reason,omitempty"`
+	AdminPolicy             *AdminPolicy `json:"admin_policy,omitempty"`
+	StubExpires             string       `json:"stub_expires,omitempty"`
+	Quarantined             bool         `json:"quarantined,omitempty"`
+	Annotations             *Annotation  `json:"annotations,omitempty"`
+	Binding                 *Binding     `json:"binding,omitempty"`
 	// ServiceRootTemplate is a deferred field — see docs/catalog-abi.md §57-85.
 	// Validation rejects any variant that sets this field until the feature is implemented.
 	ServiceRootTemplate string `json:"service_root_template,omitempty"`

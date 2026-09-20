@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +50,9 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 			"  https://console.cloud.google.com/apis/credentials > Create credentials > OAuth client ID > Desktop app\n" +
 			"Google issues a client_secret for Desktop-app clients and its token endpoint REQUIRES it\n" +
 			"even with PKCE, so pipe the secret via --secret-stdin (it never enters shell history).\n" +
-			"Only a true public client, rare for Google, may omit the secret.",
+			"Only a true public client, rare for Google, may omit the secret.\n" +
+			"Re-running this for the same client ID without a secret flag keeps the stored secret;\n" +
+			"pipe an empty --secret-stdin to clear it.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -58,7 +61,7 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 			if clientID == "" {
 				return fmt.Errorf("CLI_ARG_INVALID: --client-id is required (the OAuth client ID from the Google Cloud console)")
 			}
-			secret, serr := readClientSecret(cmd, secretStdin, secretFile)
+			secret, secretGiven, serr := readClientSecret(cmd, secretStdin, secretFile)
 			if serr != nil {
 				return serr
 			}
@@ -66,11 +69,33 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 			// resolver instead of a shadowing local flag.
 			profile = resolveProfileFlag(cmd)
 			out := cmd.OutOrStdout()
-			if err := auth.StoreByoClient(auth.NewOSKeyring(), profile, auth.ByoClient{ClientID: clientID, ClientSecret: secret}); err != nil {
+			kb := auth.NewOSKeyring()
+
+			// Re-registering the same client id without a secret flag keeps the
+			// stored secret. Google's token endpoint requires it for a
+			// Desktop-app client even under PKCE, so dropping it on a repeat
+			// registration broke the next refresh with invalid_client. To clear
+			// a secret on purpose, pass an empty --secret-stdin.
+			keptSecret := false
+			if !secretGiven {
+				existing, ok, lerr := auth.LoadByoClient(kb, profile)
+				if lerr != nil {
+					return fmt.Errorf("gum auth use-oauth-client: read stored client: %w", lerr)
+				}
+				if ok && existing.ClientID == clientID && existing.ClientSecret != "" {
+					secret = existing.ClientSecret
+					keptSecret = true
+				}
+			}
+
+			if err := auth.StoreByoClient(kb, profile, auth.ByoClient{ClientID: clientID, ClientSecret: secret}); err != nil {
 				return fmt.Errorf("gum auth use-oauth-client: %w", err)
 			}
 			_, _ = fmt.Fprintf(out, "gum auth use-oauth-client: stored OAuth client in OS keychain under profile %q.\n", profile)
-			if secret == "" {
+			switch {
+			case keptSecret:
+				_, _ = fmt.Fprintln(out, "(kept the client secret already stored for this client id; pass an empty --secret-stdin to clear it)")
+			case secret == "":
 				_, _ = fmt.Fprintln(out, "(public PKCE client; no secret stored)")
 			}
 			_, _ = fmt.Fprintln(out, "Next: run `gum login` to authorize, or just run a `gum call` and approve when prompted.")
@@ -84,25 +109,27 @@ func newAuthUseOAuthClientCmd() *cobra.Command {
 }
 
 // readClientSecret returns the OAuth client secret from --secret-file or
-// --secret-stdin. When neither is requested the client is treated as a public
-// PKCE client and the secret is empty. The secret is never accepted as a flag
-// value to keep it out of shell history and the process listing.
-func readClientSecret(cmd *cobra.Command, fromStdin bool, fromFile string) (string, error) {
+// --secret-stdin, and whether either source was named at all. The second
+// return value separates "the operator gave no secret source" from "the
+// operator gave an empty secret": the first keeps whatever is already stored,
+// the second clears it. The secret is never accepted as a flag value to keep
+// it out of shell history and the process listing.
+func readClientSecret(cmd *cobra.Command, fromStdin bool, fromFile string) (string, bool, error) {
 	if fromFile != "" {
 		b, err := os.ReadFile(fromFile)
 		if err != nil {
-			return "", fmt.Errorf("gum auth use-oauth-client: read --secret-file: %w", err)
+			return "", true, fmt.Errorf("gum auth use-oauth-client: read --secret-file: %w", err)
 		}
-		return strings.TrimSpace(string(b)), nil
+		return strings.TrimSpace(string(b)), true, nil
 	}
 	if !fromStdin {
-		return "", nil
+		return "", false, nil
 	}
 	b, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), 1<<20))
 	if err != nil {
-		return "", fmt.Errorf("gum auth use-oauth-client: read stdin: %w", err)
+		return "", true, fmt.Errorf("gum auth use-oauth-client: read stdin: %w", err)
 	}
-	return strings.TrimSpace(string(b)), nil
+	return strings.TrimSpace(string(b)), true, nil
 }
 
 // newAuthSetupCmd is the spec §7 (lines 1198, 1281, 1285, 1344, 1397-1398)
@@ -217,6 +244,13 @@ func newAuthUseAPIKeyCmd() *cobra.Command {
 			profile = resolveProfileFlag(cmd)
 			out := cmd.OutOrStdout()
 			if serr := auth.StoreAPIKey(auth.NewOSKeyring(), profile, key); serr != nil {
+				// Only a platform with no keychain backend gets the soft
+				// fallback. Every other fault (locked keychain, denied write)
+				// is a real failure: returning nil there told a script that
+				// piped in the key that gum had stored it.
+				if !errors.Is(serr, auth.ErrKeychainUnsupported) {
+					return fmt.Errorf("gum auth use-api-key: store in OS keychain: %w", serr)
+				}
 				// Keychain backend missing: fall back to env-var instructions.
 				// Crucially we still DO NOT print the key bytes — the operator
 				// already has them and can set the env var themselves.
@@ -299,6 +333,11 @@ func newAuthUseAdsDeveloperTokenCmd() *cobra.Command {
 			profile = resolveProfileFlag(cmd)
 			out := cmd.OutOrStdout()
 			if serr := auth.StoreDeveloperToken(auth.NewOSKeyring(), profile, tok); serr != nil {
+				// Soft fallback only when the platform has no keychain at all
+				// (see use-api-key above); any other fault exits non-zero.
+				if !errors.Is(serr, auth.ErrKeychainUnsupported) {
+					return fmt.Errorf("gum auth use-ads-developer-token: store in OS keychain: %w", serr)
+				}
 				_, _ = fmt.Fprintln(out, "gum auth use-ads-developer-token: OS keychain backend unavailable on this platform.")
 				_, _ = fmt.Fprintf(out, "Set the %s env variable manually instead (keep it out of shell history):\n", auth.EnvGoogleAdsDeveloperToken)
 				_, _ = fmt.Fprintln(out)

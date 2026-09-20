@@ -12,6 +12,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -20,13 +21,25 @@ import (
 )
 
 func main() {
-	workDir := flag.String("workdir", ".", "module directory containing go.mod for the `go test` invocation")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run holds the whole command so tests can drive it against a fixture
+// module without spawning a subprocess. The returned int is the process
+// exit code: 0 clean, 1 a floor violation on the baseline platform, 2 a
+// usage or measurement failure.
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("coverage-floor", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workDir := fs.String("workdir", ".", "module directory containing go.mod for the `go test` invocation")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	readings, err := coverage.Measure(coverage.MeasureOptions{WorkDir: *workDir})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "coverage-floor: measure: %v\n", err)
-		os.Exit(2)
+		_, _ = fmt.Fprintf(stderr, "coverage-floor: measure: %v\n", err)
+		return 2
 	}
 
 	violations := coverage.Check(readings)
@@ -35,19 +48,19 @@ func main() {
 	// GOOS-dependent, so a clean local run on darwin is not evidence that
 	// the linux gate passes.
 	if coverage.OnBaselinePlatform() {
-		fmt.Printf("measured on GOOS=%s (baseline platform)\n\n", runtime.GOOS)
+		_, _ = fmt.Fprintf(stdout, "measured on GOOS=%s (baseline platform)\n\n", runtime.GOOS)
 	} else {
-		fmt.Printf("measured on GOOS=%s; baselines were measured on %s. "+
+		_, _ = fmt.Fprintf(stdout, "measured on GOOS=%s; baselines were measured on %s. "+
 			"Readings for build-tagged packages will differ from CI, "+
 			"ratchet hints are suppressed, and floor violations are "+
 			"warnings.\n\n", runtime.GOOS, coverage.BaselineGOOS)
 	}
 
-	fmt.Printf("%-60s %-9s %-9s\n", "PACKAGE", "COVERAGE", "FLOOR")
-	fmt.Println(strings.Repeat("-", 80))
+	_, _ = fmt.Fprintf(stdout, "%-60s %-9s %-9s\n", "PACKAGE", "COVERAGE", "FLOOR")
+	_, _ = fmt.Fprintln(stdout, strings.Repeat("-", 80))
 	for _, r := range readings {
 		if !r.HasTests {
-			fmt.Printf("%-60s %-9s %-9s\n", r.Package, "n/a", "n/a (no tests)")
+			_, _ = fmt.Fprintf(stdout, "%-60s %-9s %-9s\n", r.Package, "n/a", "n/a (no tests)")
 			continue
 		}
 		need := coverage.Threshold(r.Package)
@@ -55,39 +68,39 @@ func main() {
 		if r.Percent < need {
 			mark = "FAIL"
 		}
-		fmt.Printf("%-60s %7.2f%%  %5.1f%%  %s\n", r.Package, r.Percent, need, mark)
+		_, _ = fmt.Fprintf(stdout, "%-60s %7.2f%%  %5.1f%%  %s\n", r.Package, r.Percent, need, mark)
 	}
-	fmt.Println()
+	_, _ = fmt.Fprintln(stdout)
 
 	// Warn-only: surface packages whose coverage has climbed far enough
 	// above their retention baseline to justify tightening the ratchet.
 	// This never affects the exit code.
 	if opps := coverage.Opportunities(readings); len(opps) > 0 {
-		fmt.Println("RATCHET_OPPORTUNITY: coverage now exceeds the baseline by " +
+		_, _ = fmt.Fprintln(stdout, "RATCHET_OPPORTUNITY: coverage now exceeds the baseline by "+
 			fmt.Sprintf("%.1f%%+; consider raising these ratchet Mins in internal/coverage.Ratchets:", coverage.RatchetOpportunityMargin))
 		for _, o := range opps {
-			fmt.Printf("  %s: %.2f%% (baseline %.1f%%)\n", o.Reading.Package, o.Reading.Percent, o.Min)
+			_, _ = fmt.Fprintf(stdout, "  %s: %.2f%% (baseline %.1f%%)\n", o.Reading.Package, o.Reading.Percent, o.Min)
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(stdout)
 	}
 
 	if len(violations) == 0 {
-		return
+		return 0
 	}
 
-	fmt.Fprintln(os.Stderr, "coverage-floor: per-package floor violations:")
-	fmt.Fprint(os.Stderr, coverage.FormatViolations(violations))
-	fmt.Fprintf(os.Stderr, "\nFloor: %.1f%% (internal/coverage.FloorPercent); ratchets track follow-up beads.\n",
+	_, _ = fmt.Fprintln(stderr, "coverage-floor: per-package floor violations:")
+	_, _ = fmt.Fprint(stderr, coverage.FormatViolations(violations))
+	_, _ = fmt.Fprintf(stderr, "\nFloor: %.1f%% (internal/coverage.FloorPercent); ratchets track follow-up beads.\n",
 		coverage.FloorPercent)
 
 	// Only a linux reading can fail the run. internal/pluginenv has no
 	// tests for its darwin files, so on darwin it always reads below the
 	// linux baseline.
 	if !coverage.OnBaselinePlatform() {
-		fmt.Fprintf(os.Stderr, "Not failing: GOOS=%s is not the baseline platform. CI enforces these floors on %s.\n",
+		_, _ = fmt.Fprintf(stderr, "Not failing: GOOS=%s is not the baseline platform. CI enforces these floors on %s.\n",
 			runtime.GOOS, coverage.BaselineGOOS)
-		return
+		return 0
 	}
 
-	os.Exit(1)
+	return 1
 }

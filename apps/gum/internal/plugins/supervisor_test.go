@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -364,6 +365,50 @@ func TestSupervisorStateRoundTripsThroughJSON(t *testing.T) {
 	for _, key := range []string{"quarantined", "retry_count", "backoff_step", "last_error_code", "next_retry_at", "quarantined_at"} {
 		if _, ok := row[key]; !ok {
 			t.Errorf("missing key %q in persisted row: %+v", key, row)
+		}
+	}
+}
+
+// TestSupervisorStartPropagatesStateReadError proves an unreadable registry
+// refuses the spawn instead of reading as "no crash history". A profile whose
+// plugin-catalog.json carries a future schema version must not be silently
+// treated as a clean slate: that would spawn a plugin whose quarantine record
+// the host could not read.
+func TestSupervisorStartPropagatesStateReadError(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "plugin-catalog.json"),
+		[]byte(`{"plugin_catalog_schema_version":999}`), 0o600); err != nil {
+		t.Fatalf("plant catalog: %v", err)
+	}
+
+	var called int
+	sup := NewSupervisor(registry.New(dir), func(context.Context, string) (*Plugin, error) {
+		called++
+		return &Plugin{pluginID: "flights"}, nil
+	}, time.Now)
+
+	if _, err := sup.Start(context.Background(), "flights"); err == nil {
+		t.Fatal("Start err = nil; want the registry load error")
+	}
+	if called != 0 {
+		t.Errorf("spawner called %d time(s); want 0 (state unreadable)", called)
+	}
+}
+
+// TestQuarantineReasonFallsBackToGenericPhrase pins the refusal message for a
+// quarantined row that carries no last_error_code. Rows written before the
+// field existed, and rows hand-edited by an operator, reach this arm; the
+// message must still name the unquarantine command.
+func TestQuarantineReasonFallsBackToGenericPhrase(t *testing.T) {
+	t.Parallel()
+	err := CheckQuarantine(SupervisorState{Quarantined: true}, "flights", time.Now())
+	if !errors.Is(err, ErrPluginQuarantined) {
+		t.Fatalf("CheckQuarantine err = %v; want ErrPluginQuarantined", err)
+	}
+	for _, want := range []string{"no automatic retry scheduled", "gum plugin unquarantine flights"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message %q does not contain %q", err.Error(), want)
 		}
 	}
 }

@@ -676,6 +676,19 @@ var optionalOmitWhenFalse = map[string]bool{
 	"panic":                true,
 }
 
+// omitOptional reports whether the spec §11 compact rule drops key k. That
+// rule omits risk_override_reason, shaping_bypassed and sanitizer_bypassed
+// when their value is false or null; risk_override is exempt.
+func omitOptional(k string, v any) bool {
+	if !optionalOmitWhenFalse[k] {
+		return false
+	}
+	if b, isBool := v.(bool); isBool && !b {
+		return true
+	}
+	return v == nil
+}
+
 // marshalEntry produces the on-disk JSONL line for entry. It stamps `v: 1`
 // as the first key and `ts` as the second (RFC 3339 UTC). Spec-required
 // fields not present in entry default to JSON null (string fields) / false
@@ -724,13 +737,11 @@ func marshalEntry(entry map[string]any, ts time.Time) ([]byte, error) {
 		if !ok {
 			continue
 		}
-		if optionalOmitWhenFalse[k] {
-			if b, isBool := v.(bool); isBool && !b {
-				continue
-			}
-			if v == nil {
-				continue
-			}
+		if omitOptional(k, v) {
+			// Mark it written: the extras pass below re-adds any key the
+			// canonical block skipped, which would undo the omission.
+			written[k] = true
+			continue
 		}
 		if err := writeKV(k, v); err != nil {
 			return nil, err

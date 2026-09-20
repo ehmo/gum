@@ -48,20 +48,28 @@ func runLogout(cmd *cobra.Command, forgetClient bool) error {
 	next := "already logged out; nothing to clear"
 	switch {
 	case res.GrantCleared || res.ClientForgotten:
+		// ForgetClientSkipped cannot be set here: auth.Logout raises it only
+		// when no BYO client is registered, and both flags in this case
+		// require one.
 		next = "run `gum login` to authorize (the browser will offer an account picker)"
+	case res.GumOAuthVaultCleared:
+		// No BYO grant, but legacy gum_oauth refresh tokens were in the
+		// keychain and are now gone. "Nothing to clear" would be false.
+		next = "cleared stored gum_oauth refresh tokens; run `gum login` to authorize"
 		if res.ForgetClientSkipped {
-			next += "; --forget-client had nothing to forget (no BYO OAuth client was registered)"
+			next += "; no BYO OAuth client was registered to forget"
 		}
 	case res.ForgetClientSkipped:
 		next = "no BYO OAuth client was registered to forget; nothing to clear"
 	}
 	out := map[string]any{
-		"profile":          profile,
-		"grant_cleared":    res.GrantCleared,
-		"client_forgotten": res.ClientForgotten,
-		"using_managed":    res.UsingManaged,
-		"cleared_at":       time.Now().UTC().Format(time.RFC3339),
-		"next":             next,
+		"profile":                 profile,
+		"grant_cleared":           res.GrantCleared,
+		"client_forgotten":        res.ClientForgotten,
+		"gum_oauth_vault_cleared": res.GumOAuthVaultCleared,
+		"using_managed":           res.UsingManaged,
+		"cleared_at":              time.Now().UTC().Format(time.RFC3339),
+		"next":                    next,
 	}
 	if res.ForgetClientSkipped {
 		out["forget_client_skipped"] = true

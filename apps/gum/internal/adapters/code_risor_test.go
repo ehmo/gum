@@ -579,3 +579,36 @@ gum_call("calendar.events.delete", {"id": "evt001"})
 	err := runCode(t, inv)
 	assertErrCode(t, err, dispatch.ErrCodeDestructiveScopeMismatch)
 }
+
+// ---------------------------------------------------------------------------
+// TestCodeDestructiveScopeCap
+// §1083: destructive_scope holds at most 20 entries. Nothing enforced the cap:
+// extractScope returns no error and quietly skips entries it cannot read, so a
+// 100-entry scope widened the destructive envelope without a word.
+// ---------------------------------------------------------------------------
+
+func TestCodeDestructiveScopeCap(t *testing.T) {
+	scopeOfLen := func(n int) []map[string]string {
+		out := make([]map[string]string, n)
+		for i := range out {
+			out[i] = map[string]string{"op_id": "drive.files.delete", "resource_key": "f"}
+		}
+		return out
+	}
+
+	t.Run("20 entries accepted", func(t *testing.T) {
+		inv := makeCodeInvocation(`gum_print("noop")`, true, 1, scopeOfLen(20))
+		if err := runCode(t, inv); err != nil {
+			t.Fatalf("20 scope entries rejected: %v", err)
+		}
+	})
+
+	t.Run("21 entries → INVALID_ARGS", func(t *testing.T) {
+		inv := makeCodeInvocation(`gum_print("noop")`, true, 1, scopeOfLen(21))
+		err := runCode(t, inv)
+		assertErrCode(t, err, dispatch.ErrCodeInvalidArgs)
+		if !strings.Contains(err.Error(), "destructive_scope") {
+			t.Errorf("error should mention 'destructive_scope', got: %v", err)
+		}
+	})
+}

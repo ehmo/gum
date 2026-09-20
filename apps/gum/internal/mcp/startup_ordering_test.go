@@ -65,8 +65,9 @@ func TestMCPStartupOrdering(t *testing.T) {
 		t.Errorf("tools/list_changed notifications during/after initialize = %d; want 0 (spec §4.1 line 383)", got)
 	}
 
-	// tools/list MUST return exactly 27 tools (spec §4.1: "tools/list MUST
-	// therefore remain exactly 27 tools even when active plugins are installed").
+	// tools/list MUST return exactly the 27 Tier A tools plus the two
+	// embedded-skill helpers (spec §4.1 startup ordering: "exactly the 27 Tier A
+	// tools plus the two embedded-skill helpers ... (29 entries)").
 	listRes, err := cs.ListTools(ctx, &sdkmcp.ListToolsParams{})
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)

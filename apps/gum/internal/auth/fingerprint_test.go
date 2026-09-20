@@ -53,11 +53,13 @@ func TestToDispatchCredentialsCarriesFingerprint(t *testing.T) {
 	}
 }
 
-// TestByoOAuthDerivesFingerprintFromRefreshToken: two distinct refresh tokens
-// must produce distinct SubjectFingerprints on the returned Credentials, even
-// when the same ClientID + scopes are used. This is the production code path
-// that scopes the semantic cache for byo_oauth subjects.
-func TestByoOAuthDerivesFingerprintFromRefreshToken(t *testing.T) {
+// TestByoOAuthLegacyGrantFallsBackToRefreshToken pins the fallback, not the
+// contract. A grant with no stored subject -- written before gum-mc67, or by
+// StoreRefreshToken, which is handed a token and no identity -- has no §10.0.1
+// principal to hash, so the fingerprint tracks the refresh token. Two such
+// grants must still land in separate cache partitions. The normal login path
+// stores a subject; TestByoOAuthFingerprintSurvivesReLogin covers it.
+func TestByoOAuthLegacyGrantFallsBackToRefreshToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"access_token":"at","expires_in":3600,"scope":"x"}`))

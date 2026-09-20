@@ -61,21 +61,19 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 	defer func() { _ = lis.Close() }()
 	redirectURI := "http://" + lis.Addr().String() + "/oauth/callback"
 
-	state, err := randomURLToken(32)
-	if err != nil {
-		return nil, err
-	}
-	verifier, err := randomURLToken(64)
-	if err != nil {
-		return nil, err
-	}
+	state := randomURLToken(32)
+	verifier := randomURLToken(64)
 	challenge := pkceS256(verifier)
 
 	authQ := url.Values{
-		"client_id":             {b.cfg.ClientID},
-		"redirect_uri":          {redirectURI},
-		"response_type":         {"code"},
-		"scope":                 {strings.Join(b.cfg.Scopes, " ")},
+		"client_id":     {b.cfg.ClientID},
+		"redirect_uri":  {redirectURI},
+		"response_type": {"code"},
+		// openid is requested on top of the operator's scopes so the token
+		// endpoint returns an id_token. Its email/sub claim is the spec §10.0.1
+		// principal; without it the fingerprint would have to track the refresh
+		// token, which rotates on every re-login (gum-mc67).
+		"scope":                 {strings.Join(scopesWithOpenID(b.cfg.Scopes), " ")},
 		"state":                 {state},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
@@ -121,7 +119,8 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 			HumanRemediation: "token endpoint returned no refresh_token; ensure the consent screen completed (access_type=offline, prompt=consent)",
 		}
 	}
-	if err := b.storeLoginGrant(tok.RefreshToken, tok.Scope); err != nil {
+	subject := oauthSubjectFromIDToken(tok.IDToken)
+	if err := b.storeLoginGrant(tok.RefreshToken, tok.Scope, subject); err != nil {
 		return nil, err
 	}
 	creds := &Credentials{
@@ -129,7 +128,7 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 		ExpiresAt:          time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
 		Scopes:             append([]string{}, b.cfg.Scopes...),
 		StrategyName:       "byo_oauth",
-		SubjectFingerprint: DeriveSubjectFingerprint("byo_oauth:" + tok.RefreshToken),
+		SubjectFingerprint: byoSubjectFingerprint(subject, tok.RefreshToken),
 	}
 	b.cached = creds
 	return creds, nil

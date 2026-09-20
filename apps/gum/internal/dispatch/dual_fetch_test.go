@@ -1,14 +1,15 @@
-// Spec §9.1 + §11 acceptance: when an invocation carries an
-// expression-profile with field_mask_mode="dual_fetch" and the resolved
-// variant satisfies the gate (risk_class=read AND annotations.idempotent=
-// true), the dispatch succeeds and the audit-log entry includes
-// dual_fetch:true. When the gate fails the dispatch returns INVALID_ARGS
-// before any executor call.
+// Spec §9.1 acceptance for field_mask_mode="dual_fetch".
+//
+// v0.1.0 ships no second upstream fetch, so the kernel refuses to activate
+// the mode instead of pretending it ran. These tests pin both halves of that
+// contract: an eligible variant is still rejected, and a dispatch that never
+// asked for dual_fetch keeps the §11 omit-when-false audit shape.
 
 package dispatch_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -19,9 +20,9 @@ import (
 )
 
 // markVariantIdempotent flips the kernel-catalog gum.code variant to carry
-// annotations.idempotent=true so the spec §9.1 gate accepts it. The kernel
-// fixture is owned by lifecycle_test.go and is intentionally minimal; this
-// helper avoids forking the fixture for one test.
+// annotations.idempotent=true so the spec §9.1 eligibility gate accepts it.
+// The kernel fixture is owned by lifecycle_test.go and is intentionally
+// minimal; this helper avoids forking the fixture for one test.
 func markVariantIdempotent(t *testing.T, c *catalog.Catalog) {
 	t.Helper()
 	for i := range c.Ops {
@@ -31,12 +32,16 @@ func markVariantIdempotent(t *testing.T, c *catalog.Catalog) {
 	}
 }
 
-// TestDualFetchAuditFlagEmittedOnReadIdempotent drives a complete dispatch
-// through gum.code (risk_class=read) with the kernel variant patched to
-// carry annotations.idempotent=true, and asserts the audit entry includes
-// dual_fetch:true. Spec §11 omit-when-false rule keeps the key absent on
-// non-dual_fetch dispatches; the companion test below pins that.
-func TestDualFetchAuditFlagEmittedOnReadIdempotent(t *testing.T) {
+// TestDualFetchRejectedWhenVariantEligible drives a dispatch through gum.code
+// with the variant patched to satisfy the eligibility gate (risk_class=read
+// AND annotations.idempotent=true) and asserts the kernel still refuses.
+//
+// dual_fetch promises the caller two upstream requests: the shaped one and an
+// unmasked recovery fetch that feeds the stage-9 artifact. The kernel makes
+// one. Accepting the mode therefore charged one request, wrote a masked
+// artifact, and stamped the audit log with a second request that never
+// happened. Refusing is the honest answer until the fetch exists.
+func TestDualFetchRejectedWhenVariantEligible(t *testing.T) {
 	c := loadKernelCatalog(t)
 	markVariantIdempotent(t, c)
 	sink := &recordingAuditSink{}
@@ -44,31 +49,41 @@ func TestDualFetchAuditFlagEmittedOnReadIdempotent(t *testing.T) {
 		"code.risor": adapters.NewCodeRunner(),
 	}, dispatch.DispatcherConfig{Audit: sink})
 
-	inv := &dispatch.Invocation{
+	_, err := disp.Dispatch(context.Background(), &dispatch.Invocation{
 		OpID:          "gum.code",
 		Args:          map[string]any{"language": "risor", "source": `gum_print("dual_fetch_test")`},
 		Format:        "json",
 		Caller:        dispatch.CallerMCP,
 		OutputProfile: &profile.Profile{FieldMaskMode: profile.FieldMaskModeDualFetch},
+	})
+	if err == nil {
+		t.Fatal("dual_fetch on an eligible variant returned nil error; want INVALID_ARGS")
 	}
-	if _, err := disp.Dispatch(context.Background(), inv); err != nil {
-		t.Fatalf("Dispatch with dual_fetch profile + eligible variant: %v", err)
+	var se *dispatch.StructuredError
+	if !errors.As(err, &se) {
+		t.Fatalf("err = %v (%T); want *dispatch.StructuredError", err, err)
 	}
-	if len(sink.entries) != 1 {
-		t.Fatalf("audit entries=%d; want 1", len(sink.entries))
+	if se.ErrCode != dispatch.ErrCodeInvalidArgs {
+		t.Errorf("error_code = %q; want %q", se.ErrCode, dispatch.ErrCodeInvalidArgs)
 	}
-	got, present := sink.entries[0]["dual_fetch"]
-	if !present {
-		t.Fatalf("audit entry missing dual_fetch key; entry=%v", sink.entries[0])
+	if se.Detail["field"] != "field_mask_mode" {
+		t.Errorf("detail.field = %v; want field_mask_mode", se.Detail["field"])
 	}
-	if dual, _ := got.(bool); !dual {
-		t.Errorf("audit dual_fetch=%v; want true", got)
+	if se.Detail["value"] != profile.FieldMaskModeDualFetch {
+		t.Errorf("detail.value = %v; want dual_fetch", se.Detail["value"])
+	}
+	if !strings.Contains(se.Message, "not implemented") {
+		t.Errorf("message = %q; want it to name the missing second fetch", se.Message)
+	}
+	if len(sink.entries) != 0 {
+		t.Errorf("audit entries=%d; want 0 (no upstream call was made)", len(sink.entries))
 	}
 }
 
-// TestDualFetchAuditFlagAbsentByDefault confirms the omit-when-false §11 rule
-// applies: a dispatch without a dual_fetch profile MUST NOT carry the key.
-func TestDualFetchAuditFlagAbsentByDefault(t *testing.T) {
+// TestDualFetchNeverStampsAudit pins the negative half: no dispatch may write
+// dual_fetch:true, because no dispatch performs a second fetch. Spec §11's
+// omit-when-false rule keeps the key absent.
+func TestDualFetchNeverStampsAudit(t *testing.T) {
 	c := loadKernelCatalog(t)
 	sink := &recordingAuditSink{}
 	disp := dispatch.NewDispatcherWithConfig(c, map[string]dispatch.Adapter{
@@ -88,14 +103,14 @@ func TestDualFetchAuditFlagAbsentByDefault(t *testing.T) {
 		t.Fatalf("audit entries=%d; want 1", len(sink.entries))
 	}
 	if _, present := sink.entries[0]["dual_fetch"]; present {
-		t.Errorf("audit entry should omit dual_fetch when false (§11); entry=%v", sink.entries[0])
+		t.Errorf("audit entry carries dual_fetch; want the key absent; entry=%v", sink.entries[0])
 	}
 }
 
-// TestDualFetchGateRejectsNonIdempotentVariant asserts a dual_fetch profile
-// applied to a read variant WITHOUT annotations.idempotent=true triggers
-// INVALID_ARGS before the executor is reached. The audit sink must NOT
-// receive an entry (executor-step audit is gated on success).
+// TestDualFetchGateRejectsNonIdempotentVariant keeps the eligibility gate
+// covered: a read variant WITHOUT annotations.idempotent=true is rejected for
+// its own reason, before the not-implemented refusal would apply. The audit
+// sink must stay empty because the executor is never reached.
 func TestDualFetchGateRejectsNonIdempotentVariant(t *testing.T) {
 	c := loadKernelCatalog(t)
 	// Leave kernel fixture as-is: gum.code variant has no Annotations →
@@ -118,8 +133,8 @@ func TestDualFetchGateRejectsNonIdempotentVariant(t *testing.T) {
 	if !strings.Contains(err.Error(), "INVALID_ARGS") {
 		t.Errorf("err = %v; want INVALID_ARGS", err)
 	}
-	if !strings.Contains(err.Error(), "field_mask_mode") {
-		t.Errorf("err = %v; want field_mask_mode field in envelope", err)
+	if !strings.Contains(err.Error(), "idempotent") {
+		t.Errorf("err = %v; want the gate reason to name idempotent", err)
 	}
 	if len(sink.entries) != 0 {
 		t.Errorf("audit entries=%d after gate rejection; want 0 (gate fires before executor success audit)", len(sink.entries))

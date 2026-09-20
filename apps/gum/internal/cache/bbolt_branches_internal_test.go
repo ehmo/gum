@@ -61,7 +61,11 @@ func TestEvictExpiredDeletesCorruptRecords(t *testing.T) {
 		t.Fatalf("inject corrupt: %v", err)
 	}
 
-	if got := c.EvictExpired(); got != 1 {
+	got, err := c.EvictExpired()
+	if err != nil {
+		t.Fatalf("EvictExpired: %v", err)
+	}
+	if got != 1 {
 		t.Errorf("EvictExpired()=%d; want 1 (corrupt row treated as expired)", got)
 	}
 

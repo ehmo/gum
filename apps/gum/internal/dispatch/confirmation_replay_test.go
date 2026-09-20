@@ -27,14 +27,13 @@ import (
 func baseParams(t *testing.T) dispatch.ConfirmationParams {
 	t.Helper()
 	return dispatch.ConfirmationParams{
-		OpID:            "gmail.messages.delete",
-		VariantID:       "gmail_messages_delete_v1",
-		ArgsHash:        "abc123",
-		ResourceKey:     "msg-42",
-		AuthFingerprint: "fp-test",
-		Scope:           `["gmail_delete"]`,
-		Purpose:         dispatch.ConfirmationPurposeDestructive,
-		TTL:             5 * time.Minute,
+		OpID:        "gmail.messages.delete",
+		VariantID:   "gmail_messages_delete_v1",
+		ArgsHash:    "abc123",
+		ResourceKey: "msg-42",
+		Scope:       `["gmail_delete"]`,
+		Purpose:     dispatch.ConfirmationPurposeDestructive,
+		TTL:         5 * time.Minute,
 	}
 }
 
@@ -154,14 +153,13 @@ func TestReplayCacheBoundedSize(t *testing.T) {
 	// global cache via the VerifyConfirmationToken path.  We issue real tokens
 	// to avoid depending on unexported internals.
 	params := dispatch.ConfirmationParams{
-		OpID:            "drive.files.delete",
-		VariantID:       "drive_files_delete_v1",
-		ArgsHash:        "",
-		ResourceKey:     "",
-		AuthFingerprint: "fp-bounded",
-		Scope:           `["drive_delete"]`,
-		Purpose:         dispatch.ConfirmationPurposeDestructive,
-		TTL:             24 * time.Hour,
+		OpID:        "drive.files.delete",
+		VariantID:   "drive_files_delete_v1",
+		ArgsHash:    "",
+		ResourceKey: "",
+		Scope:       `["drive_delete"]`,
+		Purpose:     dispatch.ConfirmationPurposeDestructive,
+		TTL:         24 * time.Hour,
 	}
 
 	_ = farFuture // silence unused warning

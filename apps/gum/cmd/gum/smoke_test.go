@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"os/exec"
@@ -73,33 +73,12 @@ func TestSmokeCLIDescribe(t *testing.T) {
 // tools/list handshake, and asserts that all 27 Tier A tools are advertised.
 // This is the canonical "does the binary actually work" check.
 func TestSmokeMCPToolsList(t *testing.T) {
-	bin := buildSmokeBinary(t)
+	body := mcpExchange(t,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}`+"\n"+
+			`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`+"\n"+
+			`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`+"\n",
+		`"id":2`)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "mcp", "--stdio")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start mcp: %v", err)
-	}
-
-	handshake := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}` + "\n" +
-		`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}` + "\n" +
-		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}` + "\n"
-	if _, err := stdin.Write([]byte(handshake)); err != nil {
-		t.Fatal(err)
-	}
-	// Give the server a moment to respond before closing stdin.
-	time.Sleep(500 * time.Millisecond)
-	_ = stdin.Close()
-	_ = cmd.Wait()
-
-	body := stdout.String()
 	// Count distinct tool names (each appears once in the tools/list response).
 	expected := []string{
 		"gum.search_apis", "gum.describe_op", "gum.read", "gum.write",
@@ -121,38 +100,65 @@ func TestSmokeMCPToolsList(t *testing.T) {
 // returns a real BM25 result body. It includes the reserved params._meta field
 // because clients such as Claude Code attach progress tokens to tool calls.
 func TestSmokeMCPCallSearchAPIs(t *testing.T) {
-	bin := buildSmokeBinary(t)
+	body := mcpExchange(t,
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}`+"\n"+
+			`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`+"\n"+
+			`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"gum.search_apis","arguments":{"query":"gmail messages","k":3},"_meta":{"progressToken":2}}}`+"\n",
+		`"id":2`)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "mcp", "--stdio")
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start mcp: %v", err)
-	}
-
-	handshake := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}` + "\n" +
-		`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}` + "\n" +
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"gum.search_apis","arguments":{"query":"gmail messages","k":3},"_meta":{"progressToken":2}}}` + "\n"
-	if _, err := stdin.Write([]byte(handshake)); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(500 * time.Millisecond)
-	_ = stdin.Close()
-	_ = cmd.Wait()
-
-	body := stdout.String()
 	if strings.Contains(body, `"code":-32602`) || strings.Contains(body, "invalid params") {
 		t.Fatalf("MCP tools/call rejected reserved params._meta\nbody=%s", body)
 	}
 	if !strings.Contains(body, "gmail.users.messages") {
 		t.Errorf("MCP gum.search_apis did not return a gmail result\nbody=%s", body)
 	}
+}
+
+// mcpExchange boots the MCP stdio server, writes requests, and returns every
+// stdout line up to and including the one carrying wantID. It reads the
+// stream rather than sleeping a fixed grace: startup can take seconds when
+// the host keychain answers slowly, and a fixed sleep closed stdin before the
+// server was up, leaving an empty body and a failure that named the wrong
+// cause.
+func mcpExchange(t *testing.T, requests, wantID string) string {
+	t.Helper()
+	bin := buildSmokeBinary(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "mcp", "--stdio")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start mcp: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = stdin.Close()
+		_ = cmd.Wait()
+	})
+
+	if _, err := stdin.Write([]byte(requests)); err != nil {
+		t.Fatal(err)
+	}
+
+	var body strings.Builder
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 8<<20)
+	for scanner.Scan() {
+		body.WriteString(scanner.Text())
+		body.WriteString("\n")
+		if strings.Contains(scanner.Text(), wantID) {
+			return body.String()
+		}
+	}
+	t.Fatalf("MCP server closed before answering %s\nbody=%s", wantID, body.String())
+	return ""
 }
 
 // buildSmokeBinary compiles cmd/gum into a temp dir and returns the binary path.

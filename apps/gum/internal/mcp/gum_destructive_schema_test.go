@@ -2,7 +2,7 @@
 //
 // These tests assert the acceptance criteria for gum.destructive schema
 // conformance:
-//   - 9-parameter input schema (op_id, args, variant_id, fields, page_size,
+//   - 10-parameter input schema (op_id, args, variant_id, fields, page_size,
 //     page_token, format, confirmed, confirmation_token) — spec §4.1 line ~284
 //   - additionalProperties:false
 //   - required: exactly ["op_id","args"]
@@ -12,7 +12,7 @@
 //   - MCP annotation: readOnlyHint=false, destructiveHint=true — spec §13
 //
 // Spec anchors:
-//   - spec.md §4.1 line ~284 — gum.destructive 9-param row
+//   - spec.md §4.1 line ~284 — gum.destructive 10-param row
 //   - spec.md §4.1 line ~295 — gum.destructive semantics, MCP annotation
 //   - spec.md §6.1 — confirmation gate (requires_confirmation envelope)
 //   - spec.md §13 annotation wire-form contract
@@ -94,16 +94,16 @@ func getDestructiveRequired(t *testing.T, schema map[string]any) []string {
 
 // --- tests ----------------------------------------------------------------
 
-// TestGumDestructiveSchemaHasAllNineParams asserts that gum.destructive exposes
-// exactly the 9-parameter shape mandated by spec §4.1 line ~284:
+// TestGumDestructiveSchemaHasAllTenParams asserts that gum.destructive exposes
+// exactly the 10-parameter shape mandated by spec §4.1 line ~284:
 //
 //	op_id, args, variant_id, fields, page_size, page_token, format,
-//	confirmed, confirmation_token
-func TestGumDestructiveSchemaHasAllNineParams(t *testing.T) {
+//	max_items, confirmed, confirmation_token
+func TestGumDestructiveSchemaHasAllTenParams(t *testing.T) {
 	schema := parseDestructiveSchema(t)
 	props := getDestructiveProperties(t, schema)
 
-	// spec §4.1 line ~284 — the exact 9-param list for gum.destructive.
+	// spec §4.1 line ~284 — the exact 10-param list for gum.destructive.
 	want := []string{
 		"op_id",
 		"args",
@@ -112,6 +112,7 @@ func TestGumDestructiveSchemaHasAllNineParams(t *testing.T) {
 		"page_size",
 		"page_token",
 		"format",
+		"max_items",
 		"confirmed",
 		"confirmation_token",
 	}
@@ -130,13 +131,13 @@ func TestGumDestructiveSchemaHasAllNineParams(t *testing.T) {
 	}
 	for name := range props {
 		if !wantSet[name] {
-			t.Errorf("gum.destructive schema has unexpected property %q not in spec §4.1 9-param list", name)
+			t.Errorf("gum.destructive schema has unexpected property %q not in spec §4.1 10-param list", name)
 		}
 	}
 
 	// Count check as a summary assertion.
-	if got := len(props); got != 9 {
-		t.Errorf("gum.destructive schema has %d properties, want exactly 9 (spec §4.1 line ~284)", got)
+	if got := len(props); got != 10 {
+		t.Errorf("gum.destructive schema has %d properties, want exactly 10 (spec §4.1 line ~284)", got)
 	}
 }
 

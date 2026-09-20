@@ -18,6 +18,7 @@ gum plugin
 
 ## Subcommands
 
+- [gum plugin info](gum-plugin-info.md) - Prints the plugin record assembled from plugins.lock, plugin-state.json and
 - [gum plugin install](gum-plugin-install.md) - Installs a plugin through an atomic registry update: validates the manifest,
 - [gum plugin list](gum-plugin-list.md) - List installed plugins with their quarantine state
 - [gum plugin reload](gum-plugin-reload.md) - Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.

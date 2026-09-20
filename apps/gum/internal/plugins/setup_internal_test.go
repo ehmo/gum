@@ -112,7 +112,7 @@ func TestLoadManifestByPluginID(t *testing.T) {
 func TestPromptAndStore(t *testing.T) {
 	d := CredentialDescriptor{
 		Alias:       "session",
-		Env:         "GUM_SESSION", // must NOT appear in any error
+		Env:         "PLUG_SESSION", // must NOT appear in any error
 		Kind:        "session",
 		DisplayName: "Session Cookie",
 		SetupHint:   "open devtools",
@@ -120,14 +120,14 @@ func TestPromptAndStore(t *testing.T) {
 
 	t.Run("nil_writer_errors", func(t *testing.T) {
 		opts := SetupOptions{In: strings.NewReader("x\n")}
-		if err := promptAndStore(opts, "pid", d); err == nil {
+		if err := promptAndStore(opts, newSecretReader(opts.In), "pid", d); err == nil {
 			t.Fatal("expected error")
 		}
 	})
 
 	t.Run("nil_reader_errors", func(t *testing.T) {
 		opts := SetupOptions{Out: &bytes.Buffer{}}
-		if err := promptAndStore(opts, "pid", d); err == nil {
+		if err := promptAndStore(opts, nil, "pid", d); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -137,11 +137,11 @@ func TestPromptAndStore(t *testing.T) {
 			Out: &bytes.Buffer{},
 			In:  strings.NewReader("\n"),
 		}
-		err := promptAndStore(opts, "pid", d)
+		err := promptAndStore(opts, newSecretReader(opts.In), "pid", d)
 		if err == nil {
 			t.Fatal("expected error")
 		}
-		if strings.Contains(err.Error(), "GUM_SESSION") {
+		if strings.Contains(err.Error(), "PLUG_SESSION") {
 			t.Errorf("env name leaked into error: %v", err)
 		}
 		if !strings.Contains(err.Error(), d.DisplayName) {
@@ -158,7 +158,7 @@ func TestPromptAndStore(t *testing.T) {
 			Out:     out,
 			In:      strings.NewReader("s3cret\n"),
 		}
-		if err := promptAndStore(opts, "pid", d); err != nil {
+		if err := promptAndStore(opts, newSecretReader(opts.In), "pid", d); err != nil {
 			t.Fatalf("promptAndStore: %v", err)
 		}
 		key := PluginCredentialKey("prof", "pid", d.Alias)
@@ -185,7 +185,7 @@ func TestPromptAndStore(t *testing.T) {
 			Out:     &bytes.Buffer{},
 			In:      strings.NewReader("v\n"),
 		}
-		err := promptAndStore(opts, "pid", d)
+		err := promptAndStore(opts, newSecretReader(opts.In), "pid", d)
 		if err == nil || !errors.Is(err, boom) {
 			t.Fatalf("err=%v; want wraps %v", err, boom)
 		}
@@ -353,10 +353,10 @@ func TestSetupCredentialsNoCredentialsShortCircuits(t *testing.T) {
 func TestSetupCredentialsHappyPath(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
-		Alias: "session", Env: "GUM_SESSION", Kind: "session",
+		Alias: "session", Env: "PLUG_SESSION", Kind: "session",
 		DisplayName: "Session", SetupHint: "see docs",
 	}}
-	writeTestManifest(t, installRoot, "p", []string{"GUM_SESSION"}, descs)
+	writeTestManifest(t, installRoot, "p", []string{"PLUG_SESSION"}, descs)
 
 	reg := registry.New(t.TempDir())
 	kr := newFakeKeyring()
@@ -396,10 +396,10 @@ func TestSetupCredentialsHappyPath(t *testing.T) {
 func TestSetupCredentialsCanaryFailureQuarantines(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
-		Alias: "session", Env: "GUM_SESSION", Kind: "session",
+		Alias: "session", Env: "PLUG_SESSION", Kind: "session",
 		DisplayName: "Session",
 	}}
-	writeTestManifest(t, installRoot, "p", []string{"GUM_SESSION"}, descs)
+	writeTestManifest(t, installRoot, "p", []string{"PLUG_SESSION"}, descs)
 
 	reg := registry.New(t.TempDir())
 	kr := newFakeKeyring()
@@ -443,9 +443,9 @@ func TestSetupCredentialsManifestValidationFailure(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
 		Alias: "BADALIAS", // uppercase fails [a-z][a-z0-9_]{0,63}
-		Env:   "GUM_X", Kind: "session", DisplayName: "X",
+		Env:   "PLUG_X", Kind: "session", DisplayName: "X",
 	}}
-	writeTestManifest(t, installRoot, "p", []string{"GUM_X"}, descs)
+	writeTestManifest(t, installRoot, "p", []string{"PLUG_X"}, descs)
 
 	err := SetupCredentials(context.Background(), "p", SetupOptions{
 		Registry:    registry.New(t.TempDir()),

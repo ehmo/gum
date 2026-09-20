@@ -43,10 +43,7 @@ func NewADCResolver() *ADCResolver {
 		MetadataAvailable: func() bool {
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel()
-			req, err := http.NewRequestWithContext(ctx, "GET", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token", nil)
-			if err != nil {
-				return false
-			}
+			req, _ := http.NewRequestWithContext(ctx, "GET", "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token", nil)
 			req.Header.Set("Metadata-Flavor", "Google")
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {

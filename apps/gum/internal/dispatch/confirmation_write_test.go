@@ -34,14 +34,13 @@ import (
 // whether it is ignored or enforced by the write tier.
 func writeConfirmationParams(ttl time.Duration) ConfirmationParams {
 	return ConfirmationParams{
-		OpID:            "gmail.users.drafts.create",
-		VariantID:       "gmail.v1.rest.users.drafts.create",
-		ArgsHash:        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		ResourceKey:     "draft001",
-		AuthFingerprint: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		Scope:           `["gmail"]`,
-		Purpose:         ConfirmationPurposeWrite,
-		TTL:             ttl,
+		OpID:        "gmail.users.drafts.create",
+		VariantID:   "gmail.v1.rest.users.drafts.create",
+		ArgsHash:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ResourceKey: "draft001",
+		Scope:       `["gmail"]`,
+		Purpose:     ConfirmationPurposeWrite,
+		TTL:         ttl,
 	}
 }
 

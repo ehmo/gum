@@ -114,3 +114,44 @@ func TestLogoutCommandForgetClient(t *testing.T) {
 		t.Errorf("grant_cleared = %v, want true", payload["grant_cleared"])
 	}
 }
+
+// TestLogoutCommandReportsGumOAuthVaultPurge pins gum-yieb at the command
+// layer: with legacy gum_oauth vault entries and no registered BYO client,
+// `gum logout` must purge the keychain and say so. The old output reported
+// "already logged out; nothing to clear" while the refresh token stayed put.
+func TestLogoutCommandReportsGumOAuthVaultPurge(t *testing.T) {
+	stubRevokeEndpoint(t)
+	keyringlib.MockInit()
+	kb := auth.NewOSKeyring()
+	const legacyKey = "gum.gum_oauth.abc123.deadbeef"
+	if err := kb.Set(legacyKey, "rt-legacy"); err != nil {
+		t.Fatalf("seed legacy vault entry: %v", err)
+	}
+	vault := auth.NewCredentialVault(kb)
+	if err := vault.TrackGumOAuthKey(legacyKey); err != nil {
+		t.Fatalf("TrackGumOAuthKey: %v", err)
+	}
+
+	root := newRootCmd()
+	var out, errBuf bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&errBuf)
+	root.SetArgs([]string{"logout"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("gum logout: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("decode logout output %q: %v", out.String(), err)
+	}
+	if payload["gum_oauth_vault_cleared"] != true {
+		t.Errorf("gum_oauth_vault_cleared = %v, want true", payload["gum_oauth_vault_cleared"])
+	}
+	if next, _ := payload["next"].(string); next == "already logged out; nothing to clear" {
+		t.Errorf("next = %q; the vault was purged, so this is false", next)
+	}
+	if v, _ := kb.Get(legacyKey); v != "" {
+		t.Errorf("legacy vault entry still present after logout: %q", v)
+	}
+}

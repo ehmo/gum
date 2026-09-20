@@ -21,10 +21,13 @@ package mcp
 // these constants by re-extracting from docs/spec.md.
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/google/jsonschema-go/jsonschema"
+
+	"github.com/ehmo/gum/internal/dispatch"
 )
 
 // expressionMetaDef is the §13 ExpressionMeta definition; embedded in every
@@ -73,7 +76,7 @@ const singleObjectResultSpecSchema = `{
   "type": "object",
   "required": ["format", "data", "_expression"],
   "properties": {
-    "format": {"enum": ["json", "markdown"]},
+    "format": {"enum": ["json", "csv", "markdown"]},
     "data":   {},
     "_expression": {"$ref": "#/$defs/ExpressionMeta"}
   },
@@ -433,5 +436,246 @@ func TestTierAResponseShapeConformance(t *testing.T) {
 				t.Fatalf("fixture %s fails its declared schema: %v\nbody:\n%s", f.name, err, raw)
 			}
 		})
+	}
+}
+
+// -----------------------------------------------------------------------------
+// TestDispatchAndShapeStructuredContentValidates
+// -----------------------------------------------------------------------------
+
+// shapedDispatcher returns one fixed ShapedResponse so the live MCP seam can
+// be driven through each §13 branch.
+type shapedDispatcher struct{ resp *dispatch.ShapedResponse }
+
+func (d shapedDispatcher) Dispatch(context.Context, *dispatch.Invocation) (*dispatch.ShapedResponse, error) {
+	return d.resp, nil
+}
+
+// asJSON round-trips v through encoding/json so the validator sees the same
+// value a client would: Go structs become objects and the json tags apply.
+func asJSON(t *testing.T, v any) any {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal structuredContent: %v", err)
+	}
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal structuredContent: %v", err)
+	}
+	return out
+}
+
+// TestDispatchAndShapeStructuredContentValidates validates the
+// structuredContent that dispatchAndShape actually emits, against both the
+// spec §13 $def for the branch and the schema the tool registers.
+//
+// TestTierAResponseShapeConformance above validates hand-written literals, so
+// it passed for months while no production path emitted `_expression` at all
+// and structuredContent carried the pre-shaping payload. This test fails if
+// the runtime and the registered schema drift apart again.
+func TestDispatchAndShapeStructuredContentValidates(t *testing.T) {
+	variant := "gmail.users.messages.list.v1"
+	meta := func(profile, format string) *dispatch.ExpressionMeta {
+		m := &dispatch.ExpressionMeta{
+			Profile:      profile,
+			OpID:         "gmail.users.messages.list",
+			VariantID:    &variant,
+			Lossy:        true,
+			ResultCount:  1,
+			OmittedCount: 2,
+		}
+		if format == "raw" {
+			m.Profile = "_raw"
+			m.Lossy = false
+		}
+		return m
+	}
+
+	for _, tc := range []struct {
+		name string
+		resp *dispatch.ShapedResponse
+		def  string
+	}{
+		{
+			name: "ToonResult",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte("messages[1]{id}:\n  m1\n"),
+				Format:            "toon",
+				StructuredContent: map[string]any{"messages": []any{map[string]any{"id": "m1"}}},
+				Expression:        meta("gmail.messages.list.v1", "toon"),
+			},
+			def: toonResultSpecSchema,
+		},
+		{
+			name: "SingleObjectResult/json",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte(`{"id":"m1"}`),
+				Format:            "json",
+				StructuredContent: map[string]any{"id": "m1"},
+				Expression:        meta("gmail.messages.get.v1", "json"),
+			},
+			def: singleObjectResultSpecSchema,
+		},
+		{
+			name: "SingleObjectResult/json-array-payload",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte(`[{"id":"m1"}]`),
+				Format:            "json",
+				StructuredContent: []any{map[string]any{"id": "m1"}},
+				Expression:        meta("gmail.messages.list.v1", "json"),
+			},
+			def: singleObjectResultSpecSchema,
+		},
+		{
+			name: "RawJsonResult",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte(`{"opaque":true}`),
+				Format:            "raw",
+				StructuredContent: map[string]any{"opaque": true},
+				Expression:        meta("", "raw"),
+			},
+			def: rawJSONResultSpecSchema,
+		},
+		{
+			name: "SingleObjectResult/csv",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte("id\nm1\n"),
+				Format:            "csv",
+				StructuredContent: map[string]any{"messages": []any{map[string]any{"id": "m1"}}},
+				Expression:        meta("gmail.messages.list.v1", "csv"),
+			},
+			def: singleObjectResultSpecSchema,
+		},
+		{
+			name: "SingleObjectResult/markdown",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte("| id |\n| --- |\n| m1 |\n"),
+				Format:            "markdown",
+				StructuredContent: map[string]any{"messages": []any{map[string]any{"id": "m1"}}},
+				Expression:        meta("gmail.messages.list.v1", "markdown"),
+			},
+			def: singleObjectResultSpecSchema,
+		},
+		{
+			// profile.Apply renames a format it cannot encode, so the wrapper
+			// never has to guess: a name it does not know is TOON bytes.
+			name: "UnimplementedFormatFallsBackToToon",
+			resp: &dispatch.ShapedResponse{
+				Body:              []byte("messages[1]{id}:\n  m1\n"),
+				Format:            "toon",
+				StructuredContent: map[string]any{"messages": []any{map[string]any{"id": "m1"}}},
+				Expression:        meta("gmail.messages.list.v1", "toon"),
+			},
+			def: toonResultSpecSchema,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := NewServer(shapedDispatcher{resp: tc.resp})
+			res, err := srv.dispatchAndShape(context.Background(), &dispatch.Invocation{
+				OpID: "gmail.users.messages.list",
+			})
+			if err != nil {
+				t.Fatalf("dispatchAndShape: %v", err)
+			}
+			if res.StructuredContent == nil {
+				t.Fatal("structuredContent is nil; §13 requires the result envelope")
+			}
+			body := asJSON(t, res.StructuredContent)
+
+			if err := compileSpecSchema(t, tc.def).Validate(body); err != nil {
+				raw, _ := json.MarshalIndent(body, "", "  ")
+				t.Fatalf("live structuredContent fails its §13 $def: %v\nbody:\n%s", err, raw)
+			}
+
+			// The registered schema must accept what the handler emits, or a
+			// client that validates the response rejects a correct call.
+			for tool, schema := range map[string]json.RawMessage{
+				"gum.read":     metaToolOutputSchema("gum.read"),
+				"gmail_search": convenienceToolOutputSchema("gmail_search"),
+			} {
+				if err := compileSpecSchema(t, string(schema)).Validate(body); err != nil {
+					raw, _ := json.MarshalIndent(body, "", "  ")
+					t.Fatalf("live structuredContent fails the registered %s outputSchema: %v\nbody:\n%s",
+						tool, err, raw)
+				}
+			}
+		})
+	}
+}
+
+// TestRegisteredResultSchemasMatchSpecDefs pins the registered `$defs` to the
+// spec §13 definitions inlined at the top of this file. The registered schema
+// is what clients validate against, so a silent divergence from §13 is a
+// wire-contract break that no other test would catch.
+func TestRegisteredResultSchemasMatchSpecDefs(t *testing.T) {
+	defsOf := func(raw json.RawMessage) map[string]any {
+		t.Helper()
+		var s struct {
+			Defs map[string]any `json:"$defs"`
+		}
+		if err := json.Unmarshal(raw, &s); err != nil {
+			t.Fatalf("registered schema is not valid JSON: %v", err)
+		}
+		return s.Defs
+	}
+	specDefOf := func(src string) any {
+		t.Helper()
+		var s struct {
+			Defs map[string]any `json:"$defs"`
+			Type string         `json:"type"`
+			Req  []string       `json:"required"`
+			Prop map[string]any `json:"properties"`
+			Add  bool           `json:"additionalProperties"`
+		}
+		if err := json.Unmarshal([]byte(src), &s); err != nil {
+			t.Fatalf("spec schema is not valid JSON: %v", err)
+		}
+		return map[string]any{
+			"type":                 s.Type,
+			"required":             s.Req,
+			"properties":           s.Prop,
+			"additionalProperties": s.Add,
+		}
+	}
+
+	registered := defsOf(shapedResultSchema())
+	for name, specSrc := range map[string]string{
+		"ToonResult":         toonResultSpecSchema,
+		"SingleObjectResult": singleObjectResultSpecSchema,
+		"RawJsonResult":      rawJSONResultSpecSchema,
+	} {
+		got, ok := registered[name]
+		if !ok {
+			t.Errorf("registered $defs is missing %q", name)
+			continue
+		}
+		gotJSON, _ := json.Marshal(got)
+		wantJSON, _ := json.Marshal(specDefOf(specSrc))
+		if string(gotJSON) != string(wantJSON) {
+			t.Errorf("%s drifted from spec §13:\n registered: %s\n spec:       %s", name, gotJSON, wantJSON)
+		}
+	}
+
+	// ExpressionMeta must stay open per §13: a client that pins to the
+	// registered schema must not reject a future _-prefixed field.
+	em, ok := registered["ExpressionMeta"].(map[string]any)
+	if !ok {
+		t.Fatal("registered $defs is missing ExpressionMeta")
+	}
+	if open, _ := em["additionalProperties"].(bool); !open {
+		t.Error("ExpressionMeta.additionalProperties must be true (spec §13 $comment)")
+	}
+	var specEM struct {
+		Props map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal([]byte(expressionMetaDef[len(`"ExpressionMeta": `):]), &specEM); err != nil {
+		t.Fatalf("spec ExpressionMeta is not valid JSON: %v", err)
+	}
+	gotProps, _ := em["properties"].(map[string]any)
+	for field := range specEM.Props {
+		if _, ok := gotProps[field]; !ok {
+			t.Errorf("registered ExpressionMeta is missing §13 field %q", field)
+		}
 	}
 }

@@ -18,6 +18,7 @@ type mockHost struct {
 	removeFn              func(ctx context.Context, pluginID string) error
 	listFn                func() ([]*plugins.Manifest, error)
 	startFn               func(ctx context.Context, pluginID string) (*plugins.Plugin, error)
+	removeWithRegistryFn  func(ctx context.Context, pluginID string, opts plugins.RemoveOptions) error
 }
 
 func (m *mockHost) Install(ctx context.Context, source string) (string, error) {
@@ -42,6 +43,16 @@ func (m *mockHost) Remove(ctx context.Context, pluginID string) error {
 		return m.removeFn(ctx, pluginID)
 	}
 	return errors.New("Remove not configured in mockHost")
+}
+
+func (m *mockHost) RemoveWithRegistry(ctx context.Context, pluginID string, opts plugins.RemoveOptions) error {
+	if m.removeWithRegistryFn != nil {
+		return m.removeWithRegistryFn(ctx, pluginID, opts)
+	}
+	if m.removeFn != nil {
+		return m.removeFn(ctx, pluginID)
+	}
+	return errors.New("RemoveWithRegistry not configured in mockHost")
 }
 
 func (m *mockHost) List() ([]*plugins.Manifest, error) {

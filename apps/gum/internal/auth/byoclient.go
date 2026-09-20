@@ -42,10 +42,7 @@ func StoreByoClient(kb KeyringBackend, profile string, client ByoClient) error {
 	if strings.TrimSpace(client.ClientID) == "" {
 		return fmt.Errorf("byo_oauth: client_id is required")
 	}
-	blob, err := json.Marshal(client)
-	if err != nil {
-		return fmt.Errorf("byo_oauth: marshal client: %w", err)
-	}
+	blob, _ := json.Marshal(client)
 	return kb.Set(byoClientKeyringKey(profile), string(blob))
 }
 

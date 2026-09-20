@@ -161,11 +161,23 @@ func (p *PluginMCP) Execute(ctx context.Context, inv *dispatch.Invocation, rv *d
 // cached handle on subsequent calls. Concurrent callers serialise on the
 // adapter mutex so the second arrival waits for the first to complete the
 // MCP handshake instead of racing to spawn duplicate processes.
+//
+// A cached handle whose subprocess has died is evicted and respawned. Keeping
+// it made every later dispatch in a long-running process fail on a closed
+// transport, and nothing ever asked for a new spawn, so the spec §8.6 restart
+// ladder never ran (gum-q79t).
 func (p *PluginMCP) ensureRunning(ctx context.Context, pluginID string) (*plugins.Plugin, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if plug, ok := p.running[pluginID]; ok && plug != nil {
-		return plug, nil
+		if plug.Alive() {
+			return plug, nil
+		}
+		// Reclaim the transport's pipes and the subprocess wait before
+		// dropping the reference. Stop is idempotent and returns at once on a
+		// session that has already ended.
+		_ = plug.Stop(ctx)
+		delete(p.running, pluginID)
 	}
 	host := p.resolveHost()
 	if host == nil {

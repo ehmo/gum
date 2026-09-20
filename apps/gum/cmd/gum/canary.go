@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ehmo/gum/internal/auth"
 	"github.com/ehmo/gum/internal/plugins"
+	"github.com/ehmo/gum/internal/plugins/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -66,11 +68,23 @@ func runCanary(cmd *cobra.Command, pluginID string, live bool) error {
 		return errors.New("gum canary: --plugin is required")
 	}
 
-	host := plugins.NewHost(plugins.HostConfig{})
+	profile := resolveProfileFlag(cmd)
+	// The canary is the gate that clears needs_configuration (§8.7), so it has
+	// to spawn with the same credentials a real call gets: the profile keychain
+	// entries `gum plugin setup` wrote.
+	cfg := plugins.HostConfig{Profile: profile, Keyring: auth.NewOSKeyring()}
+	// Verify against the plugins.lock row when one exists, so a rewritten
+	// sidecar cannot make a swapped binary pass the canary.
+	var reg *registry.Registry
+	if dir, err := resolveProfileDir(profile); err == nil {
+		reg = registry.New(dir)
+		cfg.TrustedDigest = plugins.RecordedDigestResolver(reg)
+	}
+	host := plugins.NewHost(cfg)
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 	defer cancel()
 
-	plug, err := host.Start(ctx, pluginID)
+	plug, err := startCanaryPlugin(ctx, host, reg, pluginID)
 	if err != nil {
 		emitCanaryEnvelope(cmd, map[string]any{
 			"ok":                false,
@@ -96,6 +110,32 @@ func runCanary(cmd *cobra.Command, pluginID string, live bool) error {
 	return nil
 }
 
+// startCanaryPlugin applies the spec §8.6 quarantine gate before spawning
+// (gum-vgip). host.Start has no quarantine awareness, so without this gate a
+// canary would execute a plugin the supervisor had already refused to run —
+// the same hole gum-g7xr closed for `gum plugin run` and the dispatch adapter.
+//
+// The canary needs no exception for re-testing a failed plugin: `gum plugin
+// reload <id>` already owns that path, clearing the quarantine first and then
+// supervising the spawn. Unlike Supervisor.Start this does not record a crash
+// on failure, because a diagnostic spawn must not advance the §8.6 backoff
+// ladder and mask the fault on the next run.
+//
+// With no resolvable profile there is no registry, so there is no quarantine
+// state to read and the spawn proceeds.
+func startCanaryPlugin(ctx context.Context, host *plugins.Host, reg *registry.Registry, pluginID string) (*plugins.Plugin, error) {
+	if reg != nil {
+		state, err := plugins.ReadSupervisorState(reg, pluginID)
+		if err != nil {
+			return nil, fmt.Errorf("read plugin state: %w", err)
+		}
+		if err := plugins.CheckQuarantine(state, pluginID, time.Now()); err != nil {
+			return nil, err
+		}
+	}
+	return host.Start(ctx, pluginID)
+}
+
 // emitCanaryEnvelope writes a single-line JSON envelope to the command's
 // stdout. Encoding errors are swallowed: the only realistic failure path
 // here is a closed pipe, and printing a garbled envelope would only
@@ -111,10 +151,11 @@ func emitCanaryEnvelope(cmd *cobra.Command, env map[string]any) {
 // error_code surface. The mapping is intentionally narrow: any failure that
 // is not a known plugin-local code maps to SERVICE_DOWN.
 func canaryErrorCode(err error) string {
-	if errors.Is(err, plugins.ErrManifestNotFound) ||
-		errors.Is(err, plugins.ErrManifestInvalid) ||
-		errors.Is(err, plugins.ErrExecutableUntrusted) {
-		return "SERVICE_DOWN"
+	// Spec §13 bullet 5: a quarantined plugin surfaces VARIANT_QUARANTINED on
+	// every invocation path, not SERVICE_DOWN. Nothing was spawned, so the
+	// operator needs the quarantine named rather than a generic outage.
+	if errors.Is(err, plugins.ErrPluginQuarantined) {
+		return "VARIANT_QUARANTINED"
 	}
 	return "SERVICE_DOWN"
 }
@@ -129,6 +170,10 @@ func canarySourceErrorCode(err error) string {
 		return "ErrManifestInvalid"
 	case errors.Is(err, plugins.ErrExecutableUntrusted):
 		return "ErrExecutableUntrusted"
+	case errors.Is(err, plugins.ErrPluginEnvProhibited):
+		return "ErrPluginEnvProhibited"
+	case errors.Is(err, plugins.ErrPluginQuarantined):
+		return "ErrPluginQuarantined"
 	default:
 		return "Unknown"
 	}

@@ -6,7 +6,7 @@
 # recovery = "local_artifact" so the dropped fields stay recoverable and the
 # caller gets a notice naming them (gum-bpx0).
 # NOTE: the profile parser is line-based — keep_fields must stay on one line.
-default_format = "toon"
+format = "toon"
 keep_fields = ["results.text", "results.keywordIdeaMetrics.avgMonthlySearches", "results.keywordIdeaMetrics.competition", "results.keywordIdeaMetrics.competitionIndex", "results.keywordIdeaMetrics.lowTopOfPageBidMicros", "results.keywordIdeaMetrics.highTopOfPageBidMicros", "nextPageToken", "totalSize"]
 collapse_arrays = { max_items = 50 }
 on_empty = "No keyword ideas — try different seed keywords or broaden geo/language."

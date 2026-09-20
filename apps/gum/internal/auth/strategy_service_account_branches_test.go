@@ -120,3 +120,17 @@ func TestServiceAccountResolverTokenExchangeFailedSurfacesError(t *testing.T) {
 		t.Errorf("err=%v; want AUTH_SA_TOKEN_EXCHANGE_FAILED", err)
 	}
 }
+
+// TestServiceAccountFingerprintNormalizesEmail pins §10.0.1's lower-case rule
+// for the SA email. Without it the same principal spelled two ways keys two
+// sets of cache entries and tee artifacts, and neither can read the other's.
+func TestServiceAccountFingerprintNormalizesEmail(t *testing.T) {
+	lower := serviceAccountFingerprint("svc@project.iam.gserviceaccount.com")
+	upper := serviceAccountFingerprint("  SVC@Project.IAM.gserviceaccount.com ")
+	if lower != upper {
+		t.Errorf("fingerprint differs by case or padding: %q vs %q", lower, upper)
+	}
+	if other := serviceAccountFingerprint("other@project.iam.gserviceaccount.com"); other == lower {
+		t.Errorf("distinct SA emails share fingerprint %q", other)
+	}
+}

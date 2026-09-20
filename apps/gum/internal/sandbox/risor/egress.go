@@ -36,6 +36,23 @@ func isBlockedEgressIP(ip net.IP) bool {
 		ip.IsUnspecified()
 }
 
+// egressDialControl is the net.Dialer Control hook that enforces the SSRF
+// guard (gum-j1ly). Control runs after DNS resolution with the concrete
+// ip:port about to be dialed, so it rejects both literal private-IP targets
+// and hostnames that resolve into an internal range. address is "ip:port" for
+// every dial the runtime makes; the split fallback keeps the guard active for
+// any address form that does not carry a port.
+func egressDialControl(_, address string, _ syscall.RawConn) error {
+	host, _, splitErr := net.SplitHostPort(address)
+	if splitErr != nil {
+		host = address
+	}
+	if isBlockedEgressIP(net.ParseIP(host)) {
+		return fmt.Errorf("EGRESS_PRIVATE_IP_DENIED: refusing to dial private/loopback/link-local address %s", address)
+	}
+	return nil
+}
+
 // syncDialTransport is a minimal http.RoundTripper that dials synchronously
 // within the request's context. It never spawns background goroutines, unlike
 // http.Transport which deliberately detaches its dial goroutines from the
@@ -66,19 +83,7 @@ func (t syncDialTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	// FallbackDelay: -1 disables Happy Eyeballs to avoid parallel goroutines.
 	dialer := &net.Dialer{FallbackDelay: -1}
 	if !t.allowPrivateEgress {
-		// SSRF guard (gum-j1ly): Control runs after DNS resolution with the
-		// concrete ip:port about to be dialed, so it rejects both literal
-		// private-IP targets and hostnames that resolve into an internal range.
-		dialer.Control = func(_, address string, _ syscall.RawConn) error {
-			host, _, splitErr := net.SplitHostPort(address)
-			if splitErr != nil {
-				host = address
-			}
-			if isBlockedEgressIP(net.ParseIP(host)) {
-				return fmt.Errorf("EGRESS_PRIVATE_IP_DENIED: refusing to dial private/loopback/link-local address %s", address)
-			}
-			return nil
-		}
+		dialer.Control = egressDialControl
 	}
 	rawConn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {

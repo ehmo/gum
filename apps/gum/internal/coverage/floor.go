@@ -30,9 +30,9 @@ import (
 // can be held to.
 //
 // Coverage is GOOS-sensitive whenever a package carries build-tagged files:
-// internal/pluginenv reads 61% on linux (the Landlock path never executes on
-// a runner without it) and 52% on darwin, where its sandbox-exec files have
-// no tests. Off-baseline, Opportunities is suppressed, because a baseline
+// internal/pluginenv reads 81.8% on linux and 96.4% on darwin, because each
+// platform compiles its own sandbox backend and leaves the other's out.
+// Off-baseline, Opportunities is suppressed, because a baseline
 // raised from a darwin reading fails linux CI on the next push, and
 // cmd/coverage-floor reports violations as warnings, because a darwin
 // reading below a linux baseline is not a regression.
@@ -80,53 +80,58 @@ type Ratchet struct {
 // headroom). gum-5wkg established the original retention sweep
 // (2026-05-26); gum-8ilq refreshed stale baselines after the hardened audit
 // remediation sweep (2026-06-03); gum-ln4c raised four after the overhaul
-// review (2026-08-05). Readings are taken on macOS, so a Min gets extra
-// headroom rather than floor(current − 1) whenever a package's tests skip on a
-// platform or privilege level CI may differ on.
+// review (2026-08-05); gum-syvp raised every stale baseline after the
+// repo-wide review sweep (2026-09-19) and added the three packages that had
+// been held to FloorPercent. Readings are taken on BaselineGOOS, so a Min
+// gets extra headroom rather than floor(current − 1) whenever a package's
+// tests skip on a kernel or privilege level CI may differ on.
 // The trailing comment on each line is the
 // measured coverage that produced the Min. Lowering a Min or dropping its
 // Bead without a docs/test-matrix.md update is a regression; raising a Min
 // when coverage improves is encouraged.
 var Ratchets = []Ratchet{
-	{Package: "github.com/ehmo/gum/internal/fsatomic", Min: 58.0, Bead: "gum-x5vw"},           // 59.3% — residual is defensive I/O-error branches (chmod/sync/close/write failures) not portably triggerable
-	{Package: "github.com/ehmo/gum/internal/adapters/googleads", Min: 85.0, Bead: "gum-x5vw"}, // 86.7%
-	{Package: "github.com/ehmo/gum/internal/help/topics", Min: 79.0, Bead: "gum-5wkg"},        // 80.0%
-	{Package: "github.com/ehmo/gum/internal/plugins/registry", Min: 82.0, Bead: "gum-5wkg"},   // 83.5%
-	{Package: "github.com/ehmo/gum/internal/catalog", Min: 86.0, Bead: "gum-ln4c"},            // 86.8% — overhaul-review recalibration
-	{Package: "github.com/ehmo/gum/cmd/gum", Min: 86.0, Bead: "gum-ejek"},                     // 86.9% on Linux Go 1.26.4 public CI; macOS/local may report slightly higher
-	{Package: "github.com/ehmo/gum/internal/initpkg", Min: 93.0, Bead: "gum-ln4c"},            // 94.7% — overhaul-review recalibration after atomicWrite moved to internal/fsatomic
-	{Package: "github.com/ehmo/gum/internal/profile", Min: 90.0, Bead: "gum-8ilq"},            // 91.7%
-	{Package: "github.com/ehmo/gum/internal/testutil/golden", Min: 91.0, Bead: "gum-5wkg"},    // 92.1%
-	{Package: "github.com/ehmo/gum/internal/adapters/genai", Min: 91.0, Bead: "gum-5wkg"},     // 92.3%
-	{Package: "github.com/ehmo/gum/internal/auditlog", Min: 91.0, Bead: "gum-5wkg"},           // 92.3%
-	{Package: "github.com/ehmo/gum/internal/auth", Min: 92.0, Bead: "gum-8ilq"},               // 93.1%
-	{Package: "github.com/ehmo/gum/internal/coverage", Min: 91.0, Bead: "gum-ql6c"},           // 91.5% — release rehearsal recalibration
-	{Package: "github.com/ehmo/gum/internal/sandbox/risor", Min: 91.0, Bead: "gum-ql6c"},      // 91.8% — release rehearsal recalibration after gum.code hardening
-	{Package: "github.com/ehmo/gum/internal/output/gain", Min: 91.0, Bead: "gum-ql6c"},        // 91.2% — release rehearsal recalibration
-	{Package: "github.com/ehmo/gum/internal/testmatrix", Min: 92.0, Bead: "gum-5wkg"},         // 93.4%
-	{Package: "github.com/ehmo/gum/internal/adapters", Min: 90.0, Bead: "gum-ql6c"},           // 90.3% — release rehearsal recalibration after gum.code dispatch wiring
-	{Package: "github.com/ehmo/gum/internal/sanitize", Min: 93.0, Bead: "gum-5wkg"},           // 94.1%
-	{Package: "github.com/ehmo/gum/internal/dispatch", Min: 93.0, Bead: "gum-8ilq"},           // 94.4%
-	{Package: "github.com/ehmo/gum/internal/cache", Min: 92.0, Bead: "gum-ql6c"},              // 92.3% — release rehearsal recalibration
-	{Package: "github.com/ehmo/gum/internal/adapters/maps", Min: 93.0, Bead: "gum-5wkg"},      // 94.6%
-	{Package: "github.com/ehmo/gum/internal/notify", Min: 94.0, Bead: "gum-8ilq"},             // 95.7%
-	{Package: "github.com/ehmo/gum/internal/plugins", Min: 94.0, Bead: "gum-5wkg"},            // 95.0%
-	{Package: "github.com/ehmo/gum/internal/embed", Min: 95.0, Bead: "gum-5wkg"},              // 96.2%
-	{Package: "github.com/ehmo/gum/internal/lro", Min: 95.0, Bead: "gum-5wkg"},                // 96.3%
-	{Package: "github.com/ehmo/gum/internal/output/profile", Min: 95.0, Bead: "gum-8ilq"},     // 96.2%
-	{Package: "github.com/ehmo/gum/internal/output/tee", Min: 94.0, Bead: "gum-ql6c"},         // 94.6% — release rehearsal recalibration
-	{Package: "github.com/ehmo/gum/internal/bench", Min: 96.0, Bead: "gum-5wkg"},              // 97.3%
-	{Package: "github.com/ehmo/gum/internal/lro/routing", Min: 96.0, Bead: "gum-5wkg"},        // 97.4%
-	{Package: "github.com/ehmo/gum/internal/mcp", Min: 96.0, Bead: "gum-5wkg"},                // 97.8%
+	{Package: "github.com/ehmo/gum/internal/fsatomic", Min: 99.0, Bead: "gum-syvp"},           // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/adapters/googleads", Min: 98.0, Bead: "gum-syvp"}, // 99.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/help/topics", Min: 99.0, Bead: "gum-syvp"},        // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/plugins/registry", Min: 96.0, Bead: "gum-syvp"},   // 97.6% measured on linux
+	{Package: "github.com/ehmo/gum/internal/catalog", Min: 99.0, Bead: "gum-syvp"},            // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/cmd/gum", Min: 97.0, Bead: "gum-syvp"},                     // 98.3% measured on linux
+	{Package: "github.com/ehmo/gum/internal/initpkg", Min: 95.0, Bead: "gum-syvp"},            // 96.9% measured on linux
+	{Package: "github.com/ehmo/gum/internal/profile", Min: 99.0, Bead: "gum-syvp"},            // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/testutil/golden", Min: 91.0, Bead: "gum-5wkg"},    // 92.3% measured on linux
+	{Package: "github.com/ehmo/gum/internal/adapters/genai", Min: 94.0, Bead: "gum-syvp"},     // 95.1% measured on linux
+	{Package: "github.com/ehmo/gum/internal/auditlog", Min: 95.0, Bead: "gum-syvp"},           // 96.9% measured on linux
+	{Package: "github.com/ehmo/gum/internal/auth", Min: 98.0, Bead: "gum-syvp"},               // 99.8% measured on linux
+	{Package: "github.com/ehmo/gum/internal/coverage", Min: 96.0, Bead: "gum-syvp"},           // 97.9% measured on linux
+	{Package: "github.com/ehmo/gum/internal/sandbox/risor", Min: 98.0, Bead: "gum-syvp"},      // 99.2% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/gain", Min: 95.0, Bead: "gum-syvp"},        // 96.6% measured on linux
+	{Package: "github.com/ehmo/gum/internal/testmatrix", Min: 99.0, Bead: "gum-syvp"},         // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/adapters", Min: 98.0, Bead: "gum-syvp"},           // 99.9% measured on linux
+	{Package: "github.com/ehmo/gum/internal/sanitize", Min: 99.0, Bead: "gum-syvp"},           // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/dispatch", Min: 97.0, Bead: "gum-syvp"},           // 98.8% measured on linux
+	{Package: "github.com/ehmo/gum/internal/cache", Min: 94.0, Bead: "gum-syvp"},              // 95.3% measured on linux
+	{Package: "github.com/ehmo/gum/internal/adapters/maps", Min: 93.0, Bead: "gum-5wkg"},      // 94.9% measured on linux
+	{Package: "github.com/ehmo/gum/internal/notify", Min: 96.0, Bead: "gum-syvp"},             // 97.8% measured on linux
+	{Package: "github.com/ehmo/gum/internal/plugins", Min: 97.0, Bead: "gum-syvp"},            // 99.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/embed", Min: 95.0, Bead: "gum-5wkg"},              // 97.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/lro", Min: 99.0, Bead: "gum-syvp"},                // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/profile", Min: 97.0, Bead: "gum-syvp"},     // 98.8% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/tee", Min: 96.0, Bead: "gum-syvp"},         // 97.5% measured on linux
+	{Package: "github.com/ehmo/gum/internal/bench", Min: 96.0, Bead: "gum-5wkg"},              // 97.7% measured on linux
+	{Package: "github.com/ehmo/gum/internal/lro/routing", Min: 99.0, Bead: "gum-syvp"},        // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/mcp", Min: 98.0, Bead: "gum-syvp"},                // 99.3% measured on linux
 	{Package: "github.com/ehmo/gum/internal/config", Min: 98.0, Bead: "gum-ln4c"},             // 100.0% — held 2 points back, not floor(current−1): the Save error-branch tests skip when euid==0, so a root CI container reads lower
-	{Package: "github.com/ehmo/gum/internal/cli/callargs", Min: 97.0, Bead: "gum-8ilq"},       // 98.9%
-	{Package: "github.com/ehmo/gum/internal/output/toon", Min: 97.0, Bead: "gum-ln4c"},        // 98.1% — overhaul-review recalibration
-	{Package: "github.com/ehmo/gum/internal/output/jcs", Min: 98.0, Bead: "gum-5wkg"},         // 99.1%
-	{Package: "github.com/ehmo/gum/internal/adapters/grpc", Min: 99.0, Bead: "gum-5wkg"},      // 100.0%
-	{Package: "github.com/ehmo/gum/internal/help", Min: 99.0, Bead: "gum-5wkg"},               // 100.0%
-	{Package: "github.com/ehmo/gum/internal/httputil", Min: 99.0, Bead: "gum-5wkg"},           // 100.0%
-	{Package: "github.com/ehmo/gum/internal/output/fieldmask", Min: 99.0, Bead: "gum-5wkg"},   // 100.0%
-	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 61.0, Bead: "gum-ejek"},          // 61.1% on Linux Go 1.26.4 public CI. macOS reads 52% because its darwin-only backend files have no tests; only the linux reading is enforced.
+	{Package: "github.com/ehmo/gum/internal/cli/callargs", Min: 99.0, Bead: "gum-syvp"},       // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/toon", Min: 97.0, Bead: "gum-ln4c"},        // 97.4% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/jcs", Min: 98.0, Bead: "gum-5wkg"},         // 99.2% measured on linux
+	{Package: "github.com/ehmo/gum/internal/adapters/grpc", Min: 99.0, Bead: "gum-5wkg"},      // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/help", Min: 99.0, Bead: "gum-5wkg"},               // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/httputil", Min: 99.0, Bead: "gum-5wkg"},           // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/fieldmask", Min: 99.0, Bead: "gum-5wkg"},   // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/agents", Min: 97.0, Bead: "gum-syvp"},             // 98.4% measured on linux
+	{Package: "github.com/ehmo/gum/internal/output/render", Min: 96.0, Bead: "gum-syvp"},      // 97.4% measured on linux
+	{Package: "github.com/ehmo/gum/internal/skills", Min: 99.0, Bead: "gum-syvp"},             // 100.0% measured on linux
+	{Package: "github.com/ehmo/gum/internal/pluginenv", Min: 78.0, Bead: "gum-syvp"},          // 81.8% measured on linux — held ~4 points back, not floor(current−1): the two Landlock tests skip on a kernel without Landlock, which costs about 1.5 points
 }
 
 // GatedPackages returns the `go test` patterns whose coverage MUST be

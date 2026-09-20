@@ -47,6 +47,22 @@ import (
 // 128 + 1 + 64 + 5 = 198 bytes.
 var safeServedRefPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 
+// isSchemaHash pins the plugin-catalog schema_hashes value to lowercase
+// sha256 hex. The value becomes a path segment under
+// <profile>/plugin-schemas/, so anything else is a traversal primitive.
+func isSchemaHash(hash string) bool {
+	if len(hash) != 64 {
+		return false
+	}
+	for i := 0; i < len(hash); i++ {
+		c := hash[i]
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 // isSafeServedRef enforces the §8.2 line 1601 grammar on a candidate ref.
 // Returns true only when the ref matches the regex AND contains no `..`
 // substring. Path-separator characters (`/`, `\`) are already rejected by the
@@ -144,6 +160,11 @@ func (s *Server) loadPluginSchema(ref string) ([]byte, bool) {
 		return nil, false
 	}
 	if status := resolvePluginStatus(stateRow); status != "active" {
+		return nil, false
+	}
+	if !isSchemaHash(hash) {
+		// hash becomes a path segment. A registry row carrying `../../` there
+		// would read any file the process can reach, so refuse before the join.
 		return nil, false
 	}
 	bodyPath := filepath.Join(profileDir, "plugin-schemas", ref+"."+hash+".json")

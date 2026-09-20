@@ -33,6 +33,7 @@ gum call <op_id> --risk=<read|write|destructive> [args...] [flags]
 | `--fields` | `string` |  | Field mask sent to the upstream API (host control) |
 | `--json` | `bool` | false | Render output as JSON (default when piped) |
 | `--markdown` | `bool` | false | Render output as Markdown |
+| `--max-items` | `string` |  | Result cap for this call: a positive integer, or "all" for every result (default: the profile's cap) |
 | `--no-field-mask` | `bool` | false | Disable upstream field_mask injection |
 | `-o`<br>`--output` | `string` |  | Output format: table\|json\|toon\|csv\|markdown\|raw\|value(<path>) (default: table on a terminal, json when piped) |
 | `--page-size` | `int` | 0 | Page size for paginated reads (host control) |

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ehmo/gum/internal/catalog"
@@ -22,6 +24,12 @@ const DefaultLockTimeout = 30 * time.Second
 // the entry as json.RawMessage to avoid re-serialising fields we don't model.
 type pluginByName struct {
 	Name string `json:"name"`
+}
+
+// variantByID is the same minimal projection for a plugin-catalog.json
+// variants[] entry, which spec §8.7 line 1884 sorts by variant_id.
+type variantByID struct {
+	VariantID string `json:"variant_id"`
 }
 
 // Files is the in-memory view of the three plugin registry files inside one
@@ -52,6 +60,46 @@ func emptyFiles() *Files {
 type Registry struct {
 	profileDir  string
 	lockTimeout time.Duration
+
+	// Publish-step seams. Production leaves them nil and the transaction uses
+	// os.Rename, fsyncDir, and (*os.File).Sync. Only this package's own
+	// error-path tests set them, because a rename failure or an
+	// fsync-unsupported filesystem cannot be induced portably from a temp dir.
+	renameFn   func(oldpath, newpath string) error
+	syncDirFn  func(dir string) error
+	syncFileFn func(f *os.File) error
+
+	// audit receives the §8.7 fsync warning as an audit row. nil means the
+	// warning goes to the host log only.
+	audit AuditSink
+}
+
+// AuditSink is the seam that carries a registry warning into the profile audit
+// log. cmd wires it to internal/auditlog; this package must not import that
+// package, because §14 lets a layer call only the layer directly below it.
+type AuditSink interface {
+	Append(entry map[string]any)
+}
+
+// WithAuditSink attaches the audit sink and returns the registry, so a caller
+// can chain it onto New.
+func (r *Registry) WithAuditSink(s AuditSink) *Registry {
+	r.audit = s
+	return r
+}
+
+func (r *Registry) rename(oldpath, newpath string) error {
+	if r.renameFn != nil {
+		return r.renameFn(oldpath, newpath)
+	}
+	return os.Rename(oldpath, newpath)
+}
+
+func (r *Registry) syncFile() func(*os.File) error {
+	if r.syncFileFn != nil {
+		return r.syncFileFn
+	}
+	return (*os.File).Sync
 }
 
 // New returns a Registry bound to profileDir. Callers responsible for
@@ -165,45 +213,116 @@ func (r *Registry) WriteTransaction(ctx context.Context, mutate func(*Files) err
 	files.State.InstallTxID = txid
 	sortByName(files.Lock.Plugins)
 	sortByName(files.State.Plugins)
+	sortByVariantID(files.Catalog.Variants)
 
-	tmpCatalog := tempPath(r.profileDir, CatalogFilename, txid)
-	tmpLock := tempPath(r.profileDir, LockFilename, txid)
-	tmpState := tempPath(r.profileDir, StateFilename, txid)
-	if err := writeJSONAtomic(tmpCatalog, files.Catalog); err != nil {
-		_ = os.Remove(tmpCatalog)
-		return err
-	}
-	if err := writeJSONAtomic(tmpLock, files.Lock); err != nil {
-		_ = os.Remove(tmpCatalog)
-		_ = os.Remove(tmpLock)
-		return err
-	}
-	if err := writeJSONAtomic(tmpState, files.State); err != nil {
-		_ = os.Remove(tmpCatalog)
-		_ = os.Remove(tmpLock)
-		_ = os.Remove(tmpState)
-		return err
-	}
-	if err := fsyncDir(r.profileDir); err != nil {
-		return err
+	steps := []publishStep{
+		{what: "catalog", final: CatalogPath(r.profileDir), tmp: tempPath(r.profileDir, CatalogFilename, txid), body: files.Catalog},
+		{what: "lock", final: LockPath(r.profileDir), tmp: tempPath(r.profileDir, LockFilename, txid), body: files.Lock},
+		{what: "state", final: StatePath(r.profileDir), tmp: tempPath(r.profileDir, StateFilename, txid), body: files.State},
 	}
 
-	if err := os.Rename(tmpCatalog, CatalogPath(r.profileDir)); err != nil {
-		_ = os.Remove(tmpLock)
-		_ = os.Remove(tmpState)
-		return fmt.Errorf("registry: rename catalog: %w", err)
+	// Snapshot the bytes of the generation currently on disk. A rename that
+	// fails partway would otherwise leave one file at generation N and the
+	// other two at N-1, and spec §8.7 step 5 requires the previous complete
+	// generation to stay authoritative. The three files are small JSON
+	// documents, so holding them in memory for the publish window is cheap.
+	for i := range steps {
+		prior, existed, err := readIfExists(steps[i].final)
+		if err != nil {
+			removeTemps(steps)
+			return err
+		}
+		steps[i].prior, steps[i].existed = prior, existed
 	}
-	if err := os.Rename(tmpLock, LockPath(r.profileDir)); err != nil {
-		_ = os.Remove(tmpState)
-		return fmt.Errorf("registry: rename lock: %w", err)
+
+	for i := range steps {
+		if err := r.stageTemp(steps[i].tmp, steps[i].body); err != nil {
+			removeTemps(steps)
+			return err
+		}
 	}
-	if err := os.Rename(tmpState, StatePath(r.profileDir)); err != nil {
-		return fmt.Errorf("registry: rename state: %w", err)
-	}
-	if err := fsyncDir(r.profileDir); err != nil {
+	if err := r.syncProfileDir(); err != nil {
+		removeTemps(steps)
 		return err
+	}
+
+	for i := range steps {
+		if err := r.rename(steps[i].tmp, steps[i].final); err != nil {
+			return r.rollbackPublish(steps, i, fmt.Errorf("registry: rename %s: %w", steps[i].what, err))
+		}
+	}
+	if err := r.syncProfileDir(); err != nil {
+		return r.rollbackPublish(steps, len(steps), err)
 	}
 	return nil
+}
+
+// publishStep is one file's journey through the §8.7 publish: stage to tmp,
+// rename over final, and, if a later step fails, restore prior.
+type publishStep struct {
+	what    string
+	final   string
+	tmp     string
+	body    any
+	prior   []byte
+	existed bool
+}
+
+// stageTemp writes one temp file under the §8.7 fsync fallback.
+func (r *Registry) stageTemp(path string, v any) error {
+	return r.tolerateUnsupportedFsync(writeJSONWithSync(path, v, r.syncFile()))
+}
+
+// rollbackPublish undoes a publish that failed at step `failed`, so the
+// previous complete generation stays authoritative (spec §8.7 step 5). Steps
+// before `failed` already renamed, so each is restored from its snapshot, or
+// deleted when the file did not exist before. Steps from `failed` on still
+// have a temp file to delete.
+//
+// Every step is best effort. A restore that itself fails is reported next to
+// the original error, because the operator then has a torn generation that
+// SelectGeneration will refuse to dispatch from.
+func (r *Registry) rollbackPublish(steps []publishStep, failed int, cause error) error {
+	removeTemps(steps[failed:])
+	var restoreErrs []error
+	for i := failed - 1; i >= 0; i-- {
+		if err := r.restore(steps[i]); err != nil {
+			restoreErrs = append(restoreErrs, err)
+		}
+	}
+	if len(restoreErrs) == 0 {
+		return cause
+	}
+	return fmt.Errorf("%w; rollback incomplete: %w", cause, errors.Join(restoreErrs...))
+}
+
+// restore puts one already-renamed file back to its pre-transaction content.
+// The write goes through a temp plus rename so a crash mid-rollback cannot
+// leave a half-written final file.
+func (r *Registry) restore(step publishStep) error {
+	if !step.existed {
+		if err := os.Remove(step.final); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("registry: rollback remove %s: %w", step.what, err)
+		}
+		return nil
+	}
+	tmp := step.final + ".rollback"
+	if err := os.WriteFile(tmp, step.prior, 0o600); err != nil {
+		return fmt.Errorf("registry: rollback stage %s: %w", step.what, err)
+	}
+	if err := r.rename(tmp, step.final); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("registry: rollback restore %s: %w", step.what, err)
+	}
+	return nil
+}
+
+// removeTemps deletes the staging files for the given steps on best effort,
+// which spec §8.7 step 5 requires of every failed transaction.
+func removeTemps(steps []publishStep) {
+	for _, s := range steps {
+		_ = os.Remove(s.tmp)
+	}
 }
 
 // readIfExists returns (data, true, nil) for a present file, (nil, false, nil)
@@ -223,6 +342,12 @@ func readIfExists(path string) ([]byte, bool, error) {
 // fsyncing the file before closing. The caller fsyncs the directory after all
 // temp files are in place.
 func writeJSONAtomic(path string, v any) error {
+	return writeJSONWithSync(path, v, (*os.File).Sync)
+}
+
+// writeJSONWithSync is writeJSONAtomic with an injectable file-sync call so the
+// package's own tests can exercise the unsupported-fsync fallback.
+func writeJSONWithSync(path string, v any, sync func(*os.File) error) error {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Errorf("registry: marshal %s: %w", filepath.Base(path), err)
@@ -235,24 +360,37 @@ func writeJSONAtomic(path string, v any) error {
 		_ = f.Close()
 		return fmt.Errorf("registry: write %s: %w", path, err)
 	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close()
-		// EINVAL/ENOTSUP fsync fallback is handled by fsyncDir; for the file
-		// itself we surface the error so the transaction fails closed when
-		// the filesystem can't promise durability for the temp content.
-		return fmt.Errorf("registry: fsync %s: %w", path, err)
-	}
+	syncErr := sync(f)
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("registry: close %s: %w", path, err)
 	}
-	return nil
+	if syncErr == nil {
+		return nil
+	}
+	wrapped := fmt.Errorf("registry: fsync %s: %w", path, syncErr)
+	// The §8.7 fallback applies to the temp file too: on a filesystem that
+	// cannot fsync, the install must not fail. The typed wrapper keeps that
+	// decision at the caller and stops an EINVAL from open or write being
+	// mistaken for an unsupported syscall.
+	if isFsyncUnsupported(syncErr) {
+		return fsyncUnsupportedError{err: wrapped}
+	}
+	return wrapped
 }
 
+// fsyncUnsupportedError marks an fsync failure that the filesystem does not
+// support (NFS, FUSE, some overlay mounts). Spec §8.7 "Filesystem fsync
+// fallback" requires the install to continue after one structured warning.
+type fsyncUnsupportedError struct{ err error }
+
+func (e fsyncUnsupportedError) Error() string { return e.err.Error() }
+func (e fsyncUnsupportedError) Unwrap() error { return e.err }
+
 // fsyncDir opens dir and calls Sync so the directory entry for renamed temp
-// files reaches stable storage. On filesystems where the syscall isn't
-// supported, the error is swallowed silently — spec §8.7 line 1782 requires
-// the host to log one structured warning per profile per process and continue
-// (the warning will land here once slog wiring lands in gum-d7k2).
+// files reaches stable storage. A syscall the filesystem does not support
+// comes back as fsyncUnsupportedError; the caller applies the §8.7 fallback
+// (one structured warning per profile per process, then continue). Every other
+// failure is a real error.
 func fsyncDir(dir string) error {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -260,12 +398,66 @@ func fsyncDir(dir string) error {
 	}
 	defer func() { _ = f.Close() }()
 	if err := f.Sync(); err != nil {
+		wrapped := fmt.Errorf("registry: fsync dir %s: %w", dir, err)
 		if isFsyncUnsupported(err) {
-			return nil
+			return fsyncUnsupportedError{err: wrapped}
 		}
-		return fmt.Errorf("registry: fsync dir %s: %w", dir, err)
+		return wrapped
 	}
 	return nil
+}
+
+// syncProfileDir fsyncs the profile directory and applies the §8.7 fallback.
+func (r *Registry) syncProfileDir() error {
+	sync := fsyncDir
+	if r.syncDirFn != nil {
+		sync = r.syncDirFn
+	}
+	return r.tolerateUnsupportedFsync(sync(r.profileDir))
+}
+
+// tolerateUnsupportedFsync turns an unsupported-syscall fsync failure into a
+// single structured warning and a nil error, per the §8.7 fallback. Any other
+// error passes through.
+func (r *Registry) tolerateUnsupportedFsync(err error) error {
+	var unsupported fsyncUnsupportedError
+	if !errors.As(err, &unsupported) {
+		return err
+	}
+	r.warnFsyncUnsupported(unsupported.err)
+	return nil
+}
+
+// fsyncWarned records the profile directories already warned about in this
+// process. Spec §8.7: detection is once per profile per process, not once per
+// install transaction.
+var fsyncWarned sync.Map
+
+// warnFsyncUnsupported emits the §8.7 warning to both required sinks: the host
+// log and the profile audit log, "so the loss of crash-safety guarantees is
+// auditable". Both legs sit under one dedupe guard, because §8.7 scopes
+// detection to once per profile per process rather than once per transaction.
+func (r *Registry) warnFsyncUnsupported(err error) {
+	if _, seen := fsyncWarned.LoadOrStore(r.profileDir, struct{}{}); seen {
+		return
+	}
+	const suggestion = "Install to a local filesystem for atomic write guarantees."
+	errno := errnoName(err)
+	slog.Warn("fsync_not_supported",
+		"event", "fsync_not_supported",
+		"path", r.profileDir,
+		"syscall_errno", errno,
+		"suggestion", suggestion)
+	if r.audit == nil {
+		return
+	}
+	r.audit.Append(map[string]any{
+		"event_type":    "fsync_not_supported",
+		"path":          r.profileDir,
+		"syscall_errno": errno,
+		"suggestion":    suggestion,
+		"emitted_at":    time.Now().UTC().Format(time.RFC3339),
+	})
 }
 
 // isFsyncUnsupported reports whether err is the EINVAL/ENOTSUP signature
@@ -296,6 +488,30 @@ func nameOf(p any) string {
 		var pn pluginByName
 		_ = json.Unmarshal(v, &pn)
 		return pn.Name
+	}
+	return ""
+}
+
+// sortByVariantID sorts a plugin-catalog.json variants[] slice ascending by
+// "variant_id". Spec §8.7 line 1884: variants sorted by variant_id before JCS
+// hashing, so two profiles that installed the same plugins in a different
+// order produce byte-identical catalogs.
+func sortByVariantID(variants []any) {
+	sort.SliceStable(variants, func(i, j int) bool {
+		return variantIDOf(variants[i]) < variantIDOf(variants[j])
+	})
+}
+
+func variantIDOf(v any) string {
+	switch t := v.(type) {
+	case map[string]any:
+		if s, ok := t["variant_id"].(string); ok {
+			return s
+		}
+	case json.RawMessage:
+		var vi variantByID
+		_ = json.Unmarshal(t, &vi)
+		return vi.VariantID
 	}
 	return ""
 }

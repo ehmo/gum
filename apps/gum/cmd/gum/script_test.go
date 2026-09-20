@@ -15,6 +15,13 @@ import (
 // Spec Appendix A pins rogpeppe/go-internal as the contract-test framework;
 // gum-5dh is the bead.
 func TestMain(m *testing.M) {
+	// The plugin arms tests need a real MCP subprocess. Rather than ship a
+	// second helper binary, the test binary doubles as one: FAKE_PLUGIN_MODE
+	// makes it serve an echo tool over stdio instead of running the suite.
+	if mode := os.Getenv("FAKE_PLUGIN_MODE"); mode != "" {
+		runFakePlugin(mode)
+		return
+	}
 	testscript.Main(m, map[string]func(){
 		"gum": func() {
 			if err := newRootCmd().Execute(); err != nil {

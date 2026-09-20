@@ -42,6 +42,8 @@ func TestCanarySourceErrorCode(t *testing.T) {
 		{name: "manifest_not_found", err: plugins.ErrManifestNotFound, want: "ErrManifestNotFound"},
 		{name: "manifest_invalid", err: plugins.ErrManifestInvalid, want: "ErrManifestInvalid"},
 		{name: "executable_untrusted", err: plugins.ErrExecutableUntrusted, want: "ErrExecutableUntrusted"},
+		{name: "env_prohibited", err: plugins.ErrPluginEnvProhibited, want: "ErrPluginEnvProhibited"},
+		{name: "quarantined", err: plugins.ErrPluginQuarantined, want: "ErrPluginQuarantined"},
 		{name: "unknown", err: errors.New("disk full"), want: "Unknown"},
 	}
 	for _, tc := range cases {

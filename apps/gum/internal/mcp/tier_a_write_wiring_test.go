@@ -52,9 +52,11 @@ var writeToolNames = []string{
 
 // writeToolRequiredFields specifies at least one required field per tool
 // that must appear in the schema's "required" array.
+// Spec §4.1 names the op's own arguments, so the gmail rows require `userId`
+// and the body arrives as one `message` object rather than flat to/subject/body.
 var writeToolRequiredFields = map[string]string{
-	"gmail_send":            "to",
-	"gmail_create_draft":    "to",
+	"gmail_send":            "userId",
+	"gmail_create_draft":    "userId",
 	"calendar_create_event": "calendarId",
 	"calendar_update_event": "calendarId",
 }
@@ -342,22 +344,26 @@ func buildWriteCallRequest(toolName string, extraArgs map[string]any) *sdkmcp.Ca
 	// Provide minimal required args so the request is not rejected for missing args.
 	switch toolName {
 	case "gmail_send":
-		args["to"] = "test@example.com"
-		args["subject"] = "Test"
-		args["body"] = "Hello"
+		args["userId"] = "me"
+		args["message"] = map[string]any{"raw": "dG86IHRlc3RAZXhhbXBsZS5jb20="}
 	case "gmail_create_draft":
-		args["to"] = "test@example.com"
-		args["subject"] = "Draft"
-		args["body"] = "Body"
+		args["userId"] = "me"
+		args["message"] = map[string]any{"raw": "dG86IHRlc3RAZXhhbXBsZS5jb20="}
 	case "calendar_create_event":
 		args["calendarId"] = "primary"
-		args["summary"] = "Meeting"
-		args["start"] = "2026-06-01T10:00:00Z"
-		args["end"] = "2026-06-01T11:00:00Z"
+		args["event"] = map[string]any{
+			"summary": "Meeting",
+			"start":   map[string]any{"dateTime": "2026-06-01T10:00:00Z"},
+			"end":     map[string]any{"dateTime": "2026-06-01T11:00:00Z"},
+		}
 	case "calendar_update_event":
 		args["calendarId"] = "primary"
 		args["eventId"] = "evt123"
-		args["summary"] = "Updated Meeting"
+		args["event"] = map[string]any{
+			"summary": "Updated Meeting",
+			"start":   map[string]any{"dateTime": "2026-06-01T10:00:00Z"},
+			"end":     map[string]any{"dateTime": "2026-06-01T11:00:00Z"},
+		}
 	}
 	for k, v := range extraArgs {
 		args[k] = v

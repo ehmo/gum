@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+// MaxOpSuggestions is the spec §4.1 cap on the OP_NOT_FOUND "suggestions"
+// list (docs/spec.md:349: "up to 3 BM25-fuzzy matches"). Every surface that
+// builds that envelope reads the cap from here, so the CLI and the MCP server
+// cannot drift apart on the same error code.
+const MaxOpSuggestions = 3
+
 // suggestOpIDs returns up to limit catalog op_ids closest to a (non-matching)
 // opID, ranked by case-insensitive Levenshtein distance. It powers the
 // OP_NOT_FOUND "suggestions" detail so a caller who typos an op_id gets a "did

@@ -107,17 +107,13 @@ func (e *StructuredError) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	buf.WriteByte('{')
 
-	codeVal, err := json.Marshal(string(e.ErrCode))
-	if err != nil {
-		return nil, err
-	}
+	// Only Detail carries caller-supplied values, so it is the only member
+	// whose encoding can fail. Marshalling a string or a bool is total.
+	codeVal, _ := json.Marshal(string(e.ErrCode))
 	buf.WriteString(`"error_code":`)
 	buf.Write(codeVal)
 
-	msgVal, err := json.Marshal(e.Message)
-	if err != nil {
-		return nil, err
-	}
+	msgVal, _ := json.Marshal(e.Message)
 	keyMsg, _ := json.Marshal("message")
 	writeJSONKey(&buf, keyMsg, msgVal)
 
@@ -128,10 +124,7 @@ func (e *StructuredError) MarshalJSON() ([]byte, error) {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			keyBytes, err := json.Marshal(k)
-			if err != nil {
-				return nil, err
-			}
+			keyBytes, _ := json.Marshal(k)
 			valBytes, err := json.Marshal(e.Detail[k])
 			if err != nil {
 				return nil, err
@@ -142,10 +135,7 @@ func (e *StructuredError) MarshalJSON() ([]byte, error) {
 
 	// Emit "retryable" only when explicitly set via WithRetryable (spec §3.1 SERVICE_DOWN).
 	if e.retryableSet {
-		retryableVal, err := json.Marshal(e.Retryable)
-		if err != nil {
-			return nil, err
-		}
+		retryableVal, _ := json.Marshal(e.Retryable)
 		keyRetryable, _ := json.Marshal("retryable")
 		writeJSONKey(&buf, keyRetryable, retryableVal)
 	}
@@ -205,6 +195,27 @@ var ErrRateLimited = errors.New("RATE_LIMITED")
 // adapters import dispatch). adapters.UpstreamError implements this.
 type HTTPStatuser interface {
 	HTTPStatusCode() int
+}
+
+// UpstreamBodyCarrier is implemented by adapter errors that retain the raw
+// non-2xx response body. The dispatch boundary uses it to artifact the real
+// upstream payload when tee_mode = "failures" fires, without importing
+// internal/adapters. adapters.UpstreamError implements this.
+type UpstreamBodyCarrier interface {
+	UpstreamBody() []byte
+}
+
+// StructuredErrorCarrier is implemented by errors that already know their own
+// spec §7 envelope. internal/auth implements it on *auth.AuthError: dispatch
+// cannot name that type (internal/auth imports dispatch), and flattening the
+// error to a bare AUTH_REQUIRED would drop auth_strategy, missing_components
+// and setup_command, which spec §7 lines 1378-1381 make mandatory for every
+// non-gum_oauth auth failure.
+//
+// A carrier that returns nil is treated as having no envelope, so the caller
+// falls back to its own wrapping.
+type StructuredErrorCarrier interface {
+	AsStructuredError() *StructuredError
 }
 
 // RetryAfterMsCarrier is implemented by adapter errors that captured a
@@ -294,4 +305,52 @@ func structuredErrorFromEnvelope(body []byte) *StructuredError {
 		se = se.WithDetail("retry_after_ms", env.RetryAfterMs)
 	}
 	return se
+}
+
+// wrappedKernelError attaches the original failure to a §7 envelope so both
+// consumer paths keep working: errors.As finds the *StructuredError for the
+// envelope, and errors.Is still reaches the cause for sentinel matching. It
+// mirrors cancelledError, which solves the same problem for context errors.
+type wrappedKernelError struct {
+	*StructuredError
+	cause error
+}
+
+// Unwrap returns the original error so errors.Is keeps resolving sentinels.
+func (w *wrappedKernelError) Unwrap() error { return w.cause }
+
+// As resolves *StructuredError targets. Returning false for any other target
+// lets errors.As continue down the chain to the cause, which is what keeps the
+// HTTPStatuser and UpstreamBodyCarrier lookups working through a wrap.
+func (w *wrappedKernelError) As(target any) bool {
+	if t, ok := target.(**StructuredError); ok {
+		*t = w.StructuredError
+		return true
+	}
+	return false
+}
+
+// wrapKernelError gives a non-structured kernel failure a §7 envelope.
+//
+// A structured error passes through untouched: this is a fallback, not a
+// rewrite. Anything else becomes SERVICE_DOWN with retryable=false, which is
+// the code spec §3.1 step 7 already assigns to an internal failure the caller
+// cannot classify. The stable code set has no INTERNAL_ERROR.
+//
+// The original message is kept verbatim. The message was already reaching the
+// caller as free text before the envelope existed, so preserving it adds a code
+// without widening what is disclosed.
+func wrapKernelError(inv *Invocation, err error) error {
+	if err == nil {
+		return nil
+	}
+	var se *StructuredError
+	if errors.As(err, &se) {
+		return err
+	}
+	wrapped := NewStructuredError(ErrCodeServiceDown, err.Error()).WithRetryable(false)
+	if inv != nil && inv.OpID != "" {
+		wrapped = wrapped.WithDetail("op_id", inv.OpID)
+	}
+	return &wrappedKernelError{StructuredError: wrapped, cause: err}
 }

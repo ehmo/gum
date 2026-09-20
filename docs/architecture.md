@@ -70,10 +70,17 @@ This doc is the 1-page mental model. The normative contracts it summarizes are
 ```
 
 **Layering rule (spec §14, enforced by `TestNoCyclicImports`)**:
-`internal/dispatch` is the leaf of the internal import graph. Everything
-else may import it; it imports nothing from `internal/auth`, `cache`,
-`profiles`, `output`, `usage`, or `pluginenv` — those are passed in via
-constructor injection on `DispatcherConfig`.
+`internal/dispatch` is the leaf of the internal import graph. Nothing it
+imports imports it back. Its direct imports are `internal/cache`,
+`internal/catalog`, `internal/fsatomic`, `internal/output/jcs`,
+`internal/output/profile`, and `internal/output/tee`; it imports nothing
+from `internal/auth`, `internal/profiles`, `internal/usage`, or
+`internal/pluginenv`, and nothing from `internal/cli`, `internal/mcp`, or
+`internal/adapters`. Behaviour it does not own arrives through constructor
+injection on `DispatcherConfig`, which is why `internal/auth` may import
+kernel types to implement `dispatch.AuthResolver` without creating a cycle.
+Only `internal/cli`, `internal/mcp`, `cmd/`, and the two code-mode host
+files under `internal/adapters` may call the dispatcher entrypoint.
 
 ## The 9-step dispatch lifecycle
 

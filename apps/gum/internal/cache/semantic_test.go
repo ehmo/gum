@@ -152,14 +152,16 @@ func TestSemanticCacheReplacePreservesKey(t *testing.T) {
 	}
 }
 
-// TestPerOpTTLTableShape sanity-checks the spec §10.3 line 2254 table
-// includes the spec-listed entries with the documented values.
+// TestPerOpTTLTableShape sanity-checks that the spec §10.3 table
+// (docs/spec.md:2379) carries its entries with the documented values. The
+// keys are catalog op ids, not the spec's prose tier labels:
+// TestPerOpTTLCoversEverySpecTier reads the same tiers through TTLForOp.
 func TestPerOpTTLTableShape(t *testing.T) {
 	// calendar.events: 60s; drive.files.list: 300s; gmail.profiles.get: 3600s.
 	mustHave := map[string]time.Duration{
-		"calendar.events.list": 60 * time.Second,
-		"drive.files.list":     300 * time.Second,
-		"gmail.profiles.get":   3600 * time.Second,
+		"calendar.events.list":   60 * time.Second,
+		"drive.files.list":       300 * time.Second,
+		"gmail.users.getProfile": 3600 * time.Second,
 	}
 	for k, want := range mustHave {
 		got, ok := PerOpTTL[k]

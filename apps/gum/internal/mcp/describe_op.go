@@ -8,6 +8,21 @@ import (
 
 const defaultMaxVariants = 5
 
+// executionSupportFull is the §918 value for an op whose declared atoms are all
+// executable. The catalog ABI leaves `execution_support` omitempty and no
+// generator writes it, so every variant shipped today arrives empty. §13 makes
+// the field required at both levels and closes its enum, so an empty string
+// must resolve to the value that describes those variants: they execute.
+const executionSupportFull = string(catalog.ExecutionSupportFull)
+
+// executionSupport resolves a catalog variant's declared execution support.
+func executionSupport(declared catalog.ExecutionSupport) string {
+	if declared == "" {
+		return executionSupportFull
+	}
+	return string(declared)
+}
+
 type describeOpVariant struct {
 	VariantID        string   `json:"variant_id"`
 	Stability        string   `json:"stability"`
@@ -15,7 +30,7 @@ type describeOpVariant struct {
 	RiskClass        string   `json:"risk_class,omitempty"`
 	Scopes           []string `json:"scopes,omitempty"`
 	Deprecated       bool     `json:"deprecated,omitempty"`
-	ExecutionSupport string   `json:"execution_support,omitempty"`
+	ExecutionSupport string   `json:"execution_support"`
 }
 
 type describeOpResult struct {
@@ -33,6 +48,12 @@ type describeOpResult struct {
 	SchemaRefs           map[string]string   `json:"schema_refs"`
 	RiskOverride         bool                `json:"risk_override,omitempty"`
 	RiskOverrideReason   string              `json:"risk_override_reason,omitempty"`
+
+	// UnsupportedCapabilities is a pointer so the three states stay distinct:
+	// absent (execution_support "full", which §13 forbids it on), present and
+	// empty, and present with entries. A plain slice cannot express "present
+	// and empty" through encoding/json.
+	UnsupportedCapabilities *[]string `json:"unsupported_capabilities,omitempty"`
 }
 
 func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
@@ -58,7 +79,7 @@ func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
 			RiskClass:        string(v.RiskClass),
 			Scopes:           v.Scopes,
 			Deprecated:       slices.Contains(op.DeprecatedVariantIDs, v.VariantID),
-			ExecutionSupport: v.ExecutionSupport,
+			ExecutionSupport: executionSupport(v.ExecutionSupport),
 		}
 	}
 
@@ -86,9 +107,25 @@ func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
 	}
 	if defVar != nil {
 		r.RiskClass = string(defVar.RiskClass)
+		// §13 types `scopes` as an array. A nil slice marshals to null, which
+		// fails that type for the 22 catalog variants that declare no scopes.
 		r.Scopes = defVar.Scopes
+		if r.Scopes == nil {
+			r.Scopes = []string{}
+		}
 		r.OutputProfile = defVar.OutputProfile
-		r.ExecutionSupport = defVar.ExecutionSupport
+		r.ExecutionSupport = executionSupport(defVar.ExecutionSupport)
+		if r.ExecutionSupport != executionSupportFull {
+			// §13 requires the list on every non-full branch and the variant
+			// declares it. Op.Validate already checked the §925 binding, so
+			// the only work left is the nil-to-empty conversion §13 needs: the
+			// field is required here, and a nil slice marshals to null.
+			unsupported := slices.Clone(defVar.UnsupportedCapabilities)
+			if unsupported == nil {
+				unsupported = []string{}
+			}
+			r.UnsupportedCapabilities = &unsupported
+		}
 		if defVar.RiskOverride {
 			r.RiskOverride = true
 			r.RiskOverrideReason = defVar.RiskOverrideReason

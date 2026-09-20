@@ -33,25 +33,30 @@ import (
 // unconfigured op doesn't accidentally pin stale data for hours.
 const DefaultSemanticTTL = 60 * time.Second
 
-// PerOpTTL is the spec §10.3 line 2254 TTL table for the semantic cache.
-// Operators MAY override via a future `gum config set cache.ttl.<op_id>=...`
-// hook (deferred); v0.1.0 ships the spec-listed defaults verbatim.
+// PerOpTTL is the spec §10.3 TTL table (docs/spec.md:2379) for the semantic
+// cache. Operators MAY override via a future `gum config set
+// cache.ttl.<op_id>=...` hook (deferred); v0.1.0 ships the spec-listed tiers.
+//
+// The spec writes its tiers as prose labels ("calendar.events: 60s",
+// "gmail.profiles.get: 3600s", "user-immutable references: 24h"). Every key
+// here is instead a catalog op_id, because TTLForOp and Set look it up against
+// the `op_id` the dispatcher hands them (internal/dispatch/lifecycle.go:692).
+// A key that names no catalog op is unreachable and fails silently — the cache
+// keeps working, the op just inherits DefaultSemanticTTL. TestPerOpTTLKeysAre-
+// RealCatalogOps holds every key to a live op.
 var PerOpTTL = map[string]time.Duration{
-	// calendar.events: 60s
-	"google.calendar.calendars.events.list": 60 * time.Second,
-	"google.calendar.calendars.events.get":  60 * time.Second,
-	"calendar.events.list":                  60 * time.Second,
-	"calendar.events.get":                   60 * time.Second,
+	// calendar.events: 60s. Only the read ops; writes are never cached.
+	"calendar.events.list": 60 * time.Second,
+	"calendar.events.get":  60 * time.Second,
 	// drive.files.list: 300s
-	"google.drive.files.list": 300 * time.Second,
-	"drive.files.list":        300 * time.Second,
-	// gmail.profiles.get: 3600s
-	"google.gmail.users.getProfile": 3600 * time.Second,
-	"gmail.profiles.get":            3600 * time.Second,
-	// User-immutable references: 24h. Conservative — only ops where the
-	// upstream payload is genuinely immutable within a 24h window go here.
-	"google.youtube.i18nLanguages.list": 24 * time.Hour,
-	"google.youtube.i18nRegions.list":   24 * time.Hour,
+	"drive.files.list": 300 * time.Second,
+	// "gmail.profiles.get": 3600s. The catalog op is gmail.users.getProfile.
+	"gmail.users.getProfile": 3600 * time.Second,
+	// User-immutable references: 24h. Conservative — only ops whose upstream
+	// payload is genuinely immutable within a 24h window go here.
+	// calendar.colors.get returns Google's fixed calendar/event colour
+	// palette, which is the same bytes for every caller.
+	"calendar.colors.get": 24 * time.Hour,
 }
 
 // SemanticKey derives the spec §10.3 5-component cache key. SHA-256 keeps

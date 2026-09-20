@@ -276,7 +276,7 @@ func processFixture(dir, name, format string, writeFiles bool, shape Shaper) (En
 
 	return Entry{
 		OpID:                   opID,
-		OpFamily:               opFamilyOf(opID),
+		OpFamily:               OpFamily(opID),
 		VariantID:              nil,
 		OutputProfile:          outputProfilePtr,
 		ArgsHash:               "",
@@ -308,10 +308,10 @@ func readRequestOpID(dir string) string {
 	return req.OpID
 }
 
-// opFamilyOf returns the op_id with the terminal method stripped, e.g.
+// OpFamily returns the op_id with the terminal method stripped, e.g.
 // "gmail.users.messages.list" → "gmail.users.messages". When the id has no
 // dot it is returned unchanged.
-func opFamilyOf(opID string) string {
+func OpFamily(opID string) string {
 	if i := lastDot(opID); i > 0 {
 		return opID[:i]
 	}

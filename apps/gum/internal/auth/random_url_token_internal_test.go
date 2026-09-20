@@ -18,17 +18,10 @@ func TestRandomURLTokenShapes(t *testing.T) {
 	// rate at 256^-redraws.
 	const redraws = 16
 	for _, n := range []int{1, 16, 32, 48} {
-		a, err := randomURLToken(n)
-		if err != nil {
-			t.Fatalf("n=%d: %v", n, err)
-		}
+		a := randomURLToken(n)
 		differs := false
 		for i := 0; i < redraws && !differs; i++ {
-			b, err := randomURLToken(n)
-			if err != nil {
-				t.Fatalf("n=%d draw %d: %v", n, i+2, err)
-			}
-			differs = b != a
+			differs = randomURLToken(n) != a
 		}
 		if !differs {
 			t.Errorf("n=%d: %d draws all produced the same token (rand wiring?)", n, redraws+1)

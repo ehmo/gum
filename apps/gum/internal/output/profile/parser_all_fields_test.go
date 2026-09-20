@@ -10,7 +10,7 @@ import (
 // original 7. Before the fix, strip_nulls/keep_fields/collapse_arrays/... failed
 // with "unknown key".
 func TestParseAllDocumentedFields(t *testing.T) {
-	src := `default_format = "toon"
+	src := `format = "toon"
 inherits = "_base.list_ops"
 projection = ["id", "subject"]
 keep_fields = ["messages.id", "messages.subject"]

@@ -2,7 +2,7 @@
 
 Every `gum` CLI command has a generated docs page. Product coverage is documented under [Operations by service](../services/); this index is for command names, flags, aliases, arguments, and generated help.
 
-Generated pages: 63.
+Generated pages: 64.
 
 ## Top-level commands
 
@@ -77,6 +77,7 @@ Generated pages: 63.
   - [gum logout](gum-logout.md) - Clear gum's stored OAuth credentials (switch or sign out of a Google account)
   - [gum mcp](gum-mcp.md) - Run the gum MCP server. The public release supports --stdio transport.
   - [gum plugin](gum-plugin.md) - Manage gum plugins: install, list, run, and curate third-party subprocess
+    - [gum plugin info](gum-plugin-info.md) - Prints the plugin record assembled from plugins.lock, plugin-state.json and
     - [gum plugin install](gum-plugin-install.md) - Installs a plugin through an atomic registry update: validates the manifest,
     - [gum plugin list](gum-plugin-list.md) - List installed plugins with their quarantine state
     - [gum plugin reload](gum-plugin-reload.md) - Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.

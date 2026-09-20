@@ -49,7 +49,18 @@ func newGainCmd() *cobra.Command {
 				return err
 			}
 
-			ledger, err := gain.NewLedger("")
+			// Read the ACTIVE profile's ledger. Passing "" read the default
+			// profile's file whatever --profile said, so `gum --profile work
+			// gain` reported the default profile's numbers.
+			name, err := resolveProfileName(cmd)
+			if err != nil {
+				return err
+			}
+			path, err := gain.DefaultPath(name)
+			if err != nil {
+				return fmt.Errorf("open ledger: %w", err)
+			}
+			ledger, err := gain.NewLedger(path)
 			if err != nil {
 				return fmt.Errorf("open ledger: %w", err)
 			}
@@ -91,8 +102,10 @@ func parseGainTime(flagName, raw string) (time.Time, error) {
 }
 
 // defaultFixtureReplayDir returns the testdata/fixtures/gain-replay directory
-// relative to this source file when available.
-func defaultFixtureReplayDir() string {
+// relative to this source file when available. It is a var so a test can
+// point the replay at a private copy; chmod-ing the repository's own fixture
+// races every other package that reads the same file under `go test ./...`.
+var defaultFixtureReplayDir = func() string {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if ok {
 		repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")

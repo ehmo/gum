@@ -134,46 +134,94 @@ func assertPaths(t *testing.T, got, want []string) {
 	}
 }
 
-func TestDroppedPathsNotice(t *testing.T) {
+func TestShapingNotice(t *testing.T) {
 	cases := []struct {
-		name  string
-		paths []string
-		raw   string
-		full  string
-		want  string
+		name string
+		in   profile.NoticeInput
+		want string
 	}{
 		{
-			name: "nothing dropped yields no notice",
+			name: "nothing removed yields no notice",
 		},
 		{
-			name:  "one field is singular",
-			paths: []string{"results.keywordMetrics.monthlySearchVolumes"},
-			raw:   "--format raw",
+			name: "one field is singular",
+			in: profile.NoticeInput{
+				DroppedPaths: []string{"results.keywordMetrics.monthlySearchVolumes"},
+				RawHint:      "--format raw",
+			},
 			want: "note: the output profile removed 1 field from this response: " +
 				"results.keywordMetrics.monthlySearchVolumes. Use --format raw for the complete body.",
 		},
 		{
-			name:  "several fields are plural",
-			paths: []string{"a", "b"},
-			want:  "note: the output profile removed 2 fields from this response: a, b.",
+			name: "several fields are plural",
+			in:   profile.NoticeInput{DroppedPaths: []string{"a", "b"}},
+			want: "note: the output profile removed 2 fields from this response: a, b.",
 		},
 		{
-			name:  "artifact path is named when tee fired",
-			paths: []string{"a"},
-			raw:   "--format raw",
-			full:  "/tmp/gum/tee/2026-08-05/op/abc.json.gz",
+			name: "artifact path is named when tee fired",
+			in: profile.NoticeInput{
+				DroppedPaths:   []string{"a"},
+				RawHint:        "--format raw",
+				FullResultPath: "/tmp/gum/tee/2026-08-05/op/abc.json.gz",
+			},
 			want: "note: the output profile removed 1 field from this response: a. " +
 				"Use --format raw for the complete body. Full result: /tmp/gum/tee/2026-08-05/op/abc.json.gz",
 		},
 		{
-			name:  "long lists are capped",
-			paths: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"},
-			want:  "note: the output profile removed 10 fields from this response: a, b, c, d, e, f, g, h, and 2 more.",
+			name: "long lists are capped",
+			in:   profile.NoticeInput{DroppedPaths: []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}},
+			want: "note: the output profile removed 10 fields from this response: a, b, c, d, e, f, g, h, and 2 more.",
+		},
+		{
+			name: "omitted results lead and name their count key",
+			in: profile.NoticeInput{
+				CollapsedArrays: []profile.CollapsedArray{
+					{Field: "results", CountKey: "results_omitted_count", Kept: 100, Omitted: 143},
+				},
+				MaxItemsHint: "--max-items all",
+			},
+			want: "note: the output profile omitted 143 of 243 results (results_omitted_count=143). " +
+				"Use --max-items all for every result.",
+		},
+		{
+			name: "a bare array body reports items",
+			in: profile.NoticeInput{
+				CollapsedArrays: []profile.CollapsedArray{
+					{CountKey: "omitted_count", Kept: 2, Omitted: 3},
+				},
+			},
+			want: "note: the output profile omitted 3 of 5 items (omitted_count=3).",
+		},
+		{
+			name: "several collapsed arrays are joined",
+			in: profile.NoticeInput{
+				CollapsedArrays: []profile.CollapsedArray{
+					{Field: "a", CountKey: "a_omitted_count", Kept: 1, Omitted: 2},
+					{Field: "b", CountKey: "b_omitted_count", Kept: 3, Omitted: 4},
+				},
+			},
+			want: "note: the output profile omitted 2 of 3 a (a_omitted_count=2); omitted 4 of 7 b (b_omitted_count=4).",
+		},
+		{
+			name: "omitted results outrank the removed field",
+			in: profile.NoticeInput{
+				DroppedPaths: []string{"results.closeVariants"},
+				CollapsedArrays: []profile.CollapsedArray{
+					{Field: "results", CountKey: "results_omitted_count", Kept: 100, Omitted: 143},
+				},
+				RawHint:        "--format raw",
+				MaxItemsHint:   "--max-items all",
+				FullResultPath: "/tmp/gum/tee/abc.json.gz",
+			},
+			want: "note: the output profile omitted 143 of 243 results (results_omitted_count=143). " +
+				"Use --max-items all for every result. It removed 1 field from this response: " +
+				"results.closeVariants. Use --format raw for the complete body. " +
+				"Full result: /tmp/gum/tee/abc.json.gz",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := profile.DroppedPathsNotice(tc.paths, tc.raw, tc.full); got != tc.want {
+			if got := profile.ShapingNotice(tc.in); got != tc.want {
 				t.Errorf("got  %q\nwant %q", got, tc.want)
 			}
 		})

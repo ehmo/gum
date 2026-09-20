@@ -1957,7 +1957,6 @@
           "preferred": true,
           "risk_class": "read",
           "auth_strategy": "plugin_managed",
-          "output_profile": "flights.search.v1",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",

@@ -27,7 +27,11 @@ func TestBBoltCacheEvictExpired(t *testing.T) {
 	t.Cleanup(func() { _ = c.Close() })
 
 	// Sub-test 1: nothing in the cache → 0 evictions.
-	if got := c.EvictExpired(); got != 0 {
+	got, err := c.EvictExpired()
+	if err != nil {
+		t.Fatalf("EvictExpired on empty cache: %v", err)
+	}
+	if got != 0 {
 		t.Errorf("EvictExpired on empty cache = %d, want 0", got)
 	}
 
@@ -47,7 +51,11 @@ func TestBBoltCacheEvictExpired(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// One expired entry → one eviction.
-	if got := c.EvictExpired(); got != 1 {
+	got, err = c.EvictExpired()
+	if err != nil {
+		t.Fatalf("EvictExpired: %v", err)
+	}
+	if got != 1 {
 		t.Errorf("EvictExpired = %d, want 1 (only the dead entry)", got)
 	}
 
@@ -60,7 +68,11 @@ func TestBBoltCacheEvictExpired(t *testing.T) {
 	}
 
 	// Second sweep → 0 evictions (nothing left to expire).
-	if got := c.EvictExpired(); got != 0 {
+	got, err = c.EvictExpired()
+	if err != nil {
+		t.Fatalf("second sweep: %v", err)
+	}
+	if got != 0 {
 		t.Errorf("second sweep = %d, want 0", got)
 	}
 }

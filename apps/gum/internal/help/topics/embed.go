@@ -7,6 +7,7 @@ package topics
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"strings"
 )
 
@@ -49,8 +50,13 @@ func Read(name string) ([]byte, bool) {
 // ErrTopicTooLarge it finds. Returns nil when every body fits in
 // MaxTopicBytes. Called from process startup and from the build-time test
 // so a regression is caught long before clients see truncated help.
-func ValidateSizes() error {
-	entries, err := topicsFS.ReadDir(".")
+func ValidateSizes() error { return validateSizes(topicsFS) }
+
+// validateSizes is ValidateSizes over an arbitrary filesystem. The embedded FS
+// has no directories, no non-markdown entries and no oversized body, so those
+// branches are only reachable from a test filesystem.
+func validateSizes(fsys fs.FS) error {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return err
 	}
@@ -62,7 +68,7 @@ func ValidateSizes() error {
 		if !strings.HasSuffix(name, ".md") {
 			continue
 		}
-		data, err := topicsFS.ReadFile(name)
+		data, err := fs.ReadFile(fsys, name)
 		if err != nil {
 			return err
 		}
@@ -78,9 +84,13 @@ func ValidateSizes() error {
 
 // Names returns the sorted list of topic identifiers that have an
 // embedded markdown body. Used by tests to cross-check
-// docs/help-topics.v1.json against the embedded files.
-func Names() []string {
-	entries, err := topicsFS.ReadDir(".")
+// internal/embedded/data/help-topics.v1.json against the embedded files.
+func Names() []string { return names(topicsFS) }
+
+// names is Names over an arbitrary filesystem, for the same reason
+// validateSizes is split out.
+func names(fsys fs.FS) []string {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return nil
 	}

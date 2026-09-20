@@ -15,7 +15,7 @@ import (
 // here as a concrete "missing failure" / "wrong failure" diff.
 
 func TestRunFixturesEmptyFixturePathFails(t *testing.T) {
-	p, err := profile.Parse("default_format = \"toon\"\n\n[[tests]]\nname = \"no path\"\nfixture = \"\"\n")
+	p, err := profile.Parse("format = \"toon\"\n\n[[tests]]\nname = \"no path\"\nfixture = \"\"\n")
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestRunFixturesEmptyFixturePathFails(t *testing.T) {
 }
 
 func TestRunFixturesReadErrorFails(t *testing.T) {
-	p, err := profile.Parse("default_format = \"toon\"\n\n[[tests]]\nname = \"missing\"\nfixture = \"does-not-exist.json\"\n")
+	p, err := profile.Parse("format = \"toon\"\n\n[[tests]]\nname = \"missing\"\nfixture = \"does-not-exist.json\"\n")
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestRunFixturesAbsoluteFixturePathRespected(t *testing.T) {
 	if err := os.WriteFile(abs, []byte(`[{"a":1}]`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	src := "default_format = \"toon\"\n\n[[tests]]\nname = \"abs\"\nfixture = " + quote(abs) + "\nexpect_format = \"toon\"\n"
+	src := "format = \"toon\"\n\n[[tests]]\nname = \"abs\"\nfixture = " + quote(abs) + "\nexpect_format = \"toon\"\n"
 	p, err := profile.Parse(src)
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -78,7 +78,7 @@ func TestRunFixturesExpectFormatMismatchFails(t *testing.T) {
 	if err := os.WriteFile(fix, []byte(`[{"a":1}]`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "fmt"
@@ -108,7 +108,7 @@ func TestRunFixturesExpectLossyMismatchFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Profile has no projection/limit/etc. → ActualLossy=false. Expect true → mismatch.
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "lossy"
@@ -137,7 +137,7 @@ func TestRunFixturesExpectResultCountMismatchFails(t *testing.T) {
 	if err := os.WriteFile(fix, []byte(`[{"a":1},{"a":2}]`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "rc"
@@ -166,7 +166,7 @@ func TestRunFixturesExpectOmittedCountMismatchFails(t *testing.T) {
 	if err := os.WriteFile(fix, []byte(`{"items":[1,2],"omitted_count":3}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "oc"
@@ -195,7 +195,7 @@ func TestRunFixturesExpectFieldsMissingFails(t *testing.T) {
 	if err := os.WriteFile(fix, []byte(`[{"a":1}]`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	src := `default_format = "toon"
+	src := `format = "toon"
 
 [[tests]]
 name = "fields"

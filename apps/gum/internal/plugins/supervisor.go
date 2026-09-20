@@ -121,18 +121,25 @@ func ClearQuarantine(ctx context.Context, reg *registry.Registry, pluginName str
 			if n, _ := row["name"].(string); n != pluginName {
 				continue
 			}
-			delete(row, "quarantined_at")
-			delete(row, "last_error_code")
-			delete(row, "next_retry_at")
-			row["quarantined"] = false
-			row["retry_count"] = 0
-			row["backoff_step"] = 0
-			row["permanent_quarantine"] = false
+			clearQuarantineFields(row)
 			f.State.Plugins[i] = row
 			return nil
 		}
 		return nil
 	})
+}
+
+// clearQuarantineFields resets the supervisor bookkeeping on one plugin row.
+// ClearQuarantine and the post-setup activation in setup.go share it so the
+// two paths cannot drift on which fields a recovered plugin still carries.
+func clearQuarantineFields(row map[string]any) {
+	delete(row, "quarantined_at")
+	delete(row, "last_error_code")
+	delete(row, "next_retry_at")
+	row["quarantined"] = false
+	row["retry_count"] = 0
+	row["backoff_step"] = 0
+	row["permanent_quarantine"] = false
 }
 
 // findOrAppendRow returns the plugin row map for name, appending a new row
@@ -239,13 +246,9 @@ func (s *Supervisor) Start(ctx context.Context, pluginName string) (*Plugin, err
 	if err != nil {
 		return nil, err
 	}
-	if state.Permanent {
-		return nil, fmt.Errorf("%w: permanent (5 consecutive failures); run `gum plugin unquarantine %s`",
-			ErrPluginQuarantined, pluginName)
-	}
 	now := s.now()
-	if state.Quarantined && !state.NextRetryAt.IsZero() && now.Before(state.NextRetryAt) {
-		return nil, fmt.Errorf("%w: retry at %s", ErrPluginQuarantined, state.NextRetryAt.UTC().Format(time.RFC3339))
+	if err := CheckQuarantine(state, pluginName, now); err != nil {
+		return nil, err
 	}
 	plugin, spawnErr := s.spawn(ctx, pluginName)
 	if spawnErr != nil {
@@ -261,6 +264,46 @@ func (s *Supervisor) Start(ctx context.Context, pluginName string) (*Plugin, err
 		}
 	}
 	return plugin, nil
+}
+
+// CheckQuarantine applies the spec §8.6 spawn gate to a state row already read
+// from plugin-state.json. It returns an ErrPluginQuarantined-wrapped error when
+// the plugin must not be spawned, and nil when the caller may proceed.
+//
+// Supervisor.Start calls it before spawning. `gum canary` calls it too, but
+// without the surrounding crash bookkeeping: a canary is a diagnostic spawn,
+// and folding its failures into the §8.6 backoff ladder would make the second
+// canary report a quarantine instead of the fault the operator is chasing.
+func CheckQuarantine(state SupervisorState, pluginName string, now time.Time) error {
+	if state.Permanent {
+		return fmt.Errorf("%w: permanent (5 consecutive failures); run `gum plugin unquarantine %s`",
+			ErrPluginQuarantined, pluginName)
+	}
+	if !state.Quarantined {
+		return nil
+	}
+	// A zero next_retry_at means no automatic retry was scheduled, which is
+	// what the install-time canary writes (setPluginQuarantinedCANARYFailed).
+	// Treating it as "retry now" let the next `gum call plug.<name>.<tool>`
+	// spawn a plugin that had just failed its trust gate. Those rows clear
+	// only through `gum plugin unquarantine` or a live canary.
+	if state.NextRetryAt.IsZero() {
+		return fmt.Errorf("%w: %s; run `gum plugin unquarantine %s`",
+			ErrPluginQuarantined, quarantineReason(state), pluginName)
+	}
+	if now.Before(state.NextRetryAt) {
+		return fmt.Errorf("%w: retry at %s", ErrPluginQuarantined, state.NextRetryAt.UTC().Format(time.RFC3339))
+	}
+	return nil
+}
+
+// quarantineReason names the recorded error code for the refusal message, or a
+// generic phrase when the row carries none.
+func quarantineReason(state SupervisorState) string {
+	if state.LastErrorCode != "" {
+		return state.LastErrorCode
+	}
+	return "no automatic retry scheduled"
 }
 
 // classifySpawnError maps a Host.Start error to one of the spec §8.4 stable
@@ -279,6 +322,8 @@ func classifySpawnError(err error) string {
 		return "PLUGIN_SHAPE_UNSUPPORTED"
 	case errors.Is(err, ErrUnsupportedSchemaVersion):
 		return "PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED"
+	case errors.Is(err, ErrPluginEnvProhibited):
+		return "PLUGIN_ENV_PROHIBITED"
 	default:
 		return "SERVICE_DOWN"
 	}

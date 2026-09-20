@@ -34,3 +34,12 @@ func TestClassifySpawnError(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifySpawnErrorEnvProhibited pins the §8.4 code for a manifest that
+// LoadManifest rejects at spawn because it claims a host-owned env var.
+func TestClassifySpawnErrorEnvProhibited(t *testing.T) {
+	got := classifySpawnError(fmt.Errorf("plugin start: %w: x", ErrPluginEnvProhibited))
+	if got != "PLUGIN_ENV_PROHIBITED" {
+		t.Errorf("classifySpawnError = %q; want PLUGIN_ENV_PROHIBITED", got)
+	}
+}

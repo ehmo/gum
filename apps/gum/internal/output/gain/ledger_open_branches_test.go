@@ -27,8 +27,8 @@ func TestNewLedgerHomeUnavailableReturnsError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("NewLedger(\"\", no HOME) err=nil; want UserHomeDir err")
 	}
-	if !strings.Contains(err.Error(), "home dir") {
-		t.Errorf("err=%v; want 'home dir' wrap", err)
+	if !strings.Contains(err.Error(), "resolve data dir") {
+		t.Errorf("err=%v; want 'resolve data dir' wrap", err)
 	}
 }
 

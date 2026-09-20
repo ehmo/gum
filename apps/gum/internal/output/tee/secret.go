@@ -86,10 +86,10 @@ func LoadOrCreateSecret(profileDir string) ([]byte, error) {
 	if err := os.MkdirAll(profileDir, 0o700); err != nil {
 		return nil, fmt.Errorf("tee: create profile dir %s: %w", profileDir, err)
 	}
+	// crypto/rand.Read never returns an error; it panics if the system source
+	// fails (Go 1.24+), so there is no error arm to handle here.
 	var raw [secretByteLen]byte
-	if _, err := rand.Read(raw[:]); err != nil {
-		return nil, fmt.Errorf("tee: generate secret: %w", err)
-	}
+	_, _ = rand.Read(raw[:])
 	encoded := hex.EncodeToString(raw[:])
 	if err := atomicWrite(profileDir, ".tee.secret.*", path, []byte(encoded), 0o600, "secret"); err != nil {
 		return nil, err
@@ -122,12 +122,11 @@ func loadSecret(path string) ([]byte, error) {
 	if text != strings.ToLower(text) {
 		return nil, &SecretCorruptError{Path: path, Reason: "uppercase hex chars present (lowercase required)"}
 	}
+	// The length check above pins text at secretHexLen chars, so a successful
+	// decode always yields exactly secretByteLen bytes.
 	key, err := hex.DecodeString(text)
 	if err != nil {
 		return nil, &SecretCorruptError{Path: path, Reason: "non-hex characters"}
-	}
-	if len(key) != secretByteLen {
-		return nil, &SecretCorruptError{Path: path, Reason: fmt.Sprintf("decoded %d bytes, expected %d", len(key), secretByteLen)}
 	}
 	return key, nil
 }

@@ -10,8 +10,8 @@ package main_test
 // - goleak.VerifyNone(t) at each entry point satisfies the auth package's
 //   goroutine-hygiene requirement (no goroutine leak is permitted).
 // - Raw env var names MUST NOT appear in any user-visible output or error
-//   message; assertions scan every observable string for GUM_TEST_TOKEN and
-//   GUM_VERY_SECRET_ENV.
+//   message; assertions scan every observable string for PLUG_TEST_TOKEN and
+//   PLUG_VERY_SECRET_ENV.
 
 import (
 	"bytes"
@@ -134,7 +134,7 @@ func writeRegistryRow(t *testing.T, reg *registry.Registry, pluginID string) {
 //   - Storing the secret in the keyring under (profile, plugin_id, alias).
 //   - Running the live canary (stubbed to succeed).
 //   - Setting the plugin state to "active" in plugin-state.json.
-//   - CRITICAL: stdout must not contain the raw env var name "GUM_TEST_TOKEN"
+//   - CRITICAL: stdout must not contain the raw env var name "PLUG_TEST_TOKEN"
 //     or the literal secret "secret-value".
 func TestPluginSetupCredentialFlow(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -144,7 +144,7 @@ func TestPluginSetupCredentialFlow(t *testing.T) {
 	defer keyring.MockInit()
 
 	const pluginID = "test-plugin"
-	const rawEnv = "GUM_TEST_TOKEN"
+	const rawEnv = "PLUG_TEST_TOKEN"
 	const secretValue = "secret-value"
 
 	installRoot := t.TempDir()
@@ -246,7 +246,7 @@ func TestPluginSetupCredentialFlow(t *testing.T) {
 }
 
 // TestPluginCredentialNoRawEnvLeak asserts that the env var name
-// "GUM_VERY_SECRET_ENV" never appears in stdout, stderr, or any returned
+// "PLUG_VERY_SECRET_ENV" never appears in stdout, stderr, or any returned
 // error message across every user-visible failure path the setup command
 // can produce. This is the spec §1414/§1606 normative requirement.
 func TestPluginCredentialNoRawEnvLeak(t *testing.T) {
@@ -255,7 +255,7 @@ func TestPluginCredentialNoRawEnvLeak(t *testing.T) {
 	keyring.MockInit()
 	defer keyring.MockInit()
 
-	const rawEnv = "GUM_VERY_SECRET_ENV"
+	const rawEnv = "PLUG_VERY_SECRET_ENV"
 	const pluginID = "secret-plugin"
 
 	installRoot := t.TempDir()
@@ -417,7 +417,7 @@ func TestPluginSetupCanaryFailureQuarantines(t *testing.T) {
 	descs := []plugins.CredentialDescriptor{
 		{
 			Alias:       "my_key",
-			Env:         "GUM_MY_KEY",
+			Env:         "PLUG_MY_KEY",
 			Kind:        "api_key",
 			DisplayName: "My API Key",
 			SetupHint:   "From your dashboard",

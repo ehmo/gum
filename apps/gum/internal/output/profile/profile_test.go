@@ -46,7 +46,7 @@ func catchPanicProfile(fn func()) (msg string, panicked bool) {
 func TestExpressionProfileParseRoundTrip(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	src := `default_format = "toon"
+	src := `format = "toon"
 projection = ["id", "subject", "from"]
 flatten_singletons = true
 omit_zero_counts = true
@@ -355,25 +355,24 @@ func TestProfileComposition(t *testing.T) {
 	})
 
 	t.Run("override-bindings-first-wins", func(t *testing.T) {
-		project := &profile.Profile{
-			OverrideBindings: map[string]string{
-				"gmail.messages.list": "tiny",
-			},
+		project := map[string]string{
+			"gmail.messages.list": "tiny",
 		}
-		user := &profile.Profile{
-			OverrideBindings: map[string]string{
-				"gmail.messages.list":  "medium", // shadowed by project
-				"calendar.events.list": "compact",
-			},
+		user := map[string]string{
+			"gmail.messages.list":  "medium", // shadowed by project
+			"calendar.events.list": "compact",
 		}
 
-		out := profile.MergeProfiles(project, user)
+		out := profile.MergeOverrideBindings(project, user)
 
-		if out.OverrideBindings["gmail.messages.list"] != "tiny" {
-			t.Errorf("gmail.messages.list = %q; want tiny (project wins)", out.OverrideBindings["gmail.messages.list"])
+		if out["gmail.messages.list"] != "tiny" {
+			t.Errorf("gmail.messages.list = %q; want tiny (project wins)", out["gmail.messages.list"])
 		}
-		if out.OverrideBindings["calendar.events.list"] != "compact" {
-			t.Errorf("calendar.events.list = %q; want compact (only user declared)", out.OverrideBindings["calendar.events.list"])
+		if out["calendar.events.list"] != "compact" {
+			t.Errorf("calendar.events.list = %q; want compact (only user declared)", out["calendar.events.list"])
+		}
+		if profile.MergeOverrideBindings() != nil {
+			t.Error("MergeOverrideBindings() = non-nil; want nil for no layers")
 		}
 	})
 

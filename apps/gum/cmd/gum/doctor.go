@@ -352,10 +352,11 @@ func doctorCache(profile string) doctorCheckResult {
 }
 
 // doctorPlugin asks the plugin host for the installed list. The list path
-// is fully read-only; a broken plugin root surfaces as a non-OK check
-// instead of crashing the whole doctor run.
+// is fully read-only and never spawns a subprocess, so the host needs no
+// registry-backed digest resolver. A broken plugin root surfaces as a non-OK
+// check instead of crashing the whole doctor run.
 func doctorPlugin() doctorCheckResult {
-	if _, err := DispatchPluginCommand([]string{"list"}, defaultPluginsHost()); err != nil {
+	if _, err := DispatchPluginCommand([]string{"list"}, defaultPluginsHost("", "")); err != nil {
 		return doctorCheckResult{
 			Name:    "plugin",
 			OK:      false,

@@ -44,8 +44,13 @@ func TestBuildFlightsOpShape(t *testing.T) {
 	if v.AuthStrategy != catalog.AuthStrategyPluginManaged {
 		t.Errorf("auth_strategy = %q; want plugin_managed (plugin owns its own credentials per spec §8.3)", v.AuthStrategy)
 	}
-	if v.OutputProfile != "flights.search.v1" {
-		t.Errorf("output_profile = %q; want flights.search.v1 (spec §4.1 line 366, §8.2 line 1588)", v.OutputProfile)
+	// gum-36f5: the variant used to name "flights.search.v1", a profile that
+	// has never shipped in internal/output/profile/builtin. An unresolvable
+	// name is worse than none: describe_op advertises it and dispatch silently
+	// shapes nothing. The build gate now rejects a dangling name, so this
+	// variant carries none until a profile body exists.
+	if v.OutputProfile != "" {
+		t.Errorf("output_profile = %q; want \"\" until a built-in profile of that name exists", v.OutputProfile)
 	}
 	if !v.Preferred {
 		t.Error("preferred = false; want true (single-variant default)")

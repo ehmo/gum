@@ -77,6 +77,19 @@ func (c *CompositeResolver) profile() string {
 	return DefaultAPIKeyProfile
 }
 
+// gumOAuth returns the gum_oauth resolver, defaulting to a fresh one built
+// from the OS keychain vault. Like keyring() and profile() it never writes the
+// field: one CompositeResolver is shared by the dispatcher across concurrent
+// invocations (gum_parallel, the MCP server), so assigning c.GumOAuth on the
+// read path was a data race between two goroutines resolving the same strategy
+// (gum-n3x2). Construction is a struct literal, so per-call is free.
+func (c *CompositeResolver) gumOAuth() Resolver {
+	if c.GumOAuth != nil {
+		return c.GumOAuth
+	}
+	return NewGumOAuth()
+}
+
 // byoResolver returns the byo_oauth resolver for this request. An explicit
 // c.BYO (a test/override hook) wins; otherwise the resolver is built from the
 // OAuth client the operator registered via `gum auth use-oauth-client`, keyed
@@ -186,10 +199,7 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 		// GUM_OAUTH_MANAGED_CLIENT_NOT_READY — semantically equivalent to
 		// the prior AUTH_STRATEGY_DISABLED branch but for the precise
 		// reason rather than a blanket disable.
-		if c.GumOAuth == nil {
-			c.GumOAuth = NewGumOAuth()
-		}
-		creds, err := c.GumOAuth.Resolve(ctx, scopeNames)
+		creds, err := c.gumOAuth().Resolve(ctx, scopeNames)
 		if err != nil {
 			return nil, err
 		}

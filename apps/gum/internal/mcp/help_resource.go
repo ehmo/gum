@@ -35,7 +35,7 @@ const (
 // at the envelope level.
 const jsonRPCResourceNotFnd = jsonrpc.CodeInvalidParams
 
-// helpTopicRow mirrors one row in docs/help-topics.v1.json (embedded as
+// helpTopicRow mirrors one row in internal/embedded/data/help-topics.v1.json (embedded as
 // HelpTopicsJSON). Re-declared locally so the package boundary remains
 // dispatch-free.
 type helpTopicRow struct {

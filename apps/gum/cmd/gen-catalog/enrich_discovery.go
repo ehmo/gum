@@ -73,7 +73,7 @@ func enrichRequestFields(catalogPath string) error {
 		}
 	}
 
-	if err := cat.Validate(); err != nil {
+	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("enrich-request-fields: validate catalog: %w", err)
 	}
 

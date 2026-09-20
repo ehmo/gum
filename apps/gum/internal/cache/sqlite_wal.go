@@ -178,3 +178,67 @@ func (s *SQLiteWALCache) SentinelPresent() (bool, error) {
 func (s *SQLiteWALCache) WriteSentinel() error {
 	return s.Set(SentinelKey, []byte(SentinelValue), 0)
 }
+
+// Import is an open §10.2 step 3 migration transaction. Every Add is buffered
+// in one SQLite transaction and Commit writes the sentinel as its final
+// statement, so another process reading the same file sees either the whole
+// migration or none of it. A crash before Commit leaves a file with no
+// sentinel, which is exactly what the migration's branch 2 deletes.
+type Import struct {
+	tx   *sql.Tx
+	stmt *sql.Stmt
+	done bool
+}
+
+// BeginImport opens the migration transaction.
+func (s *SQLiteWALCache) BeginImport() (*Import, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("cache: begin migration transaction: %w", err)
+	}
+	stmt, err := tx.Prepare(`INSERT OR REPLACE INTO kv(key, value, expires_at_unix, ts_unix) VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("cache: prepare migration insert: %w", err)
+	}
+	return &Import{tx: tx, stmt: stmt}, nil
+}
+
+// Add writes one row into the open transaction. expiresAtUnix is the source
+// entry's own deadline, carried across verbatim; 0 means no expiry.
+func (im *Import) Add(key string, value []byte, expiresAtUnix int64) error {
+	if _, err := im.stmt.Exec(key, value, expiresAtUnix, time.Now().Unix()); err != nil {
+		return fmt.Errorf("cache: migrate %q: %w", key, err)
+	}
+	return nil
+}
+
+// Commit writes the sentinel row and commits. The sentinel is the final
+// write of the transaction (spec §10.2 step 3).
+func (im *Import) Commit() error {
+	if im.done {
+		return errors.New("cache: migration transaction already finished")
+	}
+	im.done = true
+	if err := im.Add(SentinelKey, []byte(SentinelValue), 0); err != nil {
+		_ = im.tx.Rollback()
+		return err
+	}
+	if err := im.tx.Commit(); err != nil {
+		return fmt.Errorf("cache: commit migration transaction: %w", err)
+	}
+	return nil
+}
+
+// Rollback discards the transaction. It is safe to call after Commit, where
+// it is a no-op, so callers can defer it.
+func (im *Import) Rollback() error {
+	if im.done {
+		return nil
+	}
+	im.done = true
+	if err := im.tx.Rollback(); err != nil {
+		return fmt.Errorf("cache: roll back migration transaction: %w", err)
+	}
+	return nil
+}
