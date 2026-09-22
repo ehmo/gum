@@ -39,6 +39,16 @@ var scannedExtensions = map[string]bool{
 // bounds the cheapest and most damaging fabrication: the identifier itself.
 func TestHelpTopicIdentifiersExist(t *testing.T) {
 	root := repoRoot(t)
+
+	// scripts/public-release-manifest.json lists docs/spec.md under
+	// forbidden_public_paths, so a release checkout does not carry it. That
+	// one file names most of the identifiers the topics quote, so without it
+	// every miss below would report the shape of the checkout rather than a
+	// fabrication. The gate binds in the source repository, where it runs.
+	if _, err := os.Stat(filepath.Join(root, "docs", "spec.md")); err != nil {
+		t.Skip("docs/spec.md absent: public release checkout, identifier corpus incomplete")
+	}
+
 	topicDir := filepath.Join(root, "apps", "gum", "internal", "help", "topics")
 
 	quoted := map[string][]string{}
@@ -130,8 +140,9 @@ func appendUnique(list []string, v string) []string {
 	return append(list, v)
 }
 
-// repoRoot walks up from the test's directory to the directory holding the
-// docs/ contracts, which is the parent of the Go module.
+// repoRoot walks up from the test's directory to the directory holding the Go
+// module and the docs/ tree. The marker is the module file, not a docs/ file:
+// a public release checkout has the same shape but ships a subset of docs/.
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -139,12 +150,12 @@ func repoRoot(t *testing.T) string {
 		t.Fatal(err)
 	}
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "docs", "spec.md")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "apps", "gum", "go.mod")); err == nil {
 			return dir
 		}
 		next := filepath.Dir(dir)
 		if next == dir {
-			t.Fatal("repo root with docs/spec.md not found")
+			t.Fatal("repo root with apps/gum/go.mod not found")
 		}
 		dir = next
 	}
