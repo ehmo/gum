@@ -184,3 +184,40 @@ sha256sum gum
 Build from a full clone, not from a linked `git worktree`. Go embeds the commit
 revision in the binary, and it silently skips that stamp in a linked worktree,
 which changes the hash.
+
+## Verification
+
+Release run
+[35688916890](https://github.com/ehmo/gum/actions/runs/35688916890), tag
+`v2.1.0` at public commit `48bdc8bb086cde31a1de548dc3255a475295db73`. All seven
+jobs passed: validate semver tag, docs deployed from tag commit, pre-release
+tests, govulncheck, goreleaser, reproducible-build canary, verify release
+provenance against release artifacts.
+
+Checked independently of the pipeline, against the published artifacts:
+
+- `shasum -a 256 -c checksums.txt` reported OK for all four archives.
+- The provenance attestation matched: identity and archive hashes for `v2.1.0`
+  at commit `48bdc8bb086cde31a1de548dc3255a475295db73`.
+- A clean `git clone --depth 1 --branch v2.1.0` rebuilt all four binaries to the
+  hashes below, which equal `release-binaries.sha256`. The binaries extracted
+  from the four published archives hash identically.
+
+| Platform | Binary sha256 |
+| --- | --- |
+| `darwin/amd64` | `d68d6e23c79d9d12e4152a263fb50fa8430bcd9689160fc1a070db5480d3ff01` |
+| `darwin/arm64` | `b74483d01d4666055f2235aeb877850d19b73a2dad3d25e9b3ae02a7898b9cb0` |
+| `linux/amd64` | `09d88ce41278ef92af6148a4c469e80efb8b32c3044a665c8b22872d40833ac8` |
+| `linux/arm64` | `190d7612d32d86eec47234ff8ddf61f9ca39435450ce3e4d6e2e71298fab6560` |
+
+| Archive | sha256 |
+| --- | --- |
+| `gum_2.1.0_darwin_amd64.tar.gz` | `ed77b3f45dde7bdfbb84addf82d45b83521966b8180ea119197cb66748f1c870` |
+| `gum_2.1.0_darwin_arm64.tar.gz` | `887e3ea381ad3aa1469ca491c60a397ef95d2a22bfcf95a35c95abcbfef4c7df` |
+| `gum_2.1.0_linux_amd64.tar.gz` | `0aa33acd5c12812a599a141dfe420e524f1f0d1edd4b3777e96761825b8028cc` |
+| `gum_2.1.0_linux_arm64.tar.gz` | `fb29f0256ebd01b085724ae8c4dda426abc74cfdf50489804549adf26d5dcada` |
+
+The Homebrew tap carries the same four digests at `ehmo/homebrew-tap` commit
+`28f9ad0`. `brew audit --strict --online --os=all --arch=all ehmo/tap/gum` and
+`brew test ehmo/tap/gum` both passed, the tap-drift check passed, and the
+installed binary reports `2.1.0` with `gum doctor: all checks passed`.
