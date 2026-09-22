@@ -80,6 +80,13 @@ type DispatcherConfig struct {
 	// fingerprint so two callers with different projections or principals
 	// never collide (spec §10.3).
 	SemanticCache *cache.SemanticCache
+	// HTTPCache, when non-nil, is the spec §10.2 HTTP/ETag cache. The kernel
+	// consults it after the §10.3 lookup misses and before the executor runs:
+	// a stored validator goes out as `If-None-Match`, and a 304 answer
+	// short-circuits the expression pipeline into `{"unchanged": true,
+	// "etag": "..."}` (§2024). Nil disables conditional requests; every call
+	// then fetches the full body.
+	HTTPCache *cache.HTTPCache
 	// RateLimiter, when non-nil, is called in step 6 before the executor.
 	RateLimiter TokenBucket
 	// Policy configures the per-profile allowlist/denylist and scope gates
@@ -143,6 +150,13 @@ type DispatcherConfig struct {
 	// account fingerprints differently per strategy namespace. A nil map, an
 	// unlisted strategy, or an empty expectation disables the check.
 	ExpectedAuthSubjects map[string]string
+	// ScopeUpgradeLogin, when non-nil, enables the spec §13 managed-scope
+	// re-consent flow: a SCOPE_MISSING refusal on a byo_oauth op becomes an
+	// approval a presentation layer can put to the operator, and an accepted
+	// approval runs this login for exactly the refused scopes. It lives here
+	// because the consent needs internal/auth, which this package cannot
+	// import. A nil value keeps the bare SCOPE_MISSING refusal.
+	ScopeUpgradeLogin ScopeUpgradeLogin
 	// Logger receives every diagnostic this package emits (spec §14.1 rule
 	// 2). A nil Logger falls back to slog.Default(), so an embedder that
 	// wires nothing keeps the process-wide handler. Injecting
@@ -163,6 +177,7 @@ func NewDispatcherWithConfig(snapshot *catalog.Catalog, adapters map[string]Adap
 		auth:                    cfg.Auth,
 		cache:                   cfg.Cache,
 		semanticCache:           cfg.SemanticCache,
+		httpCache:               cfg.HTTPCache,
 		tokenBucket:             cfg.RateLimiter,
 		profilePolicy:           cfg.Policy,
 		profileName:             cfg.ProfileName,
@@ -176,6 +191,7 @@ func NewDispatcherWithConfig(snapshot *catalog.Catalog, adapters map[string]Adap
 		profileBindings:         cfg.ProfileBindings,
 		argDefaulter:            cfg.ArgDefaults,
 		expectedAuthSubjects:    cfg.ExpectedAuthSubjects,
+		scopeUpgradeLogin:       cfg.ScopeUpgradeLogin,
 		logger:                  cfg.Logger,
 	}
 }

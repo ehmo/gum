@@ -271,7 +271,7 @@ func hasField(fields []catalog.RequestField, name string) bool {
 func TestAdsDefaultsThroughDispatcher(t *testing.T) {
 	isolateAdsDefaults(t)
 	dispatchOp := func() *dispatch.StructuredError {
-		disp, closer := newDefaultDispatcherWithCloserAndScopeLoading("default", false, false)
+		disp, closer := newDefaultDispatcherWithCloserAndScopeLoading("default", false, false, nil)
 		defer func() { _ = closer() }()
 		_, err := disp.Dispatch(context.Background(), &dispatch.Invocation{
 			OpID:   historicalMetricsOp,

@@ -79,6 +79,7 @@ func run() error {
 	injectDataManagerOffline := flag.Bool("inject-datamanager-offline", false, "skip network; load the existing catalog, add/replace the Data Manager API ops, and rewrite catalog.json + .sha256 in lockstep")
 	refreshSourceOpsFlag := flag.Bool("refresh-source-ops", false, "skip network; rebuild in-source hand-authored ops (Search Console) and replace matching ops in catalog.json by op_id, then rewrite catalog.json + .sha256 in lockstep")
 	applyRequestFieldsFlag := flag.Bool("apply-request-fields", false, "skip network; set Op.RequestFields from the central Tier A map (request_fields_data.go) on matching ops in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
+	applyCapabilitiesFlag := flag.Bool("apply-capabilities", false, "skip network; derive Variant.Capabilities from each op's request record and apply the curated execution_support entries (capabilities.go) in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
 	applyDefaultFieldsFlag := flag.Bool("apply-default-fields", false, "skip network; set Variant.DefaultFields from the curated §9.1 stage-1 map (default_fields_data.go) on matching ops in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
 	emitDefaultFieldsSchemaFlag := flag.Bool("emit-default-fields-schema", false, "fetch Discovery docs; refresh cmd/gen-catalog/testdata/default-fields-schema.json, the response-schema fixture the curated default_fields masks are validated against")
 	emitSchemasFlag := flag.Bool("emit-schemas", false, "skip network; derive one JSON Schema 2020-12 request document per op from Op.RequestFields, write the bodies into -schemas-out, set binding.request_ref on every variant, then rewrite catalog.json + .sha256 in lockstep")
@@ -118,6 +119,10 @@ func run() error {
 
 	if *applyDefaultFieldsFlag {
 		return applyDefaultFields(*outPath)
+	}
+
+	if *applyCapabilitiesFlag {
+		return applyCapabilities(*outPath)
 	}
 
 	if *emitDefaultFieldsSchemaFlag {

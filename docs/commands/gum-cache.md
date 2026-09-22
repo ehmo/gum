@@ -16,7 +16,7 @@ gum cache
 
 ## Subcommands
 
-- [gum cache clear](gum-cache-clear.md) - Clear the dispatcher response cache
+- [gum cache clear](gum-cache-clear.md) - Clear the dispatcher response cache.
 - [gum cache migrate](gum-cache-migrate.md) - Migrate BoltDB cache (http.db) to WAL-SQLite (http-wal.db)
 - [gum cache stats](gum-cache-stats.md) - Print dispatcher cache stats
 

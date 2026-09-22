@@ -46,6 +46,17 @@ var (
 	ErrUnexpectedUnsupportedCapabilities = errors.New("catalog: execution_support \"full\" forbids unsupported_capabilities")
 	ErrUndeclaredUnsupportedCapability   = errors.New("catalog: unsupported_capabilities atom is not declared in capabilities")
 	ErrPartialWithNoExecutableCapability = errors.New("catalog: execution_support \"partial\" blocks every declared capability")
+
+	// ErrUnknownCapability is the spec §913 build-time and load-time code
+	// UNKNOWN_CAPABILITY. The capabilities enum is closed, so an atom outside
+	// it is a typo or an unpromoted experiment, and either one would reach
+	// gum.describe_op as a claim gum cannot honour.
+	ErrUnknownCapability = errors.New("catalog: UNKNOWN_CAPABILITY")
+
+	// ErrExperimentalCapabilityNotSchemaOnly is the second half of the §913
+	// rule: an `x-` atom is searchable metadata only, so the variant carrying
+	// it must declare execution_support "schema_only".
+	ErrExperimentalCapabilityNotSchemaOnly = errors.New("catalog: experimental x- capability requires execution_support \"schema_only\"")
 )
 
 // SupportedCatalogSchemaVersions is the set of catalog_schema_version values the loader accepts.
@@ -564,6 +575,9 @@ func (op *Op) Validate() error {
 			if !comp.Kind.Valid() {
 				return fmt.Errorf("op %s: variant %s: auth_components kind %q: %w", op.OpID, v.VariantID, comp.Kind, ErrUnknownAuthComponent)
 			}
+		}
+		if err := v.validateCapabilities(op.OpID); err != nil {
+			return err
 		}
 		if err := v.validateExecutionSupport(op.OpID); err != nil {
 			return err

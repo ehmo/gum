@@ -197,17 +197,28 @@ func (d *dispatcher) evaluatePolicy(ctx context.Context, inv *Invocation) *Struc
 	// Fires whenever the variant declares required scopes. A nil or empty
 	// AllowedScopes means "no scopes granted" — all scoped ops are rejected.
 	if len(v.Scopes) > 0 {
-		grantedSet := make(map[string]struct{}, len(pol.AllowedScopes))
-		for _, s := range pol.AllowedScopes {
-			grantedSet[s] = struct{}{}
-		}
-		for _, required := range v.Scopes {
-			if _, ok := grantedSet[required]; !ok {
-				return NewStructuredError(ErrCodeScopeMissing,
-					fmt.Sprintf("op %s requires OAuth scope %s which is not granted in this profile", inv.OpID, required)).
-					WithDetail("required_scope", required).
-					WithRetryable(false)
-			}
+		// Read the allowlist through the lock: a §13 re-consent rewrites it
+		// while other invocations are in this gate.
+		granted := d.allowedScopes()
+		required := sortedUniqueScopes(v.Scopes)
+		if missing := missingScopes(required, granted); len(missing) > 0 {
+			// required_scope names the first missing scope and predates the
+			// plural details; it stays because clients key off it. The plural
+			// fields carry what a §13 re-consent has to ask for: the whole
+			// declared set, not the one scope that happened to be checked
+			// first.
+			return NewStructuredError(ErrCodeScopeMissing,
+				fmt.Sprintf("op %s requires OAuth scope %s which is not granted in this profile", inv.OpID, missing[0])).
+				WithDetail("required_scope", missing[0]).
+				WithDetail("op_id", inv.OpID).
+				WithDetail("variant_id", v.VariantID).
+				WithDetail("auth_strategy", string(v.AuthStrategy)).
+				WithDetail("profile", d.profileName).
+				WithDetail("required_scopes", required).
+				WithDetail("missing_scopes", missing).
+				WithDetail("granted_scopes", granted).
+				WithDetail("request_hash", d.scopeUpgradeHash(inv, v, required)).
+				WithRetryable(false)
 		}
 	}
 

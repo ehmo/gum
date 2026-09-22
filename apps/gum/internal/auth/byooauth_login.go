@@ -127,6 +127,21 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 	if err := checkSubject("byo_oauth", b.cfg.ExpectedSubject, fingerprint, b.cfg.AllowSubjectChange); err != nil {
 		return nil, err
 	}
+	// A consent screen lets the operator tick off individual scopes, so the
+	// grant can come back narrower than what was asked for. When the caller
+	// declared what it must have, refuse before storeLoginGrant: a partial
+	// grant stored here would replace a working one and still fail the op
+	// (spec §13).
+	granted := b.grantedLoginScopes(tok.Scope)
+	if missing := missingRequiredScopes(b.cfg.RequiredScopes, granted); len(missing) > 0 {
+		return nil, &AuthError{
+			Code:             "BYO_OAUTH_SCOPE_NOT_GRANTED",
+			Strategy:         "byo_oauth",
+			SetupCommand:     "gum auth login",
+			HumanRemediation: fmt.Sprintf("consent did not grant %s; nothing was stored. Re-run the consent and leave every requested permission ticked.", strings.Join(missing, " ")),
+			UserMessage:      "Some of the requested Google permissions were not granted, so nothing changed.",
+		}
+	}
 	if err := b.storeLoginGrant(tok.RefreshToken, tok.Scope, subject); err != nil {
 		return nil, err
 	}

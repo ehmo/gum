@@ -68,6 +68,13 @@ type ByoOAuthConfig struct {
 	// AllowSubjectChange overrides ExpectedSubject for one deliberate account
 	// switch (`gum login --switch-account`).
 	AllowSubjectChange bool
+	// RequiredScopes is the subset of Scopes the consent MUST come back with.
+	// When it is set, Login refuses a partial consent and stores nothing, so a
+	// caller that asked for a specific capability never ends up with a grant
+	// that silently lacks it (spec §13 managed-scope re-consent). Empty means
+	// any consent is stored, which is the interactive CLI's behaviour: there
+	// the operator sees what they granted.
+	RequiredScopes []string
 }
 
 // ByoOAuth implements the byo_oauth strategy. It looks up a cached refresh token
@@ -344,9 +351,17 @@ func (b *ByoOAuth) StoreRefreshToken(rt string) error {
 // never authorized and the API would return a silent 403. When the server omits
 // `scope`, it falls back to StoreRefreshToken so incremental auth never regresses.
 func (b *ByoOAuth) storeLoginGrant(rt, grantedScope, subject string) error {
+	granted := b.grantedLoginScopes(grantedScope)
+	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: granted, Subject: subject})
+	return b.kb.Set(b.keyringKey(), string(blob))
+}
+
+// grantedLoginScopes reads what the consent actually granted out of the token
+// response's scope field.
+func (b *ByoOAuth) grantedLoginScopes(grantedScope string) []string {
 	granted := sortedUniqueScopes(strings.Fields(grantedScope))
 	if len(granted) == 0 {
-		// Server omitted the scope field (RFC 6749: granted == requested). Store
+		// Server omitted the scope field (RFC 6749: granted == requested). Use
 		// exactly the requested scopes — do NOT fall back to the accumulating
 		// StoreRefreshToken, which would re-fold the previous grant's scopes and
 		// re-introduce the cross-account inflation this method exists to prevent
@@ -355,8 +370,7 @@ func (b *ByoOAuth) storeLoginGrant(rt, grantedScope, subject string) error {
 		// accumulation here only costs a harmless extra consent on the next call.
 		granted = sortedUniqueScopes(b.cfg.Scopes)
 	}
-	blob, _ := json.Marshal(byoGrant{RefreshToken: rt, Scopes: granted, Subject: subject})
-	return b.kb.Set(b.keyringKey(), string(blob))
+	return granted
 }
 
 // Revoke invalidates the stored grant. It first makes a BEST-EFFORT call to

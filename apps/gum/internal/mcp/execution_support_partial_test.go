@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ehmo/gum/internal/catalog"
@@ -86,5 +87,47 @@ func TestDescribeOpResultUsesDeclaredUnsupportedCapabilities(t *testing.T) {
 	want := []string{"media_upload_simple"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("unsupported_capabilities = %v; want %v (the declared list, not capabilities[])", got, want)
+	}
+}
+
+// TestDescribeOpResultWarnsOnBlockedCapabilityClasses pins §5.8 checklist item
+// 5: a new non-executable atom must reach describe_op as prose, not only as
+// the `execution_support` discriminator. The registered outputSchema has
+// carried `capability_class_warnings` since v0.1 with no producer, so the
+// field was always absent and a caller who read the answer learned nothing.
+func TestDescribeOpResultWarnsOnBlockedCapabilityClasses(t *testing.T) {
+	res := buildDescribeOpResult(partialOp(), defaultMaxVariants)
+
+	want := []string{"media_upload_simple is cataloged but not executable in this release"}
+	if !slices.Equal(res.CapabilityClassWarnings, want) {
+		t.Fatalf("capability_class_warnings = %v; want %v", res.CapabilityClassWarnings, want)
+	}
+
+	rs := compileSpecSchema(t, string(metaToolOutputSchema("gum.describe_op")))
+	if err := rs.Validate(asJSON(t, res)); err != nil {
+		got, _ := json.MarshalIndent(res, "", "  ")
+		t.Fatalf("warned describe_op payload fails the registered outputSchema: %v\npayload:\n%s", err, got)
+	}
+}
+
+// TestDescribeOpResultOmitsWarningsWhenNothingIsBlocked holds the other half:
+// the field is a warning, so an op that executes every declared atom must not
+// carry an empty array that a client would render as a heading with no rows.
+func TestDescribeOpResultOmitsWarningsWhenNothingIsBlocked(t *testing.T) {
+	op := partialOp()
+	op.Variants[0].ExecutionSupport = ""
+	op.Variants[0].UnsupportedCapabilities = nil
+
+	res := buildDescribeOpResult(op, defaultMaxVariants)
+
+	if res.CapabilityClassWarnings != nil {
+		t.Fatalf("capability_class_warnings = %v on a full variant; want absent", res.CapabilityClassWarnings)
+	}
+	payload, err := json.Marshal(res)
+	if err != nil {
+		t.Fatalf("marshal describe_op result: %v", err)
+	}
+	if strings.Contains(string(payload), "capability_class_warnings") {
+		t.Fatalf("full-variant payload carries the warning key:\n%s", payload)
 	}
 }

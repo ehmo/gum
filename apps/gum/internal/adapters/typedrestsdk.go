@@ -410,6 +410,13 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 		for hn, hv := range headerArgs {
 			req.Header.Set(hn, hv)
 		}
+		// §10.2 conditional request. The kernel holds a validator for this
+		// exact (op_id, variant_id, args_canonical, auth_subject_fingerprint),
+		// so upstream may answer 304 and spare the whole body. Set after the
+		// binding-routed headers so an op cannot clobber the validator.
+		if inv.IfNoneMatch != "" {
+			req.Header.Set("If-None-Match", inv.IfNoneMatch)
+		}
 		if creds != nil && creds.Token != "" {
 			req.Header.Set("Authorization", "Bearer "+creds.Token)
 		}
@@ -493,7 +500,22 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 
 	var finalBody []byte
 	var finalStatus int
+	var finalETag string
 	var lastUpstreamErr *UpstreamError
+
+	// accept keeps a response the caller returns. §10.2 makes 304 a success
+	// rather than a client error: the body is empty on purpose and the kernel
+	// serves the cached one, so it takes the same path as a 2xx instead of
+	// falling through to the terminal 4xx arm.
+	accept := func(body []byte, status int, headers http.Header) bool {
+		if (status < 200 || status >= 300) && status != http.StatusNotModified {
+			return false
+		}
+		finalBody = body
+		finalStatus = status
+		finalETag = headers.Get("ETag")
+		return true
+	}
 
 	attemptError := func(err error) error {
 		if ctx.Err() != nil {
@@ -527,9 +549,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 			return attemptError(err)
 		}
 
-		if status >= 200 && status < 300 {
-			finalBody = body
-			finalStatus = status
+		if accept(body, status, headers) {
 			return nil // success
 		}
 
@@ -548,9 +568,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 			if err2 != nil {
 				return attemptError(err2)
 			}
-			if status2 >= 200 && status2 < 300 {
-				finalBody = body2
-				finalStatus = status2
+			if accept(body2, status2, headers2) {
 				return nil
 			}
 			// Still failing after retry — return as permanent 4xx-like (don't 5xx-retry 429).
@@ -603,6 +621,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 		Body:       finalBody,
 		Format:     "json",
 		StatusCode: finalStatus,
+		ETag:       finalETag,
 		BytesIn:    0,
 		BytesOut:   len(finalBody),
 	}, nil

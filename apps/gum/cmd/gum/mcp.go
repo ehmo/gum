@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os/signal"
 	"syscall"
 
@@ -23,19 +24,21 @@ func newMCPCmd() *cobra.Command {
 				return fmt.Errorf("gum mcp: --stdio is required")
 			}
 			profile := resolveProfileFlag(cmd)
-			return runMCPStdio(cmd.Context(), profile)
+			return runMCPStdio(cmd.Context(), profile, cmd.ErrOrStderr())
 		},
 	}
 	cmd.Flags().BoolVar(&stdio, "stdio", false, "Run on stdio transport (required)")
 	return cmd
 }
 
-func runMCPStdio(parent context.Context, profile string) error {
+func runMCPStdio(parent context.Context, profile string, stderr io.Writer) error {
 	ctx, stop := signal.NotifyContext(parent, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	gummcp.SetVersion(version)
-	disp, closeAudit := newDefaultDispatcherWithCloser(profile, true)
+	// The §13 re-consent login writes the authorization URL to stderr: stdout
+	// is the MCP transport.
+	disp, closeAudit := newMCPDispatcherWithCloser(profile, stderr)
 	defer func() { _ = closeAudit() }()
 	// Same snapshot the CLI dispatcher resolves against, built once by
 	// initSessionCatalog during PersistentPreRunE. Passing it here rather

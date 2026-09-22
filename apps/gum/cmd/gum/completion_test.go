@@ -124,9 +124,9 @@ func TestCLICompletionPrefixFiltering(t *testing.T) {
 
 // TestCLICompletionCallFields verifies the --fields completer is wired and
 // returns a ShellComp directive without error, even when the resolved op has
-// no default_fields (the common case in the embedded catalog at this stage).
-// gum-wcwn item 11: the completion plumbing is what we lock here; populating
-// default_fields for live ops is a catalog-side task.
+// no default_fields, which the §5.6 curated table leaves as the common case.
+// gum-wcwn item 11: the completion plumbing is what we lock here; which ops
+// earn a curated mask is a catalog-side decision.
 func TestCLICompletionCallFields(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"__complete", "call", "gmail.users.messages.list", "--fields", ""})

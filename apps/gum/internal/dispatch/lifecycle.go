@@ -91,6 +91,13 @@ type Invocation struct {
 	// declare it; the lifecycle logger surfaces the value verbatim.
 	Caller Caller
 
+	// IfNoneMatch is the §10.2 validator the kernel found for this exact
+	// (op_id, variant_id_resolved, args_canonical, auth_subject_fingerprint).
+	// An HTTP adapter sends it as the `If-None-Match` request header; an
+	// adapter that makes no HTTP request ignores it. Empty means the kernel
+	// holds no validator, so the request goes out unconditional.
+	IfNoneMatch string
+
 	// BatchID and BatchIndex link this invocation to the gum_parallel batch
 	// that scheduled it (spec §12.3). gum_parallel sets both on every element
 	// it dispatches; step 9 copies them onto the gain entry so the batch's
@@ -150,6 +157,13 @@ type Response struct {
 	// the §6.1 cumulative output budget. shapeResponse projects it as
 	// _expression._code_output_truncated.
 	CodeOutputTruncated bool
+
+	// ETag is the validator upstream returned with this response, verbatim
+	// from the `ETag` header. The kernel stores it in the §10.2 cache so the
+	// next identical call can revalidate instead of re-downloading. Empty
+	// when upstream sent none, which is most non-HTTP adapters and any
+	// endpoint that does not support conditional requests.
+	ETag string
 }
 
 // ShapedResponse is the final output after step 8 (output pipeline).
@@ -372,6 +386,7 @@ type dispatcher struct {
 	auth                    AuthResolver                               // Phase 3: optional auth resolver
 	cache                   *cache.MemCache                            // Phase 3: optional response cache (legacy)
 	semanticCache           *cache.SemanticCache                       // §10.3 semantic response cache (preferred)
+	httpCache               *cache.HTTPCache                           // §10.2 HTTP/ETag revalidation cache
 	tokenBucket             TokenBucket                                // Phase 3: optional rate limiter
 	auditSink               auditSink                                  // optional audit log sink; receives panic entries per spec §3.1 step 7
 	profilePolicy           ProfilePolicy                              // gum-vq4z.2: per-profile policy gates
@@ -385,11 +400,18 @@ type dispatcher struct {
 	profileBindings         func() map[string]string                   // §9.2 [override_bindings]: op_id/variant_id -> profile name
 	argDefaulter            ArgDefaulter                               // gum-puum: configured arg defaults (step 1)
 	expectedAuthSubjects    map[string]string                          // gum-q0kd: auth_strategy -> profile's bound auth_subject_fingerprint
+	scopeUpgradeLogin       ScopeUpgradeLogin                          // gum-f6kq: §13 managed-scope re-consent; nil disables the flow
 
 	opIndexOnce sync.Once              // builds opIndex on first findOp (review gum-yvam)
 	opIndex     map[string]*catalog.Op // canonical op_id + alias → *Op; snapshot is immutable post-construction
 
 	retries retryTracker // §12.3 is_retry window: session+op_family+args_hash seen inside 5 minutes
+
+	// upgradedScopes holds the scopes a §13 re-consent granted after
+	// construction. scopeMu guards it: the grant lands while other goroutines
+	// are inside policy gate 5.
+	upgradedScopes []string
+	scopeMu        sync.RWMutex
 
 	logger *slog.Logger // §14.1 rule 2 injected logger; nil means slog.Default()
 }
@@ -595,6 +617,14 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 		return nil, serr
 	}
 
+	// Step 3a-pre: spec §927 capability gate. A typed_executor_required or
+	// schema_only variant is describable but not invokable, and the refusal
+	// must land before auth, before the rate limiter, and before any upstream
+	// request.
+	if serr := capabilityGate(inv, rv); serr != nil {
+		return nil, serr
+	}
+
 	// Step 3a: resolve the catalog-embedded (§9.2 third-layer) expression
 	// profile. A presentation layer may have already set inv.OutputProfile from
 	// the project-local / user-global filesystem layers (which take precedence);
@@ -755,6 +785,21 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 		return nil, err
 	}
 
+	// Step 5b: the §10.2 HTTP/ETag cache. The §10.3 lookup above missed, so
+	// this call is going upstream either way; a stored validator turns it into
+	// a conditional request that may come back as a bodiless 304. The key
+	// needs the resolved variant (§3.1 step 2) and the credential subject
+	// (§10.0.1), both of which the steps above have produced.
+	var httpKey string
+	var validator cache.HTTPEntry
+	if d.httpCacheable(rv) {
+		httpKey = d.httpCacheKey(inv, rv, creds)
+		if stored, ok := d.httpCache.Lookup(httpKey); ok {
+			validator = stored
+			inv.IfNoneMatch = stored.ETag
+		}
+	}
+
 	// Step 6: token bucket
 	t0 = time.Now()
 	if err := d.tokenBucketStep(ctx, inv, rv); err != nil {
@@ -788,6 +833,14 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 		return nil, mapRateLimited(err)
 	}
 	logEvent(EventExecuteAdapter, t0)
+
+	// Step 7a1: §2024. Upstream says the copy gum already holds is current, so
+	// the answer is the validator alone. Returning here is what skips stages
+	// 1-8, the field mask, the tee artifact and the results handle; every one
+	// of those lives below this line.
+	if isNotModified(resp, validator) {
+		return d.serveNotModified(inv, rv, creds, validator)
+	}
 
 	// Step 7a2: spec §9.1 second, unmasked fetch. It runs after the shaped
 	// request succeeds, because a failed first request has nothing to recover
@@ -831,6 +884,21 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 		// whose key includes the principal fingerprint (review gum-t8x1).
 		key := cache.KeyFor(inv.OpID, canonicalizeArgs(d.canonicalArgs(inv.Args)), "", rv.Variant.VariantID)
 		d.cache.Set(key, resp.Body)
+	}
+
+	// Step 7b2: store the §10.2 validator. Upstream sent an ETag, so the next
+	// identical call revalidates instead of re-downloading. The body is stored
+	// with it because a 304 carries none and the ledger needs the size of the
+	// response the caller did not have to receive.
+	if httpKey != "" && resp != nil && resp.ETag != "" {
+		if err := d.httpCache.Store(httpKey, cache.HTTPEntry{
+			ETag:   resp.ETag,
+			Body:   resp.Body,
+			Format: resp.Format,
+			OpID:   inv.OpID,
+		}); err != nil {
+			d.log().Warn("http etag cache store failed", "op_id", inv.OpID, "err", err)
+		}
 	}
 
 	// Step 7c: filesystem tee artifact (spec §9.0 stage 'artifact'). Writes

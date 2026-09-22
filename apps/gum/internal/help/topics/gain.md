@@ -23,7 +23,7 @@ The fields that carry the savings claim:
 | `shaped_tokens`            | The body after shaping. The gain is the difference.        |
 | `request_tokens`           | The outgoing request.                                      |
 | `response_tokens`          | What the host client received.                             |
-| `cache_status`             | `miss`, `hit`, `semantic`, or `not_applicable`.            |
+| `cache_status`             | `miss`, `hit`, `semantic`, `etag_304`, `not_applicable`.   |
 | `field_mask_status`        | `applied`, `skipped`, or `not_applicable`.                 |
 | `is_retry`                 | Same session, op family, and args hash within 5 minutes.   |
 | `error_code`               | Set on a failed dispatch.                                  |

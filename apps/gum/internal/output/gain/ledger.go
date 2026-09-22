@@ -155,16 +155,21 @@ type Entry struct {
 	// For the parallel outer sentinel this equals request_tokens+response_tokens.
 	ShapedTokens int `json:"shaped_tokens"`
 
-	// CacheStatus is one of "miss", "hit", "semantic", "not_applicable".
-	// Parallel outer entries use "not_applicable".
+	// CacheStatus is one of "miss", "hit", "semantic", "etag_304",
+	// "not_applicable". Parallel outer entries use "not_applicable".
+	// "etag_304" is the §10.2 conditional-request answer: the caller holds a
+	// valid ETag, upstream sent 304, and response_tokens is 0 while
+	// raw_tokens still carries the body the caller did not have to receive.
 	CacheStatus string `json:"cache_status"`
 
 	// FieldMaskStatus is one of "applied", "skipped", "not_applicable".
 	// Parallel outer entries use "not_applicable".
 	FieldMaskStatus string `json:"field_mask_status"`
 
-	// ServedFromCache is true when the response was served entirely from
-	// cache (no executor call). Parallel outer entries are always false.
+	// ServedFromCache is true when the response body came from cache rather
+	// than the wire. A §10.2 `etag_304` row sets it although a conditional
+	// request did go upstream: that request returned no body.
+	// Parallel outer entries are always false.
 	ServedFromCache bool `json:"served_from_cache"`
 
 	// IsRetry is true when this call repeats a prior session+op_family+

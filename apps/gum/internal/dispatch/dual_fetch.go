@@ -71,6 +71,12 @@ func (d *dispatcher) dualFetch(ctx context.Context, inv *Invocation, rv *Resolve
 		unmasked.Args[k] = v
 	}
 
+	// The §10.2 validator belongs to the masked request: its key includes
+	// args_canonical, which this clone just changed. Carrying it here would
+	// let upstream answer the recovery fetch with a bodiless 304, and stage 9
+	// would then write a `full_result_path` artifact from an empty body.
+	unmasked.IfNoneMatch = ""
+
 	if err := d.tokenBucketStep(ctx, &unmasked, rv); err != nil {
 		return nil, nil, mapRateLimited(err)
 	}

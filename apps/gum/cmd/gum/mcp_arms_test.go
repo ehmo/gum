@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestMCPStdioStopsWithItsContext(t *testing.T) {
 	cancel()
 
 	done := make(chan error, 1)
-	go func() { done <- runMCPStdio(ctx, "default") }()
+	go func() { done <- runMCPStdio(ctx, "default", io.Discard) }()
 
 	select {
 	case <-done:

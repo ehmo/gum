@@ -9,10 +9,11 @@ import (
 const defaultMaxVariants = 5
 
 // executionSupportFull is the §918 value for an op whose declared atoms are all
-// executable. The catalog ABI leaves `execution_support` omitempty and no
-// generator writes it, so every variant shipped today arrives empty. §13 makes
-// the field required at both levels and closes its enum, so an empty string
-// must resolve to the value that describes those variants: they execute.
+// executable. The catalog ABI leaves `execution_support` omitempty and
+// `gen-catalog -apply-capabilities` writes it only on the curated variants that
+// cannot run one of their atoms, so most variants arrive empty. §13 makes the
+// field required at both levels and closes its enum, so an empty string must
+// resolve to the value that describes those variants: they execute.
 const executionSupportFull = string(catalog.ExecutionSupportFull)
 
 // executionSupport resolves a catalog variant's declared execution support.
@@ -21,6 +22,19 @@ func executionSupport(declared catalog.ExecutionSupport) string {
 		return executionSupportFull
 	}
 	return string(declared)
+}
+
+// capabilityClassWarnings renders one line per atom the op's default variant
+// declares and cannot run.
+func capabilityClassWarnings(atoms []string) []string {
+	if len(atoms) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(atoms))
+	for _, atom := range atoms {
+		out = append(out, atom+" is cataloged but not executable in this release")
+	}
+	return out
 }
 
 type describeOpVariant struct {
@@ -48,6 +62,12 @@ type describeOpResult struct {
 	SchemaRefs           map[string]string   `json:"schema_refs"`
 	RiskOverride         bool                `json:"risk_override,omitempty"`
 	RiskOverrideReason   string              `json:"risk_override_reason,omitempty"`
+
+	// CapabilityClassWarnings renders the blocking atoms as prose. §955 makes
+	// describe_op surface a new atom here as well as in execution_support, so
+	// a caller who reads the answer rather than the discriminator still learns
+	// the limit. Omitted when the default variant blocks nothing.
+	CapabilityClassWarnings []string `json:"capability_class_warnings,omitempty"`
 
 	// UnsupportedCapabilities is a pointer so the three states stay distinct:
 	// absent (execution_support "full", which §13 forbids it on), present and
@@ -125,6 +145,7 @@ func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
 				unsupported = []string{}
 			}
 			r.UnsupportedCapabilities = &unsupported
+			r.CapabilityClassWarnings = capabilityClassWarnings(unsupported)
 		}
 		if defVar.RiskOverride {
 			r.RiskOverride = true

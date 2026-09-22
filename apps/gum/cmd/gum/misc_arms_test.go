@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -116,7 +117,7 @@ func TestMCPStdioRejectsABadProfileDirectly(t *testing.T) {
 	keyringlib.MockInit()
 	isolatedHome(t)
 
-	err := runMCPStdio(context.Background(), "bad/name")
+	err := runMCPStdio(context.Background(), "bad/name", io.Discard)
 	if err == nil {
 		t.Fatal("runMCPStdio accepted a bad profile")
 	}

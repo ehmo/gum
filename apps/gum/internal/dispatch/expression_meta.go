@@ -73,6 +73,19 @@ type ExpressionMeta struct {
 	// CodeOutputTruncated marks a gum.code result cut short by the cumulative
 	// output budget.
 	CodeOutputTruncated *bool `json:"_code_output_truncated,omitempty"`
+
+	// UnsupportedCapabilities is the spec §932 warning field. A `partial`
+	// variant executes, so the call succeeds, and this names the capability
+	// atoms that did not run. Omitted for every other execution_support.
+	//
+	// It is deliberately absent from the registered MCP outputSchema. §13
+	// keeps ExpressionMeta open for exactly this case: "future minor releases
+	// can add diagnostic fields ... without breaking client validators that
+	// pin to the registered v0.1 outputSchema". Registering one more property
+	// also costs 783 tokens across every tool's outputSchema, and
+	// TestGainReleaseFixtureSavingsFloor has 9 tokens of headroom above the
+	// published 80% claim.
+	UnsupportedCapabilities []string `json:"_unsupported_capabilities,omitempty"`
 }
 
 // newExpressionMeta builds the §9.1 envelope from a shaping result.
@@ -87,6 +100,7 @@ func newExpressionMeta(inv *Invocation, rv *ResolvedVariant, prof *profile.Profi
 	if rv != nil && rv.Variant != nil {
 		id := rv.Variant.VariantID
 		meta.VariantID = &id
+		meta.UnsupportedCapabilities = partialCapabilityWarning(rv.Variant)
 	}
 	if out == nil {
 		return meta
@@ -196,6 +210,9 @@ func (m *ExpressionMeta) Fields() map[string]any {
 	}
 	if m.ProfileResolutionWarning != nil {
 		out["_profile_resolution_warning"] = *m.ProfileResolutionWarning
+	}
+	if len(m.UnsupportedCapabilities) > 0 {
+		out["_unsupported_capabilities"] = m.UnsupportedCapabilities
 	}
 	return out
 }

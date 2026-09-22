@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -528,7 +529,7 @@ func newDefaultDispatcherForProfile(profile string) dispatch.Dispatcher {
 // that call scoped Google ops still route through the same dispatcher policy and
 // fail closed without preloaded scopes.
 func newDefaultCodeDispatcherForProfile(profile string) dispatch.Dispatcher {
-	disp, _ := newDefaultDispatcherWithCloserAndScopeLoading(profile, false, false)
+	disp, _ := newDefaultDispatcherWithCloserAndScopeLoading(profile, false, false, nil)
 	return disp
 }
 
@@ -538,7 +539,15 @@ func newDefaultCodeDispatcherForProfile(profile string) dispatch.Dispatcher {
 // queued entries on SIGTERM/SIGINT. When buffered=false, the closer is a
 // no-op so callers can wire `defer closer()` unconditionally.
 func newDefaultDispatcherWithCloser(profile string, buffered bool) (dispatch.Dispatcher, func() error) {
-	return newDefaultDispatcherWithCloserAndScopeLoading(profile, buffered, true)
+	return newDefaultDispatcherWithCloserAndScopeLoading(profile, buffered, true, nil)
+}
+
+// newMCPDispatcherWithCloser is newDefaultDispatcherWithCloser plus the spec
+// §13 managed-scope re-consent. Only the MCP server gets it: a SCOPE_MISSING
+// refusal there has no terminal to fall back to, which is what the elicitation
+// flow exists to solve. stderr carries the authorization URL.
+func newMCPDispatcherWithCloser(profile string, stderr io.Writer) (dispatch.Dispatcher, func() error) {
+	return newDefaultDispatcherWithCloserAndScopeLoading(profile, true, true, newScopeUpgradeLogin(profile, stderr))
 }
 
 // newDispatcherConfigForProfile assembles the kernel's policy wiring for one
@@ -616,7 +625,7 @@ func teeConfigForProfile(profile, profileDataDir string) dispatch.TeeConfig {
 	return cfg
 }
 
-func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loadProfileScopes bool) (dispatch.Dispatcher, func() error) {
+func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loadProfileScopes bool, scopeUpgradeLogin dispatch.ScopeUpgradeLogin) (dispatch.Dispatcher, func() error) {
 	adapterMap, codeRunner := defaultAdapters(profile)
 	name, nameErr := profilepkg.Parse(profile)
 	profileName := ""
@@ -646,6 +655,7 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile))
 	}
 	cfg := newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir, authResolver, allowedScopes)
+	cfg.ScopeUpgradeLogin = scopeUpgradeLogin
 	closer := func() error { return nil }
 	if dir := profileDataDir; dir != "" {
 		opts := auditOptionsForProfile(profileName, buffered)
@@ -681,9 +691,56 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 			slog.Warn("gain ledger unavailable; step 9 accounting disabled", "profile", profileName, "err", lerr)
 		}
 	}
+	// Spec §10.2 HTTP/ETag cache, per profile at <cache dir>/http.db. Keeping
+	// it here rather than in newDispatcherConfigForProfile is deliberate: it
+	// owns a file handle, so it has to join the closer chain.
+	if store, sCloser := openHTTPCacheStore(name, nameErr); store != nil {
+		cfg.HTTPCache = cache.NewHTTPCache(store)
+		prev := closer
+		closer = func() error {
+			err := prev()
+			if cerr := sCloser(); err == nil {
+				err = cerr
+			}
+			return err
+		}
+	}
 	disp := dispatch.NewDispatcherWithConfig(loadCatalog(), adapterMap, cfg)
 	codeRunner.WithDispatcher(disp)
 	return disp, closer
+}
+
+// httpCacheOpenTimeout bounds the wait for the bbolt file lock. A long-lived
+// MCP server holds it for its whole run, so a `gum call` on the same profile
+// must give up quickly and dispatch without revalidation rather than block on
+// a lock it may never get.
+const httpCacheOpenTimeout = 250 * time.Millisecond
+
+// openHTTPCacheStore opens the §10.2 store for a profile. Both returns are nil
+// when the cache is unavailable, which disables conditional requests and
+// nothing else: every call then fetches the full body, exactly as it did
+// before the cache existed.
+func openHTTPCacheStore(name profilepkg.Name, nameErr error) (cache.HTTPStore, func() error) {
+	if nameErr != nil {
+		return nil, nil
+	}
+	dir, err := name.CacheDir()
+	if err != nil || dir == "" {
+		return nil, nil
+	}
+	c, err := cache.Open(cache.BBoltConfig{
+		Path:        filepath.Join(dir, cache.HTTPCacheBoltFile),
+		OpenTimeout: httpCacheOpenTimeout,
+	})
+	if err != nil {
+		if errors.Is(err, cache.ErrCacheLocked) {
+			slog.Debug("http etag cache busy; conditional requests disabled", "path", dir)
+		} else {
+			slog.Warn("http etag cache unavailable; conditional requests disabled", "path", dir, "err", err)
+		}
+		return nil, nil
+	}
+	return cache.BoltHTTPStore{C: c}, c.Close
 }
 
 func auditOptionsForProfile(profile string, buffered bool) []auditlog.Option {

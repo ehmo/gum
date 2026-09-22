@@ -13,18 +13,14 @@
 //   - End-to-end dispatch cache-hit rate: TestDiffOnlyModeEtagReplay (the
 //     bead's named acceptance) covers two equivalent-instant Dispatches and
 //     asserts the adapter is called once with NormalizeDatetimes=true but
-//     twice without it.
+//     twice without it. It lives in http_etag_test.go, next to the §10.2
+//     claims that share the name.
 
 package dispatch
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
-	"time"
-
-	"github.com/ehmo/gum/internal/cache"
-	"github.com/ehmo/gum/internal/catalog"
 )
 
 // TestNormalizeDateTimeStringSpecExamples pins the three documented examples
@@ -176,99 +172,6 @@ func TestNormalizeValueForJCSScalarDefaultArm(t *testing.T) {
 	if v, ok := got["missing"]; !ok || v != nil {
 		t.Errorf("missing = %v (present=%v); want nil passed through", v, ok)
 	}
-}
-
-// TestDiffOnlyModeEtagReplay — gum-y1n named acceptance per bead description:
-// "TestDiffOnlyModeEtagReplay extended to cover date normalization; cache hit
-// rate improves in Calendar sessions."
-//
-// With NormalizeDatetimes=true, two Dispatches passing the SAME instant in
-// DIFFERENT RFC 3339 representations MUST collapse to one cache key — the
-// second call is a hit and the adapter's Execute is NOT invoked twice. Without
-// the flag (Rule 3 verbatim), the second call misses and the adapter executes
-// again.
-func TestDiffOnlyModeEtagReplay(t *testing.T) {
-	const opID = "calendar.events.list"
-	const adapterKey = "test.adapter"
-
-	mkCatalog := func() *catalog.Catalog {
-		return &catalog.Catalog{
-			CatalogSchemaVersion: 1,
-			Ops: []catalog.Op{{
-				OpID:             opID,
-				OpSchemaVersion:  1,
-				Title:            "List events",
-				Summary:          "List calendar events.",
-				DefaultVariantID: "v1",
-				Variants: []catalog.Variant{{
-					VariantID:     "v1",
-					Stability:     catalog.StabilityStable,
-					InterfaceKind: catalog.InterfaceKindDiscoveryREST,
-					BackendKind:   catalog.BackendKindTypedRestSDK,
-					RiskClass:     catalog.RiskClassRead,
-					Binding: &catalog.Binding{
-						BindingSchemaVersion: 1,
-						AdapterKey:           adapterKey,
-						OperationKey:         opID,
-					},
-				}},
-			}},
-		}
-	}
-
-	mkInv := func(timeMin string) *Invocation {
-		return &Invocation{
-			OpID:   opID,
-			Args:   map[string]any{"timeMin": timeMin},
-			Format: "json",
-		}
-	}
-
-	// Sub-test: normalization ON → second equivalent-instant call hits cache.
-	t.Run("normalize_on_collapses_equivalent_instants", func(t *testing.T) {
-		var calls atomic.Int32
-		adapter := AdapterFunc(func(_ context.Context, _ *Invocation, _ *ResolvedVariant, _ *Credentials) (*Response, error) {
-			calls.Add(1)
-			return &Response{Body: []byte(`{"items":[]}`), Format: "json", StatusCode: 200}, nil
-		})
-		mc := cache.NewMemCache(100, time.Minute)
-		disp := NewDispatcherWithConfig(mkCatalog(), map[string]Adapter{adapterKey: adapter},
-			DispatcherConfig{Cache: mc, NormalizeDatetimes: true})
-
-		if _, err := disp.Dispatch(context.Background(), mkInv("2026-05-19T14:30:00.000Z")); err != nil {
-			t.Fatalf("first Dispatch: %v", err)
-		}
-		// Same instant, different representation — must hit the cache.
-		if _, err := disp.Dispatch(context.Background(), mkInv("2026-05-19T20:00:00+05:30")); err != nil {
-			t.Fatalf("second Dispatch: %v", err)
-		}
-		if got := calls.Load(); got != 1 {
-			t.Errorf("adapter.calls = %d; want 1 (Rule 4 normalization must collapse equivalent instants)", got)
-		}
-	})
-
-	// Sub-test: normalization OFF → second equivalent-instant call misses
-	// (the documented Rule 3 cache-miss class).
-	t.Run("normalize_off_keeps_verbatim_keys", func(t *testing.T) {
-		var calls atomic.Int32
-		adapter := AdapterFunc(func(_ context.Context, _ *Invocation, _ *ResolvedVariant, _ *Credentials) (*Response, error) {
-			calls.Add(1)
-			return &Response{Body: []byte(`{"items":[]}`), Format: "json", StatusCode: 200}, nil
-		})
-		mc := cache.NewMemCache(100, time.Minute)
-		disp := NewDispatcherWithConfig(mkCatalog(), map[string]Adapter{adapterKey: adapter},
-			DispatcherConfig{Cache: mc})
-
-		if _, err := disp.Dispatch(context.Background(), mkInv("2026-05-19T14:30:00.000Z")); err != nil {
-			t.Fatalf("first Dispatch: %v", err)
-		}
-		if _, err := disp.Dispatch(context.Background(), mkInv("2026-05-19T20:00:00+05:30")); err != nil {
-			t.Fatalf("second Dispatch: %v", err)
-		}
-		if got := calls.Load(); got != 2 {
-			t.Errorf("adapter.calls = %d; want 2 (Rule 3 verbatim must miss on representation differences)", got)
-		}
-	})
 }
 
 // AdapterFunc adapts a closure to dispatch.Adapter for inline test stubs.

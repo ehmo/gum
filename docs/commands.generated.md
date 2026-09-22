@@ -15,7 +15,7 @@ Generated from `gum schema --json`.
     - [`gum auth use-oauth-client --client-id <id> [--secret-stdin | --secret-file <path>] [flags]`](commands/gum-auth-use-oauth-client.md) - Register a Desktop-app OAuth client you created in the Google Cloud console.
     - [`gum auth use-service-account <key.json>`](commands/gum-auth-use-service-account.md) - Configure the service_account_key auth strategy
   - [`gum cache`](commands/gum-cache.md) - Inspect or clear the dispatcher response cache
-    - [`gum cache clear [flags]`](commands/gum-cache-clear.md) - Clear the dispatcher response cache
+    - [`gum cache clear [pattern] [flags]`](commands/gum-cache-clear.md) - Clear the dispatcher response cache.
     - [`gum cache migrate [flags]`](commands/gum-cache-migrate.md) - Migrate BoltDB cache (http.db) to WAL-SQLite (http-wal.db)
     - [`gum cache stats [flags]`](commands/gum-cache-stats.md) - Print dispatcher cache stats
   - [`gum call <op_id> --risk=<read|write|destructive> [args...] [flags]`](commands/gum-call.md) - gum call is the deterministic CLI entry point for catalog operations.

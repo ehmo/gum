@@ -80,6 +80,42 @@ poll-cycle atom.
   Operation still executes through generic dispatch, so `lro_return` alone does
   not make the variant `partial`.
 
+### `code_execution`
+
+`code_execution` marks a variant the `code.risor` typed executor runs in-process
+from a script argument. It is the one atom in the enum that is executable
+without being generic.
+
+- Only `gum.code.v1.risor` carries it. `cmd/gen-catalog` writes it in
+  `gen_meta.go`; the `-apply-capabilities` pass preserves it through a curated
+  entry rather than deriving it, because no request record implies it.
+- The variant is `"full"`: the atom executes, so `execution_support` stays
+  absent and `unsupported_capabilities` is empty. `stub_expires` does not apply;
+  the executor is real, not a stub, and its contract test is
+  `TestCapabilityClassCodeExecution` in `internal/adapters/`.
+- Generic dispatch never sees it. `internal/dispatch` routes the variant by
+  `adapter_key = "code.risor"` before any HTTP request is built.
+
+### How `capabilities[]` is written
+
+`cmd/gen-catalog -apply-capabilities` derives six atoms per variant from data
+the catalog already holds, so the pass is offline and a rerun on an unchanged
+catalog is a no-op:
+
+| Atom | Written when |
+| --- | --- |
+| `path_params` | `binding.http.path` contains a `{` placeholder |
+| `query_params` | the op has a request field with `location = "query"` |
+| `json_request` | the op has a request field with `location = "body"` or `"arg"` |
+| `json_response` | the HTTP method is not `DELETE`, or the variant has no HTTP binding |
+| `pagination` | the op has a request field named `pageToken` |
+| `field_mask` | the op has a request field named `fields`, or the variant declares `default_fields` |
+
+An atom outside that set survives the pass untouched, which is how the
+Discovery enrichment's `lro_return` stamp is preserved. Variants whose real
+capability set contradicts the request record are curated by `variant_id` in
+`cmd/gen-catalog/capabilities.go`, each with the reason recorded next to it.
+
 ### `execution_support` and `unsupported_capabilities`
 
 `spec.md` §5.8 binds the two fields. A catalog record MUST satisfy the binding, and `Op.Validate` checks it:

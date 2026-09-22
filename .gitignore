@@ -7,6 +7,17 @@
 # Local data dirs
 .cache/gum/
 
+# Generated dispatch stubs. `make stubs` emits one stub_*.go per eligible
+# variant; those stay out of git. Three files in that directory are
+# hand-authored and tracked, because the stubs call executeREST from
+# dispatch.go and the package cannot compile without it.
+apps/gum/gen/*
+!apps/gum/gen/dispatch/
+apps/gum/gen/dispatch/*
+!apps/gum/gen/dispatch/dispatch.go
+!apps/gum/gen/dispatch/dispatch_test.go
+!apps/gum/gen/dispatch/variant_ids_test.go
+
 # Go build and release artifacts
 apps/gum/gum
 apps/gum/gen-catalog

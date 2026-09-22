@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -98,15 +99,46 @@ func newCacheStatsCmd() *cobra.Command {
 			// --format=json, silently changing shape on scripts that added
 			// the flag later.
 			_ = format
-			return writeJSON(cmd.OutOrStdout(), cacheStatsJSONEnvelope())
+			env := cacheStatsJSONEnvelope()
+			if dir, err := cacheProfileDir(cmd); err == nil {
+				usage := measureHTTPCacheDir(dir)
+				http, _ := env["http"].(map[string]any)
+				http["entries"] = usage.Entries
+				http["bytes"] = usage.Bytes
+			}
+			return writeJSON(cmd.OutOrStdout(), env)
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "json", "Output format (json)")
 	return cmd
 }
 
+// measureHTTPCacheDir sizes the §10.2 store a profile holds. Hit and miss
+// counts stay zero here on purpose: they are per-process, and this process has
+// dispatched nothing. Entries and bytes are on disk, so they are reportable.
+//
+// The file is opened read-only-ish with a short lock timeout, because a
+// running MCP server holds it and a stats call must not block behind one.
+func measureHTTPCacheDir(dir string) cache.HTTPUsage {
+	path := filepath.Join(dir, cache.HTTPCacheBoltFile)
+	if _, err := os.Stat(path); err != nil {
+		return cache.HTTPUsage{}
+	}
+	c, err := cache.Open(cache.BBoltConfig{Path: path, OpenTimeout: httpCacheOpenTimeout})
+	if err != nil {
+		return cache.HTTPUsage{}
+	}
+	defer func() { _ = c.Close() }()
+	usage, err := cache.MeasureHTTP(cache.BoltHTTPStore{C: c})
+	if err != nil {
+		return cache.HTTPUsage{}
+	}
+	return usage
+}
+
 // cacheStatsJSONEnvelope returns a CacheStatsResult envelope matching spec §3003.
-// All counters are zero because live wiring lands in v0.2.0.
+// The semantic and prompt counters are zero because live wiring lands in
+// v0.2.0; the caller fills the §10.2 http entry and byte counts from disk.
 func cacheStatsJSONEnvelope() map[string]any {
 	return map[string]any{
 		"semantic": map[string]any{
@@ -135,23 +167,42 @@ func newCacheClearCmd() *cobra.Command {
 	var expiredFlag bool
 
 	cmd := &cobra.Command{
-		Use:   "clear",
+		Use:   "clear [pattern]",
 		Short: "Clear the dispatcher response cache",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !bakFlag && !expiredFlag {
-				// v0.1.0 placeholder — preserved for backward compat.
-				return writeJSON(cmd.OutOrStdout(), map[string]any{
-					"cleared": true,
-					"note":    "the v0.1.0 cache is process-local; clearing is a no-op",
-				})
-			}
-
+		Long: "Clear the dispatcher response cache.\n\n" +
+			"With no flags this removes stored HTTP/ETag validators. Those entries have\n" +
+			"no TTL and nothing evicts them, so this is the only way to reclaim the\n" +
+			"store or to force a read to be re-shaped under a changed output profile.\n\n" +
+			"pattern is a glob matched against op_id: `gum cache clear \"gmail.*\"` drops\n" +
+			"one API and `gum cache clear gmail.users.messages.list` drops one op. With\n" +
+			"no pattern the whole store is cleared.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			profileDir, err := cacheProfileDir(cmd)
 			if err != nil {
 				return err
 			}
 
 			result := map[string]any{}
+
+			if !bakFlag && !expiredFlag {
+				// §10.2 entries have no TTL and nothing evicts them, so this
+				// is the only path that reclaims the store. A bare invocation
+				// clears all of it; a pattern clears the ops it names.
+				pattern := ""
+				if len(args) == 1 {
+					pattern = args[0]
+				}
+				cleared, cerr := clearHTTPCacheDir(profileDir, pattern)
+				if cerr != nil {
+					return cerr
+				}
+				result["cleared"] = true
+				result["http_entries_removed"] = cleared
+				result["pattern"] = pattern
+				result["note"] = "cleared the §10.2 HTTP/ETag store; the §10.3 semantic cache is process-local"
+				return writeJSON(cmd.OutOrStdout(), result)
+			}
 
 			if bakFlag {
 				bakPath := filepath.Join(profileDir, "http.db.bak")
@@ -192,6 +243,27 @@ func newCacheClearCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&bakFlag, "bak", false, "Remove http.db.bak backup file")
 	cmd.Flags().BoolVar(&expiredFlag, "expired", false, "Evict TTL-expired cache entries")
 	return cmd
+}
+
+// clearHTTPCacheDir removes §10.2 entries from one profile's store. An absent
+// file is not an error: nothing was cached, so nothing needs clearing.
+func clearHTTPCacheDir(dir, pattern string) (int, error) {
+	path := filepath.Join(dir, cache.HTTPCacheBoltFile)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	c, err := cache.Open(cache.BBoltConfig{Path: path, OpenTimeout: httpCacheOpenTimeout})
+	if err != nil {
+		if errors.Is(err, cache.ErrCacheLocked) {
+			// Another gum process holds the file. Deleting rows under it
+			// would leave that process serving a hot tier the disk no longer
+			// backs, so say so instead.
+			return 0, fmt.Errorf("cache: %s is in use by another gum process; stop it and retry", path)
+		}
+		return 0, err
+	}
+	defer func() { _ = c.Close() }()
+	return cache.ClearHTTP(cache.BoltHTTPStore{C: c}, pattern)
 }
 
 func cacheProfileDir(cmd *cobra.Command) (string, error) {

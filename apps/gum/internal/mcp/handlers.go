@@ -890,7 +890,7 @@ func (s *Server) dispatchToolCall(ctx context.Context, req *sdkmcp.CallToolReque
 			}
 		}
 	}
-	return s.dispatchAndShape(ctx, inv)
+	return s.dispatchAndShapeForRequest(ctx, req, inv)
 }
 
 // stringFromMeta safely extracts a string-typed key from req.Params.Meta.
@@ -938,9 +938,22 @@ func (s *Server) profileNameForOp(opID string) string {
 	return v.OutputProfile
 }
 
+// dispatchAndShape dispatches without a request in hand. Request-scoped
+// behaviour that needs the client session, such as the §13 re-consent, is off
+// on this path.
 func (s *Server) dispatchAndShape(ctx context.Context, inv *dispatch.Invocation) (*sdkmcp.CallToolResult, error) {
+	return s.dispatchAndShapeForRequest(ctx, nil, inv)
+}
+
+func (s *Server) dispatchAndShapeForRequest(ctx context.Context, req *sdkmcp.CallToolRequest, inv *dispatch.Invocation) (*sdkmcp.CallToolResult, error) {
 	shaped, err := s.disp.Dispatch(ctx, inv)
 	if err != nil {
+		// Spec §13: a SCOPE_MISSING refusal becomes an approval form when the
+		// client can elicit. Every other failure, and every refused approval,
+		// returns the envelope unchanged.
+		if res, handled := s.scopeUpgradeResult(ctx, req, inv, err); handled {
+			return res, nil
+		}
 		return failureResult(err), nil
 	}
 	res := &sdkmcp.CallToolResult{

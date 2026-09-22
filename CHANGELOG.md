@@ -5,6 +5,60 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.2.0] - 2026-09-22
+
+### Added
+
+- Managed-scope re-consent over MCP elicitation (spec §13). A `byo_oauth`
+  operation refused with `SCOPE_MISSING` now returns one approval form
+  instead of a dead end. The form binds the refused call: `op_id`, the
+  resolved `variant_id`, the profile, the exact sorted scope set, the
+  account the profile is bound to, and a request hash recomputed from live
+  state when the reply arrives. An approved form runs one loopback consent
+  for exactly those scopes and returns `SCOPE_GRANTED`; the operation is
+  not re-run for the caller. A binding mismatch, a partial grant, a consent
+  on another account, a decline, and a cancel each store nothing and leave
+  the original refusal in place. Every outcome writes one
+  `managed_scope_reconsent` audit event. The form is sent only to clients
+  that declared the `elicitation` capability; gum advertises no server
+  elicitation capability.
+- `gum auth login` refuses a partial consent when the caller names required
+  scopes. The prior keyring grant is left untouched, and the refusal names
+  the missing scopes with `BYO_OAUTH_SCOPE_NOT_GRANTED`.
+- HTTP/ETag revalidation on the outbound request path (spec §10.2). A read
+  whose stored validator matches sends `If-None-Match`, and a 304 returns
+  `{"unchanged": true, "etag": "..."}` without running the expression
+  pipeline, the field mask, the tee artifact, or the results handle. The
+  gain ledger records the call as `cache_status: "etag_304"` with
+  `response_tokens: 0` and the cached body in `raw_tokens`. The store has
+  no TTL and nothing evicts it: `gum cache clear [pattern]` is the only
+  reclaim path, and it is also how a caller forces a re-shape under a
+  changed output profile.
+- Capability atoms on all 228 shipped variants (spec §5.8), derived offline
+  by `gen-catalog -apply-capabilities` from each op's request record and
+  HTTP binding, with a curated table for the variants whose atoms contradict
+  what the adapters run. `drive.files.get` and `drive.files.export` declare
+  `media_download` and cannot run it, so their success envelope carries
+  `_expression._unsupported_capabilities` and `gum.describe_op` renders the
+  same atoms as `capability_class_warnings`.
+
+### Fixed
+
+- The release workflow passes the five `MACOS_*` secrets to the `goreleaser`
+  step. The notarize block is gated on `isEnvSet "MACOS_SIGN_P12"`, which the
+  job never set, so every macOS binary shipped unsigned whatever the
+  repository held. Binaries stay unsigned until the certificate and the
+  notary key are provisioned; the gate now reads the real state.
+- The §9.1 recovery fetch no longer carries the masked request's ETag. Its
+  key includes `args_canonical` and the recovery request removes `fields`
+  from those args, so a 304 there would have written a `full_result_path`
+  artifact from an empty body.
+- The spec §5.4 pipeline diagram said `gen-catalog` computes `default_fields`
+  from §5.6 heuristics. §5.6 says the table is curated by hand and applied by
+  a separate `gen-catalog -apply-default-fields` pass.
+
 ## [2.1.0] - 2026-09-21
 
 ### Added

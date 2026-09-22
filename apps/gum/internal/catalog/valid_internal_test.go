@@ -76,3 +76,54 @@ func TestInterfaceKindValid(t *testing.T) {
 		}
 	}
 }
+
+// TestAuthComponentKindValid pins the §7 auth-component enum plus the
+// "x-" informational escape hatch. Op.Validate rejects a variant whose
+// auth_components carry an unrecognised kind, so a typo here would let
+// a prerequisite the setup flow cannot explain reach dispatch, where it
+// surfaces as an empty missing_components list instead of a refusal.
+func TestAuthComponentKindValid(t *testing.T) {
+	cases := []struct {
+		in   AuthComponentKind
+		want bool
+	}{
+		{AuthComponentOAuthScopes, true},
+		{AuthComponentDeveloperToken, true},
+		{AuthComponentWorkspaceAdminTrust, true},
+		{AuthComponentAccountPermission, true},
+		{"x-ads-permissible-use", true},
+		{"x-", false},
+		{"", false},
+		{"oauth_scope", false},
+		{"unknown", false},
+	}
+	for _, tc := range cases {
+		if got := tc.in.Valid(); got != tc.want {
+			t.Errorf("(%q).Valid()=%v; want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestAuthComponentKindsCoversEveryConstant keeps AuthComponentKinds and
+// the declared constants in step. Valid() answers from the slice, so a
+// constant missing from it validates as false and quarantines every
+// variant that declares it.
+func TestAuthComponentKindsCoversEveryConstant(t *testing.T) {
+	declared := []AuthComponentKind{
+		AuthComponentOAuthScopes, AuthComponentOAuthClient, AuthComponentAPIEnabledProject,
+		AuthComponentAPIKey, AuthComponentDeveloperToken, AuthComponentCustomerID,
+		AuthComponentLoginCustomerID, AuthComponentBillingEnabled, AuthComponentManagerAccount,
+		AuthComponentWorkspaceAdminTrust, AuthComponentDomainWideDelegation,
+		AuthComponentServiceAccountKey, AuthComponentConsentVerification,
+		AuthComponentOAuthConsentScreen, AuthComponentQuotaProject, AuthComponentServiceAllowlist,
+		AuthComponentOrgPolicyException, AuthComponentOAuthClientSecret, AuthComponentAccountPermission,
+	}
+	if len(AuthComponentKinds) != len(declared) {
+		t.Fatalf("len(AuthComponentKinds)=%d; want %d", len(AuthComponentKinds), len(declared))
+	}
+	for _, k := range declared {
+		if !k.Valid() {
+			t.Errorf("(%q).Valid()=false; every declared kind must validate", k)
+		}
+	}
+}

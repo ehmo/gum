@@ -73,3 +73,23 @@ func PruneLoginScopes(scopes []string) []string {
 	}
 	return out
 }
+
+// missingRequiredScopes returns the required scopes a grant does not cover,
+// in the order they were required. The granted set is expanded first, so a
+// scope another grant subsumes counts as present.
+func missingRequiredScopes(required, granted []string) []string {
+	if len(required) == 0 {
+		return nil
+	}
+	have := make(map[string]bool, len(granted))
+	for _, s := range ExpandGrantedScopes(granted) {
+		have[s] = true
+	}
+	var missing []string
+	for _, s := range required {
+		if !have[s] {
+			missing = append(missing, s)
+		}
+	}
+	return missing
+}

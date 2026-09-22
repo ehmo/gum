@@ -33,8 +33,8 @@ func TestCompleteFieldsForOpKnownOpEmptyDefaultFields(t *testing.T) {
 	if snap == nil {
 		t.Skip("embedded catalog unavailable")
 	}
-	// Find any op whose default variant has no DefaultFields; the embedded
-	// catalog has zero default_fields entries so the first op works.
+	// Find any op whose default variant has no DefaultFields. The §5.6 table
+	// is curated, so most shipped ops carry none and the scan finds one.
 	var opID string
 	for i := range snap.Ops {
 		v := defaultVariant(&snap.Ops[i])

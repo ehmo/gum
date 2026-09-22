@@ -45,6 +45,7 @@ func populatedMeta() *ExpressionMeta {
 		ProjectRootURI:           &root,
 		ProfileResolutionWarning: &warning,
 		CodeOutputTruncated:      &truncated,
+		UnsupportedCapabilities:  []string{"media_download"},
 	}
 }
 

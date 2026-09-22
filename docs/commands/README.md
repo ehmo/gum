@@ -49,7 +49,7 @@ Generated pages: 64.
     - [gum auth use-oauth-client](gum-auth-use-oauth-client.md) - Register a Desktop-app OAuth client you created in the Google Cloud console.
     - [gum auth use-service-account](gum-auth-use-service-account.md) - Configure the service_account_key auth strategy
   - [gum cache](gum-cache.md) - Inspect or clear the dispatcher response cache
-    - [gum cache clear](gum-cache-clear.md) - Clear the dispatcher response cache
+    - [gum cache clear](gum-cache-clear.md) - Clear the dispatcher response cache.
     - [gum cache migrate](gum-cache-migrate.md) - Migrate BoltDB cache (http.db) to WAL-SQLite (http-wal.db)
     - [gum cache stats](gum-cache-stats.md) - Print dispatcher cache stats
   - [gum call](gum-call.md) - gum call is the deterministic CLI entry point for catalog operations.

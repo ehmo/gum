@@ -78,11 +78,21 @@ type BBoltConfig struct {
 	// HotTierSize is the maximum number of entries kept in the in-memory hot tier.
 	// Defaults to 512 when 0.
 	HotTierSize int
+	// OpenTimeout bounds the wait for the file lock another process holds.
+	// Zero waits indefinitely, which is bbolt's own default. A caller that
+	// opens the cache on a latency path passes a short value and treats
+	// ErrCacheLocked as "run without this cache".
+	OpenTimeout time.Duration
 }
 
 // ErrCacheCorrupt is returned by Open when the bbolt file exists but is not a
 // valid bbolt database.
 var ErrCacheCorrupt = errors.New("cache: bbolt file corrupt or not a valid database")
+
+// ErrCacheLocked is returned by Open when another process still holds the
+// file lock after BBoltConfig.OpenTimeout. The file itself is intact, so the
+// caller either retries later or runs without the cache.
+var ErrCacheLocked = errors.New("cache: bbolt file locked by another process")
 
 // Open creates or opens a BBoltCache at cfg.Path.
 // If cfg.Path does not exist, Open creates it along with any missing parent directories.
@@ -107,8 +117,17 @@ func Open(cfg BBoltConfig) (*BBoltCache, error) {
 		return nil, fmt.Errorf("cache: create cache dir: %w", err)
 	}
 
-	db, err := bolt.Open(cfg.Path, 0o600, nil)
+	var opts *bolt.Options
+	if cfg.OpenTimeout > 0 {
+		opts = &bolt.Options{Timeout: cfg.OpenTimeout}
+	}
+	db, err := bolt.Open(cfg.Path, 0o600, opts)
 	if err != nil {
+		// A held lock is not corruption: the recovery is to wait or to skip
+		// the cache, not to delete the file, so it gets its own sentinel.
+		if errors.Is(err, bolt.ErrTimeout) {
+			return nil, fmt.Errorf("%w: %s", ErrCacheLocked, cfg.Path)
+		}
 		return nil, fmt.Errorf("%w: %v", ErrCacheCorrupt, err)
 	}
 
@@ -358,6 +377,96 @@ func (c *BBoltCache) EvictExpired() (int, error) {
 	c.mu.Unlock()
 
 	return deleted, nil
+}
+
+// DeleteWhere removes every entry whose stored payload pred accepts and
+// returns how many it deleted. It is the reclaim path for caches with no TTL:
+// §10.2 entries never expire, so the only way to drop them is to name them.
+//
+// pred sees the decoded payload, not the on-disk record, so a caller matches
+// on its own entry format without knowing this file's. An entry whose record
+// does not decode is passed to pred as a nil payload; a pred that accepts nil
+// therefore also reaps corrupt rows.
+func (c *BBoltCache) DeleteWhere(pred func(key string, payload []byte) bool) (int, error) {
+	if pred == nil {
+		return 0, nil
+	}
+	var doomed []string
+
+	if err := c.view(func(tx *bolt.Tx) error {
+		b := tx.Bucket(cacheBucket)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			var record cacheRecord
+			if err := json.Unmarshal(v, &record); err != nil {
+				if pred(string(k), nil) {
+					doomed = append(doomed, string(k))
+				}
+				return nil
+			}
+			if pred(string(k), record.Payload) {
+				doomed = append(doomed, string(k))
+			}
+			return nil
+		})
+	}); err != nil {
+		return 0, fmt.Errorf("cache: scan for matching entries: %w", err)
+	}
+
+	if len(doomed) == 0 {
+		return 0, nil
+	}
+
+	deleted := 0
+	if err := c.update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(cacheBucket)
+		if b == nil {
+			return errBucketMissing
+		}
+		for _, k := range doomed {
+			if err := b.Delete([]byte(k)); err != nil {
+				return fmt.Errorf("delete %q: %w", k, err)
+			}
+			deleted++
+		}
+		return nil
+	}); err != nil {
+		return 0, fmt.Errorf("cache: delete matching entries: %w", err)
+	}
+
+	c.mu.Lock()
+	for _, k := range doomed {
+		delete(c.hot, k)
+		c.removeFromHotOrder(k)
+	}
+	c.mu.Unlock()
+
+	return deleted, nil
+}
+
+// ForEachPayload calls fn for every stored entry that decodes. It exists so a
+// reporting caller (`gum cache stats`) can size a store it did not write,
+// without exposing the on-disk record layout.
+func (c *BBoltCache) ForEachPayload(fn func(key string, payload []byte)) error {
+	if fn == nil {
+		return nil
+	}
+	return c.view(func(tx *bolt.Tx) error {
+		b := tx.Bucket(cacheBucket)
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			var record cacheRecord
+			if err := json.Unmarshal(v, &record); err != nil {
+				return nil
+			}
+			fn(string(k), record.Payload)
+			return nil
+		})
+	})
 }
 
 // promoteToHot adds/updates an entry in the hot tier. Must be called with c.mu held (write).

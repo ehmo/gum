@@ -174,6 +174,16 @@ jobs:
           workdir: apps/gum
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Developer ID signing and Apple notarization. The notarize block in
+          # apps/gum/.goreleaser.yaml is gated on isEnvSet "MACOS_SIGN_P12", so
+          # a release runs unsigned until all five secrets exist on this
+          # repository. An unset secret expands to the empty string, which
+          # leaves the gate false and the release green.
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
 
       - name: verify public auth posture
         working-directory: apps/gum

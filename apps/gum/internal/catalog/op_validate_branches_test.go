@@ -2,6 +2,7 @@ package catalog_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/ehmo/gum/internal/catalog"
@@ -209,6 +210,48 @@ func TestOpValidateRejectsUndocumentedAuthStrategy(t *testing.T) {
 			err := c.Validate()
 			if !errors.Is(err, catalog.ErrUnknownAuthStrategy) {
 				t.Fatalf("Validate(%q) = %v; want ErrUnknownAuthStrategy", name, err)
+			}
+		})
+	}
+}
+
+// TestOpValidateRejectsUnknownAuthComponentKind pins the
+// `!comp.Kind.Valid() → ErrUnknownAuthComponent` arm of the per-variant
+// auth_components loop. Dispatch reads auth_components to decide which
+// prerequisite is missing and what `gum auth setup` must collect, so a
+// kind no code recognises would reach the user as a refusal naming a
+// component nothing can satisfy. The error message must carry the
+// offending kind, because that string is the only clue a catalog author
+// gets. The valid rows also prove the loop accepts a standardized kind
+// and an "x-" informational one.
+func TestOpValidateRejectsUnknownAuthComponentKind(t *testing.T) {
+	cases := []struct {
+		name string
+		kind catalog.AuthComponentKind
+		ok   bool
+	}{
+		{name: "standardized kind", kind: catalog.AuthComponentOAuthScopes, ok: true},
+		{name: "x-prefixed informational kind", kind: "x-ads-permissible-use", ok: true},
+		{name: "unknown kind", kind: "moon_phase"},
+		{name: "empty kind", kind: ""},
+		{name: "bare x- prefix", kind: "x-"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := loadFixture(t, "sample-catalog.json")
+			c.Ops[0].Variants[0].AuthComponents = []catalog.AuthComponent{{Kind: tc.kind}}
+			err := c.Validate()
+			if tc.ok {
+				if err != nil {
+					t.Fatalf("Validate(kind=%q)=%v; want nil", tc.kind, err)
+				}
+				return
+			}
+			if !errors.Is(err, catalog.ErrUnknownAuthComponent) {
+				t.Fatalf("Validate(kind=%q)=%v; want ErrUnknownAuthComponent", tc.kind, err)
+			}
+			if !strings.Contains(err.Error(), string(tc.kind)) && tc.kind != "" {
+				t.Errorf("Validate()=%q; want the offending kind %q in the message", err, tc.kind)
 			}
 		})
 	}
