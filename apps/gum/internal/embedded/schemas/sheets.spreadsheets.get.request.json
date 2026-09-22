@@ -1,0 +1,20 @@
+{
+  "$id": "sheets.spreadsheets.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "includeGridData": {
+      "type": "boolean"
+    },
+    "ranges": {
+      "type": "array"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId"
+  ],
+  "title": "Get a Spreadsheet request",
+  "type": "object"
+}

@@ -33,12 +33,6 @@ const (
 	// StrategyServiceAccountKey corresponds to catalog.AuthStrategyServiceAccountKey
 	// ("service_account_key"). Stubbed.
 	StrategyServiceAccountKey
-	// StrategyWorkloadIdentity corresponds to catalog.AuthStrategyWorkloadIdentity
-	// ("workload_identity"). Stubbed.
-	StrategyWorkloadIdentity
-	// StrategyImpersonation corresponds to catalog.AuthStrategyImpersonation
-	// ("impersonation"). Stubbed.
-	StrategyImpersonation
 	// StrategyNone corresponds to catalog.AuthStrategyNone ("none"). Stubbed.
 	StrategyNone
 	// StrategyCompound corresponds to catalog.AuthStrategyCompound ("compound"). Stubbed.
@@ -199,10 +193,6 @@ func (s Strategy) String() string {
 		return "api_key"
 	case StrategyServiceAccountKey:
 		return "service_account_key"
-	case StrategyWorkloadIdentity:
-		return "workload_identity"
-	case StrategyImpersonation:
-		return "impersonation"
 	case StrategyNone:
 		return "none"
 	case StrategyCompound:
@@ -231,10 +221,6 @@ func strategyFromCatalog(as catalog.AuthStrategy) (Strategy, error) {
 		// (both accepted by Validate). Map both to the same resolver, else a
 		// variant using the alias passes validation but fails AUTH_REQUIRED.
 		return StrategyServiceAccountKey, nil
-	case catalog.AuthStrategyWorkloadIdentity:
-		return StrategyWorkloadIdentity, nil
-	case catalog.AuthStrategyImpersonation:
-		return StrategyImpersonation, nil
 	case catalog.AuthStrategyNone:
 		return StrategyNone, nil
 	case catalog.AuthStrategyCompound:
@@ -292,7 +278,7 @@ func Acquire(ctx context.Context, strat Strategy, scopes []string) (*Credentials
 			Strategy:         strat.String(),
 			HumanRemediation: "use NewGumOAuth() and call .Login() / .Resolve() directly; gum_oauth is gated by the managed-scopes manifest (docs/auth-managed-scopes.v1.json)",
 		}
-	case StrategyWorkloadIdentity, StrategyImpersonation, StrategyNone, StrategyCompound, StrategyPluginManaged:
+	case StrategyNone, StrategyCompound, StrategyPluginManaged:
 		return nil, &AuthError{
 			Code:             "AUTH_STRATEGY_NOT_IMPLEMENTED",
 			Strategy:         strat.String(),

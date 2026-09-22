@@ -1,0 +1,24 @@
+{
+  "$id": "vault.matters.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "matterId": {
+      "description": "The matter ID.",
+      "type": "string"
+    },
+    "view": {
+      "description": "Specifies how much information about the matter to return in the response.",
+      "enum": [
+        "VIEW_UNSPECIFIED",
+        "BASIC",
+        "FULL"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "matterId"
+  ],
+  "title": "Get a Vault Matter request",
+  "type": "object"
+}

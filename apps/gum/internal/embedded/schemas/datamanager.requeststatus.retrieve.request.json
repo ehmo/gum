@@ -1,0 +1,15 @@
+{
+  "$id": "datamanager.requeststatus.retrieve.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "requestId": {
+      "description": "The requestId returned by an ingest call.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "requestId"
+  ],
+  "title": "Retrieve request status request",
+  "type": "object"
+}

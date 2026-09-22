@@ -35,6 +35,59 @@ var ErrStepLimitExceeded = errors.New("sandbox: step limit exceeded")
 // loop long before the wall-clock timeout would let it pin a core.
 const DefaultMaxSteps int64 = 100_000_000
 
+// DefaultOutputLimitBytes is the spec §6.1 cumulative output budget applied
+// when Options.OutputLimitBytes is 0: every gum_print plus the JSON projection
+// of the script's return value is charged against this one counter.
+const DefaultOutputLimitBytes = 4096
+
+// MaxPrintBytesPerCall is the spec §6.3 ceiling on a single gum_print. The
+// cumulative budget is authoritative, so this only binds when
+// Options.OutputLimitBytes is raised above it.
+const MaxPrintBytesPerCall = 4096
+
+// OutputLimitError reports that the script's return value did not fit in what
+// the gum_print calls left of the cumulative output budget (spec §6.1). The
+// adapter maps it to the CODE_OUTPUT_LIMIT_EXCEEDED structured error; the
+// printed bytes are discarded with it, because the spec returns the envelope
+// in place of the whole result rather than alongside a partial one.
+type OutputLimitError struct {
+	LimitBytes   int
+	PrintedBytes int
+	ValueBytes   int
+}
+
+func (e *OutputLimitError) Error() string {
+	return fmt.Sprintf("sandbox: code output limit exceeded: budget %d bytes, printed %d, return value %d",
+		e.LimitBytes, e.PrintedBytes, e.ValueBytes)
+}
+
+// Budget reports what the §6.1 cumulative output budget has left at the moment
+// it is asked. Run binds it before the script starts, so a global the caller
+// injected can size its own output against what gum_print has already spent.
+//
+// It exists for the §9.0.1 batch ceiling: gum_parallel has to know the live
+// remainder to decide which result elements it must truncate, and only the
+// sandbox owns that counter. A Budget that was never passed to Run reports
+// ok=false rather than 0, so a caller that forgot to wire one skips its
+// accounting instead of truncating everything.
+//
+// Remaining is read from the script goroutine, the same one that runs
+// gum_print, so the counter needs no lock.
+type Budget struct {
+	remaining func() int
+}
+
+// Remaining returns the unspent budget in bytes, and whether this Budget is
+// bound to a running sandbox at all. The count never goes negative: gum_print
+// clamps every write to what the budget has left, and an oversized return
+// value raises OutputLimitError instead of being written.
+func (b *Budget) Remaining() (int, bool) {
+	if b == nil || b.remaining == nil {
+		return 0, false
+	}
+	return b.remaining(), true
+}
+
 // Options configures a single sandbox Run.
 type Options struct {
 	AllowWrite       bool
@@ -42,10 +95,15 @@ type Options struct {
 	// Globals are injected into the Risor environment (e.g. gum_print, gum_call,
 	// gum_search, gum_confirm_destructive). Caller must inject these to enable them;
 	// if absent, defaults that panic are installed.
-	Globals           map[string]any
-	ScriptTimeout     time.Duration // 0 → default 60s wall-clock backstop
-	MaxSteps          int64         // VM instruction ceiling; 0 → DefaultMaxSteps
-	PrintByteCap      int           // per-call accumulated print byte cap; 0 → default 65536
+	Globals       map[string]any
+	ScriptTimeout time.Duration // 0 → default 60s wall-clock backstop
+	MaxSteps      int64         // VM instruction ceiling; 0 → DefaultMaxSteps
+	// OutputLimitBytes is the §6.1 cumulative output budget shared by every
+	// gum_print and the script's return value; 0 → DefaultOutputLimitBytes.
+	OutputLimitBytes int
+	// Budget, when non-nil, is bound by Run to the live OutputLimitBytes
+	// counter so injected globals can read the remainder (§9.0.1).
+	Budget            *Budget
 	HTTPTimeout       time.Duration // 0 → default 30s for gum_http_get
 	AllowInsecureHTTP bool          // if true, gum_http_get allows http:// URLs (test only)
 
@@ -67,8 +125,13 @@ type Options struct {
 
 // Output is the result of a successful sandbox Run.
 type Output struct {
-	Printed []byte // all bytes written via gum_print, capped at Options.PrintByteCap
+	Printed []byte // all bytes written via gum_print, capped at Options.OutputLimitBytes
 	Value   any    // last evaluated expression value; may be nil
+
+	// Truncated reports that at least one gum_print lost bytes to the
+	// cumulative budget or the per-call ceiling. The adapter projects it as
+	// _expression._code_output_truncated (spec §6.1).
+	Truncated bool
 }
 
 // Run compiles and executes source in a Risor sandbox with the given options.
@@ -84,15 +147,22 @@ func Run(ctx context.Context, source string, opts Options) (*Output, error) {
 	if opts.MaxSteps <= 0 {
 		opts.MaxSteps = DefaultMaxSteps
 	}
-	if opts.PrintByteCap <= 0 {
-		opts.PrintByteCap = 65536
+	// <= 0 rather than == 0 for the same reason as MaxSteps: a negative budget
+	// would otherwise read as "no ceiling" instead of "unset".
+	if opts.OutputLimitBytes <= 0 {
+		opts.OutputLimitBytes = DefaultOutputLimitBytes
 	}
 
 	childCtx, cancel := context.WithTimeout(ctx, opts.ScriptTimeout)
 	defer cancel()
 
 	var buf bytes.Buffer
-	printByteCap := opts.PrintByteCap
+	outputLimit := opts.OutputLimitBytes
+	truncated := false
+
+	if opts.Budget != nil {
+		opts.Budget.remaining = func() int { return outputLimit - buf.Len() }
+	}
 
 	// Build globals map from caller-provided globals.
 	globals := make(map[string]any)
@@ -117,14 +187,22 @@ func Run(ctx context.Context, source string, opts Options) (*Output, error) {
 		}
 		value := risorObjectToGo(args[0])
 		b := []byte(printValue(value))
-		remaining := printByteCap - buf.Len()
-		if remaining > 0 {
-			if len(b) > remaining {
-				// Truncate to nearest UTF-8 boundary <= remaining.
-				b = truncateToUTF8Boundary(b, remaining)
-			}
-			buf.Write(b)
+		// Two ceilings apply at once: what this call may print and what the
+		// cumulative budget has left. The tighter one wins.
+		allowed := MaxPrintBytesPerCall
+		if remaining := outputLimit - buf.Len(); remaining < allowed {
+			allowed = remaining
 		}
+		if len(b) > allowed {
+			kept := TruncateToUTF8Boundary(b, allowed)
+			// An empty print against an exhausted budget drops nothing, so it
+			// must not raise the flag.
+			if len(kept) < len(b) {
+				truncated = true
+			}
+			b = kept
+		}
+		buf.Write(b)
 		// Also invoke the caller's version if one was provided.
 		if callerGumPrint != nil {
 			if fn, ok := callerGumPrint.(func(any) any); ok {
@@ -276,9 +354,25 @@ func Run(ctx context.Context, source string, opts Options) (*Output, error) {
 		value = risorObjectToGo(obj)
 	}
 
+	// The return value is charged against whatever the prints left. §6.1 makes
+	// the envelope replace the result rather than accompany it, so this is an
+	// error return and not a flag on Output.
+	valueBytes := 0
+	if value != nil {
+		valueBytes = len(printValue(value))
+	}
+	if buf.Len()+valueBytes > outputLimit {
+		return nil, &OutputLimitError{
+			LimitBytes:   outputLimit,
+			PrintedBytes: buf.Len(),
+			ValueBytes:   valueBytes,
+		}
+	}
+
 	return &Output{
-		Printed: buf.Bytes(),
-		Value:   value,
+		Printed:   buf.Bytes(),
+		Value:     value,
+		Truncated: truncated,
 	}, nil
 }
 
@@ -391,9 +485,9 @@ func risorObjectToGo(obj object.Object) any {
 	}
 }
 
-// truncateToUTF8Boundary truncates b to at most maxBytes, always ending on a
+// TruncateToUTF8Boundary truncates b to at most maxBytes, always ending on a
 // valid UTF-8 rune boundary. The result is guaranteed to be valid UTF-8.
-func truncateToUTF8Boundary(b []byte, maxBytes int) []byte {
+func TruncateToUTF8Boundary(b []byte, maxBytes int) []byte {
 	if maxBytes <= 0 {
 		return b[:0]
 	}

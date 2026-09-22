@@ -1,0 +1,33 @@
+{
+  "$id": "gmail.users.threads.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "format": {
+      "description": "The format to return the messages in.",
+      "enum": [
+        "full",
+        "metadata",
+        "minimal"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "description": "The ID of the thread to retrieve.",
+      "type": "string"
+    },
+    "metadataHeaders": {
+      "description": "When given and format is METADATA, only include headers specified.",
+      "type": "string"
+    },
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "userId"
+  ],
+  "title": "Get Gmail thread request",
+  "type": "object"
+}

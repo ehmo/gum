@@ -1,0 +1,41 @@
+{
+  "$id": "drive.files.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "corpora": {
+      "description": "One of: user, domain, drive, allDrives (free-form per the API).",
+      "type": "string"
+    },
+    "driveId": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "string"
+    },
+    "includeItemsFromAllDrives": {
+      "type": "boolean"
+    },
+    "orderBy": {
+      "type": "string"
+    },
+    "pageSize": {
+      "type": "integer"
+    },
+    "pageToken": {
+      "type": "string"
+    },
+    "q": {
+      "description": "Search query, e.g. name contains 'report' and trashed=false.",
+      "type": "string"
+    },
+    "spaces": {
+      "description": "Comma-separated: drive, appDataFolder.",
+      "type": "string"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "title": "List Drive Files request",
+  "type": "object"
+}

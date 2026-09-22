@@ -177,21 +177,36 @@ func TestExpressionProfileGoldens(t *testing.T) {
 		profileFile string
 		inputFile   string
 		goldenFile  string
+		op          string
+		variant     string
 	}{
 		{
 			profileFile: "gmail-list-profile.toml",
 			inputFile:   "gmail-list-input.json",
 			goldenFile:  "gmail-list-golden.toon",
+			op:          "gmail.users.messages.list",
+			variant:     "gmail.v1.rest.users.messages.list",
+		},
+		{
+			profileFile: "gmail-rows-profile.toml",
+			inputFile:   "gmail-list-input.json",
+			goldenFile:  "gmail-rows-golden.toon",
+			op:          "gmail.users.messages.list",
+			variant:     "gmail.v1.rest.users.messages.list",
 		},
 		{
 			profileFile: "calendar-events-profile.toml",
 			inputFile:   "calendar-events-input.json",
 			goldenFile:  "calendar-events-golden.toon",
+			op:          "calendar.events.list",
+			variant:     "calendar.v3.rest.events.list",
 		},
 		{
 			profileFile: "drive-files-profile.toml",
 			inputFile:   "drive-files-input.json",
 			goldenFile:  "drive-files-golden.toon",
+			op:          "drive.files.list",
+			variant:     "drive.v3.rest.files.list",
 		},
 	}
 
@@ -218,6 +233,8 @@ func TestExpressionProfileGoldens(t *testing.T) {
 				out, err = profile.Apply(p, profile.ApplyInput{
 					Body:       inputBody,
 					UserFormat: "toon",
+					Op:         tc.op,
+					Variant:    tc.variant,
 				})
 			})
 			if panicked {

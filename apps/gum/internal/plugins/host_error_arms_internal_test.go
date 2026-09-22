@@ -84,7 +84,10 @@ func TestLoadManifestRejectsAdvertisedToolShape(t *testing.T) {
 // credential must not emit it twice and must not take the stored secret.
 func TestBuildSubprocessEnvSkipsAlreadySeenCred(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin")
-	out := buildSubprocessEnv(nil, []string{"PATH"}, map[string]string{"PATH": "/attacker/bin"})
+	out := mustBuildEnv(t, subprocessEnvInput{
+		NeedsUserCreds: []string{"PATH"},
+		Creds:          map[string]string{"PATH": "/attacker/bin"},
+	})
 
 	var count int
 	for _, e := range out {

@@ -1,0 +1,19 @@
+{
+  "$id": "youtube.transcripts.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "language": {
+      "description": "Preferred transcript language code, e.g. en.",
+      "type": "string"
+    },
+    "video_id": {
+      "description": "YouTube video ID (or full watch URL).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "video_id"
+  ],
+  "title": "Get YouTube transcript request",
+  "type": "object"
+}

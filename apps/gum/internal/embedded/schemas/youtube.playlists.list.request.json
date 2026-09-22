@@ -1,0 +1,47 @@
+{
+  "$id": "youtube.playlists.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "channelId": {
+      "description": "Return the playlists owned by the specified channel ID.",
+      "type": "string"
+    },
+    "hl": {
+      "description": "Return content in specified language",
+      "type": "string"
+    },
+    "id": {
+      "description": "Return the playlists with the given IDs for Stubby or Apiary.",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set.",
+      "type": "integer"
+    },
+    "mine": {
+      "description": "Return the playlists owned by the authenticated user.",
+      "type": "boolean"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "onBehalfOfContentOwnerChannel": {
+      "description": "This parameter can only be used in a properly authorized request. *Note:* This parameter is intended exclusively for Yo…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter specifies a comma-separated list of one or more playlist resource properties that the API response…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "List Playlists request",
+  "type": "object"
+}

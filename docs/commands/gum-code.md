@@ -49,8 +49,8 @@ gum code <script-or-@file> [flags]
 | `--format` | `string` |  | Output format (toon\|json\|raw) |
 | `--language` | `string` | risor | Sandbox language (only risor in v0.1.0) |
 | `-o`<br>`--output` | `string` |  | Output format: json\|toon\|raw (raw script output remains raw) |
-| `--timeout-sec` | `int` | 0 | Per-invocation timeout in seconds (0=default) |
 | `--token` | `string` |  | Confirmation token returned by a prior elevated gum code attempt |
+| `--yes` | `bool` | false | Confirm --allow-write/--allow-destructive without a prompt (required when stdin is not a terminal) |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |

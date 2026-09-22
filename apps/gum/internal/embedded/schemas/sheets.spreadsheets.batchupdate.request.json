@@ -1,0 +1,31 @@
+{
+  "$id": "sheets.spreadsheets.batchupdate.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "includeSpreadsheetInResponse": {
+      "type": "boolean"
+    },
+    "requests": {
+      "description": "Sheets batchUpdate request objects.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "responseRanges": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "requests"
+  ],
+  "title": "Edit a Spreadsheet (batchUpdate) request",
+  "type": "object"
+}

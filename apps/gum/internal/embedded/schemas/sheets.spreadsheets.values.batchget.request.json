@@ -1,0 +1,44 @@
+{
+  "$id": "sheets.spreadsheets.values.batchget.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "dateTimeRenderOption": {
+      "enum": [
+        "SERIAL_NUMBER",
+        "FORMATTED_STRING"
+      ],
+      "type": "string"
+    },
+    "majorDimension": {
+      "enum": [
+        "ROWS",
+        "COLUMNS"
+      ],
+      "type": "string"
+    },
+    "ranges": {
+      "description": "A1 ranges to read.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    },
+    "valueRenderOption": {
+      "enum": [
+        "FORMATTED_VALUE",
+        "UNFORMATTED_VALUE",
+        "FORMULA"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "ranges"
+  ],
+  "title": "Read Multiple Sheets Ranges request",
+  "type": "object"
+}

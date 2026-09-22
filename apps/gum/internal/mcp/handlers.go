@@ -169,7 +169,7 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 	if query == "" {
 		return errorResult("INVALID_ARGS: query is required"), nil
 	}
-	tuning := loadSearchAPIsTuning(s.profile.String())
+	tuning := loadSearchAPIsTuning(s.profile.String(), s.log())
 	k, kOK := searchAPIsK(args["k"], tuning.k)
 	if !kOK {
 		return errorResult(fmt.Sprintf("INVALID_ARGS: k takes an integer in %d..%d", searchAPIsKMin, searchAPIsKMax)), nil
@@ -202,6 +202,10 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 	out, err := profile.Apply(prof, profile.ApplyInput{
 		Body:       bodyJSON,
 		UserFormat: "", // spec §9.4: meta-tool profiles are not overridable
+		Op:         searchAPIsToolName,
+		// No catalog variant backs a meta tool, so the §9.0 variant header is
+		// present and empty.
+		Variant: "",
 	})
 	if err != nil {
 		return errorResult(fmt.Sprintf("PROFILE_APPLY_FAILED: %v", err)), nil
@@ -643,13 +647,32 @@ func (s *Server) handleGain(_ context.Context, _ *sdkmcp.CallToolRequest) (*sdkm
 		}), nil
 	}
 	defer func() { _ = ledger.Close() }()
-	return structuredJSONResult(gainSuccessEnvelope(ledger.Stats())), nil
+	return structuredJSONResult(gainSuccessEnvelope(ledger.Stats(), gain.Sessions(ledger.Select(gain.Filter{})))), nil
 }
 
-// gainSuccessEnvelope builds the 9-key spec §2793 GainResult map from ledger
-// stats. baseline_tokens is the naive raw-token total (TotalTokensIn) and
+// gainSuccessEnvelope builds the spec §2793 GainResult map from ledger stats.
+// baseline_tokens is the naive raw-token total (TotalTokensIn) and
 // actual_tokens is the shaped total, so savings_pct is the real reduction.
-func gainSuccessEnvelope(stats gain.Stats) map[string]any {
+//
+// savings_pct and the three §12.3 savings-accounting fields answer different
+// questions and routinely disagree:
+//
+//   - savings_pct covers the whole window, estimated baselines included.
+//   - end_to_end_savings is the release-gated figure: fixture-backed entries
+//     only, gum_parallel envelope overhead charged against the savings.
+//   - per_op_shaping_savings is the same calls with the envelope removed. It
+//     always reads at least as high, and §12.3 forbids gating on it.
+//   - batch_envelope_overhead is the gap between them, in tokens.
+//
+// end_to_end_savings and per_op_shaping_savings are null, not 0, when the
+// window holds no fixture-backed entry. No reproducible evidence is a
+// different claim from no savings.
+func gainSuccessEnvelope(stats gain.Stats, sessions []gain.SessionRow) map[string]any {
+	// The schema reads an absent array as "this mode was not selected", so
+	// summary mode emits [] rather than null for an empty ledger.
+	if sessions == nil {
+		sessions = []gain.SessionRow{}
+	}
 	savingsTokens := stats.TotalTokensSaved
 	// The ledger DOES track the baseline (sum of raw tokens). Report it directly
 	// rather than approximating baseline as savings — the old approximation made
@@ -670,10 +693,13 @@ func gainSuccessEnvelope(stats gain.Stats) map[string]any {
 		"actual_tokens":           actualTokens,
 		"savings_tokens":          savingsTokens,
 		"savings_pct":             savingsPct,
-		"end_to_end_savings":      savingsPct, // v0.1.0: same as savings_pct
-		"batch_envelope_overhead": int64(0),
+		"end_to_end_savings":      stats.Release.Pct(),
+		"per_op_shaping_savings":  stats.ReleaseInner.Pct(),
+		"batch_envelope_overhead": stats.BatchEnvelopeTokens,
 		"tokenizer":               "cl100k_base",
-		"sessions":                []any{}, // summary-mode: empty array (spec §2818-2833)
+		// Summary mode carries one aggregate per session, and an empty
+		// ledger emits [] rather than dropping the key (spec §2818-2833).
+		"sessions": sessions,
 	}
 }
 
@@ -936,6 +962,7 @@ func (s *Server) dispatchAndShape(ctx context.Context, inv *dispatch.Invocation)
 		DedupedRows:     shaped.DedupedRows,
 		LimitedRows:     shaped.LimitedRows,
 		RawHint:         `format: "raw"`,
+		AnnotationPaths: shaped.AnnotationPaths,
 		MaxItemsHint:    `max_items: "all"`,
 		FullResultPath:  shaped.FullResultPath,
 		OnEmptyMessage:  onEmptyMessageOf(shaped),

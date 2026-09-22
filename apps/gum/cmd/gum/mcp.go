@@ -37,7 +37,12 @@ func runMCPStdio(parent context.Context, profile string) error {
 	gummcp.SetVersion(version)
 	disp, closeAudit := newDefaultDispatcherWithCloser(profile, true)
 	defer func() { _ = closeAudit() }()
-	srv := gummcp.NewServer(disp)
+	// Same snapshot the CLI dispatcher resolves against, built once by
+	// initSessionCatalog during PersistentPreRunE. Passing it here rather
+	// than letting the server re-read the embedded catalog is what keeps
+	// `gum call plug.<plugin>.<tool>` and gum://op/plug.<plugin>.<tool>
+	// agreeing on which plugin ops exist (spec §5 line 405, §13 line 2765).
+	srv := gummcp.NewServerWithCatalog(disp, loadCatalog())
 	if err := srv.SetProfile(profile); err != nil {
 		return err
 	}

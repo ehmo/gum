@@ -171,7 +171,10 @@ func TestAnnotateResponseContainsAnnotatorPanic(t *testing.T) {
 	d := &dispatcher{adapters: map[string]Adapter{"boom": panicAnnotatingAdapter{}}}
 	rv := &ResolvedVariant{AdapterKey: "boom", Variant: &catalog.Variant{}}
 
-	got := d.annotateResponse(&Invocation{OpID: "x"}, rv, body)
+	got, paths := d.annotateResponse(&Invocation{OpID: "x"}, rv, body)
+	if paths != nil {
+		t.Errorf("paths = %v; a panicking annotator added nothing", paths)
+	}
 	if string(got) != string(body) {
 		t.Errorf("annotateResponse = %s; want the upstream body %s", got, body)
 	}
@@ -189,6 +192,6 @@ func (panicAnnotatingAdapter) Execute(_ context.Context, _ *Invocation, _ *Resol
 	return &Response{Body: []byte(`{}`)}, nil
 }
 
-func (panicAnnotatingAdapter) AnnotateResponse(*Invocation, *ResolvedVariant, []byte) []byte {
+func (panicAnnotatingAdapter) AnnotateResponse(*Invocation, *ResolvedVariant, []byte) ([]byte, []string) {
 	panic("annotator exploded")
 }

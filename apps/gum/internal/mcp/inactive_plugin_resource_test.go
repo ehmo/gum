@@ -15,6 +15,7 @@ package mcp_test
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
@@ -142,25 +143,62 @@ func TestOpResourceQuarantinedPath(t *testing.T) {
 }
 
 // TestVariantResourceInactivePluginPath pins the §13 line 3155 symmetric
-// inactive-plugin response for the variant resource.
+// inactive-plugin response for the variant resource. Both inactive statuses
+// are covered: the needs_configuration branch carries credential aliases and
+// its own reason, and pending_restart carries neither.
 func TestVariantResourceInactivePluginPath(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	ctx, cs, profileDir, cleanup := connectResourceClient(t)
-	defer cleanup()
-	seedInactivePlugin(t, profileDir, "p-restart", "installed_pending_restart", nil)
-	const uri = "gum://variant/plug.p-restart.do_thing.v1"
-	res, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: uri})
-	if err != nil {
-		t.Fatalf("ReadResource(%s): %v", uri, err)
-	}
-	payload := singleJSONContent(t, res, uri)
-	if got, _ := payload["execution_support"].(string); got != "schema_only" {
-		t.Errorf("execution_support=%q; want schema_only", got)
-	}
-	if got, _ := payload["status"].(string); got != "installed_pending_restart" {
-		t.Errorf("status=%q; want installed_pending_restart", got)
-	}
+	t.Run("pending_restart_returns_schema_only", func(t *testing.T) {
+		ctx, cs, profileDir, cleanup := connectResourceClient(t)
+		defer cleanup()
+		seedInactivePlugin(t, profileDir, "p-restart", "installed_pending_restart", nil)
+		const uri = "gum://variant/plug.p-restart.do_thing.v1"
+		res, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: uri})
+		if err != nil {
+			t.Fatalf("ReadResource(%s): %v", uri, err)
+		}
+		payload := singleJSONContent(t, res, uri)
+		if got, _ := payload["execution_support"].(string); got != "schema_only" {
+			t.Errorf("execution_support=%q; want schema_only", got)
+		}
+		if got, _ := payload["status"].(string); got != "installed_pending_restart" {
+			t.Errorf("status=%q; want installed_pending_restart", got)
+		}
+		if _, present := payload["credential_aliases"]; present {
+			t.Error("credential_aliases present for pending_restart; §13 allows it only on needs_configuration")
+		}
+	})
+
+	t.Run("needs_configuration_returns_credential_aliases", func(t *testing.T) {
+		ctx, cs, profileDir, cleanup := connectResourceClient(t)
+		defer cleanup()
+		seedInactivePlugin(t, profileDir, "p-config", "needs_configuration", []string{"flights_oauth", "openai_api_key"})
+		const uri = "gum://variant/plug.p-config.do_thing.v1"
+		res, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: uri})
+		if err != nil {
+			t.Fatalf("ReadResource(%s): %v", uri, err)
+		}
+		payload := singleJSONContent(t, res, uri)
+		if got, _ := payload["execution_support"].(string); got != "schema_only" {
+			t.Errorf("execution_support=%q; want schema_only", got)
+		}
+		if got, _ := payload["status"].(string); got != "needs_configuration" {
+			t.Errorf("status=%q; want needs_configuration", got)
+		}
+		if got, _ := payload["reason"].(string); got != "Plugin requires credential setup and a successful live canary before activation." {
+			t.Errorf("reason=%q; mismatch with spec §13 line 3179", got)
+		}
+		aliases, _ := payload["credential_aliases"].([]any)
+		if len(aliases) != 2 || aliases[0] != "flights_oauth" || aliases[1] != "openai_api_key" {
+			t.Errorf("credential_aliases=%v; want [flights_oauth openai_api_key]", aliases)
+		}
+		// §5.8: the safe descriptor surface exposes aliases only. A raw env
+		// var name in this payload is the leak the row forbids.
+		if raw, _ := json.Marshal(payload); strings.Contains(string(raw), "FLIGHTS_SESSION") {
+			t.Errorf("payload leaks a raw env var name: %s", raw)
+		}
+	})
 }
 
 // seedInactivePlugin writes a plugin-catalog.json with one variant owned by

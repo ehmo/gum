@@ -1,0 +1,39 @@
+{
+  "$id": "flights.search.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "adults": {
+      "description": "Number of adult passengers.",
+      "type": "integer"
+    },
+    "cabin": {
+      "description": "Cabin class, e.g. economy, premium_economy, business, first.",
+      "type": "string"
+    },
+    "departure_date": {
+      "description": "Departure date (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+    },
+    "destination": {
+      "description": "Destination airport/city, e.g. JFK.",
+      "type": "string"
+    },
+    "origin": {
+      "description": "Origin airport/city, e.g. SFO.",
+      "type": "string"
+    },
+    "return_date": {
+      "description": "Return date (YYYY-MM-DD); omit for one-way.",
+      "format": "date",
+      "type": "string"
+    }
+  },
+  "required": [
+    "origin",
+    "destination",
+    "departure_date"
+  ],
+  "title": "Search Flights request",
+  "type": "object"
+}

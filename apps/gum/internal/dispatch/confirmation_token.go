@@ -36,6 +36,8 @@ type ConfirmationParams struct {
 	Scope                string        // JCS-canonical destructive scope or "[]"
 	Caller               string        // presentation surface that asked (spec §6.1.2 binding tuple)
 	RiskClass            string        // variant risk_class at issue time
+	AllowWrite           bool          // sandbox capability granted at issue time (gum.code purposes only)
+	AllowDestructive     bool          // sandbox capability granted at issue time (gum.code purposes only)
 	Purpose              string        // closed enum: see ConfirmationPurpose* constants
 	TTL                  time.Duration // consumed by IssueConfirmationToken only
 	ReplayStoreDir       string        // optional profile data dir for durable replay markers
@@ -217,6 +219,16 @@ func computeBindingHash(p ConfirmationParams, sourceHash string) []byte {
 	//    sourceHash. Purpose enters through the signature (computeSignature),
 	//    not this hash.
 	//   - Write tier omits scope (spec §4.1); every other tier includes it.
+	//   - gum.code tiers bind allow_write and allow_destructive; no other tier
+	//     does. Inside gum.code the two flags are independent sandbox
+	//     capabilities, and Purpose cannot stand in for them because {write} and
+	//     {write, destructive} both map onto ConfirmationPurposeCodeDestroy: a
+	//     token approved for a destructive-only script used to verify unchanged
+	//     against a re-invocation that added allow_write, opening an inner write
+	//     gate no one confirmed. On the write and destructive tiers the same
+	//     flags only route the caller's tool, and policy.go deliberately lets
+	//     allow_destructive drop on the confirming call (implicitlyAllowed), so
+	//     binding them there would reject the sanctioned handshake.
 	//
 	// caller is part of the tuple so a token the MCP server issued cannot be
 	// replayed through `gum call`, which spec §6.1.2 requires to fail with
@@ -231,6 +243,9 @@ func computeBindingHash(p ConfirmationParams, sourceHash string) []byte {
 	// surfaces; confirmation tokens are not among them.
 	const sep = "\x1f"
 	fields := []string{p.OpID, p.VariantID, p.ArgsHash, p.ResourceKey, p.ProfileName, p.Caller, p.RiskClass}
+	if p.Purpose == ConfirmationPurposeCodeWrite || p.Purpose == ConfirmationPurposeCodeDestroy {
+		fields = append(fields, strconv.FormatBool(p.AllowWrite), strconv.FormatBool(p.AllowDestructive))
+	}
 	if p.Purpose != ConfirmationPurposeWrite {
 		// Destructive (and any future tier) includes destructive_scope_canonical.
 		fields = append(fields, p.Scope)

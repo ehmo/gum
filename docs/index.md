@@ -39,7 +39,7 @@ gum setup --target codex --features skills,mcp --yes
 
 ## What gum covers
 
-gum v2.0.1 ships with 228 catalog operations across 33 services. It covers Gmail,
+gum v2.1.0 ships with 228 catalog operations across 33 services. It covers Gmail,
 Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet,
 Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google
 Ads, Data Manager, Maps, Custom Search, and bundled plugin services such as Flights, Scholar,

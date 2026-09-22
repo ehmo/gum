@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/ehmo/gum/internal/dispatch"
 )
@@ -68,9 +69,14 @@ func (a *Adapter) Register(adapterKey string, fn InvokerFunc) {
 }
 
 // Execute is the dispatch.Adapter entry point. It looks up the
-// adapter_key, dials the gRPC connection via Dialer, calls the
+// adapter_key, dials the gRPC connection via Dialer, attaches the
+// AIP-4222 routing metadata the variant's binding declares, calls the
 // registered InvokerFunc, then marshals the response as JSON for the
 // output pipeline.
+//
+// The routing header goes on the context rather than on each call site
+// because an InvokerFunc wraps a generated SDK method that gum does not
+// control: outgoing metadata is the only seam every such method honours.
 func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dispatch.ResolvedVariant, creds *dispatch.Credentials) (*dispatch.Response, error) {
 	key := bindingKey(rv)
 	if key == "" {
@@ -89,7 +95,11 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 	if err != nil {
 		return nil, fmt.Errorf("grpc adapter: dial: %w", err)
 	}
-	result, err := fn(ctx, conn, argsForInvoker(inv))
+	args := argsForInvoker(inv)
+	if params := routingHeaderValue(rv.Variant.Binding, args); params != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, routingParamsHeader, params)
+	}
+	result, err := fn(ctx, conn, args)
 	if err != nil {
 		return nil, err
 	}

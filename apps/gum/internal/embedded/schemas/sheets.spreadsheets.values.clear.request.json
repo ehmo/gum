@@ -1,0 +1,19 @@
+{
+  "$id": "sheets.spreadsheets.values.clear.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "range": {
+      "description": "A1 range to clear.",
+      "type": "string"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "range"
+  ],
+  "title": "Clear a Sheets Range request",
+  "type": "object"
+}

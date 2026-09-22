@@ -7,10 +7,10 @@
     "p99": 1
   },
   "toon": {
-    "total_tokens_saved": 0,
-    "mean": 0,
-    "p50": 1,
-    "p95": 5,
-    "p99": 5
+    "total_tokens_saved": 210,
+    "mean": 21,
+    "p50": -14,
+    "p95": 221,
+    "p99": 221
   }
 }

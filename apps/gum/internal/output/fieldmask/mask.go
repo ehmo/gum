@@ -132,3 +132,33 @@ func serializeNodes(nodes []*node) string {
 	}
 	return strings.Join(parts, ",")
 }
+
+// Paths returns every field path the mask selects, one []string per selector
+// leaf, in mask order. A field with a sub-selection contributes its children's
+// paths and not its own, so "a,b(c,d)" yields [a], [b c], [b d]. A wildcard
+// contributes the literal segment "*"; callers that require exact field names
+// reject those themselves.
+//
+// Has answers "does the mask select this path?"; Paths answers "which paths
+// does it select?", which is what a caller needs to check a mask against a
+// schema it did not write.
+func (m *Mask) Paths() [][]string {
+	if m == nil {
+		return nil
+	}
+	return appendPaths(nil, m.roots, nil)
+}
+
+func appendPaths(out [][]string, nodes []*node, prefix []string) [][]string {
+	for _, n := range nodes {
+		path := make([]string, 0, len(prefix)+1)
+		path = append(path, prefix...)
+		path = append(path, n.name)
+		if len(n.children) == 0 {
+			out = append(out, path)
+			continue
+		}
+		out = appendPaths(out, n.children, path)
+	}
+	return out
+}

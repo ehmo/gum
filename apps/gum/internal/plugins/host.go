@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 
 	"github.com/ehmo/gum/internal/auth"
+	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/fsatomic"
 	"github.com/ehmo/gum/internal/pluginenv"
 	"github.com/ehmo/gum/internal/plugins/registry"
@@ -30,16 +31,24 @@ import (
 // presence (first-party bundled plugins may omit it during build); presence
 // is checked at install time by ValidateNamespaceOwnership.
 type Manifest struct {
-	ManifestSchemaVersion int          `json:"manifest_schema_version"`
-	PluginID              string       `json:"plugin_id"`
-	Name                  string       `json:"name"`
-	Version               string       `json:"version"`
-	NamespaceOwner        string       `json:"namespace_owner,omitempty"`
-	Shape                 string       `json:"shape"`      // must be "mcp-plugin"
-	Executable            string       `json:"executable"` // path relative to install dir
-	AdvertisedTools       []ToolDecl   `json:"advertised_tools"`
-	DeclaredCapabilities  Capabilities `json:"declared_capabilities"`
-	Requirements          Requirements `json:"requirements,omitempty"`
+	ManifestSchemaVersion int    `json:"manifest_schema_version"`
+	PluginID              string `json:"plugin_id"`
+	Name                  string `json:"name"`
+	Version               string `json:"version"`
+	NamespaceOwner        string `json:"namespace_owner,omitempty"`
+	Shape                 string `json:"shape"`      // must be "mcp-plugin"
+	Executable            string `json:"executable"` // path relative to install dir
+	// Command is the author's install-time selector (spec §8.7). It is not
+	// the runtime argv: install resolves command[0] against the verified
+	// install root and records [executable_path] + command[1:] as
+	// argv_normalized. Empty means the executable takes no arguments.
+	Command              []string     `json:"command,omitempty"`
+	AdvertisedTools      []ToolDecl   `json:"advertised_tools"`
+	DeclaredCapabilities Capabilities `json:"declared_capabilities"`
+	Requirements         Requirements `json:"requirements,omitempty"`
+	// Package is the §8.7 [package] block: where the plugin's code comes
+	// from. Absent means local, the pre-existing manifest shape.
+	Package PackageDecl `json:"package,omitempty"`
 }
 
 // Requirements carries the plugin's declared runtime requirements including
@@ -53,6 +62,11 @@ type Requirements struct {
 	// name) to a safe user-facing descriptor (spec §1606). Must contain
 	// exactly one entry per NeedsUserCreds element.
 	CredentialDescriptors []CredentialDescriptor `json:"credential_descriptors,omitempty"`
+	// AuthComponents declares the §7 prerequisite components this plugin
+	// needs beyond its secrets. Entries marked `external` are steps gum can
+	// explain but cannot complete, and `gum plugin setup` prints them as a
+	// checklist (docs/plugin-contract.md "Credential descriptors").
+	AuthComponents []catalog.AuthComponent `json:"auth_components,omitempty"`
 }
 
 // ToolDecl declares a single tool exposed by the plugin.
@@ -60,6 +74,18 @@ type ToolDecl struct {
 	Name        string `json:"name"` // unprefixed; host adds "plug.<plugin_id>." prefix
 	Description string `json:"description"`
 	RiskClass   string `json:"risk_class"` // read|write|destructive
+	// AuthStrategy names the §7 strategy the tool authenticates with, from the
+	// same closed enum the catalog uses. It is optional: a plugin that brings
+	// its own credentials need not declare it. It becomes mandatory only when
+	// the manifest asks for the forwarded Google token, which
+	// ValidateCompoundTokenDeclaration enforces.
+	AuthStrategy catalog.AuthStrategy `json:"auth_strategy,omitempty"`
+	// SchemaRef names the JSON Schema bundle at schemas/<schema_ref>.json
+	// inside the plugin source tree. Install derives the served request and
+	// response refs from it; a manifest never declares those directly. Empty
+	// means the tool serves no schema, which is how every bundled fixture
+	// that predates the schema store loads.
+	SchemaRef string `json:"schema_ref,omitempty"`
 }
 
 // Capabilities declares the sandbox requirements for the plugin subprocess.
@@ -84,6 +110,24 @@ var validRiskClasses = map[string]bool{
 	"destructive": true,
 }
 
+// rejectNestedSchemaVersion fails a manifest that places
+// manifest_schema_version inside the `plugin` table (spec §8.6 line 1737).
+// A malformed `plugin` member is not this gate's business; the caller's
+// field validation already rejects the manifests that matter.
+func rejectNestedSchemaVersion(data []byte) error {
+	var probe struct {
+		Plugin map[string]json.RawMessage `json:"plugin"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil
+	}
+	if _, nested := probe.Plugin["manifest_schema_version"]; nested {
+		return fmt.Errorf("%w: manifest_schema_version must be top-level, not inside [plugin]",
+			ErrUnsupportedSchemaVersion)
+	}
+	return nil
+}
+
 // LoadManifest reads, validates, and returns the manifest from `dir/manifest.json`.
 // Errors: ErrManifestNotFound, ErrManifestInvalid, ErrUnsupportedShape, ErrUnsupportedSchemaVersion.
 func LoadManifest(dir string) (*Manifest, error) {
@@ -99,6 +143,13 @@ func LoadManifest(dir string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, ErrManifestInvalid
+	}
+
+	// §8.6: the version field is a sibling of `plugin`, never a member of
+	// it. A nested copy is refused even when it names a supported version,
+	// so a manifest cannot claim compatibility from the wrong scope.
+	if err := rejectNestedSchemaVersion(data); err != nil {
+		return nil, err
 	}
 
 	if m.ManifestSchemaVersion != 1 {
@@ -119,6 +170,13 @@ func LoadManifest(dir string) (*Manifest, error) {
 	}
 	m.Executable = executable
 
+	// §8.7: the [package] block must be intrinsically well-formed at load
+	// time. Profile-dependent policy waits for install, where the profile
+	// is known.
+	if err := validatePackageDecl(m.Package); err != nil {
+		return nil, err
+	}
+
 	// §8.1: refuse a manifest that claims a host-owned credential env var.
 	// Enforced here so both install paths and every spawn share one gate.
 	if err := ValidatePluginEnvNames(m.PluginID, m.Requirements.NeedsUserCreds,
@@ -138,6 +196,27 @@ func LoadManifest(dir string) (*Manifest, error) {
 		if !validRiskClasses[tool.RiskClass] {
 			return nil, ErrManifestInvalid
 		}
+		// auth_strategy is optional, but a declared one must be on the §7
+		// closed enum. An invented name would otherwise sit in the manifest
+		// looking authoritative while nothing downstream honoured it.
+		if tool.AuthStrategy != "" && !tool.AuthStrategy.Valid() {
+			return nil, ErrManifestInvalid
+		}
+	}
+
+	// §7: a declared prerequisite kind must be on the closed enum. Checked
+	// before the forwarded-token gate so an invented kind fails as
+	// AUTH_COMPONENT_UNKNOWN rather than as a token declaration error.
+	if err := ValidateAuthComponents(m.PluginID, m.Requirements.AuthComponents); err != nil {
+		return nil, err
+	}
+
+	// §7: only an all-compound plugin may receive the forwarded Google token.
+	// Checked after the tool loop so a malformed tool fails as a bad manifest
+	// rather than as a prohibited env declaration.
+	if err := ValidateCompoundTokenDeclaration(m.PluginID, m.Requirements.NeedsUserCreds,
+		m.AdvertisedTools); err != nil {
+		return nil, err
 	}
 
 	return &m, nil
@@ -168,6 +247,16 @@ type HostConfig struct {
 	// Keyring reads back the secrets `gum plugin setup` stored for this
 	// profile. Nil means the spawn env carries only ambient values.
 	Keyring auth.KeyringBackend
+
+	// TokenResolver produces the active Google access token that §7 forwards
+	// to a compound plugin. Nil means no token is forwarded, and a plugin that
+	// asked for one spawns without it rather than with a substitute.
+	TokenResolver GoogleTokenResolver
+
+	// Audit receives the §7 plugin_token_forwarded record. Nil drops it, which
+	// is the right default for `gum plugin run` against a scratch directory
+	// that has no profile audit log.
+	Audit AuditSink
 }
 
 // NewHost constructs a Host using the install root.
@@ -207,45 +296,7 @@ func (h *Host) Install(ctx context.Context, source string) (string, error) {
 
 	destDir := filepath.Join(h.cfg.InstallRoot, m.PluginID)
 
-	// Copy directory tree. File and directory modes are PINNED — never
-	// inherited from the source, which may carry hostile bits like setuid,
-	// setgid, or world-writable (spec §8.7 / gum-1ugz). Manifest's
-	// executable lands at 0o755; every other regular file at 0o644;
-	// every directory at 0o755.
-	err = filepath.Walk(source, func(path string, fi os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		rel, err := filepath.Rel(source, path)
-		if err != nil {
-			return err
-		}
-		dest := filepath.Join(destDir, rel)
-
-		if fi.IsDir() {
-			if err := os.MkdirAll(dest, 0o755); err != nil {
-				return err
-			}
-			return os.Chmod(dest, 0o755)
-		}
-		if fi.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%w: source contains symlink %q", ErrExecutableUntrusted, rel)
-		}
-
-		mode := os.FileMode(0o644)
-		if rel == m.Executable {
-			mode = 0o755
-		}
-
-		if err := copyFile(path, dest, mode); err != nil {
-			return fmt.Errorf("plugin install: copy %s: %w", rel, err)
-		}
-		// Explicit chmod after copy: os.OpenFile honours umask, so a
-		// 0o755 mode arg can land as 0o750 under umask 027. Chmod
-		// bypasses umask and pins the spec-mandated bits.
-		return os.Chmod(dest, mode)
-	})
-	if err != nil {
+	if err := copyPluginTree(source, destDir, m.Executable); err != nil {
 		return "", fmt.Errorf("plugin install: %w", err)
 	}
 
@@ -268,6 +319,50 @@ func (h *Host) Install(ctx context.Context, source string) (string, error) {
 	}
 
 	return m.PluginID, nil
+}
+
+// copyPluginTree copies a plugin source tree into destDir. File and
+// directory modes are PINNED — never inherited from the source, which may
+// carry hostile bits like setuid, setgid, or world-writable (spec §8.7 /
+// gum-1ugz). The named executable lands at 0o755; every other regular file
+// at 0o644; every directory at 0o755. Symlinks are refused. It is the one
+// copy primitive: the legacy Install path copies a whole local plugin with
+// it, and the §8.7 materializers copy a fetched artifact's tree with it so
+// remote code lands under the same mode pinning.
+func copyPluginTree(source, destDir, executable string) error {
+	return filepath.Walk(source, func(path string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		dest := filepath.Join(destDir, rel)
+
+		if fi.IsDir() {
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				return err
+			}
+			return os.Chmod(dest, 0o755)
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%w: source contains symlink %q", ErrExecutableUntrusted, rel)
+		}
+
+		mode := os.FileMode(0o644)
+		if rel == executable {
+			mode = 0o755
+		}
+
+		if err := copyFile(path, dest, mode); err != nil {
+			return fmt.Errorf("copy %s: %w", rel, err)
+		}
+		// Explicit chmod after copy: os.OpenFile honours umask, so a
+		// 0o755 mode arg can land as 0o750 under umask 027. Chmod
+		// bypasses umask and pins the spec-mandated bits.
+		return os.Chmod(dest, mode)
+	})
 }
 
 // copyFile copies src to dst with the given permission mode.
@@ -406,13 +501,31 @@ func (h *Host) Start(ctx context.Context, pluginID string) (*Plugin, error) {
 
 	connectCtx, cancel := context.WithTimeout(ctx, pluginConnectTimeout)
 	defer cancel()
-	subprocessEnv := buildSubprocessEnv(
-		m.DeclaredCapabilities.EnvAllow,
-		m.Requirements.NeedsUserCreds,
-		h.pluginCredentialEnv(pluginID, m),
-	)
+	subprocessEnv, tokenAudit, err := buildSubprocessEnv(ctx, subprocessEnvInput{
+		PluginID:       pluginID,
+		EnvAllow:       m.DeclaredCapabilities.EnvAllow,
+		NeedsUserCreds: m.Requirements.NeedsUserCreds,
+		Creds:          h.pluginCredentialEnv(pluginID, m),
+		TokenResolver:  h.cfg.TokenResolver,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Recorded before exec: a plugin that crashes on start still received the
+	// token, and an audit log that only covers healthy spawns is not evidence.
+	if tokenAudit != nil && h.cfg.Audit != nil {
+		h.cfg.Audit.Append(tokenAudit)
+	}
+	// Recomputed from the same normalizer install used, so the spawned argv
+	// is the recorded argv_normalized. Dev bypass is irrelevant here: an
+	// install that took it already wrote the declared executable.
+	argv, err := NormalizeArgv(installDir, m, true)
+	if err != nil {
+		return nil, err
+	}
 	cmd, err := pluginenv.NewRunner(pluginenv.RunnerConfig{
 		Executable: execPath,
+		Args:       argv[1:],
 		WorkDir:    installDir,
 		Env:        subprocessEnv,
 		Stderr:     h.cfg.Stderr, // nil → suppressed (default; tests override)
@@ -602,18 +715,37 @@ const pluginClientVersion = "0.1.0"
 // manifest's env_allow are stripped.
 var passthroughEnv = []string{"PATH", "HOME", "TMPDIR", "LANG"}
 
+// subprocessEnvInput carries everything buildSubprocessEnv needs. It is a
+// struct rather than a parameter list because the §7 token forwarding added a
+// resolver and a plugin id to what was already three arguments, and a five-arg
+// call site tells a reader nothing about which string is which.
+type subprocessEnvInput struct {
+	// PluginID names the plugin in the §7 audit record and in resolver errors.
+	PluginID string
+	// EnvAllow is declared_capabilities.env_allow.
+	EnvAllow []string
+	// NeedsUserCreds is requirements.needs_user_creds.
+	NeedsUserCreds []string
+	// Creds maps an env name to the secret `gum plugin setup` stored for it.
+	Creds map[string]string
+	// TokenResolver supplies the §7 forwarded Google token. Nil forwards none.
+	TokenResolver GoogleTokenResolver
+}
+
 // buildSubprocessEnv constructs the env slice for plugin spawn. Result starts
 // from the passthrough set, adds the manifest's needs_user_creds names, appends
 // explicitly declared env_allow entries, and never inherits the full
 // os.Environ(). Every name crosses the §8.1 denylist first, including the ones
-// resolved from the keychain: §8.1 point 3 forbids widening the allowlist
-// through host-side injection.
+// resolved from the keychain and the §7 forwarded token: §8.1 point 3 forbids
+// widening the allowlist through host-side injection.
 //
-// creds maps an env name to the secret `gum plugin setup` stored for it. A
-// needs_user_creds name with no stored secret falls back to the operator's own
-// environment, so a plugin still runs on a host without a keychain.
-func buildSubprocessEnv(envAllow, needsUserCreds []string, creds map[string]string) []string {
-	seen := make(map[string]bool, len(passthroughEnv)+len(needsUserCreds)+len(envAllow))
+// A needs_user_creds name with no stored secret falls back to the operator's
+// own environment, so a plugin still runs on a host without a keychain. The
+// reserved §7 name is the one exception and never takes a fallback.
+//
+// The second result is the §7 audit entry, or nil when no token was forwarded.
+func buildSubprocessEnv(ctx context.Context, in subprocessEnvInput) ([]string, map[string]any, error) {
+	seen := make(map[string]bool, len(passthroughEnv)+len(in.NeedsUserCreds)+len(in.EnvAllow))
 	var out []string
 	emit := func(key, value string) {
 		seen[key] = true
@@ -645,22 +777,42 @@ func buildSubprocessEnv(envAllow, needsUserCreds []string, creds map[string]stri
 			}
 		}
 	}
+	var tokenAudit map[string]any
 	// needs_user_creds runs before env_allow so a name declared in both takes
 	// the stored secret rather than whatever the shell happens to export.
-	for _, k := range needsUserCreds {
+	for _, k := range in.NeedsUserCreds {
+		if k == reservedCompoundEnvName {
+			// Both spellings are burned here whatever the resolver answers.
+			// Marking the uppercase name seen is what stops an ambient
+			// GOOGLE_ACCESS_TOKEN from standing in for the host's own token
+			// when there is no active session.
+			seen[reservedCompoundEnvName] = true
+			seen[forwardedTokenEnvName] = true
+
+			token, entry, err := resolveForwardedToken(ctx, in.PluginID, in.TokenResolver)
+			if err != nil {
+				return nil, nil, err
+			}
+			if token == "" {
+				continue
+			}
+			emit(forwardedTokenEnvName, token)
+			tokenAudit = entry
+			continue
+		}
 		if seen[k] {
 			continue
 		}
-		if v, ok := creds[k]; ok {
+		if v, ok := in.Creds[k]; ok {
 			emit(k, v)
 			continue
 		}
 		add(k)
 	}
-	for _, k := range envAllow {
+	for _, k := range in.EnvAllow {
 		add(k)
 	}
-	return out
+	return out, tokenAudit, nil
 }
 
 // pluginCredentialEnv resolves the manifest's credential descriptors against the

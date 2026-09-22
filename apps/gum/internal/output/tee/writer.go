@@ -3,7 +3,6 @@ package tee
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/ehmo/gum/internal/output/jcs"
 )
 
 // ArtifactDate formats a tee artifact directory's <YYYY-MM-DD> component in
@@ -106,21 +107,62 @@ func Read(path string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// WriteJSON marshals v as JSON and persists it via Write. Returns the
-// destination path.
+// WriteJSON canonicalizes v per RFC 8785 and persists it via Write. Returns
+// the destination path.
+//
+// The canonical form is not decoration: gum://results/{hash} serves these
+// bytes through resources/read untouched, and spec §13 line 1562 requires
+// that body to be JCS-canonical JSON. Upstream payloads routinely carry '&',
+// '<' and '>' in URLs and snippets, which encoding/json escapes to \u0026,
+// \u003c and \u003e (bead gum-yi62).
 func WriteJSON(profileDir string, day time.Time, opID, hash string, v any) (string, error) {
-	raw, err := json.Marshal(v)
+	raw, err := jcs.Marshal(v)
 	if err != nil {
 		return "", fmt.Errorf("tee: marshal payload: %w", err)
 	}
 	return Write(profileDir, day, opID, hash, raw)
 }
 
+// DefaultRetentionHours is the spec §9.0 artifact retention window applied
+// when output.tee_retention_hours is unset or unusable.
+const DefaultRetentionHours = 24
+
+// MaxRetentionHours caps a configured retention window at ten years. The cap
+// is arithmetic, not policy: `output.tee_retention_hours` is a free-form
+// string, so a paste or a stray digit can hand the kernel a value near
+// math.MaxInt. Unclamped, that number overflows both consumers, and both fail
+// in the direction that loses the artifact -- ScanWindowDays goes negative and
+// FindArtifact then rejects every hash, while the expiry multiply wraps
+// time.Duration and advertises an artifact_expires_at already in the past. Any
+// retention above this cap already means "keep everything on disk", which a
+// ten-year scan window delivers.
+const MaxRetentionHours = 24 * 3653
+
+// ScanWindowDays converts a retention window in hours into the number of
+// UTC-day directories FindArtifact must walk to still reach every live
+// artifact. Pass 0 for the spec default.
+//
+// The +1 is the day boundary, not slack: an artifact written at 23:50 under
+// yesterday's directory is still inside a 24-hour window at 09:00 today, so a
+// one-day scan would miss it. Scanning wider than the window is harmless -- a
+// pruned artifact is simply absent -- while scanning narrower reports
+// RESULT_ARTIFACT_EXPIRED for a file that is still on disk and still inside
+// the expiry gum advertised in _expression.artifact_expires_at (bead gum-sd58).
+func ScanWindowDays(retentionHours int) int {
+	if retentionHours <= 0 {
+		retentionHours = DefaultRetentionHours
+	}
+	if retentionHours >= MaxRetentionHours {
+		retentionHours = MaxRetentionHours - 24
+	}
+	return (retentionHours+23)/24 + 1
+}
+
 // FindArtifact performs the spec §9 lifecycle point 4 reverse-lookup:
 // directory-scans <profileDir>/tee/ for a file named <hash>.json.gz under
 // any <YYYY-MM-DD>/<op_id>/ subtree. The scan window is bounded by the
-// caller (maxDays); v0.1.0 callers pass the configured tee_retention_hours
-// rounded up to whole days. Returns (path, true) on the first hit, ("",
+// caller (maxDays); callers derive it from the configured retention window
+// with ScanWindowDays. Returns (path, true) on the first hit, ("",
 // false) when no match exists.
 //
 // Scanning is O(days × ops × artifacts) in the worst case; with a 24-hour

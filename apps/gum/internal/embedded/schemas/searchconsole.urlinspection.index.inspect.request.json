@@ -1,0 +1,24 @@
+{
+  "$id": "searchconsole.urlinspection.index.inspect.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "inspectionUrl": {
+      "description": "Fully-qualified URL to inspect.",
+      "type": "string"
+    },
+    "languageCode": {
+      "description": "BCP-47 language code for the result (optional).",
+      "type": "string"
+    },
+    "siteUrl": {
+      "description": "Verified property the URL belongs to.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "inspectionUrl",
+    "siteUrl"
+  ],
+  "title": "Inspect URL in Search Console request",
+  "type": "object"
+}

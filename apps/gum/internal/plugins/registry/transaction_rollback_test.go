@@ -209,11 +209,16 @@ func TestWriteTransactionReportsIncompleteRollback(t *testing.T) {
 		t.Errorf("temp files left behind: %v", left)
 	}
 	// The catalog kept the new generation's content while the lock kept the
-	// old one. SelectGeneration cannot see this tear, because the v1
-	// plugin-catalog.json shape carries no install_generation (recover.go:45,
-	// and the spec's own §8.7 example) — tracked separately. The error string
-	// is what tells the operator, which is why the "rollback incomplete" note
-	// above is load-bearing.
+	// old one. Since gum-t3tl the catalog carries install_generation, so the
+	// next startup sees the tear and refuses dispatch instead of running off
+	// a catalog the lock does not back.
+	gen, gerr := New(dir).SelectGeneration()
+	if gerr != nil {
+		t.Fatalf("SelectGeneration: %v", gerr)
+	}
+	if gen.Ok {
+		t.Errorf("SelectGeneration.Ok = true after an incomplete rollback; want false")
+	}
 	catalogBytes, rerr := os.ReadFile(CatalogPath(dir))
 	if rerr != nil {
 		t.Fatalf("read catalog: %v", rerr)

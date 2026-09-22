@@ -1,0 +1,41 @@
+{
+  "$id": "gmail.users.history.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "historyTypes": {
+      "description": "History types to be returned by the function",
+      "enum": [
+        "messageAdded",
+        "messageDeleted",
+        "labelAdded",
+        "labelRemoved"
+      ],
+      "type": "string"
+    },
+    "labelId": {
+      "description": "Only return messages with a label matching the ID.",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "Maximum number of history records to return. This field defaults to 100. The maximum allowed value for this field is 50…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Page token to retrieve a specific page of results in the list.",
+      "type": "string"
+    },
+    "startHistoryId": {
+      "description": "Required. Returns history records after the specified `startHistoryId`. The supplied `startHistoryId` should be obtaine…",
+      "type": "string"
+    },
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId"
+  ],
+  "title": "List Gmail history request",
+  "type": "object"
+}

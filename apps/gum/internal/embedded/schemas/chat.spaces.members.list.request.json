@@ -1,0 +1,39 @@
+{
+  "$id": "chat.spaces.members.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "filter": {
+      "description": "Optional. A query filter. You can filter memberships by a member's role ([`role`](https://developers.google.com/workspa…",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Optional. The maximum number of memberships to return. The service might return fewer than this value. If unspecified, …",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Optional. A page token, received from a previous call to list memberships. Provide this parameter to retrieve the subse…",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Required. The resource name of the space for which to fetch a membership list. Format: spaces/{space}",
+      "type": "string"
+    },
+    "showGroups": {
+      "description": "Optional. When `true`, also returns memberships associated with a Google Group, in addition to other types of membershi…",
+      "type": "boolean"
+    },
+    "showInvited": {
+      "description": "Optional. When `true`, also returns memberships associated with invited members, in addition to other types of membersh…",
+      "type": "boolean"
+    },
+    "useAdminAccess": {
+      "description": "Optional. When `true`, the method runs using the user's Google Workspace administrator privileges. The calling user mus…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "parent"
+  ],
+  "title": "List Chat Space Members request",
+  "type": "object"
+}

@@ -1,0 +1,33 @@
+{
+  "$id": "admin.directory.users.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "User name object with givenName and familyName.",
+      "type": "object"
+    },
+    "orgUnitPath": {
+      "type": "string"
+    },
+    "primaryEmail": {
+      "type": "string"
+    },
+    "recoveryEmail": {
+      "type": "string"
+    },
+    "recoveryPhone": {
+      "type": "string"
+    },
+    "suspended": {
+      "type": "boolean"
+    },
+    "userKey": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userKey"
+  ],
+  "title": "Update a directory user request",
+  "type": "object"
+}

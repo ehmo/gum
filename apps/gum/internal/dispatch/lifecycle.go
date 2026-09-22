@@ -90,6 +90,14 @@ type Invocation struct {
 	// dispatcher level so unit tests and library embedders don't have to
 	// declare it; the lifecycle logger surfaces the value verbatim.
 	Caller Caller
+
+	// BatchID and BatchIndex link this invocation to the gum_parallel batch
+	// that scheduled it (spec §12.3). gum_parallel sets both on every element
+	// it dispatches; step 9 copies them onto the gain entry so the batch's
+	// outer sentinel and its N inner entries share one 8-char hex id. Empty
+	// BatchID means a standalone call, and BatchIndex is then ignored.
+	BatchID    string
+	BatchIndex int
 }
 
 // ResolvedVariant is the output of step 3 (routing / resolveVariant).
@@ -137,6 +145,11 @@ type Response struct {
 	BytesIn    int
 	BytesOut   int
 	StatusCode int
+
+	// CodeOutputTruncated reports that a gum.code script lost printed bytes to
+	// the §6.1 cumulative output budget. shapeResponse projects it as
+	// _expression._code_output_truncated.
+	CodeOutputTruncated bool
 }
 
 // ShapedResponse is the final output after step 8 (output pipeline).
@@ -205,6 +218,17 @@ type ShapedResponse struct {
 	DedupedRows int
 	LimitedRows int
 
+	// AnnotationPaths lists the dot-paths the executing adapter added in step
+	// 8's annotate stage and shaping then kept. Nil for a raw pass-through,
+	// for an adapter that annotates nothing, and for a field the profile
+	// dropped again on its way through.
+	//
+	// The presentation layer names these paths when it offers `--format raw`.
+	// Raw bypasses the annotator, so a caller who follows that advice to
+	// recover a trimmed field loses these ones instead, and the notice that
+	// sent them there is the only place they could have learned it (gum-9l5c).
+	AnnotationPaths []string
+
 	// Expression is the spec §13 `_expression` envelope describing what the
 	// shaping pipeline did. Non-nil on every success path, including a raw
 	// pass-through, because §13 makes profile, op_id, variant_id, lossy and
@@ -241,6 +265,65 @@ type ServiceFamilyResolver interface {
 	ServiceFamily(opID string) string
 }
 
+// LROClassifier is an optional Dispatcher capability that reports whether an
+// op's default variant is classified `lro_return` (spec §5.8). The code-mode
+// host functions use it to raise LRO_UNSUPPORTED_IN_CODE before dispatch
+// (§6.1): the restriction is a property of gum.code, not of the op, so the
+// kernel supplies the classification and code mode decides what to do with
+// it. Mock dispatchers in tests may omit this capability; consumers must
+// tolerate a missing classifier by dispatching as before.
+type LROClassifier interface {
+	ReturnsLRO(opID string) bool
+}
+
+// ParallelBatchRecorder is an optional Dispatcher capability that writes the
+// spec §12.3 gum_parallel outer sentinel entry to the gain ledger, plus one
+// inner entry per element the batch cancelled before dispatch. gum_parallel
+// calls it once, after the batch envelope is assembled, because the outer
+// entry's token counts are the envelope's own cost and nothing inside the
+// dispatch lifecycle can see them.
+//
+// Mock dispatchers in tests may omit this capability; gum_parallel tolerates
+// a missing recorder by skipping batch accounting, exactly as it tolerates a
+// missing ServiceFamilyResolver.
+type ParallelBatchRecorder interface {
+	RecordParallelBatch(b ParallelBatch)
+}
+
+// ParallelBatch is one completed gum_parallel call as the ledger sees it.
+type ParallelBatch struct {
+	// BatchID is the 8-char hex id gum_parallel put on the envelope and on
+	// every Invocation it dispatched.
+	BatchID string
+
+	// Args is the batch's own arguments, whose JCS canonical form the outer
+	// entry hashes and prices as request_tokens.
+	Args map[string]any
+
+	// Envelope is the assembled batch result, priced as response_tokens.
+	Envelope map[string]any
+
+	// Elements is one record per batch element, in dispatch order.
+	Elements []ParallelBatchElement
+
+	// Cancelled reports that the outer context was cancelled after scheduling
+	// began (spec §12.3 outer-entry `cancelled`).
+	Cancelled bool
+}
+
+// ParallelBatchElement is one element of a ParallelBatch. Elements that
+// reached the dispatcher already wrote their own inner entry at step 9; only
+// the cancelled ones need the recorder to write one, because a cancelled
+// element never produced a response to account for.
+type ParallelBatchElement struct {
+	OpID string
+	Args map[string]any
+
+	// Cancelled reports that this element never ran, or was interrupted, due
+	// to context cancellation.
+	Cancelled bool
+}
+
 // Adapter is what executors implement (typed-rest-sdk, code.risor, etc.).
 type Adapter interface {
 	Execute(ctx context.Context, inv *Invocation, rv *ResolvedVariant, creds *Credentials) (*Response, error)
@@ -259,11 +342,18 @@ type Adapter interface {
 //
 // The kernel stays generic: what to add and when belongs to the adapter.
 type ResponseAnnotator interface {
-	// AnnotateResponse returns the body to shape. It must not modify body in
-	// place. Returning body unchanged is both the normal answer and the answer
-	// for a response the adapter cannot read: the upstream body is still a
-	// correct response, so an unrecognised shape is not an error.
-	AnnotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) []byte
+	// AnnotateResponse returns the body to shape and the dot-paths it added.
+	// It must not modify body in place. Returning body unchanged is both the
+	// normal answer and the answer for a response the adapter cannot read: the
+	// upstream body is still a correct response, so an unrecognised shape is
+	// not an error.
+	//
+	// The paths are what the shaping notice names when it offers the caller
+	// `--format raw`: raw skips this step, so every added field is a cost of
+	// switching, and the notice has to say so (gum-9l5c). Paths use the same
+	// dot-path vocabulary as ShapedResponse.DroppedPaths, with no array
+	// indices, and are empty whenever the body comes back unchanged.
+	AnnotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) ([]byte, []string)
 }
 
 // NewDispatcher constructs the dispatch kernel with a catalog snapshot and a map of adapters keyed
@@ -294,11 +384,14 @@ type dispatcher struct {
 	profileLookup           func(name string) (*profile.Profile, bool) // §9.2 catalog-embedded profile resolver (step 8)
 	profileBindings         func() map[string]string                   // §9.2 [override_bindings]: op_id/variant_id -> profile name
 	argDefaulter            ArgDefaulter                               // gum-puum: configured arg defaults (step 1)
+	expectedAuthSubjects    map[string]string                          // gum-q0kd: auth_strategy -> profile's bound auth_subject_fingerprint
 
 	opIndexOnce sync.Once              // builds opIndex on first findOp (review gum-yvam)
 	opIndex     map[string]*catalog.Op // canonical op_id + alias → *Op; snapshot is immutable post-construction
 
 	retries retryTracker // §12.3 is_retry window: session+op_family+args_hash seen inside 5 minutes
+
+	logger *slog.Logger // §14.1 rule 2 injected logger; nil means slog.Default()
 }
 
 // opByID returns a lazily-built lookup of canonical op_ids and their deprecated
@@ -410,15 +503,25 @@ func joinSorted(in []string) string {
 // free text with no error_code, no retryable flag, and nothing to branch on.
 // wrapKernelError is the single place that closes that hole.
 func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResponse, error) {
-	shaped, err := d.dispatchSteps(ctx, inv)
+	var resolved *ResolvedVariant
+	shaped, err := d.dispatchSteps(ctx, inv, &resolved)
 	if err != nil {
-		return shaped, wrapKernelError(inv, err)
+		wrapped := wrapKernelError(inv, err)
+		// Step 9 never ran, so the §12.3 entry for this call is written here.
+		d.recordFailedDispatch(inv, resolved, wrapped)
+		return shaped, wrapped
 	}
 	return shaped, nil
 }
 
 // dispatchSteps is the lifecycle body. Call Dispatch, not this.
-func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*ShapedResponse, error) {
+//
+// resolved receives the variant step 3 picked, so Dispatch can name it on the
+// error path. It stays nil when the call fails before routing. An out-param
+// carries it because the body has some thirty error returns, and threading a
+// third result through all of them would say nothing the one assignment below
+// does not.
+func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolved **ResolvedVariant) (*ShapedResponse, error) {
 	requestID := inv.RequestID
 	if requestID == "" {
 		requestID = newRequestID()
@@ -435,7 +538,7 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 			variantID = rvRef.Variant.VariantID
 			riskClass = string(rvRef.Variant.RiskClass)
 		}
-		slog.Debug("dispatch event",
+		d.log().Debug("dispatch event",
 			"event", string(event),
 			"request_id", requestID,
 			"op_id", inv.OpID,
@@ -481,6 +584,9 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 		return nil, serr3
 	}
 	rvRef = rv // post-resolution entries inherit variant_id_resolved + risk_class
+	if resolved != nil {
+		*resolved = rv
+	}
 	logEvent(EventResolveVariant, t0)
 	if err := checkCancelled(ctx, "resolve_variant"); err != nil {
 		return nil, err
@@ -505,20 +611,17 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 		}
 	}
 
-	// Step 3b: spec §9.1 field_mask_mode="dual_fetch" gate, then refusal.
+	// Step 3b: spec §9.1 field_mask_mode="dual_fetch" eligibility gate.
 	//
-	// The eligibility check runs first so an ineligible variant still reports
-	// the constraint it broke; the catalog generator rejects those at build
-	// time, and this guards profiles authored independently (user-global
-	// overrides).
+	// dual_fetch issues a second upstream request, so it is restricted to
+	// variants that are safe to call twice: risk_class=read AND
+	// annotations.idempotent=true. The catalog generator rejects the rest at
+	// build time; this guards profiles authored independently of the catalog
+	// (a user-global or project-local override).
 	//
-	// An eligible variant is refused too. dual_fetch owes the caller two
-	// upstream requests: the shaped one and an unmasked recovery fetch that
-	// feeds the stage-9 artifact. The kernel issues one. Accepting the mode
-	// therefore billed one request, wrote a masked artifact under a promise of
-	// pre-mask recovery, and stamped the audit log with a fetch that never
-	// happened. Refusing keeps the enum parseable, so profiles still validate,
-	// while nothing acts on a guarantee the kernel cannot keep.
+	// It runs before the mask injection below so an ineligible variant is
+	// refused before any upstream request, and reports the constraint it broke
+	// rather than a generic mode error.
 	if inv.OutputProfile != nil && inv.OutputProfile.FieldMaskMode == profile.FieldMaskModeDualFetch {
 		if gateErr := profile.ValidateDualFetchGate(inv.OutputProfile.FieldMaskMode, rv.Variant); gateErr != nil {
 			return nil, NewStructuredError(ErrCodeInvalidArgs, "field_mask_mode=dual_fetch rejected: "+gateErr.Error()).
@@ -527,12 +630,6 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 				WithDetail("op_id", inv.OpID).
 				WithDetail("variant_id", rv.Variant.VariantID)
 		}
-		return nil, NewStructuredError(ErrCodeInvalidArgs,
-			"field_mask_mode=dual_fetch is not implemented in this release: the unmasked recovery fetch does not exist, so the artifact cannot hold pre-field-mask data; use field_mask_mode=\"none\" for full-fidelity recovery").
-			WithDetail("field", "field_mask_mode").
-			WithDetail("value", inv.OutputProfile.FieldMaskMode).
-			WithDetail("op_id", inv.OpID).
-			WithDetail("variant_id", rv.Variant.VariantID)
 	}
 
 	// Step 3c: spec §9.1 stage 1, upstream projection. The only mask gum puts
@@ -609,7 +706,7 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 			// A cached body the profile cannot shape (opaque bytes from an
 			// adapter whose Format the cache did not preserve) must not fail a
 			// call that would have succeeded cold: serve it verbatim.
-			slog.Warn("cached body failed shaping; serving verbatim", "op_id", inv.OpID, "err", serr)
+			d.log().Warn("cached body failed shaping; serving verbatim", "op_id", inv.OpID, "err", serr)
 			shaped = &ShapedResponse{
 				Body:   cached.Body,
 				Format: cached.Format,
@@ -630,15 +727,29 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 		// inv.Format from leaving a stray artifact behind. A cached response
 		// carries no StatusCode, so tee_mode="failures" correctly writes
 		// nothing: a served cache entry is a successful read.
-		teeArt, terr := d.writeTeeArtifact(inv, rv, creds, cachedResp)
+		// Spec §9.1 second fetch on the warm path. The cache key carries the
+		// mask, so a hit returns the masked body; teeing it under a
+		// field_mask_mode="dual_fetch" profile would hand back a
+		// full_result_path claiming pre-mask data it does not hold. The
+		// recovery request is what the mode buys, warm or cold, so it runs
+		// here too — and takes its own rate-limit token, because unlike the
+		// served hit it is a real upstream call.
+		var warmDual *dualFetchResult
+		if d.dualFetchWanted(inv) {
+			warmDual = d.runDualFetch(ctx, inv, rv, creds)
+		}
+		teeArt, terr := d.writeTeeArtifact(inv, rv, creds, warmDual.teeSource(cachedResp))
 		if terr != nil {
-			slog.Warn("tee artifact write failed", "op_id", inv.OpID, "err", terr)
+			d.log().Warn("tee artifact write failed", "op_id", inv.OpID, "err", terr)
 		}
 		d.attachTeeHandles(shaped, teeArt)
 		shaped.ValidationWarnings = append(shaped.ValidationWarnings, validationWarnings...)
+		warmDual.warn(shaped)
 		// A served hit was by definition cache-eligible, so the ledger reports
 		// "hit" rather than the "not_applicable" an ineligible op would get.
-		return d.recordAndReturn(ctx, inv, rv, creds, shaped, cachedResp, true, true)
+		warmResult, warmErr := d.recordAndReturn(ctx, inv, rv, creds, shaped, cachedResp, true, true)
+		d.appendDualFetchAudit(warmDual)
+		return warmResult, warmErr
 	}
 	if err := checkCancelled(ctx, "cache_check"); err != nil {
 		return nil, err
@@ -678,6 +789,16 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 	}
 	logEvent(EventExecuteAdapter, t0)
 
+	// Step 7a2: spec §9.1 second, unmasked fetch. It runs after the shaped
+	// request succeeds, because a failed first request has nothing to recover
+	// and the caller is already getting an error. It runs before step 7b so
+	// the cache still stores the masked body the masked key names, and before
+	// step 7c so stage 9 can write the unmasked payload instead of it.
+	var dual *dualFetchResult
+	if d.dualFetchWanted(inv) {
+		dual = d.runDualFetch(ctx, inv, rv, creds)
+	}
+
 	// Step 7b: store successful response in cache.
 	// SemanticCache (spec §10.3) is preferred; legacy MemCache stays for
 	// callers that don't wire the semantic layer yet. Per-op TTL applies
@@ -715,9 +836,9 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 	// Step 7c: filesystem tee artifact (spec §9.0 stage 'artifact'). Writes
 	// the post-upstream-projection payload before host-shaping so the recovery
 	// handles can be projected into the §9.0 _expression envelope.
-	teeArt, terr := d.writeTeeArtifact(inv, rv, creds, resp)
+	teeArt, terr := d.writeTeeArtifact(inv, rv, creds, dual.teeSource(resp))
 	if terr != nil {
-		slog.Warn("tee artifact write failed", "op_id", inv.OpID, "err", terr)
+		d.log().Warn("tee artifact write failed", "op_id", inv.OpID, "err", terr)
 	}
 
 	// Step 8: shape response
@@ -733,10 +854,16 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation) (*Shape
 	}
 	logEvent(EventShapeResponse, t0)
 
-	// Step 9: record and return
+	dual.warn(shaped)
+
+	// Step 9: record and return.
 	t0 = time.Now()
 	result, err := d.recordAndReturn(ctx, inv, rv, creds, shaped, resp, false, cacheable && d.cacheConfigured())
 	logEvent(EventRecordAndReturn, t0)
+	// The §9.1 unmasked request is audited after the masked one it followed,
+	// so the log reads in request order. recordAndReturn holds the masked
+	// entry until step 9, so appending earlier would have inverted them.
+	d.appendDualFetchAudit(dual)
 	return result, err
 }
 
@@ -1313,7 +1440,11 @@ func checkWholeNumber(name string, f float64) string {
 	return ""
 }
 
-// findOpVariant returns the default variant for the given opID, or nil if not found.
+// findOpVariant returns the default variant for the given opID, or nil when the
+// op is unknown, declares no matching default, or the default is quarantined.
+// The quarantine skip mirrors resolveVariant step 1: both must agree on which
+// variant runs, or the risk gate reads one variant while dispatch executes
+// another.
 func (d *dispatcher) findOpVariant(opID string) *catalog.Variant {
 	op := d.findOp(opID)
 	if op == nil {
@@ -1321,7 +1452,7 @@ func (d *dispatcher) findOpVariant(opID string) *catalog.Variant {
 	}
 	for j := range op.Variants {
 		v := &op.Variants[j]
-		if v.VariantID == op.DefaultVariantID {
+		if v.VariantID == op.DefaultVariantID && !v.Quarantined {
 			return v
 		}
 	}
@@ -1516,18 +1647,16 @@ func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*Reso
 			WithDetail("variant_id", reqID)
 	}
 
-	// Step 1: if default_variant_id is set, use it directly.
+	// Step 1: if default_variant_id names a variant that can still run, use it.
+	// A quarantined default falls through to step 2 instead of ending the call:
+	// §5.5 makes "active, non-quarantined" part of what a default is, and
+	// quarantine is runtime state, so a catalog that was valid at generation can
+	// carry a quarantined default hours later. Refusing the op then would take a
+	// healthy sibling down with it.
 	if op.DefaultVariantID != "" {
 		for i := range op.Variants {
 			v := &op.Variants[i]
-			if v.VariantID == op.DefaultVariantID {
-				// Check quarantine even on explicitly defaulted variants.
-				if v.Quarantined {
-					return nil, NewStructuredError(ErrCodeVariantQuarantined,
-						fmt.Sprintf("variant %s is quarantined", v.VariantID)).
-						WithDetail("op_id", inv.OpID).
-						WithDetail("variant_id", v.VariantID)
-				}
+			if v.VariantID == op.DefaultVariantID && !v.Quarantined {
 				return makeResolvedVariant(inv.OpID, op, v), nil
 			}
 		}
@@ -1536,11 +1665,19 @@ func (d *dispatcher) resolveVariant(ctx context.Context, inv *Invocation) (*Reso
 	// Step 2: filter out quarantined variants.
 	active := filterQuarantined(op)
 	if len(active) == 0 {
-		first := &op.Variants[0]
+		// Name the default when the op has one: that is the variant the caller
+		// asked for, even though they never spelled it out.
+		blamed := &op.Variants[0]
+		for i := range op.Variants {
+			if op.Variants[i].VariantID == op.DefaultVariantID {
+				blamed = &op.Variants[i]
+				break
+			}
+		}
 		return nil, NewStructuredError(ErrCodeVariantQuarantined,
-			fmt.Sprintf("variant %s is quarantined", first.VariantID)).
+			fmt.Sprintf("variant %s is quarantined", blamed.VariantID)).
 			WithDetail("op_id", inv.OpID).
-			WithDetail("variant_id", first.VariantID)
+			WithDetail("variant_id", blamed.VariantID)
 	}
 
 	// Steps 3–4: pick the highest-stability group; return immediately if unambiguous.
@@ -1627,6 +1764,9 @@ func (d *dispatcher) resolveAuth(ctx context.Context, inv *Invocation, rv *Resol
 	}
 	creds, err := d.auth.ResolveAuth(ctx, inv, rv)
 	if err == nil {
+		if mismatch := d.checkAuthSubject(inv, rv, creds); mismatch != nil {
+			return nil, mismatch
+		}
 		return creds, nil
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -1649,6 +1789,60 @@ func (d *dispatcher) resolveAuth(ctx context.Context, inv *Invocation, rv *Resol
 		WithDetail("op_id", inv.OpID)
 }
 
+// checkAuthSubject enforces the spec §7 credential-resolution rule that a
+// profile's credential is used "only if its auth_subject_fingerprint matches
+// the selected profile's expected subject when one is recorded". The login
+// guard in internal/auth catches an interactive account switch; this catches
+// every other way a credential reaches the profile, including an edited
+// keychain entry and a legacy grant whose refresh-token-derived fingerprint
+// moved. Refusing matters beyond reading the wrong mailbox: the fingerprint
+// keys the semantic cache, tee artifact paths, recovery URIs and gain-ledger
+// rows (§10.0.1), so a silent switch writes rows the profile cannot reach
+// again.
+//
+// The expectation is keyed per auth strategy because the fingerprint
+// namespace is per strategy: the same account yields a different value under
+// byo_oauth than under gum_oauth. An unlisted strategy, an empty expectation,
+// or a credential with no subject at all is not checked (bead gum-q0kd).
+func (d *dispatcher) checkAuthSubject(inv *Invocation, rv *ResolvedVariant, creds *Credentials) error {
+	if len(d.expectedAuthSubjects) == 0 || creds == nil || creds.SubjectFingerprint == "" {
+		return nil
+	}
+
+	strategy := ""
+	variantID := ""
+	if rv != nil && rv.Variant != nil {
+		strategy = string(rv.Variant.AuthStrategy)
+		variantID = rv.Variant.VariantID
+	}
+
+	want := d.expectedAuthSubjects[strategy]
+	if want == "" || want == creds.SubjectFingerprint {
+		return nil
+	}
+
+	// §10.0.1 requires the event on a subject change, and the refusal below is
+	// exactly that change detected.
+	if d.auditSink != nil {
+		d.auditSink.Append(map[string]any{
+			"event":                        "credential_subject_changed",
+			"op_id":                        inv.OpID,
+			"variant_id":                   variantID,
+			"client_id":                    callerToClientID(inv.Caller),
+			"auth_strategy":                strategy,
+			"expected_subject_fingerprint": want,
+			"resolved_subject_fingerprint": creds.SubjectFingerprint,
+		})
+	}
+
+	return NewStructuredError(ErrCodeAuthSubjectMismatch,
+		"the resolved credential belongs to a different account than this profile is bound to; nothing was called. Run `gum login --switch-account` to rebind the profile, or select the profile that owns this account").
+		WithDetail("op_id", inv.OpID).
+		WithDetail("auth_strategy", strategy).
+		WithDetail("expected_subject_fingerprint", want).
+		WithDetail("resolved_subject_fingerprint", creds.SubjectFingerprint)
+}
+
 // Step 6 — token bucket (rate limiting).
 //
 // The "credsID" position in the Wait signature is used as the service-family
@@ -1668,6 +1862,18 @@ func (d *dispatcher) tokenBucketStep(ctx context.Context, inv *Invocation, rv *R
 // line 1171). Returns "" when the op is unknown to the snapshot.
 func (d *dispatcher) ServiceFamily(opID string) string {
 	return d.serviceFamilyFor(opID)
+}
+
+// ReturnsLRO exposes the op's default-variant `lro_return` classification for
+// callers that hold a Dispatcher interface (the §6.1 code-mode gate). Returns
+// false when the op is unknown to the snapshot: an op that does not exist
+// fails later with OP_NOT_FOUND, which is the more useful error.
+func (d *dispatcher) ReturnsLRO(opID string) bool {
+	if d.snapshot == nil {
+		return false
+	}
+	op := d.findOp(opID)
+	return op != nil && op.DefaultVariantReturnsLRO()
 }
 
 // serviceFamilyFor returns the op's service_family (catalog metadata) used as
@@ -1764,18 +1970,26 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 	// the JSON-parsing profile pipeline regardless of inv.Format. The envelope
 	// still goes out, reporting the "_raw" sentinel profile (spec §2705).
 	if resp.Format == "raw" {
+		meta := newExpressionMeta(inv, rv, nil, &profile.ApplyOutput{Format: "raw"})
+		if resp.CodeOutputTruncated {
+			// §13 makes the field optional and true-only, so it is set rather
+			// than always emitted: absent means nothing was cut.
+			cut := true
+			meta.CodeOutputTruncated = &cut
+		}
 		return &ShapedResponse{
 			Body:       resp.Body,
 			Format:     "raw",
-			Expression: newExpressionMeta(inv, rv, nil, &profile.ApplyOutput{Format: "raw"}),
+			Expression: meta,
 		}, nil
 	}
 
 	// A caller who asked for raw wants the upstream bytes, so the annotator runs
 	// only on the shaped path.
 	body := resp.Body
+	var annotated []string
 	if format != "raw" {
-		body = d.annotateResponse(inv, rv, body)
+		body, annotated = d.annotateResponse(inv, rv, body)
 	}
 
 	// Step 8: apply the resolved expression profile (§9.1). inv.OutputProfile is
@@ -1785,10 +1999,19 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 	if prof == nil {
 		prof = &profile.Profile{}
 	}
+	// op/variant fill the §9.0 TOON header. The variant is the resolved one,
+	// not the requested one, so a caller who omitted it still learns which
+	// variant answered.
+	variantID := ""
+	if rv != nil && rv.Variant != nil {
+		variantID = rv.Variant.VariantID
+	}
 	out, err := profile.Apply(prof, profile.ApplyInput{
 		Body:       body,
 		UserFormat: format,
 		MaxItems:   inv.MaxItems,
+		Op:         opIDOf(inv),
+		Variant:    variantID,
 	})
 	if err != nil {
 		return nil, err
@@ -1803,21 +2026,49 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 		CollapsedArrays:   out.CollapsedArrays,
 		DedupedRows:       out.DedupedRows,
 		LimitedRows:       out.LimitedRows,
+		AnnotationPaths:   survivingAnnotations(annotated, out.DroppedPaths),
 		Expression:        newExpressionMeta(inv, rv, prof, &out),
 	}, nil
+}
+
+// survivingAnnotations drops the annotation paths the profile removed again.
+// A field the caller cannot see in the shaped body either is not a reason to
+// stay off raw, so naming it would make the notice wrong in the one direction
+// that matters: talking the caller out of the format that has the data.
+func survivingAnnotations(annotated, dropped []string) []string {
+	if len(annotated) == 0 {
+		return nil
+	}
+
+	gone := make(map[string]struct{}, len(dropped))
+	for _, path := range dropped {
+		gone[path] = struct{}{}
+	}
+
+	out := make([]string, 0, len(annotated))
+	for _, path := range annotated {
+		if _, removed := gone[path]; removed {
+			continue
+		}
+		out = append(out, path)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // annotateResponse gives the executing adapter a chance to add fields the
 // upstream response lacks. An adapter that does not implement
 // ResponseAnnotator returns body as is.
-func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) []byte {
+func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body []byte) ([]byte, []string) {
 	if rv == nil {
-		return body
+		return body, nil
 	}
 
 	annotator, ok := d.adapters[rv.AdapterKey].(ResponseAnnotator)
 	if !ok {
-		return body
+		return body, nil
 	}
 
 	// AnnotateResponse is adapter-owned code running after executeAdapter's
@@ -1825,20 +2076,20 @@ func (d *dispatcher) annotateResponse(inv *Invocation, rv *ResolvedVariant, body
 	// which spec §3.1 step 7 forbids for a long-running mcp --stdio session.
 	// The annotation is additive by contract, so dropping it and serving the
 	// upstream body is strictly better than failing the call.
-	out := d.annotateSafely(annotator, inv, rv, body)
+	out, paths := d.annotateSafely(annotator, inv, rv, body)
 	if out == nil {
-		return body
+		return body, nil
 	}
-	return out
+	return out, paths
 }
 
-func (d *dispatcher) annotateSafely(annotator ResponseAnnotator, inv *Invocation, rv *ResolvedVariant, body []byte) (out []byte) {
+func (d *dispatcher) annotateSafely(annotator ResponseAnnotator, inv *Invocation, rv *ResolvedVariant, body []byte) (out []byte, paths []string) {
 	defer func() {
 		r := recover()
 		if r == nil {
 			return
 		}
-		slog.Error("response annotator panic",
+		d.log().Error("response annotator panic",
 			"op_id", inv.OpID,
 			"adapter_key", rv.AdapterKey,
 			"request_id", inv.RequestID,
@@ -1848,7 +2099,7 @@ func (d *dispatcher) annotateSafely(annotator ResponseAnnotator, inv *Invocation
 		if d.auditSink != nil {
 			d.auditSink.Append(panicAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
 		}
-		out = nil
+		out, paths = nil, nil
 	}()
 	return annotator.AnnotateResponse(inv, rv, body)
 }
@@ -1866,7 +2117,7 @@ func (d *dispatcher) recordAndReturn(_ context.Context, inv *Invocation, rv *Res
 		return shaped, nil
 	}
 	if err := d.gainLedger.Append(d.buildGainEntry(inv, rv, creds, shaped, raw, fromCache, cacheable)); err != nil {
-		slog.Warn("gain ledger append failed", "op_id", inv.OpID, "err", err)
+		d.log().Warn("gain ledger append failed", "op_id", inv.OpID, "err", err)
 	}
 	return shaped, nil
 }

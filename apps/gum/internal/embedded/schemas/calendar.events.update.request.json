@@ -1,0 +1,43 @@
+{
+  "$id": "calendar.events.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "end": {
+      "type": "object"
+    },
+    "eventId": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "sendUpdates": {
+      "enum": [
+        "all",
+        "externalOnly",
+        "none"
+      ],
+      "type": "string"
+    },
+    "start": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "eventId",
+    "start",
+    "end"
+  ],
+  "title": "Update a Calendar event request",
+  "type": "object"
+}

@@ -1,3 +1,1 @@
-id=18ac0accd4
-labelIds=["SENT"]
-threadId=18a7741ac4
+{"id":"18ac0accd4","labelIds":["SENT"],"threadId":"18a7741ac4"}

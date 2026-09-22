@@ -1,0 +1,12 @@
+{
+  "$id": "slides.presentations.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "title": {
+      "description": "Presentation title.",
+      "type": "string"
+    }
+  },
+  "title": "Create a Slides Presentation request",
+  "type": "object"
+}

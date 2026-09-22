@@ -28,7 +28,7 @@ func TestValidateNewPluginSchemasLoadErrorWraps(t *testing.T) {
 	candidate := []plugins.SchemaRef{
 		{Ref: "#/types/X", Hash: "sha256:aaa", OwnerPlugin: "plugin-a"},
 	}
-	err := plugins.ValidateNewPluginSchemas(r, candidate)
+	err := plugins.ValidateNewPluginSchemas(r, "alpha", candidate)
 	if err == nil {
 		t.Fatal("ValidateNewPluginSchemas(bad catalog) err=nil; want wrap")
 	}

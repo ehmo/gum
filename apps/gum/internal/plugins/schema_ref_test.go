@@ -37,7 +37,7 @@ func TestPluginSchemaRefCollision(t *testing.T) {
 		{Ref: "shared.input.v1", Hash: "h2", OwnerPlugin: "beta"},
 	}
 
-	err := plugins.ValidateNewPluginSchemas(reg, candidate)
+	err := plugins.ValidateNewPluginSchemas(reg, "beta", candidate)
 	if !errors.Is(err, plugins.ErrSchemaRefCollision) {
 		t.Fatalf("ValidateNewPluginSchemas err = %v; want SCHEMA_REF_COLLISION", err)
 	}
@@ -122,7 +122,7 @@ func TestValidateNewPluginSchemasEmptyRegistry(t *testing.T) {
 
 	reg := registry.New(t.TempDir())
 	candidate := []plugins.SchemaRef{{Ref: "x", Hash: "h", OwnerPlugin: "alpha"}}
-	if err := plugins.ValidateNewPluginSchemas(reg, candidate); err != nil {
+	if err := plugins.ValidateNewPluginSchemas(reg, "beta", candidate); err != nil {
 		t.Errorf("ValidateNewPluginSchemas on empty registry = %v; want nil", err)
 	}
 }
@@ -145,5 +145,54 @@ func seedVariants(t *testing.T, ctx context.Context, reg *registry.Registry, var
 		return nil
 	}); err != nil {
 		t.Fatalf("seedVariants: %v", err)
+	}
+}
+
+// TestSchemaRefCollisionSpansEveryPluginState pins the docs/test-matrix.md
+// row 45 phrase "full-profile-inventory ... across active, pending-restart,
+// needs-configuration, and quarantined plugins". The inventory the check
+// reads is plugin-catalog.json, which records no lifecycle state, so a ref
+// owned by a parked or quarantined plugin blocks a divergent candidate just
+// as an active one does.
+func TestSchemaRefCollisionSpansEveryPluginState(t *testing.T) {
+	states := []string{"active", "installed_pending_restart", "needs_configuration", "quarantined"}
+	for _, state := range states {
+		t.Run(state, func(t *testing.T) {
+			ctx := context.Background()
+			reg := registry.New(t.TempDir())
+
+			seedVariants(t, ctx, reg, []map[string]any{
+				{
+					"owner_plugin":  "incumbent",
+					"variant_id":    "incumbent.foo.v1",
+					"schema_hashes": map[string]any{"shared.v1.request": "h1"},
+				},
+			})
+			if err := reg.WriteTransaction(ctx, func(f *registry.Files) error {
+				row := map[string]any{"name": "incumbent", "status": state}
+				if state == "quarantined" {
+					row["status"] = "active"
+					row["quarantined"] = true
+				}
+				f.State.Plugins = []any{row}
+				return nil
+			}); err != nil {
+				t.Fatalf("seed state: %v", err)
+			}
+
+			divergent := []plugins.SchemaRef{
+				{Ref: "shared.v1.request", Hash: "h2", OwnerPlugin: "newcomer"},
+			}
+			if err := plugins.ValidateNewPluginSchemas(reg, "newcomer", divergent); !errors.Is(err, plugins.ErrSchemaRefCollision) {
+				t.Errorf("divergent candidate against a %s incumbent: err = %v; want SCHEMA_REF_COLLISION", state, err)
+			}
+
+			identical := []plugins.SchemaRef{
+				{Ref: "shared.v1.request", Hash: "h1", OwnerPlugin: "newcomer"},
+			}
+			if err := plugins.ValidateNewPluginSchemas(reg, "newcomer", identical); err != nil {
+				t.Errorf("identical-body reuse against a %s incumbent: err = %v; want nil", state, err)
+			}
+		})
 	}
 }

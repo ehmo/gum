@@ -12,6 +12,7 @@
 package plugins_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -124,4 +125,96 @@ func itoa(n int) string {
 		buf = append([]byte{'-'}, buf...)
 	}
 	return string(buf)
+}
+
+// TestPluginManifestSchemaVersionPlacement pins docs/test-matrix.md row 79
+// and spec §8.6 line 1737: the canonical version field is a top-level
+// sibling of `plugin`. A missing field and a copy nested inside `plugin`
+// both fail install with PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED, and the nested
+// copy fails even when it names the supported version.
+func TestPluginManifestSchemaVersionPlacement(t *testing.T) {
+	cases := []struct {
+		name     string
+		manifest map[string]any
+		wantErr  error
+	}{
+		{
+			name: "top-level version accepted",
+			manifest: map[string]any{
+				"manifest_schema_version": 1,
+			},
+		},
+		{
+			name:     "missing version rejected",
+			manifest: map[string]any{},
+			wantErr:  plugins.ErrUnsupportedSchemaVersion,
+		},
+		{
+			name: "nested version rejected",
+			manifest: map[string]any{
+				"plugin": map[string]any{"manifest_schema_version": 1},
+			},
+			wantErr: plugins.ErrUnsupportedSchemaVersion,
+		},
+		{
+			name: "nested version rejected even beside a valid top-level one",
+			manifest: map[string]any{
+				"manifest_schema_version": 1,
+				"plugin":                  map[string]any{"manifest_schema_version": 1},
+			},
+			wantErr: plugins.ErrUnsupportedSchemaVersion,
+		},
+		{
+			name: "unrelated plugin table accepted",
+			manifest: map[string]any{
+				"manifest_schema_version": 1,
+				"plugin":                  map[string]any{"description": "a plugin"},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := writePlacementManifest(t, tc.manifest)
+			_, err := plugins.LoadManifest(dir)
+			if tc.wantErr == nil {
+				if err != nil {
+					t.Fatalf("LoadManifest = %v; want nil", err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("LoadManifest = %v; want PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED", err)
+			}
+		})
+	}
+}
+
+// writePlacementManifest writes a minimal valid manifest merged with extra,
+// so each case controls only the version placement under test.
+func writePlacementManifest(t *testing.T, extra map[string]any) string {
+	t.Helper()
+	dir := t.TempDir()
+	man := map[string]any{
+		"plugin_id":  "acme",
+		"name":       "acme",
+		"version":    "1.0.0",
+		"shape":      "mcp-plugin",
+		"executable": "bin/acme",
+		"advertised_tools": []map[string]any{{
+			"name":       "ping",
+			"risk_class": "read",
+		}},
+	}
+	for k, v := range extra {
+		man[k] = v
+	}
+	b, err := json.Marshal(man)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

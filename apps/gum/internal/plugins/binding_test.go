@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,6 +105,77 @@ func TestPluginExecutableBinding(t *testing.T) {
 	if s, _ := row["quarantined_at"].(string); s == "" {
 		t.Errorf("quarantined_at empty; want RFC 3339 timestamp")
 	}
+
+	// §8.7: the executable binding starts at install-time normalization,
+	// and the rule is per source class. The exact-match rule binds local,
+	// bundled, github_release, and git; the pypi rule drops the resolver
+	// token and binds the venv console script.
+	t.Run("normalized argv per source class", func(t *testing.T) {
+		const dir = "/install/fli"
+		exact := []struct {
+			source     string
+			executable string
+			command    []string
+			want       []string
+		}{
+			{"", "bin/mcp", []string{"bin/mcp", "serve"}, []string{dir + "/bin/mcp", "serve"}},
+			{SourceLocal, "bin/mcp", []string{"./bin/mcp"}, []string{dir + "/bin/mcp"}},
+			{SourceBundled, "bin/mcp", nil, []string{dir + "/bin/mcp"}},
+			{SourceGitHubRelease, "bin/mcp", []string{"bin/mcp", "serve"}, []string{dir + "/bin/mcp", "serve"}},
+			{SourceGit, "bin/mcp", []string{"bin/mcp"}, []string{dir + "/bin/mcp"}},
+			{SourcePyPI, "venv/bin/fli", []string{"uvx", "fli", "mcp"}, []string{dir + "/venv/bin/fli", "mcp"}},
+			{SourcePyPI, "venv/bin/fli", []string{"pipx", "fli", "mcp", "--stdio"}, []string{dir + "/venv/bin/fli", "mcp", "--stdio"}},
+			{SourcePyPI, "venv/bin/fli", []string{"fli", "mcp"}, []string{dir + "/venv/bin/fli", "mcp"}},
+			{SourcePyPI, "venv/bin/fli", nil, []string{dir + "/venv/bin/fli"}},
+		}
+		for _, tc := range exact {
+			m := &Manifest{
+				PluginID:   "fli",
+				Executable: tc.executable,
+				Command:    tc.command,
+				Package:    PackageDecl{Source: tc.source},
+			}
+			got, err := NormalizeArgv(dir, m, false)
+			if err != nil {
+				t.Errorf("NormalizeArgv(source=%q, command=%v): %v", tc.source, tc.command, err)
+				continue
+			}
+			if strings.Join(got, "\x00") != strings.Join(tc.want, "\x00") {
+				t.Errorf("NormalizeArgv(source=%q, command=%v) = %v; want %v", tc.source, tc.command, got, tc.want)
+			}
+		}
+
+		refusals := []struct {
+			source     string
+			executable string
+			command    []string
+		}{
+			// A github_release or git artifact never resolves a PATH-only
+			// or resolver token; only the pypi rule does.
+			{SourceGitHubRelease, "bin/mcp", []string{"uvx", "fli", "mcp"}},
+			{SourceGit, "bin/mcp", []string{"mcp"}},
+			// pypi: the console script must equal the declared venv path.
+			{SourcePyPI, "bin/fli", []string{"uvx", "fli", "mcp"}},
+			{SourcePyPI, "venv/bin/fli", []string{"uvx", "other", "mcp"}},
+			// pypi: a resolver token with nothing after it names no script.
+			{SourcePyPI, "venv/bin/fli", []string{"uvx"}},
+			// pypi: a script token with a path separator is not a console
+			// script name.
+			{SourcePyPI, "venv/bin/fli", []string{"venv/bin/fli", "mcp"}},
+		}
+		for _, tc := range refusals {
+			m := &Manifest{
+				PluginID:   "fli",
+				Executable: tc.executable,
+				Command:    tc.command,
+				Package:    PackageDecl{Source: tc.source},
+			}
+			if _, err := NormalizeArgv(dir, m, false); !errors.Is(err, ErrExecutableUntrusted) {
+				t.Errorf("NormalizeArgv(source=%q, command=%v) err = %v; want PLUGIN_EXECUTABLE_UNTRUSTED",
+					tc.source, tc.command, err)
+			}
+		}
+	})
 }
 
 // TestVerifyRejectsShellInterpreters proves the spec §8.7 line 1690 deny-list:

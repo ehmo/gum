@@ -1,0 +1,197 @@
+{
+  "$id": "customsearch.cse.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "c2coff": {
+      "description": "Enables or disables [Simplified and Traditional Chinese Search](https://developers.google.com/custom-search/docs/json_a…",
+      "type": "string"
+    },
+    "cr": {
+      "description": "Restricts search results to documents originating in a particular country. You may use [Boolean operators](https://deve…",
+      "type": "string"
+    },
+    "cx": {
+      "description": "The Programmable Search Engine ID to use for this request.",
+      "type": "string"
+    },
+    "dateRestrict": {
+      "description": "Restricts results to URLs based on date. Supported values include: * `d[number]`: requests results from the specified n…",
+      "type": "string"
+    },
+    "enableAlternateSearchHandler": {
+      "description": "Optional. Enables routing of Programmable Search Engine requests to an alternate search handler.",
+      "type": "boolean"
+    },
+    "exactTerms": {
+      "description": "Identifies a phrase that all documents in the search results must contain.",
+      "type": "string"
+    },
+    "excludeTerms": {
+      "description": "Identifies a word or phrase that should not appear in any documents in the search results.",
+      "type": "string"
+    },
+    "fileType": {
+      "description": "Restricts results to files of a specified extension. A list of file types indexable by Google can be found in Search Co…",
+      "type": "string"
+    },
+    "filter": {
+      "description": "Controls turning on or off the duplicate content filter. * See [Automatic Filtering](https://developers.google.com/cust…",
+      "type": "string"
+    },
+    "gl": {
+      "description": "Geolocation of end user. * The `gl` parameter value is a two-letter country code. The `gl` parameter boosts search resu…",
+      "type": "string"
+    },
+    "googlehost": {
+      "description": "**Deprecated**. Use the `gl` parameter for a similar effect. The local Google domain (for example, google.com, google.d…",
+      "type": "string"
+    },
+    "highRange": {
+      "description": "Specifies the ending value for a search range. * Use `lowRange` and `highRange` to append an inclusive search range of …",
+      "type": "string"
+    },
+    "hl": {
+      "description": "Sets the user interface language. * Explicitly setting this parameter improves the performance and the quality of your …",
+      "type": "string"
+    },
+    "hq": {
+      "description": "Appends the specified query terms to the query, as if they were combined with a logical AND operator.",
+      "type": "string"
+    },
+    "imgColorType": {
+      "description": "Returns black and white, grayscale, transparent, or color images. Acceptable values are: * `\"color\"` * `\"gray\"` * `\"mon…",
+      "enum": [
+        "imgColorTypeUndefined",
+        "mono",
+        "gray",
+        "color",
+        "trans"
+      ],
+      "type": "string"
+    },
+    "imgDominantColor": {
+      "description": "Returns images of a specific dominant color. Acceptable values are: * `\"black\"` * `\"blue\"` * `\"brown\"` * `\"gray\"` * `\"g…",
+      "enum": [
+        "imgDominantColorUndefined",
+        "black",
+        "blue",
+        "brown",
+        "gray",
+        "green",
+        "orange",
+        "pink",
+        "purple",
+        "red",
+        "teal",
+        "white",
+        "yellow"
+      ],
+      "type": "string"
+    },
+    "imgSize": {
+      "description": "Returns images of a specified size. Acceptable values are: * `\"huge\"` * `\"icon\"` * `\"large\"` * `\"medium\"` * `\"small\"` *…",
+      "enum": [
+        "imgSizeUndefined",
+        "HUGE",
+        "ICON",
+        "LARGE",
+        "MEDIUM",
+        "SMALL",
+        "XLARGE",
+        "XXLARGE"
+      ],
+      "type": "string"
+    },
+    "imgType": {
+      "description": "Returns images of a type. Acceptable values are: * `\"clipart\"` * `\"face\"` * `\"lineart\"` * `\"stock\"` * `\"photo\"` * `\"ani…",
+      "enum": [
+        "imgTypeUndefined",
+        "clipart",
+        "face",
+        "lineart",
+        "stock",
+        "photo",
+        "animated"
+      ],
+      "type": "string"
+    },
+    "linkSite": {
+      "description": "Specifies that all search results should contain a link to a particular URL.",
+      "type": "string"
+    },
+    "lowRange": {
+      "description": "Specifies the starting value for a search range. Use `lowRange` and `highRange` to append an inclusive search range of …",
+      "type": "string"
+    },
+    "lr": {
+      "description": "Restricts the search to documents written in a particular language (e.g., `lr=lang_ja`). Acceptable values are: * `\"lan…",
+      "type": "string"
+    },
+    "num": {
+      "description": "Number of search results to return. * Valid values are integers between 1 and 10, inclusive.",
+      "type": "integer"
+    },
+    "orTerms": {
+      "description": "Provides additional search terms to check for in a document, where each document in the search results must contain at …",
+      "type": "string"
+    },
+    "q": {
+      "description": "Query",
+      "type": "string"
+    },
+    "relatedSite": {
+      "description": "Deprecated.",
+      "type": "string"
+    },
+    "rights": {
+      "description": "Filters based on licensing. Supported values include: `cc_publicdomain`, `cc_attribute`, `cc_sharealike`, `cc_noncommer…",
+      "type": "string"
+    },
+    "safe": {
+      "description": "Search safety level. Acceptable values are: * `\"active\"`: Enables SafeSearch filtering. * `\"off\"`: Disables SafeSearch …",
+      "enum": [
+        "safeUndefined",
+        "active",
+        "high",
+        "medium",
+        "off"
+      ],
+      "type": "string"
+    },
+    "searchType": {
+      "description": "Specifies the search type: `image`. If unspecified, results are limited to webpages. Acceptable values are: * `\"image\"`…",
+      "enum": [
+        "searchTypeUndefined",
+        "image"
+      ],
+      "type": "string"
+    },
+    "siteSearch": {
+      "description": "Specifies a given site which should always be included or excluded from results (see `siteSearchFilter` parameter, belo…",
+      "type": "string"
+    },
+    "siteSearchFilter": {
+      "description": "Controls whether to include or exclude results from the site named in the `siteSearch` parameter. Acceptable values are…",
+      "enum": [
+        "siteSearchFilterUndefined",
+        "e",
+        "i"
+      ],
+      "type": "string"
+    },
+    "snippetLength": {
+      "description": "Optional. Maximum length of snippet text, in characters, to be returned with results. Note: this feature is limited to …",
+      "type": "integer"
+    },
+    "sort": {
+      "description": "The sort expression to apply to the results. The sort parameter specifies that the results be sorted according to the s…",
+      "type": "string"
+    },
+    "start": {
+      "description": "The index of the first result to return. The default number of results per page is 10, so `\u0026start=11` would start at th…",
+      "type": "integer"
+    }
+  },
+  "title": "Programmable Web Search request",
+  "type": "object"
+}

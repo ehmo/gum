@@ -1,3 +1,7 @@
-id=1000000000000e7ecf539b89d099
-mimeType=text/markdown
-name=notes-18.md
+op: drive.files.create
+variant: 
+format_version: 1
+count: 1
+fields: id,mimeType,name
+
+1000000000000e7ecf539b89d099,text/markdown,notes-18.md

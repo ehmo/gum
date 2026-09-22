@@ -11,7 +11,9 @@ package plugins_test
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -137,6 +139,67 @@ func TestInstallArmsNeedsConfiguration(t *testing.T) {
 	}
 	if got, _ := row["status"].(string); got != plugins.StatusNeedsConfiguration {
 		t.Errorf("status = %q; want %q", got, plugins.StatusNeedsConfiguration)
+	}
+}
+
+// installFixtureWithProbe builds an install source whose executable appends
+// to marker on every run, so a test can tell whether anything spawned it.
+func installFixtureWithProbe(t *testing.T, manifest, marker string) string {
+	t.Helper()
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	script := fmt.Sprintf("#!/bin/sh\nprintf 'spawned\\n' >> '%s'\n", marker)
+	if err := os.WriteFile(filepath.Join(src, "executable"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write probe executable: %v", err)
+	}
+	return src
+}
+
+// TestInstallNeedsConfigurationSkipsLiveCanary proves the two install-time
+// clauses docs/test-matrix.md row 149 states and nothing asserted: the
+// needs_configuration row lands without quarantine, and install runs no live
+// canary.
+//
+// The spy is the plugin executable. A live canary has to spawn it, so a run
+// leaves a marker file behind. The control run at the end proves the marker
+// works, which is what makes its absence evidence instead of a silent pass.
+func TestInstallNeedsConfigurationSkipsLiveCanary(t *testing.T) {
+	marker := filepath.Join(t.TempDir(), "canary-spawned")
+	src := installFixtureWithProbe(t, manifestWithCreds, marker)
+
+	reg := registry.New(t.TempDir())
+	installRoot := t.TempDir()
+	host := plugins.NewHost(plugins.HostConfig{InstallRoot: installRoot})
+	if _, err := host.InstallWithRegistry(context.Background(), src, plugins.InstallOptions{
+		Registry: reg,
+	}); err != nil {
+		t.Fatalf("InstallWithRegistry: %v", err)
+	}
+
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("marker %s exists after install (stat err=%v); install must skip the live canary", marker, err)
+	}
+
+	row := stateRow(t, reg, "google-flights")
+	if got, _ := row["status"].(string); got != plugins.StatusNeedsConfiguration {
+		t.Errorf("status = %q; want %q", got, plugins.StatusNeedsConfiguration)
+	}
+	if got, ok := row["quarantined"].(bool); !ok || got {
+		t.Errorf("quarantined = %v (present=%v); want false: a skipped canary is not a failed one", got, ok)
+	}
+	if v, present := row["activated_at"]; present && v != nil {
+		t.Errorf("activated_at = %v; want null until `gum plugin setup` passes its canary", v)
+	}
+
+	// Control: the probe records a spawn when one actually happens.
+	exe := filepath.Join(installRoot, "google-flights", "executable")
+	if out, err := exec.Command(exe).CombinedOutput(); err != nil {
+		t.Fatalf("control run of %s: %v (%s)", exe, err, out)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("control run left no marker: %v; the probe cannot detect a canary spawn", err)
 	}
 }
 

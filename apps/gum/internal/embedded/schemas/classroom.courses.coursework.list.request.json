@@ -1,0 +1,37 @@
+{
+  "$id": "classroom.courses.coursework.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "courseId": {
+      "description": "Identifier of the course. This identifier can be either the Classroom-assigned identifier or an alias.",
+      "type": "string"
+    },
+    "courseWorkStates": {
+      "description": "Restriction on the work status to return. Only courseWork that matches is returned. If unspecified, items with a work s…",
+      "enum": [
+        "COURSE_WORK_STATE_UNSPECIFIED",
+        "PUBLISHED",
+        "DRAFT",
+        "DELETED"
+      ],
+      "type": "string"
+    },
+    "orderBy": {
+      "description": "Optional sort ordering for results. A comma-separated list of fields with an optional sort direction keyword. Supported…",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Maximum number of items to return. Zero or unspecified indicates that the server may assign a maximum. The server may r…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "nextPageToken value returned from a previous list call, indicating that the subsequent page of results should be return…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "courseId"
+  ],
+  "title": "List Course Work request",
+  "type": "object"
+}

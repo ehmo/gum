@@ -79,8 +79,11 @@ get-one ops is `json`.
 ## Errors
 
 - `TOON_VERSION_UNSUPPORTED` — header `format_version` not in `{1}`.
-- `TOON_FIELDS_MISMATCH` — a body row has more or fewer fields than the
-  header's `fields` value declared.
+
+A row shorter than the header's `fields` list is not an error: the decoder
+fills the missing trailing columns with null. Extra cells past the last
+declared field are dropped. Count your columns against the header rather
+than expecting the decoder to complain.
 
 See `gum://help/field-masks` for the projection step that shapes the data
 before TOON serialisation.

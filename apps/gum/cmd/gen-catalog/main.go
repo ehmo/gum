@@ -79,8 +79,18 @@ func run() error {
 	injectDataManagerOffline := flag.Bool("inject-datamanager-offline", false, "skip network; load the existing catalog, add/replace the Data Manager API ops, and rewrite catalog.json + .sha256 in lockstep")
 	refreshSourceOpsFlag := flag.Bool("refresh-source-ops", false, "skip network; rebuild in-source hand-authored ops (Search Console) and replace matching ops in catalog.json by op_id, then rewrite catalog.json + .sha256 in lockstep")
 	applyRequestFieldsFlag := flag.Bool("apply-request-fields", false, "skip network; set Op.RequestFields from the central Tier A map (request_fields_data.go) on matching ops in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
+	applyDefaultFieldsFlag := flag.Bool("apply-default-fields", false, "skip network; set Variant.DefaultFields from the curated §9.1 stage-1 map (default_fields_data.go) on matching ops in catalog.json, then rewrite catalog.json + .sha256 in lockstep")
+	emitDefaultFieldsSchemaFlag := flag.Bool("emit-default-fields-schema", false, "fetch Discovery docs; refresh cmd/gen-catalog/testdata/default-fields-schema.json, the response-schema fixture the curated default_fields masks are validated against")
+	emitSchemasFlag := flag.Bool("emit-schemas", false, "skip network; derive one JSON Schema 2020-12 request document per op from Op.RequestFields, write the bodies into -schemas-out, set binding.request_ref on every variant, then rewrite catalog.json + .sha256 in lockstep")
+	schemasDir := flag.String("schemas-out", "internal/embedded/schemas", "output directory for the first-party request schema store")
 	enrichRequestFieldsFlag := flag.Bool("enrich-request-fields", false, "fetch Discovery docs; apply the hand-map then derive RequestFields for every REST op still missing them, and rewrite catalog.json + .sha256 in lockstep")
 	flag.Parse()
+
+	// Spec §5.2: the overrides manifest is validated against its schema
+	// before each generator run, whatever mode the run takes.
+	if _, err := loadOverrides(); err != nil {
+		return err
+	}
 
 	if *offlineStubsOnly {
 		return emitStubsOffline(*outPath, *stubsDir)
@@ -106,8 +116,20 @@ func run() error {
 		return applyRequestFields(*outPath)
 	}
 
+	if *applyDefaultFieldsFlag {
+		return applyDefaultFields(*outPath)
+	}
+
+	if *emitDefaultFieldsSchemaFlag {
+		return emitDefaultFieldsSchema(*outPath)
+	}
+
 	if *enrichRequestFieldsFlag {
 		return enrichRequestFields(*outPath)
+	}
+
+	if *emitSchemasFlag {
+		return emitSchemaStore(*outPath, *schemasDir)
 	}
 
 	gmailResp, err := httpGet(gmailDiscoveryURL)

@@ -5,6 +5,77 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-09-21
+
+### Added
+
+- Remote plugin install sources. A manifest `[package]` block may declare
+  `pypi`, `github_release`, or `git` alongside the existing `local` and
+  `bundled`. PyPI installs select the index artifact matching the declared
+  `sha256:` checksum and build a host-managed virtualenv with
+  `pip install --no-index --no-deps`; `uvx` is never spawned. GitHub release
+  artifacts verify SHA-256 before a mode-pinned unpack that refuses symlinks
+  and traversal. Git sources check out a 40-hex pinned commit and re-verify
+  `HEAD` against the pin; unpinned refs are dev-only. `plugins.lock` rows
+  record `source`, `ref`, and `checksum`, and `local` plus unpinned-git
+  installs carry `risk="dev-untrusted"`.
+- Spec §9.0 TOON documents on the MCP response path, and `gum gain`
+  fixture replay now measures the real wire document. The replay fixture set
+  reports 210 tokens saved (5.35%) under the `toon` default, up from 0.
+- `gum gain` text and CSV renderers, gain modes, savings fields computed
+  from the ledger, and gain entries for failed dispatches.
+- Active plugin variants merge into the session catalog, so search,
+  describe, and operation completion see plugin operations.
+- `gum plugin list --format=json`.
+- Curated `default_fields` for 11 high-traffic read operations.
+- `dual_fetch` issues the second, unmasked request and reports both sides.
+- Compound plugins receive a short-lived host Google access token under the
+  spec §7 forwarding rule.
+- A build-time first-party request schema store.
+- The filesystem tee is wired into the shipped binary.
+- `gum code` requires CLI confirmation for capability-bearing scripts, and
+  confirmation tokens bind the script's capability flags.
+- `gum auth login --switch-account` rebinds a profile to the account the
+  consent returns.
+
+### Changed
+
+- Each profile binds to one Google account. A login that returns a
+  different account, or a resolved credential whose fingerprint differs
+  from the recorded one, is refused with `AUTH_SUBJECT_MISMATCH`.
+- Long-running operations are gated out of code mode.
+- `gum.code` enforces one cumulative output budget across prints and the
+  return value; `gum_parallel` enforces the §9.0.1 aggregate ceilings
+  before dispatch.
+- JSON resource bodies are canonicalized (RFC 8785).
+- `plugin-catalog.json` is stamped with the install generation, so a torn
+  registry publish is detected.
+- `gen-catalog` refuses overrides without a manifest entry and enforces
+  `DEFAULT_VARIANT_INVALID` at generation; dispatch falls through a
+  quarantined default variant.
+- grpc-sdk operations carry the `routing_headers` invariant.
+- The `--format raw` notice names the fields raw output drops.
+
+### Fixed
+
+- `tools/list` emitted `"outputSchema": null` for every tool. Strict MCP
+  clients reject `null` there, which made every gum tool unavailable in
+  those clients. The field is now omitted when a tool has no output schema.
+- Gain-ledger rotation no longer loses entries.
+- An unparseable `meta_tools.search_apis.collapse_arrays.max_items` value
+  is ignored instead of failing the request.
+- `gum://status/canaries` reports the real canary roster.
+- Compound-auth failures report the real missing components, and Google
+  policy refusals map onto `missing_components`.
+- `gum://status/health` bounds every `detail` string at 80 characters.
+
+### Removed
+
+- The dead `gum code --timeout-sec` flag; the §6 wall-clock budget was
+  already the only timeout.
+- Two auth strategies the wire enum omits; they were undispatchable.
+- The dead output-profile column from the convenience-tool table.
+
 ## [2.0.1] - 2026-09-20
 
 No code change. The binary behaves exactly like v2.0.0; the only Go difference

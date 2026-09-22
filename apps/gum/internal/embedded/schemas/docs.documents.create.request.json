@@ -1,0 +1,12 @@
+{
+  "$id": "docs.documents.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "title": {
+      "description": "Title of the new document.",
+      "type": "string"
+    }
+  },
+  "title": "Create a Doc request",
+  "type": "object"
+}

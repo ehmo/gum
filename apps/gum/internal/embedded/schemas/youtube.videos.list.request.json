@@ -1,0 +1,70 @@
+{
+  "$id": "youtube.videos.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "chart": {
+      "description": "Return the videos that are in the specified chart.",
+      "enum": [
+        "chartUnspecified",
+        "mostPopular"
+      ],
+      "type": "string"
+    },
+    "hl": {
+      "description": "Stands for \"host language\". Specifies the localization language of the metadata to be filled into snippet.localized. Th…",
+      "type": "string"
+    },
+    "id": {
+      "description": "Return videos with the given ids.",
+      "type": "string"
+    },
+    "locale": {
+      "type": "string"
+    },
+    "maxHeight": {
+      "type": "integer"
+    },
+    "maxResults": {
+      "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set. *Note:* Thi…",
+      "type": "integer"
+    },
+    "maxWidth": {
+      "description": "Return the player with maximum height specified in",
+      "type": "integer"
+    },
+    "myRating": {
+      "description": "Return videos liked/disliked by the authenticated user. Does not support RateType.RATED_TYPE_NONE.",
+      "enum": [
+        "none",
+        "like",
+        "dislike"
+      ],
+      "type": "string"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter specifies a comma-separated list of one or more video resource properties that the API response wi…",
+      "type": "string"
+    },
+    "regionCode": {
+      "description": "Use a chart that is specific to the specified region",
+      "type": "string"
+    },
+    "videoCategoryId": {
+      "description": "Use chart that is specific to the specified video category",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "List Videos request",
+  "type": "object"
+}

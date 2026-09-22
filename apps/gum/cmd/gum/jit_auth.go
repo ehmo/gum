@@ -65,12 +65,28 @@ func maybeJITLogin(cmd *cobra.Command, opID, variantID string, derr error) bool 
 	if !confirmAuthorize(cmd.InOrStdin(), cmd.ErrOrStderr(), scopes) {
 		return false
 	}
-	if _, lerr := interactiveByoLogin(cmd.Context(),
-		auth.ByoOAuthConfig{ClientID: client.ClientID, ClientSecret: client.ClientSecret, Profile: resolveProfileFlag(cmd), Scopes: scopes},
+	// A mid-call login must not rebind the profile to whatever account the
+	// chooser lands on: the operator came here to finish one call, not to
+	// switch identities. ExpectedSubject makes the wrong account a refusal,
+	// and `gum login --switch-account` stays the deliberate way to change it
+	// (spec §7, bead gum-q0kd).
+	profile := resolveProfileFlag(cmd)
+	creds, lerr := interactiveByoLogin(cmd.Context(),
+		auth.ByoOAuthConfig{
+			ClientID:        client.ClientID,
+			ClientSecret:    client.ClientSecret,
+			Profile:         profile,
+			Scopes:          scopes,
+			ExpectedSubject: expectedAuthSubject(profile, byoStrategy),
+		},
 		newBrowserOpener(cmd.ErrOrStderr(), false, isHeadless),
-	); lerr != nil {
+	)
+	if lerr != nil {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "gum: authorization failed: %v\n", lerr)
 		return false
+	}
+	if rerr := recordExpectedSubject(profile, creds.StrategyName, creds.SubjectFingerprint); rerr != nil {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "gum: could not record the account fingerprint for this profile: %v\n", rerr)
 	}
 	return true
 }

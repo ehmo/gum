@@ -44,14 +44,14 @@ func TestGainSinceFlagDrivesStatsBetweenBranch(t *testing.T) {
 	var out bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&out)
-	root.SetArgs([]string{"gain", "--since", "2024-01-01T00:00:00Z"})
+	root.SetArgs([]string{"gain", "--since", "2024-01-01T00:00:00Z", "--format", "json"})
 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("gain --since: %v", err)
 	}
 	// Sanity: output must be a JSON object. We don't pin specific fields
-	// because the empty-ledger StatsBetween envelope is identical-shape
-	// to Stats() — coverage is what differs.
+	// because the empty-ledger window envelope is identical in shape to the
+	// unbounded one — coverage is what differs.
 	if !strings.HasPrefix(strings.TrimSpace(out.String()), "{") {
 		t.Errorf("out=%q; want JSON object", out.String())
 	}

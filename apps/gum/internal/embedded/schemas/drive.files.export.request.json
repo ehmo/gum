@@ -1,0 +1,19 @@
+{
+  "$id": "drive.files.export.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fileId": {
+      "type": "string"
+    },
+    "mimeType": {
+      "description": "Export MIME type, e.g. application/pdf.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fileId",
+    "mimeType"
+  ],
+  "title": "Export a Google Doc request",
+  "type": "object"
+}

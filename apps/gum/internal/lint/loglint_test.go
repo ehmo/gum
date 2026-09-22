@@ -22,10 +22,16 @@ import (
 
 // scanPaths enumerates the package prefixes that §14.1 rule 1 forbids
 // from importing `log` or writing directly to os.Stderr/os.Stdout. Paths are
-// relative to the apps/gum module root and resolved at runtime; missing paths
-// are skipped (some packages such as ratelimit/tee/profiles don't exist yet,
-// and the spec acknowledges that partial coverage is acceptable until they
-// land).
+// relative to the apps/gum module root, resolved at runtime, and walked
+// recursively, so internal/output covers output/tee, output/profile and
+// output/gain. Every entry must exist: a missing one is a stale scan set, not
+// a package that has yet to land.
+//
+// The set matches the shipped tree, not the names §14 used to carry. Rate
+// limiting is in internal/auth (persistent_bucket.go), not a separate
+// internal/ratelimit; tee is internal/output/tee; profile handling splits
+// between internal/profile (profile paths) and internal/output/profile
+// (expression profiles).
 var scanPaths = []string{
 	"internal/dispatch",
 	"internal/adapters",
@@ -33,10 +39,10 @@ var scanPaths = []string{
 	"internal/cli",
 	"internal/cache",
 	"internal/auth",
-	"internal/profiles",
+	"internal/auditlog",
+	"internal/plugins/registry",
+	"internal/profile",
 	"internal/sandbox",
-	"internal/ratelimit",
-	"internal/tee",
 	"internal/output",
 }
 
@@ -60,10 +66,8 @@ func TestStdLogProhibition(t *testing.T) {
 
 	for _, rel := range scanPaths {
 		abs := filepath.Join(root, rel)
-		if _, err := os.Stat(abs); os.IsNotExist(err) {
-			continue
-		} else if err != nil {
-			t.Fatalf("stat %s: %v", abs, err)
+		if _, err := os.Stat(abs); err != nil {
+			t.Fatalf("scan set is stale: %s: %v", rel, err)
 		}
 
 		err := filepath.WalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {

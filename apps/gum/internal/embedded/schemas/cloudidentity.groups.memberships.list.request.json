@@ -1,0 +1,32 @@
+{
+  "$id": "cloudidentity.groups.memberships.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "The maximum number of results to return. Note that the number of results returned may be less than this value even if t…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "The `next_page_token` value returned from a previous search request, if any.",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Required. The parent `Group` resource under which to lookup the `Membership` name. Must be of the form `groups/{group}`.",
+      "type": "string"
+    },
+    "view": {
+      "description": "The level of detail to be returned. If unspecified, defaults to `View.BASIC`.",
+      "enum": [
+        "VIEW_UNSPECIFIED",
+        "BASIC",
+        "FULL"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "parent"
+  ],
+  "title": "List Group Memberships request",
+  "type": "object"
+}

@@ -46,13 +46,14 @@ import (
 )
 
 const (
-	modulePath  = "github.com/ehmo/gum"
-	dispatchPkg = modulePath + "/internal/dispatch"
-	catalogPkg  = modulePath + "/internal/catalog"
-	profilePkg  = modulePath + "/internal/output/profile"
-	genCatalog  = modulePath + "/cmd/gen-catalog"
-	mcpPkg      = modulePath + "/internal/mcp"
-	cliPkg      = modulePath + "/internal/cli"
+	modulePath   = "github.com/ehmo/gum"
+	dispatchPkg  = modulePath + "/internal/dispatch"
+	catalogPkg   = modulePath + "/internal/catalog"
+	profilePkg   = modulePath + "/internal/output/profile"
+	fieldmaskPkg = modulePath + "/internal/output/fieldmask"
+	genCatalog   = modulePath + "/cmd/gen-catalog"
+	mcpPkg       = modulePath + "/internal/mcp"
+	cliPkg       = modulePath + "/internal/cli"
 )
 
 // dispatcherCallScanRoots maps each source tree the rule-3 call-site ratchet
@@ -65,20 +66,19 @@ var dispatcherCallScanRoots = map[string]string{
 }
 
 // rule2Families are the package families spec §14 rule 2 forbids from
-// importing internal/dispatch. The spec names flat paths (internal/output,
-// internal/tee); the tree has since nested some of them (internal/output/toon,
-// internal/output/tee), so each entry matches itself and everything below it.
+// importing internal/dispatch. Each entry matches itself and everything below
+// it, so internal/output covers output/toon, output/tee, output/profile and
+// output/gain. The list names the shipped tree: rate limiting lives in
+// internal/auth (persistent_bucket.go) rather than a separate
+// internal/ratelimit, tee is internal/output/tee, and profile handling splits
+// between internal/profile and internal/output/profile.
 var rule2Families = []string{
-	modulePath + "/internal/usage",
 	catalogPkg,
-	modulePath + "/internal/profiles",
+	modulePath + "/internal/profile",
 	modulePath + "/internal/auth",
 	modulePath + "/internal/cache",
-	modulePath + "/internal/ratelimit",
-	modulePath + "/internal/retry",
 	modulePath + "/internal/sanitize",
 	modulePath + "/internal/output",
-	modulePath + "/internal/tee",
 	modulePath + "/internal/pluginenv",
 }
 
@@ -256,15 +256,16 @@ func TestNoCyclicImports(t *testing.T) {
 		if _, ok := graph[genCatalog]; !ok {
 			t.Fatalf("%s absent from the loaded graph", genCatalog)
 		}
-		allowed := map[string]bool{catalogPkg: true, profilePkg: true}
-		for _, root := range []string{catalogPkg, profilePkg} {
+		allowed := map[string]bool{catalogPkg: true, profilePkg: true, fieldmaskPkg: true}
+		for _, root := range []string{catalogPkg, profilePkg, fieldmaskPkg} {
 			for pkg := range graph.transitive(root) {
 				allowed[pkg] = true
 			}
 		}
 		for pkg := range graph.transitive(genCatalog) {
 			if !allowed[pkg] {
-				t.Errorf("%s imports %s; §14 rule 4 allows only internal/catalog and the §5.4 profile validator", genCatalog, pkg)
+				t.Errorf("%s imports %s; §14 rule 4 allows only internal/catalog, the §5.4 profile "+
+					"validator, and the §5.6 field-mask grammar", genCatalog, pkg)
 			}
 		}
 		if graph.transitive(genCatalog)[dispatchPkg] {

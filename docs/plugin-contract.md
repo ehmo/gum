@@ -36,6 +36,52 @@ Every plugin manifest MUST declare:
 - top-level `manifest_schema_version` (sibling of `[plugin]`, not inside it)
 - `[plugin]` name, version, description, `namespace_owner`, shape, command, license, ToS status, and risk. `command` is an install-time selector; non-dev runtime execution always uses the normalized executable binding recorded in the selected profile's `plugins.lock`.
 - `[package]` source, ref, checksum
+
+**Command normalization (normative).** Install resolves `command` once and
+records the result as `argv_normalized` in the selected profile's
+`plugins.lock`, alongside `executable_path`, `executable_sha256`, and
+`install_root`. The spawn path launches that argv and never re-reads the
+selector. For every source except `pypi`, resolution is exact: `command[0]` MUST
+name the manifest's `executable` (`./bin/mcp` and `bin/mcp` both match
+`bin/mcp`), and the residual tokens become `argv_normalized[1:]`. A
+PATH-only token, a shell interpreter, an absolute path, a traversal, and a
+wrapper script outside the declared executable each fail with
+`PLUGIN_EXECUTABLE_UNTRUSTED` before any file is copied. An omitted
+`command` means the executable takes no arguments. Dev profiles accept an
+unresolvable `command[0]` and still bind the declared executable. For
+`source = "pypi"`, install drops an optional leading `uvx` or `pipx`
+selector token, reads the next token as the console-script name, requires
+`executable = "venv/bin/<script>"`, and records
+`argv_normalized = [<install_root>/venv/bin/<script>] + rest`; the
+manifest example `command = ["uvx", "fli", "mcp"]` becomes
+`<install_root>/venv/bin/fli mcp` and `uvx` is never spawned. The dev
+escape hatch does not apply to `pypi`.
+
+**Package sources (normative).** `[package].source` selects the resolver:
+`local` (the default when `[package]` is omitted), `bundled`,
+`github_release`, `git`, or `pypi`. `checksum` is `sha256:` plus 64 hex
+digits. Manifest load validates the block: `pypi` requires
+`ref = "<name>==<exact version>"` and a checksum; `github_release`
+requires an `https` URL ending in `.tar.gz`, `.tgz`, or `.zip` and a
+checksum; `git` takes an `https` or `file` URL, optionally suffixed
+`@<40-hex commit>`. Install materializes the declared source into the
+install root, then copies the manifest tree over it, so curated manifest
+files and schemas always win over fetched artifact contents. `pypi`
+selects the index artifact whose digest equals the declared checksum,
+re-hashes the download, builds `venv/` with the host `python3`, and runs
+`pip install --no-index --no-deps` on the verified artifact; no network
+resolver ever runs. `github_release` re-hashes the download
+(`PLUGIN_ARTIFACT_CHECKSUM_MISMATCH` on any disagreement, nothing
+unpacked) and unpacks with pinned modes: directories `0755`, the declared
+executable `0755`, every other file `0644`; non-regular entries
+(symlinks, links, devices) and absolute or traversal paths are refused.
+`git` clones, checks out the pinned commit, verifies `HEAD` equals the
+pin, and strips `.git`; an unpinned ref fails non-dev installs with
+`PLUGIN_PACKAGE_SOURCE_UNTRUSTED`. After the copy the declared executable
+MUST be a regular file inside the install root, or install fails with
+`PLUGIN_EXECUTABLE_UNTRUSTED` before any hash or registry write.
+`plugins.lock` rows record `source`, `ref`, and `checksum`; `local` and
+unpinned-`git` installs carry `risk = "dev-untrusted"`.
 - `[requirements]` rate policy, cache TTL, canary, credential/env needs (see **needs_user_creds denylist** and **credential descriptors** below)
 - one or more `[[tools]]` records with `op_id`, `variant_id`,
   `backend_kind`, `interface_kind`, `risk_class`, `capabilities`,
@@ -78,7 +124,12 @@ account, or user-owned OAuth client) MUST also declare auth prerequisites using
 the `auth_strategy` / `auth_components[]` taxonomy from `spec.md` §7. Secret
 components are collected by `gum plugin setup <name>` and stored in the OS
 keychain. External components are displayed as checklist items that GUM cannot
-complete. A plugin like Google Keyword Planner is therefore `compound`, not
+complete, one line per component, before setup prompts for any secret. The
+field is `[requirements].auth_components`; each entry carries `kind`,
+`optional`, `secret`, `external`, and `setup_hint`. A `kind` outside the
+`spec.md` §7 closed enum, and an empty `kind`, fail build/install with
+`AUTH_COMPONENT_UNKNOWN`; `x-` prefixed kinds are informational and accepted.
+A plugin like Google Keyword Planner is therefore `compound`, not
 ordinary OAuth: setup must collect/store the token-like fields and explicitly
 tell the user which Ads account/billing/access-level prerequisites remain
 outside GUM. When a `compound` plugin needs the user's Google access token, it
@@ -91,7 +142,30 @@ plugins MUST validate that the selected credential subject can actually access
 the declared account identifiers; storing syntactically valid secrets is not
 enough to clear `needs_configuration`.
 
-If an output profile strips null or empty values, the manifest's tool record must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation in v0.1.0. An installed plugin's variant is registry bookkeeping only; nothing converts a registry variant row into a dispatchable catalog variant, so there is no profile binding to check at install time.
+**Forwarded-token strategy gate (normative).** `advertised_tools[].auth_strategy`
+is an optional manifest field on each tool record and takes the same closed §7
+strategy enum as a catalog variant; an unrecognised value fails install as an
+invalid manifest. A plugin subprocess gets one environment block, so the host
+cannot scope `GOOGLE_ACCESS_TOKEN` to one tool of several. A manifest that
+declares `google_access_token` in `needs_user_creds` therefore MUST advertise at
+least one tool and MUST set `auth_strategy = "compound"` on every advertised
+tool. Mixing strategies, omitting the field, or advertising no tools fails
+install with `PLUGIN_ENV_PROHIBITED`. Ship a plugin that needs both a compound
+tool and a non-compound one as two plugins.
+
+The host resolves the forwarded token from the profile's already-granted scopes,
+so starting a plugin never opens a consent window. When the profile has granted
+no Google scopes the spawn fails with `AUTH_REQUIRED` naming `gum login`. When
+there is no active session the host leaves `GOOGLE_ACCESS_TOKEN` unset: it does
+not fall back to a `gum plugin setup` secret stored under that name, and it does
+not pass through an ambient `GOOGLE_ACCESS_TOKEN` from the parent environment,
+even if `env_allow` lists it. A plugin cannot tell a stale string from the
+host's live token, so either fallback would be spent upstream and surface as an
+opaque 401. Each spawn that does forward a token appends one
+`plugin_token_forwarded` entry to the profile audit log with the plugin id, the
+credential subject fingerprint, and the forwarded scopes.
+
+If an output profile strips null or empty values, the manifest's tool record must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation in v0.1.0. A registry variant row becomes a dispatchable catalog op at process start, when the session merge described in `spec.md` §4.2 reads `plugin-catalog.json`, but the merged variant carries no `output_profile`. Shaping falls back to the default profile, so there is no profile binding to check at install time. A plugin that needs a named profile must wait for a release that binds one, and `PROFILE_STRIP_NULLS_UNSAFE` stays a build-time gate over the generated catalog.
 
 ## Schema Refs
 
@@ -104,10 +178,9 @@ artifact or bundled plugin directory. The document is a JSON Schema
 declare these refs directly. The ref strings MUST match the
 safe served-ref grammar in `spec.md` §8.2 before any path is constructed;
 path separators, traversal markers, URI-encoded separators, and control
-characters fail with `PLUGIN_SCHEMA_REF_INVALID`. Bundled plugin
-request/response schemas are copied into `gen/schemas/` at build time.
-Runtime-installed third-party request/response schemas are copied into
-the active profile's plugin schema store as
+characters fail with `PLUGIN_SCHEMA_REF_INVALID`. Runtime-installed
+third-party request/response schemas are copied into the active
+profile's plugin schema store as
 `plugin-schemas/<request_ref>.<sha256>.json` and
 `plugin-schemas/<response_ref>.<sha256>.json`; the corresponding
 `schema_hashes` are recorded in `plugin-catalog.json`.

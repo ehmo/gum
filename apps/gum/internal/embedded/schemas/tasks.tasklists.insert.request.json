@@ -1,0 +1,15 @@
+{
+  "$id": "tasks.tasklists.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "title": {
+      "description": "Task list title.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "title": "Create a Task List request",
+  "type": "object"
+}

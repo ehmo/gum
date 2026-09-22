@@ -1,0 +1,15 @@
+{
+  "$id": "classroom.courses.coursework.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "courseId": {
+      "description": "Identifier of the course. This identifier can be either the Classroom-assigned identifier or an alias.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "courseId"
+  ],
+  "title": "Create Course Work request",
+  "type": "object"
+}

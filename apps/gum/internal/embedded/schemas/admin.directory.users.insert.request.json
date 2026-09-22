@@ -1,0 +1,33 @@
+{
+  "$id": "admin.directory.users.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "User name object with givenName and familyName.",
+      "type": "object"
+    },
+    "orgUnitPath": {
+      "type": "string"
+    },
+    "password": {
+      "description": "Initial password when not using generated password flow.",
+      "type": "string"
+    },
+    "primaryEmail": {
+      "description": "Primary user email address.",
+      "type": "string"
+    },
+    "resolveConflictAccount": {
+      "type": "boolean"
+    },
+    "suspended": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "primaryEmail",
+    "name"
+  ],
+  "title": "Create a directory user request",
+  "type": "object"
+}

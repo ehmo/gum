@@ -1,0 +1,15 @@
+{
+  "$id": "gmail.users.drafts.send.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId"
+  ],
+  "title": "Send Gmail draft request",
+  "type": "object"
+}

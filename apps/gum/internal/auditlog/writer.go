@@ -98,6 +98,11 @@ type Writer struct {
 	hardCeiling   int64
 	unbounded     bool
 
+	// hardCeilingWait is how long a ceiling-triggered rotation waits for the
+	// cross-process lock before the append is failed instead of written past
+	// the cap. Only WithHardCeilingLockTimeout changes it.
+	hardCeilingWait time.Duration
+
 	mu           sync.Mutex
 	now          func() time.Time
 	creationTime time.Time // when the live audit.jsonl was created (best effort)
@@ -111,6 +116,20 @@ type Writer struct {
 	closed       atomic.Bool
 	drainedCount atomic.Uint64
 	droppedCount atomic.Uint64
+
+	// logger is the §14.1 rule 2 injection point, set by WithLogger. nil
+	// means slog.Default().
+	logger *slog.Logger
+}
+
+// log returns the injected logger, or slog.Default() when WithLogger was not
+// used. Every diagnostic in this package goes through it, so a writer built
+// with WithLogger(slog.New(slog.DiscardHandler)) emits nothing.
+func (w *Writer) log() *slog.Logger {
+	if w.logger != nil {
+		return w.logger
+	}
+	return slog.Default()
 }
 
 // Option configures a Writer.
@@ -150,6 +169,19 @@ func WithUnbounded(b bool) Option { return func(w *Writer) { w.unbounded = b } }
 // small values; production code MUST NOT call this option.
 func WithHardCeilingBytes(n int64) Option { return func(w *Writer) { w.hardCeiling = n } }
 
+// WithHardCeilingLockTimeout overrides how long a hard-ceiling append waits
+// for the cross-process rotation lock before it gives up and reports an
+// append failure. The default is hardCeilingLockTimeout (60s), which no test
+// can wait out; production code MUST NOT call this option. Values <= 0 are
+// ignored.
+func WithHardCeilingLockTimeout(d time.Duration) Option {
+	return func(w *Writer) {
+		if d > 0 {
+			w.hardCeilingWait = d
+		}
+	}
+}
+
 // WithBufferedChannel enables the gum-dxpy async writer path with a queue of
 // the given depth. n <= 0 leaves the writer synchronous (default). When
 // enabled, Append enqueues to the channel; a background goroutine drains
@@ -182,6 +214,11 @@ func WithDrainTimeout(d time.Duration) Option {
 	}
 }
 
+// WithLogger injects the logger this writer emits its diagnostics through
+// (spec §14.1 rule 2). A nil logger, or no option at all, leaves the writer
+// on slog.Default().
+func WithLogger(l *slog.Logger) Option { return func(w *Writer) { w.logger = l } }
+
 // New constructs a Writer rooted at profileDir/audit.jsonl with the §11
 // defaults. profileDir is created (mode 700) if it does not already exist.
 // If audit.jsonl is missing but audit.jsonl.lock is present (mid-rotation
@@ -195,15 +232,16 @@ func New(profileDir string, opts ...Option) (*Writer, error) {
 		return nil, fmt.Errorf("auditlog: mkdir %q: %w", profileDir, err)
 	}
 	w := &Writer{
-		dir:           profileDir,
-		path:          filepath.Join(profileDir, "audit.jsonl"),
-		lockPath:      filepath.Join(profileDir, "audit.jsonl.lock"),
-		sentinelPath:  filepath.Join(profileDir, "audit.broken"),
-		maxSize:       DefaultMaxSizeBytes,
-		maxFiles:      DefaultMaxFiles,
-		retentionDays: DefaultRetentionDays,
-		hardCeiling:   HardCeilingBytes,
-		now:           time.Now,
+		dir:             profileDir,
+		path:            filepath.Join(profileDir, "audit.jsonl"),
+		lockPath:        filepath.Join(profileDir, "audit.jsonl.lock"),
+		sentinelPath:    filepath.Join(profileDir, "audit.broken"),
+		maxSize:         DefaultMaxSizeBytes,
+		maxFiles:        DefaultMaxFiles,
+		retentionDays:   DefaultRetentionDays,
+		hardCeiling:     HardCeilingBytes,
+		hardCeilingWait: hardCeilingLockTimeout,
+		now:             time.Now,
 	}
 	for _, o := range opts {
 		o(w)
@@ -284,7 +322,7 @@ func (w *Writer) Close() error {
 		<-done
 	}
 
-	slog.Info("audit_drain_complete",
+	w.log().Info("audit_drain_complete",
 		"event", "audit_drain_complete",
 		"drained", w.drainedCount.Load(),
 		"dropped", w.droppedCount.Load(),
@@ -316,7 +354,7 @@ func (w *Writer) recoverMidRotation() {
 	}
 	release, lockErr := acquireRotationLock(w.lockPath, rotationLockTimeout)
 	if lockErr != nil {
-		slog.Warn("auditlog: crash recovery skipped (lock unavailable)", "err", lockErr)
+		w.log().Warn("auditlog: crash recovery skipped (lock unavailable)", "err", lockErr)
 		return
 	}
 	defer func() { _ = release() }()
@@ -328,7 +366,7 @@ func (w *Writer) recoverMidRotation() {
 	}
 	f, err := os.OpenFile(w.path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
-		slog.Warn("auditlog: crash recovery O_CREAT failed", "path", w.path, "err", err)
+		w.log().Warn("auditlog: crash recovery O_CREAT failed", "path", w.path, "err", err)
 		return
 	}
 	_ = f.Close()
@@ -436,7 +474,7 @@ func (w *Writer) syncAppend(entry map[string]any) {
 	// (block-until-acquired) per spec §11.
 	currentSize := w.currentSizeLocked()
 	if !w.unbounded && w.hardCeiling > 0 && currentSize+int64(len(data)) > w.hardCeiling {
-		if rotErr := w.rotateUnderLock(hardCeilingLockTimeout); rotErr != nil {
+		if rotErr := w.rotateUnderLock(w.hardCeilingWait); rotErr != nil {
 			w.handleFailure(fmt.Errorf("hard-ceiling rotate: %w", rotErr))
 			return
 		}
@@ -580,7 +618,7 @@ func (w *Writer) rotateLockedAtomic(_ string) error {
 		return err
 	}
 	if err := os.Chmod(rotated, 0o600); err != nil {
-		slog.Warn("auditlog: chmod archive failed", "path", rotated, "err", err)
+		w.log().Warn("auditlog: chmod archive failed", "path", rotated, "err", err)
 	}
 
 	// Step 3: create fresh empty audit.jsonl atomically.
@@ -631,7 +669,7 @@ func (w *Writer) enforceMaxFilesLocked() error {
 // structured-log event. Caller must hold w.mu.
 func (w *Writer) handleFailure(cause error) {
 	profile := filepath.Base(w.dir)
-	slog.Error("audit_write_failure",
+	w.log().Error("audit_write_failure",
 		"event", "audit_write_failure",
 		"error", cause.Error(),
 		"profile", profile,
@@ -642,7 +680,7 @@ func (w *Writer) handleFailure(cause error) {
 	if err := fsatomic.WriteFile(w.sentinelPath, []byte(contents), 0o600); err != nil {
 		// Sentinel itself failed to write — log and continue. Availability
 		// takes precedence; we have nothing else to do.
-		slog.Error("auditlog: sentinel write failed", "path", w.sentinelPath, "err", err)
+		w.log().Error("auditlog: sentinel write failed", "path", w.sentinelPath, "err", err)
 	}
 }
 

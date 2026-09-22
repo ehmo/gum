@@ -1,3 +1,10 @@
-files=[]
-incompleteSearch=false
-kind="drive#fileList"
+op: drive.find
+variant: 
+format_version: 1
+count: 0
+fields: 
+records: files
+incompleteSearch: false
+kind: "drive#fileList"
+
+{}

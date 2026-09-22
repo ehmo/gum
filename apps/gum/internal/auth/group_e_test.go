@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -107,10 +108,15 @@ func TestAuthErrorNextAction(t *testing.T) {
 		}
 	})
 
+	// "workload_identity" is the fixture on purpose: it used to be a valid
+	// catalog.AuthStrategy that passed Validate at build and install and only
+	// failed here. gum-z5yx removed it from the enum, so Validate now refuses
+	// it first and this arm is the resolver's remaining fail-closed guard for
+	// any strategy string the catalog does not define.
 	t.Run("unsupported strategy returns AUTH_STRATEGY_NOT_IMPLEMENTED", func(t *testing.T) {
 		r := &CompositeResolver{ADC: &fakeADCResolver{}}
 		_, err := r.ResolveAuth(context.Background(), &dispatch.Invocation{}, &dispatch.ResolvedVariant{
-			Variant: &catalog.Variant{AuthStrategy: catalog.AuthStrategyWorkloadIdentity},
+			Variant: &catalog.Variant{AuthStrategy: catalog.AuthStrategy("workload_identity")},
 		})
 		var ae *AuthError
 		if !errors.As(err, &ae) || ae.Code != "AUTH_STRATEGY_NOT_IMPLEMENTED" {
@@ -252,38 +258,54 @@ func TestGumOAuthScopeNotManaged(t *testing.T) {
 	}
 }
 
-// TestAuthComponentUnknown verifies spec §7 line 1296-1305: only the closed
-// set of component kinds is accepted; unknown kinds must fail unless
-// prefixed `x-`. The current catalog ABI doesn't carry component records in
-// embedded catalog.json (compound auth is wired via plugin manifests in
-// v0.2.x), so we assert the enum itself stays closed by checking the
-// catalog package's known list.
+// TestAuthComponentUnknown verifies spec §7 lines 1296-1305: only the closed
+// set of component kinds is accepted; an unknown kind fails catalog build
+// with AUTH_COMPONENT_UNKNOWN unless it carries the "x-" informational
+// prefix. The kinds now live in catalog.AuthComponentKinds and a variant can
+// declare them, so this asserts the enum contents and the validator arm.
 func TestAuthComponentUnknown(t *testing.T) {
-	known := map[string]struct{}{
-		"oauth_scopes":           {},
-		"oauth_client":           {},
-		"api_enabled_project":    {},
-		"api_key":                {},
-		"developer_token":        {},
-		"customer_id":            {},
-		"login_customer_id":      {},
-		"billing_enabled":        {},
-		"manager_account":        {},
-		"workspace_admin_trust":  {},
-		"domain_wide_delegation": {},
-		"service_account_key":    {},
-		"consent_verification":   {},
-		"oauth_consent_screen":   {},
-		"quota_project":          {},
-		"service_allowlist":      {},
-		"org_policy_exception":   {},
-		"oauth_client_secret":    {},
-		"account_permission":     {},
+	// Spec §7 enumerates these 19 kinds. A drift either way fails here first,
+	// which forces the spec and the enum to move together.
+	want := []string{
+		"oauth_scopes", "oauth_client", "api_enabled_project", "api_key",
+		"developer_token", "customer_id", "login_customer_id", "billing_enabled",
+		"manager_account", "workspace_admin_trust", "domain_wide_delegation",
+		"service_account_key", "consent_verification", "oauth_consent_screen",
+		"quota_project", "service_allowlist", "org_policy_exception",
+		"oauth_client_secret", "account_permission",
 	}
-	// Spec §7 enumerates these 19 component kinds. Snapshot the count so a
-	// drift either way fails CI loudly (forces a spec update or rejection).
-	if got := len(known); got != 19 {
-		t.Errorf("known component-kind count = %d; want 19 — spec §7 lines 1296-1301 enumerate exactly 19", got)
+	got := make([]string, 0, len(catalog.AuthComponentKinds))
+	for _, k := range catalog.AuthComponentKinds {
+		got = append(got, string(k))
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("catalog.AuthComponentKinds = %v;\n                            want %v", got, want)
+	}
+
+	cases := []struct {
+		kind    string
+		wantErr bool
+	}{
+		{"developer_token", false},
+		{"x-ads-permissible-use", false},
+		{"x-", true},
+		{"developer-token", true},
+		{"", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			c := loadCompoundCatalog(t)
+			c.Ops[0].Variants[0].AuthComponents = []catalog.AuthComponent{
+				{Kind: catalog.AuthComponentKind(tc.kind)},
+			}
+			err := c.Validate()
+			if tc.wantErr && !errors.Is(err, catalog.ErrUnknownAuthComponent) {
+				t.Fatalf("Validate(kind=%q) = %v; want ErrUnknownAuthComponent", tc.kind, err)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("Validate(kind=%q) = %v; want nil", tc.kind, err)
+			}
+		})
 	}
 }
 

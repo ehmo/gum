@@ -26,48 +26,71 @@ Whitespace is ignored. Commas separate sibling fields; parens introduce a
 sub-selection; `/` walks nested objects; `*` selects every field at that
 level.
 
+The API defines this grammar and enforces it. GUM forwards the mask you
+give it as the `fields` argument and does not parse it first, so a
+malformed mask is rejected upstream, not by GUM. GUM parses masks only at
+catalog build time, to check the curated `default_fields` it ships.
+
 ## Field-mask modes
 
 `field_mask_mode` in the expression profile selects how the mask is applied:
 
-- **`upstream_only`** (default) — pass the mask verbatim to the upstream
-  API; trust the API to return only those fields.
-- **`local_only`** — fetch the full response, then prune locally. Used for
-  ops that ignore `fields=` (rare).
-- **`dual_fetch`** — issue both a masked and an unmasked request, diff the
-  two for projection-coverage telemetry, return the masked response. Used
-  during catalog generation to detect ops where the API silently ignores
-  the mask.
+- **`upstream`** (default) — pass the mask verbatim to the upstream API;
+  trust the API to return only those fields.
+- **`none`** — send no mask. The upstream returns the full response and
+  host-side shaping prunes it. Use this when a profile's `recovery` needs
+  pre-mask data.
+- **`dual_fetch`** — send the masked request for the response, then send a
+  second request with no mask whose body becomes the recovery artifact.
+  Both requests count against rate limits, quota, and the audit log, and
+  the second one is logged with `dual_fetch: true`. The mode is allowed
+  only on variants with `risk_class = "read"` and
+  `annotations.idempotent = true`.
 
-## Coverage validation
+## Where a mask comes from
 
-`gum profile validate` runs every override's field-mask against the catalog's
-declared `output_schema` for the op. A mask that references a field absent
-from the schema fails validation with `FIELD_MASK_UNKNOWN_FIELD`. This
-catches typos before they reach production.
+Three sources, narrowest first:
+
+1. The caller: `--fields` on the CLI, a positional `fields=`, or the same
+   argument from MCP. An explicit caller mask always wins.
+2. The active expression profile's `field_mask`.
+3. The variant's curated `default_fields`.
+
+`--no-field-mask` and `field_mask_mode = "none"` each suppress 2 and 3
+entirely. The chosen mask is injected before the cache lookup, so two
+calls that differ only by mask do not share one cached body.
+
+Shell completion for `--fields` offers each top-level selector of the
+op's `default_fields`, plus the whole mask. It is a starting point, not
+validation: GUM does not check a mask against the op's `output_schema`.
+
+## What `gum profile validate` checks
+
+Structure (`profile.Parse`) and cross-field semantics
+(`ValidateSemantics`). With `--variant <id>` it additionally runs the
+`strip_nulls` safety check against that variant's
+`null_elision_safe_fields`. It does not check field-mask coverage.
 
 ## Interaction with the expression DSL
 
-The expression DSL operates on the field-mask-projected response. Inside
-the DSL:
-
-- `items` refers to the field-mask-selected `items` array.
-- `_full` (special) refers to the **unmasked** response in `dual_fetch`
-  mode only. Outside `dual_fetch`, referencing `_full` is an error.
-- `_fields` exposes the resolved field-mask string so DSL projections can
-  introspect.
+The expression DSL operates on the field-mask-projected response, so
+`items` inside the DSL is the field-mask-selected `items` array. A field
+the upstream mask excluded is gone before the DSL runs, and a
+`keep_fields` entry naming it keeps nothing.
 
 DSL reference: `gum://help/code-mode` for the alternative scripting path
 and the project's `expression-profile-dsl.md` for the full grammar.
 
 ## Errors
 
-- `FIELD_MASK_INVALID_SYNTAX` — parser rejected the mask. Envelope includes
-  the column index where parsing failed.
-- `FIELD_MASK_UNKNOWN_FIELD` — mask references a field absent from the
-  op's declared `output_schema`.
-- `FIELD_MASK_UPSTREAM_IGNORED` — `dual_fetch` mode detected the upstream
-  returned more fields than the mask requested. Warning only, not fatal.
+GUM has no field-mask error code. A malformed or unknown-field mask
+reaches the API and comes back as that API's error.
+
+One field-mask failure is gum's own:
+
+- `INVALID_ARGS` with `field: "field_mask_mode"` — a profile selected
+  `dual_fetch` for a variant that is not read plus idempotent. Raised
+  before any upstream request.
 
 See `gum://help/toon-format` for how the projected response is serialised
 back to the host client.

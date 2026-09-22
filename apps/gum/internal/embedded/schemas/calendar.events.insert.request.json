@@ -1,0 +1,49 @@
+{
+  "$id": "calendar.events.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "attendees": {
+      "description": "e.g. attendees:=[{\"email\":\"a@b.com\"}].",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "calendarId": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "end": {
+      "description": "e.g. end:={\"dateTime\":\"2026-06-01T11:00:00-07:00\"}.",
+      "type": "object"
+    },
+    "location": {
+      "type": "string"
+    },
+    "sendUpdates": {
+      "enum": [
+        "all",
+        "externalOnly",
+        "none"
+      ],
+      "type": "string"
+    },
+    "start": {
+      "description": "e.g. start:={\"dateTime\":\"2026-06-01T10:00:00-07:00\"}.",
+      "type": "object"
+    },
+    "summary": {
+      "description": "Event title.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "start",
+    "end"
+  ],
+  "title": "Insert a Calendar event request",
+  "type": "object"
+}

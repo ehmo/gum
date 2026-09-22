@@ -48,7 +48,7 @@ broader scope set; never patch the catalog.
 
 - `BYO_OAUTH_CLIENT_NOT_CONFIGURED` — no usable OAuth client is available for
   the requested scopes. Run `gum auth use-oauth-client`.
-- `AUTH_SCOPE_MISSING` — the stored grant's scopes do not cover the op. Re-run
+- `SCOPE_MISSING` — the stored grant's scopes do not cover the op. Re-run
   `gum auth login --scope <scope-url>` with the broader scope.
 - `AUTH_REFRESH_FAILED` / `GUM_OAUTH_TOKEN_EXCHANGE_FAILED` — the token
   endpoint rejected refresh. Usually the refresh token was revoked or the
@@ -105,7 +105,7 @@ Cloud Console. The same setup applies to catalog variants that declare
    manually.
 
 After the grant, `gum auth status` and `gum auth probe --scopes <scope>` should
-show non-secret token metadata. If dispatch returns `AUTH_SCOPE_MISSING`,
+show non-secret token metadata. If dispatch returns `SCOPE_MISSING`,
 authorize the broader scope set with `gum auth login --scope ...`.
 
 See `gum://help/plugins` for the parallel walkthrough used by

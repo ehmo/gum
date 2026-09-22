@@ -1,0 +1,131 @@
+{
+  "$id": "adminreports.activities.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "actorIpAddress": {
+      "description": "The Internet Protocol (IP) Address of host where the event was performed. This is an additional way to filter a report'…",
+      "type": "string"
+    },
+    "agentInfoFilter": {
+      "description": "Optional. Filters on agent info fields in the activity. This filter gets applied in conjunction(AND) with other filters…",
+      "type": "string"
+    },
+    "applicationInfoFilter": {
+      "description": "Optional. Used to filter on the `oAuthClientId` field present in [`ApplicationInfo`](#applicationinfo) message. **Usage…",
+      "type": "string"
+    },
+    "applicationName": {
+      "description": "Application name for which the events are to be retrieved.",
+      "enum": [
+        "access_transparency",
+        "admin",
+        "calendar",
+        "chat",
+        "drive",
+        "gcp",
+        "gmail",
+        "gplus",
+        "groups",
+        "groups_enterprise",
+        "jamboard",
+        "login",
+        "meet",
+        "mobile",
+        "rules",
+        "saml",
+        "token",
+        "user_accounts",
+        "context_aware_access",
+        "chrome",
+        "data_studio",
+        "keep",
+        "vault",
+        "gemini_in_workspace_apps",
+        "classroom",
+        "assignments",
+        "cloud_search",
+        "tasks",
+        "data_migration",
+        "meet_hardware",
+        "directory_sync",
+        "ldap",
+        "profile",
+        "access_evaluation",
+        "admin_data_action",
+        "contacts",
+        "takeout",
+        "graduation",
+        "voice",
+        "chrome_sync",
+        "workspace_studio"
+      ],
+      "type": "string"
+    },
+    "customerId": {
+      "description": "The unique ID of the customer to retrieve data for.",
+      "type": "string"
+    },
+    "deviceFilter": {
+      "description": "Optional. Used to filter on the fields present in [`UserDeviceInfo`](#userdeviceinfo) message like `deviceId`, `deviceT…",
+      "type": "string"
+    },
+    "endTime": {
+      "description": "Sets the end of the range of time shown in the report. The date is in the RFC 3339 format, for example 2010-10-28T10:26…",
+      "type": "string"
+    },
+    "eventName": {
+      "description": "The name of the event being queried by the API. Each `eventName` is related to a specific Google Workspace service or f…",
+      "type": "string"
+    },
+    "filters": {
+      "description": "The `filters` query string is a comma-separated list composed of event parameters manipulated by relational operators. …",
+      "type": "string"
+    },
+    "groupIdFilter": {
+      "description": "Comma separated group ids (obfuscated) on which user activities are filtered, i.e. the response will contain activities…",
+      "type": "string"
+    },
+    "includeSensitiveData": {
+      "description": "Optional. When set to `true`, this field allows sensitive user-generated content to be included in the returned audit l…",
+      "type": "boolean"
+    },
+    "maxResults": {
+      "description": "Determines how many activity records are shown on each response page. For example, if the request sets `maxResults=1` a…",
+      "type": "integer"
+    },
+    "networkInfoFilter": {
+      "description": "Optional. Used to filter on the `regionCode` field present in [`NetworkInfo`](#networkinfo) message. **Usage** ``` GET.…",
+      "type": "string"
+    },
+    "orgUnitID": {
+      "description": "ID of the organizational unit to report on. Activity records will be shown only for users who belong to the specified o…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The token to specify next page. A report with multiple pages has a `nextPageToken` property in the response. In your fo…",
+      "type": "string"
+    },
+    "resourceDetailsFilter": {
+      "description": "Optional. The `resourceDetailsFilter` query string is an AND separated list composed of [Resource Details](#resourcedet…",
+      "type": "string"
+    },
+    "startTime": {
+      "description": "Sets the beginning of the range of time shown in the report. The date is in the RFC 3339 format, for example 2010-10-28…",
+      "type": "string"
+    },
+    "statusFilter": {
+      "description": "Optional. Used to filter on the `statusCode` field present in [`Status`](#status) message. **Usage** ``` GET...\u0026statusF…",
+      "type": "string"
+    },
+    "userKey": {
+      "description": "Represents the profile ID or the user email for which the data should be filtered. Can be `all` for all information, or…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "applicationName",
+    "userKey"
+  ],
+  "title": "List Audit Activities request",
+  "type": "object"
+}

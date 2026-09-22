@@ -1,2 +1,13 @@
-messages=[{"id":"18ab8b8945","threadId":"18ab8b8945"},{"id":"18aecdabf2","threadId":"18aecdabf2"},{"id":"18a5b307e2","threadId":"18a5b307e2"},{"id":"18ad7b07e3","threadId":"18ad7b07e3"},{"id":"18a4fbb670","threadId":"18a4fbb670"}]
-resultSizeEstimate=5
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 5
+fields: id,threadId
+records: messages
+resultSizeEstimate: 5
+
+18ab8b8945,18ab8b8945
+18aecdabf2,18aecdabf2
+18a5b307e2,18a5b307e2
+18ad7b07e3,18ad7b07e3
+18a4fbb670,18a4fbb670

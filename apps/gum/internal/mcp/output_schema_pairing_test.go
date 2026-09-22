@@ -10,7 +10,8 @@ package mcp
 //
 // Spec anchors:
 //   - §3175  structuredContent MUST validate against the registered outputSchema.
-//   - §3177  isError envelopes are exempt; confirmation-required responses are not.
+//   - §3177  isError envelopes are exempt, and a confirmation-required response
+//            is one of them (REQUIRES_CONFIRMATION is a terminal §7 error code).
 //   - §3439  every Tier A tool ships outputSchema + validating structuredContent.
 //   - §2256-2258  gum.gain → GainResult, gum.cache_stats → CacheStatsResult,
 //     gum.describe_op → DescribeOpResult.

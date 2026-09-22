@@ -38,6 +38,9 @@ type CodeRunner struct {
 	// INVALID_ARGS). Wired via WithDispatcher to break the adapter↔kernel
 	// construction cycle.
 	dispatcher dispatch.Dispatcher
+
+	// outputLimitBytes is the §6.1 cumulative output budget. 0 → sandbox default.
+	outputLimitBytes int
 }
 
 // NewCodeRunner constructs a CodeRunner.
@@ -49,6 +52,13 @@ func NewCodeRunner() *CodeRunner {
 // Returns the receiver to support fluent post-construction wiring.
 func (c *CodeRunner) WithDispatcher(d dispatch.Dispatcher) *CodeRunner {
 	c.dispatcher = d
+	return c
+}
+
+// WithOutputLimitBytes sets the §6.1 cumulative output budget.
+// 0 leaves the sandbox default in force. Returns the receiver.
+func (c *CodeRunner) WithOutputLimitBytes(n int) *CodeRunner {
+	c.outputLimitBytes = n
 	return c
 }
 
@@ -69,8 +79,8 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 		// A fake "LANGUAGE_NOT_SUPPORTED:" text prefix used to stand in for a
 		// code here. That string is not in the §7 stable set, so nothing could
 		// branch on it. INVALID_ARGS with field=language is the real code. This
-		// guard is defence in depth: the MCP path rejects an unknown language at
-		// the JSON Schema layer with JSON-RPC -32602 before dispatch (spec §6.1
+		// guard is defence in depth: the MCP path rejects an unknown language
+		// against the registered inputSchema before dispatch (spec §4.3
 		// reserved-language rejection transport).
 		return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
 			"only risor is supported in v0.1.0").
@@ -100,6 +110,15 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 
 	ds := buildDestructiveState(inv, args)
 
+	// The §9.0.1 ceilings measure against the live §6.1 counter, which only
+	// the sandbox owns. Bind an empty Budget here and hand it to Run below;
+	// gum_parallel reads the remainder through it while the script runs.
+	budget := &sandbox.Budget{}
+	effectiveLimit := c.outputLimitBytes
+	if effectiveLimit <= 0 {
+		effectiveLimit = sandbox.DefaultOutputLimitBytes
+	}
+
 	globals := map[string]any{
 		"gum_confirm_destructive": buildConfirmFn(inv.AllowDestructive, inv.Confirmed, ds),
 		"gum_call":                buildCallFn(ctx, c.dispatcher, inv.AllowWrite, inv.AllowDestructive, inv.Confirmed, ds),
@@ -110,25 +129,44 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 		"gum_search": func(args ...any) any {
 			return []any{}
 		},
-		"gum_parallel": buildParallelFn(ctx, c.dispatcher, inv.AllowWrite, inv.AllowDestructive),
+		"gum_parallel": buildParallelFn(ctx, c.dispatcher, inv.AllowWrite, inv.AllowDestructive, parallelBudget{
+			remaining:   budget.Remaining,
+			limitBytes:  effectiveLimit,
+			concurrency: parallelMaxWorkers,
+		}),
 	}
 
 	opts := sandbox.Options{
 		AllowWrite:       inv.AllowWrite,
 		AllowDestructive: inv.AllowDestructive,
+		OutputLimitBytes: c.outputLimitBytes,
+		Budget:           budget,
 		Globals:          globals,
 	}
 
 	out, err := sandbox.Run(ctx, code, opts)
 	if err != nil {
+		var limitErr *sandbox.OutputLimitError
+		if errors.As(err, &limitErr) {
+			// §6.1 spells the envelope out: error_code, limit_bytes,
+			// printed_bytes. The oversized value itself is never echoed back —
+			// naming its size is the whole point of the refusal.
+			return nil, dispatch.NewStructuredError(dispatch.ErrCodeCodeOutputLimitExceeded,
+				fmt.Sprintf("gum.code output budget of %d bytes exceeded: %d bytes printed, return value adds %d",
+					limitErr.LimitBytes, limitErr.PrintedBytes, limitErr.ValueBytes)).
+				WithDetail("limit_bytes", limitErr.LimitBytes).
+				WithDetail("printed_bytes", limitErr.PrintedBytes).
+				WithRetryable(false)
+		}
 		return nil, err
 	}
 
 	return &dispatch.Response{
-		Body:       out.Printed,
-		Format:     "raw",
-		StatusCode: 200,
-		BytesOut:   len(out.Printed),
+		Body:                out.Printed,
+		Format:              "raw",
+		StatusCode:          200,
+		BytesOut:            len(out.Printed),
+		CodeOutputTruncated: out.Truncated,
 	}, nil
 }
 
@@ -236,6 +274,9 @@ func buildCallFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite
 				"gum_call is not wired in this execution context (no dispatcher reference)").
 				WithDetail("capability", "gum_call")
 		}
+		if err := refuseLRO(disp, el.OpID); err != nil {
+			return nil, err
+		}
 
 		result, err := dispatchCallOnce(parentCtx, disp, el, false, false, false, "")
 		if err == nil {
@@ -286,6 +327,34 @@ func buildCallFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite
 			return nil, err
 		}
 	}
+}
+
+// lroRefusalMessage is the §6.1 message the LRO refusal carries verbatim. The
+// wording names the two surfaces that do support an LRO, so the script author
+// knows where to move the call.
+const lroRefusalMessage = "long-running operations are not callable from gum.code in v0.1.0; " +
+	"use the MCP gum.call tool or CLI directly"
+
+// refuseLRO is the §6.1 pre-dispatch gate shared by the code-mode host
+// functions: an op whose default variant is classified `lro_return` is not
+// callable from gum.code in v0.1.0.
+//
+// The gate lives here rather than in the kernel because the restriction is a
+// property of code mode; the same op called through the MCP gum.call tool or
+// the CLI still runs. A dispatcher that does not answer LROClassifier leaves
+// the gate open, which keeps mock dispatchers working and matches how
+// gum_parallel treats a missing ServiceFamilyResolver.
+//
+// Poll-cycle support inside gum.code stays deferred to v0.3.0: a
+// request-scoped Risor execution cannot safely drive the host-side polling
+// state machine.
+func refuseLRO(disp dispatch.Dispatcher, opID string) error {
+	c, ok := disp.(dispatch.LROClassifier)
+	if !ok || !c.ReturnsLRO(opID) {
+		return nil
+	}
+	return dispatch.NewStructuredError(dispatch.ErrCodeLROUnsupportedInCode, lroRefusalMessage).
+		WithDetail("op_id", opID)
 }
 
 func parseCallInput(fnArgs []any) (parallelElement, error) {

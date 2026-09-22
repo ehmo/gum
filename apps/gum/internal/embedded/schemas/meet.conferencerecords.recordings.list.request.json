@@ -1,0 +1,23 @@
+{
+  "$id": "meet.conferencerecords.recordings.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "Maximum number of recordings to return. The service might return fewer than this value. If unspecified, at most 10 reco…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Page token returned from previous List Call.",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Required. Format: `conferenceRecords/{conference_record}`",
+      "type": "string"
+    }
+  },
+  "required": [
+    "parent"
+  ],
+  "title": "List Conference Recordings request",
+  "type": "object"
+}

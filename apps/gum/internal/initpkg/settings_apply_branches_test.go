@@ -8,25 +8,41 @@ import (
 	"time"
 )
 
-// TestApplyNoOpReturnsNilImmediately pins Apply's `plan.NoOp →
-// return nil` arm (settings.go:119-120). A no-op plan must short-
-// circuit before MkdirAll/acquireSettingsLock so a read-only run
-// (already-merged settings) doesn't touch the filesystem.
-func TestApplyNoOpReturnsNilImmediately(t *testing.T) {
+// TestApplyNoOpLeavesTheFileUntouched pins Apply's `plan.NoOp → return nil`
+// arm. The settings file below already carries the exact entry, written on a
+// single line; Apply must leave those bytes alone rather than rewrite them in
+// the canonical pretty-printed form.
+func TestApplyNoOpLeavesTheFileUntouched(t *testing.T) {
 	t.Parallel()
+	dir := t.TempDir()
 	target := SettingsTarget{
-		Path:     "/should/not/be/touched.json",
-		LockPath: "/should/not/be/touched.lock",
+		Path:     filepath.Join(dir, ".claude", "settings.json"),
+		LockPath: filepath.Join(dir, ".claude", "settings.lock"),
 	}
-	plan := &PatchPlan{NoOp: true}
-	if err := Apply(target, plan, time.Second); err != nil {
-		t.Errorf("Apply(NoOp) err=%v; want nil short-circuit", err)
+	if err := os.MkdirAll(filepath.Dir(target.Path), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	body := []byte(`{"mcpServers":{"gum":{"args":["mcp","--stdio"],"command":"gum"}}}`)
+	if err := os.WriteFile(target.Path, body, 0o644); err != nil {
+		t.Fatalf("write prior: %v", err)
+	}
+
+	if err := Apply(target, "gum", DefaultMCPEntry(), time.Second); err != nil {
+		t.Errorf("Apply(no-op) err=%v; want nil", err)
+	}
+
+	got, err := os.ReadFile(target.Path)
+	if err != nil {
+		t.Fatalf("read after: %v", err)
+	}
+	if string(got) != string(body) {
+		t.Errorf("Apply rewrote an already-patched file:\n got %s\nwant %s", got, body)
 	}
 }
 
-// TestApplyMkdirAllErrorWraps pins Apply's `os.MkdirAll err → wrap`
-// arm (settings.go:122-124). Reached by planting a regular file at
-// the parent-dir chain so MkdirAll fails with ENOTDIR.
+// TestApplyMkdirAllErrorWraps pins Apply's `os.MkdirAll err → wrap` arm.
+// Reached by planting a regular file at the parent-dir chain so MkdirAll
+// fails with ENOTDIR.
 func TestApplyMkdirAllErrorWraps(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -40,8 +56,7 @@ func TestApplyMkdirAllErrorWraps(t *testing.T) {
 		Path:     filepath.Join(blocker, "sub", "settings.json"),
 		LockPath: filepath.Join(blocker, "sub", "settings.lock"),
 	}
-	plan := &PatchPlan{PatchedBytes: []byte("{}")}
-	err := Apply(target, plan, time.Second)
+	err := Apply(target, "gum", DefaultMCPEntry(), time.Second)
 	if err == nil {
 		t.Fatal("Apply(blocked MkdirAll) err=nil; want mkdir wrap")
 	}

@@ -92,10 +92,10 @@ every `textRun.content` to recover plain text.
 
 ## Errors
 
-- `AUTH_SCOPE_MISSING` — your stored grant lacks `auth/documents` (or
+- `SCOPE_MISSING` — your stored grant lacks `auth/documents` (or
   `.readonly`). Re-run `gum auth login --scope <scope-url>` with the broader
   scope.
-- `NOT_FOUND` — document id doesn't exist or the principal can't see it.
+- `RESOURCE_NOT_FOUND` — document id doesn't exist or the principal can't see it.
   Docs doesn't distinguish; check the share state.
 - `PERMISSION_DENIED` — write-shaped op without write scope, or doc is owned
   by someone who hasn't granted edit access.

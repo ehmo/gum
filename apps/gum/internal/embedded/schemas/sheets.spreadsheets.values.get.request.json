@@ -1,0 +1,41 @@
+{
+  "$id": "sheets.spreadsheets.values.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "dateTimeRenderOption": {
+      "enum": [
+        "SERIAL_NUMBER",
+        "FORMATTED_STRING"
+      ],
+      "type": "string"
+    },
+    "majorDimension": {
+      "enum": [
+        "ROWS",
+        "COLUMNS"
+      ],
+      "type": "string"
+    },
+    "range": {
+      "description": "A1 notation, e.g. Sheet1!A1:C10.",
+      "type": "string"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    },
+    "valueRenderOption": {
+      "enum": [
+        "FORMATTED_VALUE",
+        "UNFORMATTED_VALUE",
+        "FORMULA"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "range"
+  ],
+  "title": "Read a Sheets Range request",
+  "type": "object"
+}

@@ -1,0 +1,33 @@
+{
+  "$id": "calendar.freebusy.query.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "items": {
+      "description": "Calendars to query, e.g. items:=[{\"id\":\"primary\"}].",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "timeMax": {
+      "description": "End of the interval (RFC 3339).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "timeMin": {
+      "description": "Start of the interval (RFC 3339).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "timeZone": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "timeMin",
+    "timeMax",
+    "items"
+  ],
+  "title": "Query free/busy intervals request",
+  "type": "object"
+}

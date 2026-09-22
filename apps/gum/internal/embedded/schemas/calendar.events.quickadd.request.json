@@ -1,0 +1,33 @@
+{
+  "$id": "calendar.events.quickadd.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "sendNotifications": {
+      "description": "Deprecated. Please use sendUpdates instead.  Whether to send notifications about the creation of the event. Note that s…",
+      "type": "boolean"
+    },
+    "sendUpdates": {
+      "description": "Guests who should receive notifications about the creation of the new event.",
+      "enum": [
+        "all",
+        "externalOnly",
+        "none"
+      ],
+      "type": "string"
+    },
+    "text": {
+      "description": "The text describing the event to be created.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "text"
+  ],
+  "title": "Quick-add Calendar event from text request",
+  "type": "object"
+}

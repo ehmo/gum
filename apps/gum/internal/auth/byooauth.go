@@ -58,6 +58,16 @@ type ByoOAuthConfig struct {
 	// RevokeEndpoint overrides the default Google token revocation endpoint.
 	// Used in tests. Defaults to "https://oauth2.googleapis.com/revoke".
 	RevokeEndpoint string
+	// ExpectedSubject is the profile's recorded auth_subject_fingerprint. When
+	// it is set, Login refuses a consent that comes back as a different
+	// account and stores nothing, which is the §7 credential-resolution rule
+	// that a credential is used "only if its auth_subject_fingerprint matches
+	// the selected profile's expected subject". Empty means the profile has no
+	// expectation yet, so any account is adopted.
+	ExpectedSubject string
+	// AllowSubjectChange overrides ExpectedSubject for one deliberate account
+	// switch (`gum login --switch-account`).
+	AllowSubjectChange bool
 }
 
 // ByoOAuth implements the byo_oauth strategy. It looks up a cached refresh token

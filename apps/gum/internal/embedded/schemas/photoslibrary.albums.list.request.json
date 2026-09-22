@@ -1,0 +1,20 @@
+{
+  "$id": "photoslibrary.albums.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "excludeNonAppCreatedData": {
+      "description": "If set, the results exclude media items that were not created by this app. Defaults to false (all albums are returned).…",
+      "type": "boolean"
+    },
+    "pageSize": {
+      "description": "Maximum number of albums to return in the response. Fewer albums might be returned than the specified number. The defau…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "A continuation token to get the next page of the results. Adding this to the request returns the rows after the `pageTo…",
+      "type": "string"
+    }
+  },
+  "title": "List Photo Albums request",
+  "type": "object"
+}

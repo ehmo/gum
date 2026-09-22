@@ -1,2 +1,18 @@
-messages=[{"id":"18ae2f2d04","threadId":"18ae2f2d04"},{"id":"18a8ddc1d3","threadId":"18a8ddc1d3"},{"id":"18a435da61","threadId":"18a435da61"},{"id":"18a5dffec7","threadId":"18a5dffec7"},{"id":"18a02a7f65","threadId":"18a02a7f65"},{"id":"18aa34c3f9","threadId":"18aa34c3f9"},{"id":"18aa3da7b7","threadId":"18aa3da7b7"},{"id":"18a8488da9","threadId":"18a8488da9"},{"id":"18ac6c3e89","threadId":"18ac6c3e89"},{"id":"18ab019f8b","threadId":"18ab019f8b"}]
-resultSizeEstimate=10
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 10
+fields: id,threadId
+records: messages
+resultSizeEstimate: 10
+
+18ae2f2d04,18ae2f2d04
+18a8ddc1d3,18a8ddc1d3
+18a435da61,18a435da61
+18a5dffec7,18a5dffec7
+18a02a7f65,18a02a7f65
+18aa34c3f9,18aa34c3f9
+18aa3da7b7,18aa3da7b7
+18a8488da9,18a8488da9
+18ac6c3e89,18ac6c3e89
+18ab019f8b,18ab019f8b

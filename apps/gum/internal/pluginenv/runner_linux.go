@@ -4,6 +4,7 @@ package pluginenv
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,6 +20,7 @@ const (
 	linuxWorkDirEnv      = "GUM_PLUGINENV_WORKDIR"
 	linuxFSWriteDirEnv   = "GUM_PLUGINENV_FS_WRITE_DIR"
 	linuxNetworkEnv      = "GUM_PLUGINENV_NETWORK"
+	linuxArgsEnv         = "GUM_PLUGINENV_ARGS"
 	linuxHelperArg       = "__gum_pluginenv_linux_helper"
 	linuxHelperNetworkOn = "1"
 )
@@ -40,6 +42,15 @@ func (r *SandboxedRunner) sandboxedCommand(ctx context.Context) (*exec.Cmd, erro
 		linuxFSWriteDirEnv+"="+writeRoot,
 		linuxNetworkEnv+"="+strconv.FormatBool(r.cfg.Network),
 	)
+	// Args cross the helper boundary as JSON so a token containing a space
+	// or a separator survives the round trip intact.
+	if len(r.cfg.Args) > 0 {
+		encoded, err := json.Marshal(r.cfg.Args)
+		if err != nil {
+			return nil, fmt.Errorf("pluginenv: encode args: %w", err)
+		}
+		env = append(env, linuxArgsEnv+"="+string(encoded))
+	}
 	cmd := exec.CommandContext(ctx, self, linuxHelperArg)
 	if !r.cfg.Network {
 		cmd.SysProcAttr = &syscall.SysProcAttr{

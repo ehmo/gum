@@ -19,6 +19,10 @@ type searchAPIsTuning struct {
 	maxItemsBound bool
 }
 
+// maxItemsKey is the admin key that overrides collapse_arrays.max_items. It
+// is read and reported in two places, so it is named once.
+const maxItemsKey = "meta_tools.search_apis.collapse_arrays.max_items"
+
 // loadSearchAPIsTuning reads spec §2139-§2145 admin keys from the active
 // profile's config.toml and clamps each to its documented range. Missing or
 // unparseable keys fall back to the spec defaults. Errors loading the config
@@ -28,7 +32,11 @@ type searchAPIsTuning struct {
 //   - meta_tools.search_apis.k                      default 5,   range 1-20
 //   - meta_tools.search_apis.truncate_strings.default_chars  default 120, range 60-400
 //   - meta_tools.search_apis.collapse_arrays.max_items       default = k (bound to k), range 1-50
-func loadSearchAPIsTuning(activeProfile string) searchAPIsTuning {
+//
+// An unparseable max_items leaves the knob unbound, so the caller's k
+// still decides collapse_arrays.max_items.
+func loadSearchAPIsTuning(activeProfile string, log *slog.Logger) searchAPIsTuning {
+	log = loggerOrDefault(log)
 	t := searchAPIsTuning{k: 5, defaultChars: 120}
 
 	c, _, err := config.Load(activeProfile)
@@ -37,14 +45,22 @@ func loadSearchAPIsTuning(activeProfile string) searchAPIsTuning {
 	}
 
 	if v, ok := c.Get("meta_tools.search_apis.k"); ok {
-		t.k = clampInt("meta_tools.search_apis.k", v, t.k, 1, 20)
+		t.k = clampInt("meta_tools.search_apis.k", v, t.k, 1, 20, log)
 	}
 	if v, ok := c.Get("meta_tools.search_apis.truncate_strings.default_chars"); ok {
-		t.defaultChars = clampInt("meta_tools.search_apis.truncate_strings.default_chars", v, t.defaultChars, 60, 400)
+		t.defaultChars = clampInt("meta_tools.search_apis.truncate_strings.default_chars", v, t.defaultChars, 60, 400, log)
 	}
-	if v, ok := c.Get("meta_tools.search_apis.collapse_arrays.max_items"); ok {
-		t.maxItems = clampInt("meta_tools.search_apis.collapse_arrays.max_items", v, t.k, 1, 50)
-		t.maxItemsBound = true
+	if v, ok := c.Get(maxItemsKey); ok {
+		// An unparseable value must leave the knob unbound. Binding it to a
+		// fallback would override the caller's k, so a k=12 request would
+		// silently collapse to the config default.
+		if n, parsed := clampIntOK(maxItemsKey, v, 1, 50, log); parsed {
+			t.maxItems = n
+			t.maxItemsBound = true
+		} else {
+			log.Warn("admin tuning: unparseable integer; ignoring override",
+				"key", maxItemsKey, "raw", v)
+		}
 	}
 	return t
 }
@@ -52,24 +68,37 @@ func loadSearchAPIsTuning(activeProfile string) searchAPIsTuning {
 // clampInt parses raw as an integer and clamps it to [lo, hi]. On parse
 // failure, returns def. On out-of-range, emits one slog.Warn with the key
 // and the clamped value, and returns the clamped value.
-func clampInt(key, raw string, def, lo, hi int) int {
-	v, err := strconv.Atoi(raw)
-	if err != nil {
-		slog.Warn("admin tuning: unparseable integer; using default",
+func clampInt(key, raw string, def, lo, hi int, log *slog.Logger) int {
+	log = loggerOrDefault(log)
+	v, ok := clampIntOK(key, raw, lo, hi, log)
+	if !ok {
+		log.Warn("admin tuning: unparseable integer; using default",
 			"key", key, "raw", raw, "default", def)
 		return def
 	}
+	return v
+}
+
+// clampIntOK parses raw and clamps it to [lo, hi], reporting false when raw
+// is not an integer. It exists so a caller with no usable default can tell a
+// clamped value from an absent one.
+func clampIntOK(key, raw string, lo, hi int, log *slog.Logger) (int, bool) {
+	log = loggerOrDefault(log)
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, false
+	}
 	if v < lo {
-		slog.Warn("admin tuning: value below range; clamped",
+		log.Warn("admin tuning: value below range; clamped",
 			"key", key, "raw", v, "min", lo)
-		return lo
+		return lo, true
 	}
 	if v > hi {
-		slog.Warn("admin tuning: value above range; clamped",
+		log.Warn("admin tuning: value above range; clamped",
 			"key", key, "raw", v, "max", hi)
-		return hi
+		return hi, true
 	}
-	return v
+	return v, true
 }
 
 // searchAPIsProfile returns the spec §2129 implicit output profile for
@@ -128,4 +157,16 @@ func searchAPIsProfile(k int, tuning searchAPIsTuning) *profile.Profile {
 		OnEmpty:  SearchNoResultsMessage,
 		Recovery: "none",
 	}
+}
+
+// loggerOrDefault resolves an injected logger to a usable one. The helpers
+// above take the logger as a parameter rather than off a receiver, because
+// they run before any Server method has a tuning value to hang onto; a nil
+// argument from a direct in-package call falls back the same way the Server
+// does (spec §14.1 rule 2).
+func loggerOrDefault(l *slog.Logger) *slog.Logger {
+	if l != nil {
+		return l
+	}
+	return slog.Default()
 }

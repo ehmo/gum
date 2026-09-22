@@ -1,0 +1,17 @@
+{
+  "$id": "drive.files.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fileId": {
+      "type": "string"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId"
+  ],
+  "title": "Permanently Delete a Drive File request",
+  "type": "object"
+}

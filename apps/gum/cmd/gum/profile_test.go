@@ -52,6 +52,8 @@ func TestProfileTestMatchesGolden(t *testing.T) {
 		filepath.Join(root, "internal", "output", "profile", "testdata", "gmail-list-profile.toml"),
 		"--input", filepath.Join(root, "internal", "output", "profile", "testdata", "gmail-list-input.json"),
 		"--golden", filepath.Join(root, "internal", "output", "profile", "testdata", "gmail-list-golden.toon"),
+		"--op", "gmail.users.messages.list",
+		"--variant", "gmail.v1.rest.users.messages.list",
 	})
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)

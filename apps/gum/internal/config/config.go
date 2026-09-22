@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ehmo/gum/internal/fsatomic"
@@ -21,9 +22,14 @@ import (
 
 const CurrentSchemaVersion = 1
 
+// WarnUnknownConfigKey is the stable code spec §12.2 assigns to the
+// unrecognized-key diagnostic. Tooling matches on the code, not the prose.
+const WarnUnknownConfigKey = "UNKNOWN_CONFIG_KEY"
+
 // Known top-level prefixes. Keys NOT rooted under one of these emit a
 // Warning on Load but are preserved.
 var knownPrefixes = []string{
+	"auth.",
 	"output.",
 	"audit.",
 	"cache.",
@@ -38,6 +44,7 @@ var knownPrefixes = []string{
 // Warning is a structured non-fatal diagnostic emitted during Load.
 type Warning struct {
 	Event       string
+	ErrorCode   string
 	Key         string
 	Profile     string
 	UserMessage string
@@ -75,6 +82,38 @@ func (c *Config) Set(key, value string) {
 		c.Values = map[string]string{}
 	}
 	c.Values[key] = value
+}
+
+// TeeRetentionHours returns output.tee_retention_hours in whole hours (spec
+// §9.0). Returns 0 when the key is unset, unparseable or not positive; every
+// caller reads 0 as "apply the spec default" rather than "expire immediately",
+// so a typo cannot silently shorten the window gum advertises to clients.
+func (c *Config) TeeRetentionHours() int {
+	v, ok := c.Get("output.tee_retention_hours")
+	if !ok {
+		return 0
+	}
+	hours, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || hours <= 0 {
+		return 0
+	}
+	return hours
+}
+
+// CodeOutputLimitBytes returns code.output_limit_bytes (spec §6.1), the
+// cumulative gum.code output budget in bytes. Returns 0 when the key is unset,
+// unparseable or not positive; every caller reads 0 as "apply the spec
+// default", so a typo cannot silently shrink the budget to nothing.
+func (c *Config) CodeOutputLimitBytes() int {
+	v, ok := c.Get("code.output_limit_bytes")
+	if !ok {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
 }
 
 // Unset removes key from the config and reports whether it was present.
@@ -170,6 +209,7 @@ func parse(profile, src string) (*Config, []Warning, error) {
 		if !isKnownKey(key) {
 			warnings = append(warnings, Warning{
 				Event:       "unknown_config_key",
+				ErrorCode:   WarnUnknownConfigKey,
 				Key:         key,
 				Profile:     profile,
 				UserMessage: fmt.Sprintf("key '%s' is not recognized by this version of gum; it will be ignored.", key),

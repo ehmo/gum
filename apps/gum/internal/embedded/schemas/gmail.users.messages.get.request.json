@@ -1,0 +1,35 @@
+{
+  "$id": "gmail.users.messages.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "format": {
+      "description": "Amount of message detail to return.",
+      "enum": [
+        "minimal",
+        "full",
+        "raw",
+        "metadata"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "metadataHeaders": {
+      "description": "When format=metadata, the headers to include.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "userId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId",
+    "id"
+  ],
+  "title": "Get Gmail message request",
+  "type": "object"
+}

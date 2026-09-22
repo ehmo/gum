@@ -76,7 +76,7 @@ Resolution order is project-local, then user-global, then catalog-embedded. Firs
 |---|---|---|---|
 | `format` | `toon`, `csv`, `json`, `markdown` | `toon` | Final wire encoding. `toon` is valid only for uniform array-like results. |
 | `field_mask` | string | variant `default_fields` | Upstream projection expression. Syntax is provider-specific, usually Google `fields`. |
-| `field_mask_mode` | `upstream`, `dual_fetch`, `none` | `upstream` | `upstream` masks the main request; `none` disables upstream masking; `dual_fetch` is reserved and rejected at dispatch with `INVALID_ARGS` because the unmasked recovery fetch is not implemented in this release. |
+| `field_mask_mode` | `upstream`, `dual_fetch`, `none` | `upstream` | `upstream` masks the main request; `none` disables upstream masking; `dual_fetch` masks the main request and issues a second unmasked request that feeds the stage-9 artifact, at the cost of a second billed call. |
 | `projection` | array of strings | `[]` | Host-side key allowlist applied before `keep_fields`. Flat key names only, no dot paths: it keeps the named keys of a top-level object, or of each element of a top-level array, and leaves nested maps alone. Empty keeps every key. Use `keep_fields` for nested paths. |
 | `keep_fields` | array of strings | `[]` | Recursive post-upstream allowlist. Dot paths address nested fields. |
 | `drop_fields` | array of strings | `[]` | Recursive post-upstream denylist. Applied after `keep_fields`. |
@@ -131,7 +131,7 @@ The pipeline order is fixed:
 8. `format`, with `omit_zero_counts` as a `toon` encoder option
 9. `artifact`
 
-Stages 2-7 operate on parsed Go `map[string]any` / `[]any` data. Stage 8 emits bytes. Stage 9 writes the post-stage-1 tree. The design reserves the unmasked dual-fetch result for that slot, but `field_mask_mode = "dual_fetch"` is rejected at dispatch in this release, so the artifact always holds the post-stage-1 tree.
+Stages 2-7 operate on parsed Go `map[string]any` / `[]any` data. Stage 8 emits bytes. Stage 9 writes the post-stage-1 tree, except under `field_mask_mode = "dual_fetch"`, where it writes the body of the unmasked second request instead.
 
 **Record array (normative).** Stage 7 operates on the shaped body's record array, which is the top-level value when it is an array, and otherwise the first present key among `items`, `data`, `messages` and `results` in a top-level object, falling back to that object's single array-valued field. Both shapes occur in practice: a Google list response is an object such as `{"messages":[...],"nextPageToken":"..."}`, and stage 5 rewrites a top-level array into `{"items":[...],"omitted_count":N}`. An object with two or more array-valued fields and none of the named keys has no single record array, so stage 7 MUST leave the body unchanged rather than select one of them. Stage 7 and `_expression.result_count` MUST read the same key, so the notice and the envelope describe one array.
 
@@ -143,7 +143,7 @@ Stages 2-7 operate on parsed Go `map[string]any` / `[]any` data. Stage 8 emits b
 
 - A lossy profile MUST set `recovery` to `local_artifact` or `resource_link` unless the variant explicitly declares `raw_result_allowed=true` with a token-budget exception.
 - `strip_nulls=true` requires the selected variant or plugin tool to declare `null_elision_safe_fields` covering every field that can be elided. Missing coverage fails with `PROFILE_STRIP_NULLS_UNSAFE`. The safe list is variant state, not profile state, so `gum profile validate` runs this check only when `--variant <variant_id>` binds one; an unbound run reports the check as skipped.
-- `field_mask_mode = "dual_fetch"` is valid only for variants with `risk_class = "read"` and `annotations.idempotent = true`; it is rejected for every write or destructive variant even when the upstream operation is idempotent. An eligible variant is rejected too: the second unmasked fetch is not implemented in this release, so dispatch fails the invocation with `INVALID_ARGS` and `field: "field_mask_mode"` before any upstream request.
+- `field_mask_mode = "dual_fetch"` is valid only for variants with `risk_class = "read"` and `annotations.idempotent = true`; it is rejected for every write or destructive variant even when the upstream operation is idempotent. An ineligible variant fails with `INVALID_ARGS` and `field: "field_mask_mode"` before any upstream request. On an eligible variant the second request is issued only when a mask actually reached the wire and a stage-9 artifact would be written; see spec.md §9.1 for the full activation conditions.
 - `recovery = "none"` with lossy stages is rejected for catalog and plugin profiles. User overrides may set it, but GUM emits the recovery-disable warning defined in `spec.md`.
 - Inheritance is one level. If the base itself declares `inherits`, the base's parent is ignored.
 - Circular inheritance is a load error.

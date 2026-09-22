@@ -74,7 +74,7 @@ This doc is the 1-page mental model. The normative contracts it summarizes are
 imports imports it back. Its direct imports are `internal/cache`,
 `internal/catalog`, `internal/fsatomic`, `internal/output/jcs`,
 `internal/output/profile`, and `internal/output/tee`; it imports nothing
-from `internal/auth`, `internal/profiles`, `internal/usage`, or
+from `internal/auth`, `internal/profile`, `internal/usage`, or
 `internal/pluginenv`, and nothing from `internal/cli`, `internal/mcp`, or
 `internal/adapters`. Behaviour it does not own arrives through constructor
 injection on `DispatcherConfig`, which is why `internal/auth` may import
@@ -128,8 +128,9 @@ Steps that may short-circuit:
   + `build-matrix` workflow enforce this on every PR.
 - **No silent stdout before initialized** — MCP stdio framing test
   `TestStdioFramingClean` (spec §13.1).
-- **Single-profile per process** — confirmation token HMAC key is per-process;
-  cross-profile replay impossible (spec §6.1.2 Profile binding).
+- **Single-profile per process** — the confirmation token binds `profile_name`,
+  so a token minted under one profile is refused under another
+  (spec §6.1.2 Profile binding).
 - **Stable error code set** — 28 codes enumerated in spec §1421; new codes
   require a spec amendment.
 

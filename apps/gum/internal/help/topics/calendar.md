@@ -95,12 +95,12 @@ done
 
 ## Errors
 
-- `AUTH_SCOPE_MISSING` — your stored grant lacks `calendar.readonly`. Re-run
+- `SCOPE_MISSING` — your stored grant lacks `calendar.readonly`. Re-run
   `gum auth login --scope https://www.googleapis.com/auth/calendar.readonly`
   with the broader scope.
 - `INVALID_ARGUMENT` — usually `timeMin` without a timezone, or `orderBy`
   without `singleEvents=true`.
-- `NOT_FOUND` — `calendarId` doesn't exist, or the principal isn't subscribed
+- `RESOURCE_NOT_FOUND` — `calendarId` doesn't exist, or the principal isn't subscribed
   to it. Try `calendarList.list` first to enumerate what's visible.
 - `RATE_LIMITED` — Calendar returned 429. The dispatcher honours `Retry-After`.
 

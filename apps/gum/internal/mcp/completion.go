@@ -27,8 +27,14 @@ const completionMaxValues = 50
 //   - ref/resource other templates         → empty (handler reserved)
 //   - ref/prompt for the static roster     → empty (zero-arg prompts)
 //
-// Tool-argument completions (gum.code.language, gum.read.format, etc.)
-// land alongside the v0.2.0 dispatch-table extension; see known-divergences.
+// Tool arguments are not reachable here. CompleteReference defines only
+// ref/prompt and ref/resource, and rejects any other type at unmarshal, on
+// every protocol revision the pinned SDK supports. The closed enums spec §13
+// names (gum.code.language, gum.read|write|destructive.format) therefore
+// reach clients through the registered inputSchema enum in schemas.go, which
+// is where an MCP client reads argument suggestions from.
+// TestCompleteHasNoToolReferenceType fails if a later SDK adds a tool
+// reference, which is the signal to route those arguments through here.
 func (s *Server) handleComplete(_ context.Context, req *sdkmcp.CompleteRequest) (*sdkmcp.CompleteResult, error) {
 	if req == nil || req.Params == nil || req.Params.Ref == nil {
 		return emptyCompleteResult(), nil

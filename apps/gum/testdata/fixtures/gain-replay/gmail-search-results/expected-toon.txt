@@ -1,2 +1,33 @@
-messages=[{"id":"18abc001","threadId":"18abc001"},{"id":"18abc002","threadId":"18abc002"},{"id":"18abc003","threadId":"18abc003"},{"id":"18abc004","threadId":"18abc004"},{"id":"18abc005","threadId":"18abc005"},{"id":"18abc006","threadId":"18abc006"},{"id":"18abc007","threadId":"18abc007"},{"id":"18abc008","threadId":"18abc008"},{"id":"18abc009","threadId":"18abc009"},{"id":"18abc010","threadId":"18abc010"},{"id":"18abc011","threadId":"18abc011"},{"id":"18abc012","threadId":"18abc012"},{"id":"18abc013","threadId":"18abc013"},{"id":"18abc014","threadId":"18abc014"},{"id":"18abc015","threadId":"18abc015"},{"id":"18abc016","threadId":"18abc016"},{"id":"18abc017","threadId":"18abc017"},{"id":"18abc018","threadId":"18abc018"},{"id":"18abc019","threadId":"18abc019"},{"id":"18abc020","threadId":"18abc020"},{"id":"18abc021","threadId":"18abc021"},{"id":"18abc022","threadId":"18abc022"},{"id":"18abc023","threadId":"18abc023"},{"id":"18abc024","threadId":"18abc024"},{"id":"18abc025","threadId":"18abc025"}]
-resultSizeEstimate=25
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 25
+fields: id,threadId
+records: messages
+resultSizeEstimate: 25
+
+18abc001,18abc001
+18abc002,18abc002
+18abc003,18abc003
+18abc004,18abc004
+18abc005,18abc005
+18abc006,18abc006
+18abc007,18abc007
+18abc008,18abc008
+18abc009,18abc009
+18abc010,18abc010
+18abc011,18abc011
+18abc012,18abc012
+18abc013,18abc013
+18abc014,18abc014
+18abc015,18abc015
+18abc016,18abc016
+18abc017,18abc017
+18abc018,18abc018
+18abc019,18abc019
+18abc020,18abc020
+18abc021,18abc021
+18abc022,18abc022
+18abc023,18abc023
+18abc024,18abc024
+18abc025,18abc025

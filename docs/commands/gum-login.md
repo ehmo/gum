@@ -22,6 +22,7 @@ gum login [flags]
 | `--no-browser` | `bool` | false | Print the URL but don't launch a browser (use for SSH/devcontainer/headless) |
 | `--scope` | `stringSlice` | [] | Exact OAuth scope(s) to request; repeat or comma-separate. Overrides --service/--all. |
 | `--service` | `stringSlice` | [] | Request only these services' scopes (e.g. --service people,youtube). Comma-separate or repeat. |
+| `--switch-account` | `bool` | false | Rebind this profile to the Google account the consent returns. Without it a login that comes back as a different account is refused and nothing is stored. |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |

@@ -46,9 +46,9 @@ The risk class is on the **variant**, not the caller. If you call
 `RISK_TOOL_MISMATCH` before any HTTP request. Retry through `gum.write`
 or `gum.destructive` to match the resolved variant's class.
 
-Confirmation envelopes (`requires_confirmation: true`) carry an HMAC-signed
-token; re-invoke with `confirmed: true` and `confirmation_token: <token>`
-within 5 minutes.
+Confirmation envelopes (`error_code: "REQUIRES_CONFIRMATION"`) carry an
+HMAC-signed token; re-invoke with `confirmed: true` and
+`confirmation_token: <token>` within 5 minutes.
 
 ## Profile selection
 

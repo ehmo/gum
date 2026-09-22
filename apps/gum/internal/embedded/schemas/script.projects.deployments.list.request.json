@@ -1,0 +1,23 @@
+{
+  "$id": "script.projects.deployments.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "The maximum number of deployments on each returned page. Defaults to 50.",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "The token for continuing a previous list request on the next page. This should be set to the value of `nextPageToken` f…",
+      "type": "string"
+    },
+    "scriptId": {
+      "description": "The script project's Drive ID.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scriptId"
+  ],
+  "title": "List Apps Script Deployments request",
+  "type": "object"
+}

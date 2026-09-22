@@ -1,0 +1,24 @@
+{
+  "$id": "maps.timezone.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "language": {
+      "description": "Language for the time-zone name.",
+      "type": "string"
+    },
+    "location": {
+      "description": "Latitude,longitude (e.g. 40.714,-73.961).",
+      "type": "string"
+    },
+    "timestamp": {
+      "description": "Unix timestamp (seconds) the offset is computed for.",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "location",
+    "timestamp"
+  ],
+  "title": "Get Time Zone request",
+  "type": "object"
+}

@@ -1,0 +1,48 @@
+{
+  "$id": "adminreports.entityusagereports.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The unique ID of the customer to retrieve data for.",
+      "type": "string"
+    },
+    "date": {
+      "description": "Represents the date the usage occurred, based on UTC-8:00 (Pacific Standard Time). The timestamp is in the [ISO 8601 fo…",
+      "type": "string"
+    },
+    "entityKey": {
+      "description": "Represents the key of the object to filter the data with. It is a string which can take the value `all` to get activity…",
+      "type": "string"
+    },
+    "entityType": {
+      "description": "Represents the type of entity for the report.",
+      "enum": [
+        "gplus_communities"
+      ],
+      "type": "string"
+    },
+    "filters": {
+      "description": "The `filters` query string is a comma-separated list of an application's event parameters where the parameter's value i…",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "Determines how many activity records are shown on each response page. For example, if the request sets `maxResults=1` a…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Token to specify next page. A report with multiple pages has a `nextPageToken` property in the response. In your follow…",
+      "type": "string"
+    },
+    "parameters": {
+      "description": "The `parameters` query string is a comma-separated list of event parameters that refine a report's results. The paramet…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "date",
+    "entityKey",
+    "entityType"
+  ],
+  "title": "Get Entity Usage Report request",
+  "type": "object"
+}

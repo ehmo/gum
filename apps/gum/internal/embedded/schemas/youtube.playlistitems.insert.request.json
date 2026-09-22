@@ -1,0 +1,19 @@
+{
+  "$id": "youtube.playlistitems.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter serves two purposes in this operation. It identifies the properties that the write operation will …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "Add a Playlist Item request",
+  "type": "object"
+}

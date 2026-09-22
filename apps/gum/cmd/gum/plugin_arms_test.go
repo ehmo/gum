@@ -157,14 +157,14 @@ func TestTransferNamespaceNewOwnerNeedsAValue(t *testing.T) {
 // A sink with no profile dir has nowhere to write, so Append is a no-op rather
 // than an error: the publish it annotates has already committed.
 func TestRegistryAuditSinkWithoutProfileDirIsANoOp(t *testing.T) {
-	registryAuditSink{}.Append(map[string]any{"event": "ignored"})
+	profileAuditSink{}.Append(map[string]any{"event": "ignored"})
 }
 
 // An audit sink whose profile dir cannot be created swallows the write: the
 // registry transaction it annotates has already committed, so failing here
 // would fail an install over a lost warning.
 func TestRegistryAuditSinkSwallowsAWriterFailure(t *testing.T) {
-	registryAuditSink{profileDir: unmakeableProfileDir(t)}.Append(map[string]any{"event": "dropped"})
+	profileAuditSink{profileDir: unmakeableProfileDir(t)}.Append(map[string]any{"event": "dropped"})
 }
 
 func TestResolveProfileDirRejectsAnInvalidName(t *testing.T) {

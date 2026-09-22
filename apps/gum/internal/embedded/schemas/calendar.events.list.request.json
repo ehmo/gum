@@ -1,0 +1,46 @@
+{
+  "$id": "calendar.events.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "type": "string"
+    },
+    "maxResults": {
+      "type": "integer"
+    },
+    "orderBy": {
+      "enum": [
+        "startTime",
+        "updated"
+      ],
+      "type": "string"
+    },
+    "pageToken": {
+      "type": "string"
+    },
+    "q": {
+      "type": "string"
+    },
+    "showDeleted": {
+      "type": "boolean"
+    },
+    "singleEvents": {
+      "type": "boolean"
+    },
+    "timeMax": {
+      "description": "Upper bound (RFC 3339) for event start time.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "timeMin": {
+      "description": "Lower bound (RFC 3339) for event end time.",
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId"
+  ],
+  "title": "List Calendar events request",
+  "type": "object"
+}

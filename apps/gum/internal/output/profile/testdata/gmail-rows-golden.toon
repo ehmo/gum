@@ -1,0 +1,11 @@
+op: gmail.users.messages.list
+variant: gmail.v1.rest.users.messages.list
+format_version: 1
+count: 3
+fields: id,snippet,threadId
+records: messages
+resultSizeEstimate: 3
+
+msg001,Hello there,t001
+msg002,Meeting tomorrow,t002
+msg003,"",t003

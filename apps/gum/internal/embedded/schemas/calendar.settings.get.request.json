@@ -1,0 +1,15 @@
+{
+  "$id": "calendar.settings.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "setting": {
+      "description": "The id of the user setting.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "setting"
+  ],
+  "title": "Get a single Calendar user setting request",
+  "type": "object"
+}

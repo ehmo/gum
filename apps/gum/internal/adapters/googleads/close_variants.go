@@ -22,18 +22,19 @@ const methodHistorical = "generateKeywordHistoricalMetrics"
 // keyword reached no result, so an ordinary batch pays nothing.
 //
 // It runs on the shaping path, so `--format raw` still returns the upstream
-// bytes (dispatch.ResponseAnnotator).
-func (a *Adapter) AnnotateResponse(inv *dispatch.Invocation, rv *dispatch.ResolvedVariant, body []byte) []byte {
+// bytes (dispatch.ResponseAnnotator). The returned paths say which fields raw
+// therefore costs the caller, for the shaping notice to name.
+func (a *Adapter) AnnotateResponse(inv *dispatch.Invocation, rv *dispatch.ResolvedVariant, body []byte) ([]byte, []string) {
 	if inv == nil || rv == nil || rv.Variant == nil || rv.Variant.Binding == nil || rv.Variant.Binding.HTTP == nil {
-		return body
+		return body, nil
 	}
 	if customMethod(rv.Variant.Binding.HTTP.Path) != methodHistorical {
-		return body
+		return body, nil
 	}
 
 	inputs := stringSliceArg(inv.Args, "keywords")
 	if len(inputs) == 0 {
-		return body
+		return body, nil
 	}
 
 	// UseNumber keeps every upstream number in its original text, so a body we
@@ -42,15 +43,15 @@ func (a *Adapter) AnnotateResponse(inv *dispatch.Invocation, rv *dispatch.Resolv
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	if err := dec.Decode(&doc); err != nil {
-		return body
+		return body, nil
 	}
 	results, _ := doc["results"].([]any)
 	if len(results) == 0 {
-		return body
+		return body, nil
 	}
 
 	matched, unmatched := matchKeywordInputs(inputs, results)
-	changed := false
+	taggedResults := false
 	for i, inputsForResult := range matched {
 		res, ok := results[i].(map[string]any)
 		if !ok || !needsMatchedInputs(res, inputsForResult) {
@@ -58,21 +59,30 @@ func (a *Adapter) AnnotateResponse(inv *dispatch.Invocation, rv *dispatch.Resolv
 		}
 
 		res["matchedInputs"] = inputsForResult
-		changed = true
+		taggedResults = true
 	}
 	if len(unmatched) > 0 {
 		doc["unmatchedInputs"] = unmatched
-		changed = true
 	}
-	if !changed {
-		return body
+
+	// One path per field however many results carry it, which is the dot-path
+	// convention ShapedResponse.DroppedPaths uses.
+	var added []string
+	if taggedResults {
+		added = append(added, "results.matchedInputs")
+	}
+	if len(unmatched) > 0 {
+		added = append(added, "unmatchedInputs")
+	}
+	if len(added) == 0 {
+		return body, nil
 	}
 
 	out, err := json.Marshal(doc)
 	if err != nil {
-		return body
+		return body, nil
 	}
-	return out
+	return out, added
 }
 
 // matchKeywordInputs assigns every submitted keyword to at most one result. It

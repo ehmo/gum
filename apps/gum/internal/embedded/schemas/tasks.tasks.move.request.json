@@ -1,0 +1,32 @@
+{
+  "$id": "tasks.tasks.move.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "destinationTasklist": {
+      "description": "Optional. Destination task list identifier. If set, the task is moved from tasklist to the destinationTasklist list. Ot…",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Optional. New parent task identifier. If the task is moved to the top level, this parameter is omitted. The task set as…",
+      "type": "string"
+    },
+    "previous": {
+      "description": "Optional. New previous sibling task identifier. If the task is moved to the first position among its siblings, this par…",
+      "type": "string"
+    },
+    "task": {
+      "description": "Task identifier.",
+      "type": "string"
+    },
+    "tasklist": {
+      "description": "Task list identifier.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task",
+    "tasklist"
+  ],
+  "title": "Move a Task request",
+  "type": "object"
+}

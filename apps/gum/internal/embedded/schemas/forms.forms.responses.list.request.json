@@ -1,0 +1,27 @@
+{
+  "$id": "forms.forms.responses.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "filter": {
+      "description": "Which form responses to return. Currently, the only supported filters are: * timestamp \u003e *N* which means to get all for…",
+      "type": "string"
+    },
+    "formId": {
+      "description": "Required. ID of the Form whose responses to list.",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "The maximum number of responses to return. The service may return fewer than this value. If unspecified or zero, at mos…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "A page token returned by a previous list response. If this field is set, the form and the values of the filter must be …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "formId"
+  ],
+  "title": "List Form Responses request",
+  "type": "object"
+}

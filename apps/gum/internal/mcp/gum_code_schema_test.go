@@ -15,7 +15,7 @@
 // Spec anchors:
 //   - spec.md §4.1 table (gum.code row) — 8 params, token budget, destructiveHint
 //   - spec.md §6.1 — gum.code semantics, reserved language rejection
-//   - spec.md §6.1 line ~391 — reserved language rejection at JSON Schema layer (-32602)
+//   - spec.md §4.3 — reserved language rejection transport (INVALID_ARGS envelope)
 //
 // All tests MUST compile. They MUST fail for the right reasons (wrong schema shape)
 // until the Green Team fixes schemas.go.
@@ -256,7 +256,7 @@ func TestGumCodeSchemaLanguageEnumRisorOnly(t *testing.T) {
 		if enumSet[r] {
 			t.Errorf(`gum.code "language".enum contains reserved string %q; `+
 				`spec.md §6.1: reserved strings MUST NOT appear in v0.1.0 MCP input schema. `+
-				`Any value other than "risor" must be rejected by JSON Schema (-32602).`, r)
+				`Any value other than "risor" is rejected by the §4.1 validation seam.`, r)
 		}
 	}
 }

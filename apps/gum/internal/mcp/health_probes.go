@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // healthSnapshotTTL is the §13 line 3149 "5s sample TTL" constant. The probe
@@ -15,9 +16,31 @@ import (
 // calls do not re-stat the filesystem.
 const healthSnapshotTTL = 5 * time.Second
 
+// healthDetailMaxChars is the §13 line 3314 bound on the detail column. It
+// counts characters, not bytes, so a multibyte error message clamps to the
+// same visible width as an ASCII one.
+const healthDetailMaxChars = 80
+
+// healthDetailEllipsis marks a clamped detail. It is plain ASCII so the TOON
+// row stays single-byte-per-character for every reader.
+const healthDetailEllipsis = "..."
+
+// clampHealthDetail enforces healthDetailMaxChars. Several probes build a
+// degraded detail by concatenating an os error, whose length is set by the
+// path that failed and so is unbounded at the source. Clamping at the row
+// boundary bounds every probe, including ones added later.
+func clampHealthDetail(detail string) string {
+	if utf8.RuneCountInString(detail) <= healthDetailMaxChars {
+		return detail
+	}
+	keep := healthDetailMaxChars - utf8.RuneCountInString(healthDetailEllipsis)
+	return string([]rune(detail)[:keep]) + healthDetailEllipsis
+}
+
 // subsystemHealth is one row of the gum://status/health response prior to
-// TOON encoding. Status is from the closed enum {"healthy","degraded"};
-// "down" is reserved for future live probes that detect a hard failure.
+// TOON encoding. Spec §13 line 3283 closes Status at
+// {"healthy","degraded","unavailable"}. No v0.1.0 probe returns
+// "unavailable": it is reserved for live probes that detect a hard failure.
 type subsystemHealth struct {
 	Subsystem   string
 	Status      string
@@ -74,6 +97,9 @@ func (c *healthSnapshotCache) snapshot(now time.Time, profileDir string) []subsy
 			continue
 		}
 		rows = append(rows, probe(now, profileDir))
+	}
+	for i := range rows {
+		rows[i].Detail = clampHealthDetail(rows[i].Detail)
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Subsystem < rows[j].Subsystem })
 	c.rows = rows

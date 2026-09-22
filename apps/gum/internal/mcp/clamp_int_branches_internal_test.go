@@ -7,7 +7,7 @@ import "testing"
 // A non-numeric raw must yield the default and emit a warn log.
 func TestClampIntParseFailureReturnsDefault(t *testing.T) {
 	t.Parallel()
-	if got := clampInt("k", "not-a-number", 7, 1, 10); got != 7 {
+	if got := clampInt("k", "not-a-number", 7, 1, 10, nil); got != 7 {
 		t.Errorf("got=%d; want 7 (default)", got)
 	}
 }
@@ -16,7 +16,7 @@ func TestClampIntParseFailureReturnsDefault(t *testing.T) {
 // (meta_tool_profiles.go:62-66). 0 below a lo of 5 must clamp to 5.
 func TestClampIntBelowRangeClampsUp(t *testing.T) {
 	t.Parallel()
-	if got := clampInt("k", "0", 7, 5, 10); got != 5 {
+	if got := clampInt("k", "0", 7, 5, 10, nil); got != 5 {
 		t.Errorf("got=%d; want 5 (lo)", got)
 	}
 }
@@ -25,7 +25,7 @@ func TestClampIntBelowRangeClampsUp(t *testing.T) {
 // (meta_tool_profiles.go:67-71). 99 above a hi of 10 must clamp to 10.
 func TestClampIntAboveRangeClampsDown(t *testing.T) {
 	t.Parallel()
-	if got := clampInt("k", "99", 7, 1, 10); got != 10 {
+	if got := clampInt("k", "99", 7, 1, 10, nil); got != 10 {
 		t.Errorf("got=%d; want 10 (hi)", got)
 	}
 }
@@ -35,7 +35,7 @@ func TestClampIntAboveRangeClampsDown(t *testing.T) {
 // unchanged.
 func TestClampIntInRangeReturnsParsed(t *testing.T) {
 	t.Parallel()
-	if got := clampInt("k", "5", 7, 1, 10); got != 5 {
+	if got := clampInt("k", "5", 7, 1, 10, nil); got != 5 {
 		t.Errorf("got=%d; want 5 (parsed)", got)
 	}
 }

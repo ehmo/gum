@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ehmo/gum/main/apps/gum/cmd/gen-catalog/overrides.schema.json",
+  "title": "gen-catalog overrides manifest",
+  "description": "Validation contract for cmd/gen-catalog/overrides.toml, applied to the TOML decoded as JSON (spec section 5.2). gen-catalog refuses to run against a manifest this schema rejects (OVERRIDES_SCHEMA_INVALID).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "apis": {
+      "description": "Per-service Discovery document locations. The key is the catalog op service name.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["discovery_url"],
+        "properties": {
+          "discovery_url": {
+            "type": "string",
+            "pattern": "^https://[^\\s]+$"
+          }
+        }
+      }
+    },
+    "sdk_only": {
+      "description": "Non-discovery services bound to an official Go SDK call.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["go_pkg", "go_call", "adapter_key"],
+        "properties": {
+          "go_pkg": { "type": "string", "minLength": 1 },
+          "go_call": { "type": "string", "minLength": 1 },
+          "adapter_key": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "grpc_preferred": {
+      "description": "Replacement SDK bindings for deprecated grpc-sdk stubs whose Go symbol upstream dropped inside the grace window.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["go_pkg", "go_call"],
+        "properties": {
+          "go_pkg": { "type": "string", "minLength": 1 },
+          "go_call": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "op_id_overrides": {
+      "description": "Discovery path prefix to explicit op_id prefix, for OP_ID_COLLISION resolution.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "risk_overrides": {
+      "description": "Forced risk class per op_id.",
+      "type": "object",
+      "additionalProperties": { "enum": ["read", "write", "destructive"] }
+    }
+  }
+}

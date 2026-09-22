@@ -103,6 +103,11 @@ func TestMCPCompletions(t *testing.T) {
 	if len(res.Completion.Values) != 0 {
 		t.Errorf("Complete(ref/prompt).Values = %v; want empty (zero-argument roster)", res.Completion.Values)
 	}
+
+	// Spec §13 closed-enum tool arguments. MCP has no tool reference type, so
+	// these reach the client through the registered inputSchema enum; see
+	// tool_argument_completion_test.go.
+	assertSpecClosedEnumCompletions(t, ctx, cs)
 }
 
 // TestMCPCompletionLatency is the bead-named latency floor for gum-vok.

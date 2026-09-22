@@ -1,0 +1,56 @@
+{
+  "$id": "calendar.events.instances.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "alwaysIncludeEmail": {
+      "description": "Deprecated and ignored. A value will always be returned in the email field for the organizer, creator and attendees, ev…",
+      "type": "boolean"
+    },
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "eventId": {
+      "description": "Recurring event identifier.",
+      "type": "string"
+    },
+    "maxAttendees": {
+      "description": "The maximum number of attendees to include in the response. If there are more than the specified number of attendees, o…",
+      "type": "integer"
+    },
+    "maxResults": {
+      "description": "Maximum number of events returned on one result page. By default the value is 250 events. The page size can never be la…",
+      "type": "integer"
+    },
+    "originalStart": {
+      "description": "The original start time of the instance in the result. Optional.",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token specifying which result page to return. Optional.",
+      "type": "string"
+    },
+    "showDeleted": {
+      "description": "Whether to include deleted events (with status equals \"cancelled\") in the result. Cancelled instances of recurring even…",
+      "type": "boolean"
+    },
+    "timeMax": {
+      "description": "Upper bound (exclusive) for an event's start time to filter by. Optional. The default is not to filter by start time. M…",
+      "type": "string"
+    },
+    "timeMin": {
+      "description": "Lower bound (inclusive) for an event's end time to filter by. Optional. The default is not to filter by end time. Must …",
+      "type": "string"
+    },
+    "timeZone": {
+      "description": "Time zone used in the response. Optional. The default is the time zone of the calendar.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "eventId"
+  ],
+  "title": "List recurring event instances request",
+  "type": "object"
+}

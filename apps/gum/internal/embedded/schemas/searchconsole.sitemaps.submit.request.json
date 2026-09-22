@@ -1,0 +1,18 @@
+{
+  "$id": "searchconsole.sitemaps.submit.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "feedpath": {
+      "type": "string"
+    },
+    "siteUrl": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "siteUrl",
+    "feedpath"
+  ],
+  "title": "Submit a sitemap request",
+  "type": "object"
+}

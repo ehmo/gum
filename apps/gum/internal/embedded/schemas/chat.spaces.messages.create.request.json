@@ -1,0 +1,45 @@
+{
+  "$id": "chat.spaces.messages.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "createMessageNotificationOptions.notificationType": {
+      "description": "The notification type for the message.",
+      "enum": [
+        "NOTIFICATION_TYPE_NONE",
+        "NOTIFICATION_TYPE_FORCE_NOTIFY",
+        "NOTIFICATION_TYPE_SILENT"
+      ],
+      "type": "string"
+    },
+    "messageId": {
+      "description": "Optional. A custom ID for a message. Lets Chat apps get, update, or delete a message without needing to store the syste…",
+      "type": "string"
+    },
+    "messageReplyOption": {
+      "description": "Optional. Specifies whether a message starts a thread or replies to one. Only supported in named spaces. When [respondi…",
+      "enum": [
+        "MESSAGE_REPLY_OPTION_UNSPECIFIED",
+        "REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD",
+        "REPLY_MESSAGE_OR_FAIL"
+      ],
+      "type": "string"
+    },
+    "parent": {
+      "description": "Required. The resource name of the space in which to create a message. Format: `spaces/{space}`",
+      "type": "string"
+    },
+    "requestId": {
+      "description": "Optional. A unique request ID for this message. Specifying an existing request ID returns the message created with that…",
+      "type": "string"
+    },
+    "threadKey": {
+      "description": "Optional. Deprecated: Use thread.thread_key instead. ID for the thread. Supports up to 4000 characters. To start or add…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "parent"
+  ],
+  "title": "Send a Chat Message request",
+  "type": "object"
+}

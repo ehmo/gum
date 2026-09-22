@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"regexp"
 	"runtime/debug"
@@ -87,10 +86,13 @@ func panicAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[str
 
 // successAuditEntry builds the normative §11 audit-log map for a successful
 // dispatch. The on-disk writer (internal/auditlog) stamps `v`, `ts`, and key
-// order; this helper supplies the per-invocation payload. dual_fetch is
-// emitted when the active expression profile selects field_mask_mode=
-// "dual_fetch" (spec §9.1 + §11). shaping_bypassed and sanitizer_bypassed
-// remain deferred to follow-on beads.
+// order; this helper supplies the per-invocation payload.
+//
+// It never sets dual_fetch. §11 reserves that key for the second, unmasked
+// request alone, so dispatcher.dualFetch adds it to its own entry; a masked
+// request under a dual_fetch profile is an ordinary call and must not carry
+// it. shaping_bypassed and sanitizer_bypassed remain deferred to follow-on
+// beads.
 func successAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[string]any) map[string]any {
 	variantID := ""
 	riskClass := ""
@@ -151,7 +153,7 @@ func (d *dispatcher) recoverAdapterPanic(inv *Invocation, rv *ResolvedVariant, r
 	stack := debug.Stack()
 	sanitizedStack := sanitizeStackForLog(string(stack))
 
-	slog.Error("adapter panic",
+	d.log().Error("adapter panic",
 		"op_id", inv.OpID,
 		"variant_id", rv.Variant.VariantID,
 		"request_id", inv.RequestID,

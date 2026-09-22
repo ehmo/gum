@@ -1,0 +1,25 @@
+{
+  "$id": "calendar.calendars.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "summary": {
+      "description": "Calendar title.",
+      "type": "string"
+    },
+    "timeZone": {
+      "description": "IANA tz, e.g. America/Los_Angeles.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "summary"
+  ],
+  "title": "Create a new calendar request",
+  "type": "object"
+}

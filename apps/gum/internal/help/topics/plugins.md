@@ -22,12 +22,15 @@ backends exist.
 ## Install protocol
 
 `gum plugin install <local-dir> --yes` runs the spec §8.7 atomic three-file
-transaction for a local plugin source directory. URL/PyPI/GitHub/git install
-sources are not implemented in v0.1.x.
+transaction. The argument is always a local manifest directory; the
+manifest's `[package]` block declares where the code comes from: `local`
+(default), `bundled`, `pypi`, `github_release`, or `git`. Remote sources
+are checksum- or commit-pinned and verified before anything is unpacked.
 
 1. Acquire `plugins.install.lock` (advisory file lock, 30 s timeout).
-2. Resolve the local source directory and stage the executable inside the
-   active plugin install root.
+2. Materialize the declared `[package]` source into the install root
+   (verified artifact, virtualenv, or pinned clone), then copy the
+   manifest directory over it so curated files win.
 3. Hash the executable, record `executable_path`, `executable_sha256`, and
    `argv_normalized` in `plugins.lock`.
 4. Write `plugin-catalog.json.tmp.<txid>`, `plugins.lock.tmp.<txid>`, and

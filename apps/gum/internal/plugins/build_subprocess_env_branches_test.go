@@ -1,10 +1,26 @@
 package plugins
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
 )
+
+// mustBuildEnv runs buildSubprocessEnv for a case that declares no §7 token,
+// so the audit entry is always nil and the error always nil. It keeps each
+// branch test to the one assertion it is named for.
+func mustBuildEnv(t *testing.T, in subprocessEnvInput) []string {
+	t.Helper()
+	env, entry, err := buildSubprocessEnv(context.Background(), in)
+	if err != nil {
+		t.Fatalf("buildSubprocessEnv: %v", err)
+	}
+	if entry != nil {
+		t.Fatalf("audit entry = %v; want none for a case with no forwarded token", entry)
+	}
+	return env
+}
 
 // TestBuildSubprocessEnvDedupSkipsDuplicateKey pins the
 // `seen[key] → return` early-out (host.go:489-491). Reached by listing
@@ -12,7 +28,7 @@ import (
 // call must short-circuit on seen, not double-emit.
 func TestBuildSubprocessEnvDedupSkipsDuplicateKey(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin")
-	got := buildSubprocessEnv([]string{"PATH"}, nil, nil)
+	got := mustBuildEnv(t, subprocessEnvInput{EnvAllow: []string{"PATH"}})
 	count := 0
 	for _, e := range got {
 		if strings.HasPrefix(e, "PATH=") {
@@ -30,7 +46,7 @@ func TestBuildSubprocessEnvDedupSkipsDuplicateKey(t *testing.T) {
 // process, the result must not include it.
 func TestBuildSubprocessEnvDeniedKeyDropped(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "secret")
-	got := buildSubprocessEnv([]string{"ANTHROPIC_API_KEY"}, nil, nil)
+	got := mustBuildEnv(t, subprocessEnvInput{EnvAllow: []string{"ANTHROPIC_API_KEY"}})
 	for _, e := range got {
 		if strings.HasPrefix(e, "ANTHROPIC_API_KEY=") {
 			t.Errorf("got denylisted var %q; want dropped", e)
@@ -43,7 +59,7 @@ func TestBuildSubprocessEnvDeniedKeyDropped(t *testing.T) {
 // Reached by setting an LC_* var — must surface in the spawn env.
 func TestBuildSubprocessEnvLCFamilyPassthrough(t *testing.T) {
 	t.Setenv("LC_TEST_FOO", "bar")
-	got := buildSubprocessEnv(nil, nil, nil)
+	got := mustBuildEnv(t, subprocessEnvInput{})
 	found := false
 	for _, e := range got {
 		if e == "LC_TEST_FOO=bar" {
@@ -61,9 +77,10 @@ func TestBuildSubprocessEnvLCFamilyPassthrough(t *testing.T) {
 // declarations". LoadManifest already refuses such a needs_user_creds entry, so
 // this is the second gate — reached only if a future caller bypasses the first.
 func TestBuildSubprocessEnvDeniedCredentialDropped(t *testing.T) {
-	got := buildSubprocessEnv(nil,
-		[]string{"ANTHROPIC_API_KEY"},
-		map[string]string{"ANTHROPIC_API_KEY": "stolen"})
+	got := mustBuildEnv(t, subprocessEnvInput{
+		NeedsUserCreds: []string{"ANTHROPIC_API_KEY"},
+		Creds:          map[string]string{"ANTHROPIC_API_KEY": "stolen"},
+	})
 	for _, e := range got {
 		if strings.HasPrefix(e, "ANTHROPIC_API_KEY=") {
 			t.Errorf("got denylisted credential %q; want dropped", e)
@@ -80,7 +97,7 @@ func TestBuildSubprocessEnvUnresolvedCredentialAbsent(t *testing.T) {
 	if _, ok := os.LookupEnv(name); ok {
 		t.Fatalf("%s is set in the test environment; pick another name", name)
 	}
-	got := buildSubprocessEnv(nil, []string{name}, nil)
+	got := mustBuildEnv(t, subprocessEnvInput{NeedsUserCreds: []string{name}})
 	for _, e := range got {
 		if strings.HasPrefix(e, name+"=") {
 			t.Errorf("got %q; want the name absent entirely", e)
@@ -94,7 +111,11 @@ func TestBuildSubprocessEnvUnresolvedCredentialAbsent(t *testing.T) {
 func TestBuildSubprocessEnvCredentialBeatsEnvAllow(t *testing.T) {
 	const name = "GUMTEST_SHARED_CREDENTIAL"
 	t.Setenv(name, "ambient")
-	got := buildSubprocessEnv([]string{name}, []string{name}, map[string]string{name: "stored"})
+	got := mustBuildEnv(t, subprocessEnvInput{
+		EnvAllow:       []string{name},
+		NeedsUserCreds: []string{name},
+		Creds:          map[string]string{name: "stored"},
+	})
 	count := 0
 	for _, e := range got {
 		if strings.HasPrefix(e, name+"=") {

@@ -1,0 +1,53 @@
+{
+  "$id": "sheets.spreadsheets.values.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "includeValuesInResponse": {
+      "type": "boolean"
+    },
+    "range": {
+      "description": "A1 notation, e.g. Sheet1!A1:C10.",
+      "type": "string"
+    },
+    "responseDateTimeRenderOption": {
+      "enum": [
+        "SERIAL_NUMBER",
+        "FORMATTED_STRING"
+      ],
+      "type": "string"
+    },
+    "responseValueRenderOption": {
+      "enum": [
+        "FORMATTED_VALUE",
+        "UNFORMATTED_VALUE",
+        "FORMULA"
+      ],
+      "type": "string"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    },
+    "valueInputOption": {
+      "description": "How input data is interpreted.",
+      "enum": [
+        "RAW",
+        "USER_ENTERED"
+      ],
+      "type": "string"
+    },
+    "values": {
+      "description": "Row-major 2D array, e.g. values:=[[\"a\",\"b\"],[1,2]].",
+      "items": {
+        "type": "array"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "range",
+    "valueInputOption"
+  ],
+  "title": "Update a Sheets Range request",
+  "type": "object"
+}

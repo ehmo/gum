@@ -1,7 +1,8 @@
 // Package topics embeds the per-topic markdown bodies served by the
-// gum://help/{topic} MCP resource template. The eight v0.1.0 active topics
-// (spec §13 line 3150) are validated against an 8 KiB ceiling at process
-// startup; anything larger fails the build with HELP_TOPIC_TOO_LARGE.
+// gum://help/{topic} MCP resource template. The thirteen v0.1.0 active topics
+// (the spec §13 seed set plus the five per-service quickstarts) are validated
+// against an 8 KiB ceiling at process startup; anything larger fails the
+// build with HELP_TOPIC_TOO_LARGE.
 package topics
 
 import (

@@ -3,6 +3,7 @@
 package pluginenv
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -39,7 +40,15 @@ func runLinuxSandboxHelper() error {
 	if err := applyLinuxLandlock(writeRoot); err != nil {
 		return err
 	}
-	return syscall.Exec(target, []string{target}, linuxPluginEnv(os.Environ()))
+	argv := []string{target}
+	if encoded := os.Getenv(linuxArgsEnv); encoded != "" {
+		var args []string
+		if err := json.Unmarshal([]byte(encoded), &args); err != nil {
+			return fmt.Errorf("pluginenv: decode linux helper args: %w", err)
+		}
+		argv = append(argv, args...)
+	}
+	return syscall.Exec(target, argv, linuxPluginEnv(os.Environ()))
 }
 
 func linuxPluginEnv(env []string) []string {

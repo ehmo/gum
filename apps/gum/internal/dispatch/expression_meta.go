@@ -4,11 +4,14 @@ import (
 	"time"
 
 	"github.com/ehmo/gum/internal/output/profile"
+	"github.com/ehmo/gum/internal/output/tee"
 )
 
 // defaultTeeRetentionHours is the spec §9.0 artifact retention window used when
-// output.tee_retention_hours is unset.
-const defaultTeeRetentionHours = 24
+// output.tee_retention_hours is unset. It aliases the tee package's constant so
+// the expiry gum advertises and the window gum://results/{hash} scans cannot
+// drift apart.
+const defaultTeeRetentionHours = tee.DefaultRetentionHours
 
 // rawProfileSentinel is the §13 profile name for a response that bypassed the
 // expression pipeline. A raw pass-through reports it instead of the profile it
@@ -121,6 +124,17 @@ func (m *ExpressionMeta) attachArtifactHandles(path, resource string, retentionH
 	if retentionHours <= 0 {
 		retentionHours = defaultTeeRetentionHours
 	}
+	// Cap before the multiply: time.Duration is int64 nanoseconds, so a
+	// retention of roughly 2.6 million hours or more wraps and advertises an
+	// artifact_expires_at in the past, telling every client the fresh artifact
+	// it just wrote is already gone.
+	// Cap before the multiply: time.Duration is int64 nanoseconds, so a
+	// retention of roughly 2.6 million hours or more wraps and advertises an
+	// artifact_expires_at in the past, telling every client the fresh artifact
+	// it just wrote is already gone.
+	if retentionHours > tee.MaxRetentionHours {
+		retentionHours = tee.MaxRetentionHours
+	}
 	expires := now.UTC().Add(time.Duration(retentionHours) * time.Hour).Format(time.RFC3339)
 	m.ArtifactExpiresAt = &expires
 }
@@ -131,4 +145,67 @@ func opIDOf(inv *Invocation) string {
 		return ""
 	}
 	return inv.OpID
+}
+
+// Fields projects the envelope into its JSON object form, using the struct's
+// own key names and omission rules.
+//
+// gum_parallel needs the map form because spec §9.0.1 hoists individual
+// fields out of each per-result envelope into the batch's shared pool, and
+// puts the remainder back as an ExpressionMetaDelta. A struct cannot express
+// "this field was hoisted away"; a map can.
+//
+// _code_output_truncated is deliberately absent. §13 places that flag on the
+// enclosing ParallelResultItem, as a sibling of _expression, not inside the
+// delta. Callers that need it read CodeOutputTruncated directly.
+//
+// Returns nil for a nil receiver so a degraded path that never shaped a
+// response can call it unguarded.
+func (m *ExpressionMeta) Fields() map[string]any {
+	if m == nil {
+		return nil
+	}
+
+	// The five §13 required fields plus the two counters are always present:
+	// a count that appears only when non-zero cannot distinguish "none" from
+	// "not reported", and required-presence forbids omitting a null.
+	out := map[string]any{
+		"profile":          m.Profile,
+		"op_id":            m.OpID,
+		"variant_id":       derefAny(m.VariantID),
+		"lossy":            m.Lossy,
+		"result_count":     m.ResultCount,
+		"omitted_count":    m.OmittedCount,
+		"on_empty_message": derefAny(m.OnEmptyMessage),
+	}
+
+	if m.FullResultPath != "" {
+		out["full_result_path"] = m.FullResultPath
+	}
+	if m.FullResultResource != "" {
+		out["full_result_resource"] = m.FullResultResource
+	}
+	if m.ArtifactExpiresAt != nil {
+		out["artifact_expires_at"] = *m.ArtifactExpiresAt
+	}
+	if m.IntentionalZeroMaxItems != nil {
+		out["intentional_zero_max_items"] = *m.IntentionalZeroMaxItems
+	}
+	if m.ProjectRootURI != nil {
+		out["project_root_uri"] = *m.ProjectRootURI
+	}
+	if m.ProfileResolutionWarning != nil {
+		out["_profile_resolution_warning"] = *m.ProfileResolutionWarning
+	}
+	return out
+}
+
+// derefAny returns *p as an untyped value, or an untyped nil. A typed nil
+// pointer in an any-valued map serializes to JSON null but compares unequal
+// to nil in Go, which would break every consumer that tests for absence.
+func derefAny[T any](p *T) any {
+	if p == nil {
+		return nil
+	}
+	return *p
 }

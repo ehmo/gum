@@ -1,0 +1,15 @@
+{
+  "$id": "forms.forms.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "formId": {
+      "description": "Required. The form ID.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "formId"
+  ],
+  "title": "Get a Form request",
+  "type": "object"
+}

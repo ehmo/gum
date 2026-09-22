@@ -1,0 +1,14 @@
+{
+  "$id": "searchconsole.sitemaps.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "siteUrl": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "siteUrl"
+  ],
+  "title": "List submitted sitemaps request",
+  "type": "object"
+}

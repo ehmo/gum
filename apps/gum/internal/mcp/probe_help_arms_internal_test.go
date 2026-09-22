@@ -199,6 +199,12 @@ func TestHelpTopicDeprecatedReturnsRedirect(t *testing.T) {
 	if payload["status"] != "deprecated" || payload["redirect"] != "new-topic" {
 		t.Errorf("payload=%v; want status=deprecated redirect=new-topic", payload)
 	}
+	// Spec §13 line 3264 says the redirect body contains only these two
+	// keys. Leaking one_line_description or the row's own topic name would
+	// hand a client fields it must not start depending on (bead gum-p1ko).
+	if len(payload) != 2 {
+		t.Errorf("payload has %d keys (%v); want exactly status and redirect", len(payload), payload)
+	}
 }
 
 // TestHelpTopicWithoutMarkdownReturnsNotFound pins the `topics.Read
@@ -224,7 +230,7 @@ func TestHelpTopicWithoutMarkdownReturnsNotFound(t *testing.T) {
 // (meta_tool_profiles.go:34-37). An unparseable profile name makes the
 // load fail; the handler MUST keep serving with the spec defaults.
 func TestSearchAPIsTuningUnloadableConfigUsesDefaults(t *testing.T) {
-	got := loadSearchAPIsTuning("bad/name")
+	got := loadSearchAPIsTuning("bad/name", nil)
 	if got.k != 5 || got.defaultChars != 120 {
 		t.Errorf("tuning=%+v; want k=5 defaultChars=120", got)
 	}

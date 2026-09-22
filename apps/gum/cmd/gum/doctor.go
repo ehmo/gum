@@ -394,7 +394,14 @@ func doctorConfig(profile string) doctorCheckResult {
 		Summary: fmt.Sprintf("loaded %d keys from %s", len(c.Keys()), path),
 	}
 	if len(warnings) > 0 {
-		res.Hint = fmt.Sprintf("%d config warning(s); run `gum config` to review", len(warnings))
+		// Name the code and the offending keys: the point of the §12.2
+		// warning is that a typo stays visible while the file still loads.
+		flagged := make([]string, 0, len(warnings))
+		for _, w := range warnings {
+			flagged = append(flagged, w.ErrorCode+" "+w.Key)
+		}
+		res.Hint = fmt.Sprintf("%d config warning(s): %s; run `gum config` to review",
+			len(warnings), strings.Join(flagged, ", "))
 	}
 	return res
 }

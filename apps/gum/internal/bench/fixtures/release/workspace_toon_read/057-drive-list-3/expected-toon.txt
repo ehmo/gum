@@ -1,1 +1,10 @@
-files=[{"id":"1000000000000ee82401dfdc95d4","mimeType":"application/vnd.google-apps.document","modifiedTime":"2026-05-20T12:00:00Z","name":"doc-001.gdoc","owners":[{"displayName":"Alex Owner","emailAddress":"alex@example.com"}],"size":"4391"},{"id":"1000000000000d309df4bca2e174","mimeType":"application/vnd.google-apps.document","modifiedTime":"2026-05-22T12:00:00Z","name":"doc-002.gdoc","owners":[{"displayName":"Alex Owner","emailAddress":"alex@example.com"}],"size":"9415"},{"id":"1000000000000e31e6e7d9c44cf0","mimeType":"application/vnd.google-apps.document","modifiedTime":"2026-05-21T12:00:00Z","name":"doc-003.gdoc","owners":[{"displayName":"Alex Owner","emailAddress":"alex@example.com"}],"size":"6530"}]
+op: drive.files.list
+variant: 
+format_version: 1
+count: 3
+fields: id,mimeType,modifiedTime,name,owners,size
+records: files
+
+1000000000000ee82401dfdc95d4,application/vnd.google-apps.document,2026-05-20T12:00:00Z,doc-001.gdoc,"[{""displayName"":""Alex Owner"",""emailAddress"":""alex@example.com""}]",4391
+1000000000000d309df4bca2e174,application/vnd.google-apps.document,2026-05-22T12:00:00Z,doc-002.gdoc,"[{""displayName"":""Alex Owner"",""emailAddress"":""alex@example.com""}]",9415
+1000000000000e31e6e7d9c44cf0,application/vnd.google-apps.document,2026-05-21T12:00:00Z,doc-003.gdoc,"[{""displayName"":""Alex Owner"",""emailAddress"":""alex@example.com""}]",6530

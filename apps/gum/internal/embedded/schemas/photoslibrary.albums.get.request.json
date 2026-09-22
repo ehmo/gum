@@ -1,0 +1,15 @@
+{
+  "$id": "photoslibrary.albums.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "albumId": {
+      "description": "Required. Identifier of the album to be requested.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "albumId"
+  ],
+  "title": "Get a Photo Album request",
+  "type": "object"
+}

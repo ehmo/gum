@@ -72,6 +72,20 @@ type Registry struct {
 	// audit receives the §8.7 fsync warning as an audit row. nil means the
 	// warning goes to the host log only.
 	audit AuditSink
+
+	// logger is the §14.1 rule 2 injection point, set by WithLogger. nil
+	// means slog.Default().
+	logger *slog.Logger
+}
+
+// log returns the injected logger, or slog.Default() when WithLogger was not
+// chained. Every diagnostic in this package goes through it, so a registry
+// built with WithLogger(slog.New(slog.DiscardHandler)) emits nothing.
+func (r *Registry) log() *slog.Logger {
+	if r.logger != nil {
+		return r.logger
+	}
+	return slog.Default()
 }
 
 // AuditSink is the seam that carries a registry warning into the profile audit
@@ -106,6 +120,14 @@ func (r *Registry) syncFile() func(*os.File) error {
 // ensuring profileDir already exists (gum profile setup).
 func New(profileDir string) *Registry {
 	return &Registry{profileDir: profileDir, lockTimeout: DefaultLockTimeout}
+}
+
+// WithLogger injects the logger this registry emits its diagnostics through
+// (spec §14.1 rule 2) and returns the registry, so a caller can chain it onto
+// New. A nil logger leaves the registry on slog.Default().
+func (r *Registry) WithLogger(l *slog.Logger) *Registry {
+	r.logger = l
+	return r
 }
 
 // WithLockTimeout overrides the 30s default; intended for tests that exercise
@@ -195,15 +217,17 @@ func (r *Registry) WriteTransaction(ctx context.Context, mutate func(*Files) err
 		return fmt.Errorf("registry: mutate: %w", err)
 	}
 
-	prev := files.Lock.InstallGeneration
-	if files.State.InstallGeneration > prev {
-		prev = files.State.InstallGeneration
-	}
+	// The highest generation on disk wins, including the catalog's. After a
+	// catalog-only tear the catalog holds the newer number, and reusing it
+	// would break the "monotonically increasing" rule in §8.7 step 3.
+	prev := max(files.Catalog.InstallGeneration, files.Lock.InstallGeneration, files.State.InstallGeneration)
 	gen := prev + 1
 	txid := newTxID()
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	files.Catalog.PluginCatalogSchemaVersion = 1
+	files.Catalog.InstallGeneration = gen
+	files.Catalog.InstallTxID = txid
 	files.Catalog.UpdatedAt = now
 	files.Lock.PluginsLockSchemaVersion = 1
 	files.Lock.InstallGeneration = gen
@@ -443,7 +467,7 @@ func (r *Registry) warnFsyncUnsupported(err error) {
 	}
 	const suggestion = "Install to a local filesystem for atomic write guarantees."
 	errno := errnoName(err)
-	slog.Warn("fsync_not_supported",
+	r.log().Warn("fsync_not_supported",
 		"event", "fsync_not_supported",
 		"path", r.profileDir,
 		"syscall_errno", errno,

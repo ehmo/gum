@@ -1,2 +1,1 @@
-id=18ae4c55b0
-labelIds=["TRASH"]
+{"id":"18ae4c55b0","labelIds":["TRASH"]}

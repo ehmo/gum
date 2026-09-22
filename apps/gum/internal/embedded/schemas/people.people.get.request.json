@@ -1,0 +1,34 @@
+{
+  "$id": "people.people.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "personFields": {
+      "description": "Required. A field mask to restrict which fields on the person are returned. Multiple fields can be specified by separat…",
+      "type": "string"
+    },
+    "requestMask.includeField": {
+      "description": "Required. Comma-separated list of person fields to be included in the response. Each path should start with `person.`: …",
+      "type": "string"
+    },
+    "resourceName": {
+      "description": "Required. The resource name of the person to provide information about. - To get information about the authenticated us…",
+      "type": "string"
+    },
+    "sources": {
+      "description": "Optional. A mask of what source types to return. Defaults to READ_SOURCE_TYPE_PROFILE and READ_SOURCE_TYPE_CONTACT if n…",
+      "enum": [
+        "READ_SOURCE_TYPE_UNSPECIFIED",
+        "READ_SOURCE_TYPE_PROFILE",
+        "READ_SOURCE_TYPE_CONTACT",
+        "READ_SOURCE_TYPE_DOMAIN_CONTACT",
+        "READ_SOURCE_TYPE_OTHER_CONTACT"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "resourceName"
+  ],
+  "title": "Get a Contact request",
+  "type": "object"
+}

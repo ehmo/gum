@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/ehmo/gum/internal/output/profile"
@@ -179,10 +178,10 @@ func (d *dispatcher) writeFailureTee(inv *Invocation, rv *ResolvedVariant, creds
 	}
 	art, err := d.teeWrite(inv, rv, creds, payload)
 	if err != nil {
-		slog.Warn("failure tee artifact write failed", "op_id", inv.OpID, "err", err)
+		d.log().Warn("failure tee artifact write failed", "op_id", inv.OpID, "err", err)
 		return
 	}
-	slog.Info("failure tee artifact written", "op_id", inv.OpID, "path", art.Path, "hash", art.Hash)
+	d.log().Info("failure tee artifact written", "op_id", inv.OpID, "path", art.Path, "hash", art.Hash)
 }
 
 // failureTeePayload picks the bytes to artifact for a failed call: the upstream

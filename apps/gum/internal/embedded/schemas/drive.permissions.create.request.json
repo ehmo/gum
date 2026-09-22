@@ -1,0 +1,53 @@
+{
+  "$id": "drive.permissions.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "domain": {
+      "description": "For type=domain.",
+      "type": "string"
+    },
+    "emailAddress": {
+      "description": "For type=user or group.",
+      "type": "string"
+    },
+    "fileId": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "organizer",
+        "fileOrganizer",
+        "writer",
+        "commenter",
+        "reader"
+      ],
+      "type": "string"
+    },
+    "sendNotificationEmail": {
+      "type": "boolean"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    },
+    "transferOwnership": {
+      "type": "boolean"
+    },
+    "type": {
+      "enum": [
+        "user",
+        "group",
+        "domain",
+        "anyone"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "fileId",
+    "role",
+    "type"
+  ],
+  "title": "Share a Drive File request",
+  "type": "object"
+}

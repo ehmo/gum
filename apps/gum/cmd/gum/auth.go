@@ -510,19 +510,21 @@ func newLoginCmd(use, short string) *cobra.Command {
 	var services []string
 	var allScopes bool
 	var noBrowser bool
+	var switchAccount bool
 	cmd := &cobra.Command{
 		Use:           use,
 		Short:         short,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLogin(cmd, scopes, services, allScopes, noBrowser)
+			return runLogin(cmd, scopes, services, allScopes, noBrowser, switchAccount)
 		},
 	}
 	cmd.Flags().StringSliceVar(&scopes, "scope", nil, "Exact OAuth scope(s) to request; repeat or comma-separate. Overrides --service/--all.")
 	cmd.Flags().StringSliceVar(&services, "service", nil, "Request only these services' scopes (e.g. --service people,youtube). Comma-separate or repeat.")
 	cmd.Flags().BoolVar(&allScopes, "all", false, "Request the full catalog scope union (every service). Default is the core Workspace set; the full union needs all those APIs enabled on your OAuth client.")
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Print the URL but don't launch a browser (use for SSH/devcontainer/headless)")
+	cmd.Flags().BoolVar(&switchAccount, "switch-account", false, "Rebind this profile to the Google account the consent returns. Without it a login that comes back as a different account is refused and nothing is stored.")
 	return cmd
 }
 
@@ -530,7 +532,7 @@ func newLoginCmd(use, short string) *cobra.Command {
 // loopback+PKCE flow for the resolved scopes. Pre-authorizing the whole
 // catalog (no --scope) or a specific subset (--scope) both land here. When no
 // client is configured the operator is pointed at `gum auth use-oauth-client`.
-func runLogin(cmd *cobra.Command, explicitScopes, services []string, allScopes, noBrowser bool) error {
+func runLogin(cmd *cobra.Command, explicitScopes, services []string, allScopes, noBrowser, switchAccount bool) error {
 	profile := resolveProfileFlag(cmd)
 	client, ok, err := auth.LoadByoClient(auth.NewOSKeyring(), profile)
 	if err != nil {
@@ -544,13 +546,22 @@ func runLogin(cmd *cobra.Command, explicitScopes, services []string, allScopes, 
 		return err
 	}
 	creds, err := interactiveByoLogin(cmd.Context(), auth.ByoOAuthConfig{
-		ClientID:     client.ClientID,
-		ClientSecret: client.ClientSecret,
-		Profile:      profile,
-		Scopes:       scopes,
+		ClientID:           client.ClientID,
+		ClientSecret:       client.ClientSecret,
+		Profile:            profile,
+		Scopes:             scopes,
+		ExpectedSubject:    expectedAuthSubject(profile, byoStrategy),
+		AllowSubjectChange: switchAccount,
 	}, newBrowserOpener(cmd.ErrOrStderr(), noBrowser, isHeadless))
 	if err != nil {
 		return err
+	}
+	// The consent just proved which account this profile uses, so bind it:
+	// every later credential resolution is checked against this fingerprint
+	// (spec §7, bead gum-q0kd). A config-write failure leaves the guard
+	// disabled rather than the login broken, so it warns instead of failing.
+	if rerr := recordExpectedSubject(profile, creds.StrategyName, creds.SubjectFingerprint); rerr != nil {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "gum login: could not record the account fingerprint for this profile: %v\n", rerr)
 	}
 	return writeJSON(cmd.OutOrStdout(), map[string]any{
 		"strategy":            creds.StrategyName,

@@ -1,0 +1,15 @@
+{
+  "$id": "scholar.search.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "query": {
+      "description": "Search terms for Google Scholar.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "Search Google Scholar request",
+  "type": "object"
+}

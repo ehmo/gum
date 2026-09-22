@@ -1,0 +1,19 @@
+{
+  "$id": "tasks.tasklists.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "tasklist": {
+      "type": "string"
+    },
+    "title": {
+      "description": "Task list title.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tasklist",
+    "title"
+  ],
+  "title": "Update a Task List request",
+  "type": "object"
+}

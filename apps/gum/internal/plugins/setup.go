@@ -97,6 +97,11 @@ func SetupCredentials(ctx context.Context, pluginID string, opts SetupOptions) e
 			"check the plugin manifest with the plugin author")
 	}
 
+	// 2b. External prerequisites print before any prompt so the user sees the
+	// whole picture, including the steps gum will not perform, before typing
+	// a secret (docs/plugin-contract.md "Credential descriptors").
+	writeExternalChecklist(opts.Out, pluginID, m.Requirements.AuthComponents)
+
 	if len(descs) == 0 {
 		// No credentials required — nothing to prompt.
 		return nil

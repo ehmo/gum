@@ -1,0 +1,15 @@
+{
+  "$id": "vault.matters.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "matterId": {
+      "description": "The matter ID",
+      "type": "string"
+    }
+  },
+  "required": [
+    "matterId"
+  ],
+  "title": "Delete a Vault Matter request",
+  "type": "object"
+}

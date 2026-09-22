@@ -1,2 +1,33 @@
-messages=[{"id":"18ae1b7476","threadId":"18ae1b7476"},{"id":"18a79f7762","threadId":"18a79f7762"},{"id":"18ad9052a9","threadId":"18ad9052a9"},{"id":"18aa2358b0","threadId":"18aa2358b0"},{"id":"18a8ae69e7","threadId":"18a8ae69e7"},{"id":"18a5f1ec6d","threadId":"18a5f1ec6d"},{"id":"18a73e5a18","threadId":"18a73e5a18"},{"id":"18a4e33cd6","threadId":"18a4e33cd6"},{"id":"18a7fdf05d","threadId":"18a7fdf05d"},{"id":"18a966bd63","threadId":"18a966bd63"},{"id":"18a5af1164","threadId":"18a5af1164"},{"id":"18a3dcafc1","threadId":"18a3dcafc1"},{"id":"18aa74d322","threadId":"18aa74d322"},{"id":"18adab761f","threadId":"18adab761f"},{"id":"18a5ac473e","threadId":"18a5ac473e"},{"id":"18aec5e2bf","threadId":"18aec5e2bf"},{"id":"18a1e2791f","threadId":"18a1e2791f"},{"id":"18a93ff4df","threadId":"18a93ff4df"},{"id":"18a659b27e","threadId":"18a659b27e"},{"id":"18a481e275","threadId":"18a481e275"},{"id":"18ab46711a","threadId":"18ab46711a"},{"id":"18acb438fc","threadId":"18acb438fc"},{"id":"18a4e82d76","threadId":"18a4e82d76"},{"id":"18a1ff132f","threadId":"18a1ff132f"},{"id":"18a3b491f4","threadId":"18a3b491f4"}]
-resultSizeEstimate=25
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 25
+fields: id,threadId
+records: messages
+resultSizeEstimate: 25
+
+18ae1b7476,18ae1b7476
+18a79f7762,18a79f7762
+18ad9052a9,18ad9052a9
+18aa2358b0,18aa2358b0
+18a8ae69e7,18a8ae69e7
+18a5f1ec6d,18a5f1ec6d
+18a73e5a18,18a73e5a18
+18a4e33cd6,18a4e33cd6
+18a7fdf05d,18a7fdf05d
+18a966bd63,18a966bd63
+18a5af1164,18a5af1164
+18a3dcafc1,18a3dcafc1
+18aa74d322,18aa74d322
+18adab761f,18adab761f
+18a5ac473e,18a5ac473e
+18aec5e2bf,18aec5e2bf
+18a1e2791f,18a1e2791f
+18a93ff4df,18a93ff4df
+18a659b27e,18a659b27e
+18a481e275,18a481e275
+18ab46711a,18ab46711a
+18acb438fc,18acb438fc
+18a4e82d76,18a4e82d76
+18a1ff132f,18a1ff132f
+18a3b491f4,18a3b491f4

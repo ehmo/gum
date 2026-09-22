@@ -1,0 +1,20 @@
+{
+  "$id": "calendar.settings.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "maxResults": {
+      "description": "Maximum number of entries returned on one result page. By default the value is 100 entries. The page size can never be …",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Token specifying which result page to return. Optional.",
+      "type": "string"
+    },
+    "syncToken": {
+      "description": "Token obtained from the nextSyncToken field returned on the last page of results from the previous list request. It mak…",
+      "type": "string"
+    }
+  },
+  "title": "List Calendar user settings request",
+  "type": "object"
+}

@@ -26,9 +26,10 @@ func (s *switchableAuth) ResolveAuth(_ context.Context, _ *dispatch.Invocation, 
 // ConfirmationParams used to carry an AuthFingerprint field for this. Nothing on
 // the CLI or MCP path ever populated it, so it hashed an empty string on every
 // call and read as a guarantee gum does not make; gum-b7hq removed it. The real
-// wrong-account defence belongs at credential resolution and does not exist yet
-// (gum-q0kd). This test is the standing evidence for that gap: make it assert a
-// refusal when gum-q0kd lands.
+// wrong-account defence belongs at credential resolution, and that is where it
+// lives: checkAuthSubject refuses with AUTH_SUBJECT_MISMATCH in step 4 when the
+// profile recorded a subject for the strategy (gum-q0kd). This dispatcher wires
+// no expectation, so the token path is the only variable under test here.
 func TestConfirmationTokenIsProfileScopedNotPrincipalScoped(t *testing.T) {
 	args := map[string]any{"userId": "me", "id": "msg001"}
 	adapter := &confirmCountingAdapter{}

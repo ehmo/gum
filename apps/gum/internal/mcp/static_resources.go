@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -20,6 +18,11 @@ const (
 	pluginsResourceURI      = "gum://plugins"
 	statusHealthResourceURI = "gum://status/health"
 	noAutoInjectAnnotation  = "x-gum-do-not-auto-inject"
+
+	// canaryStatusStale is the §13 line 3252 initial state: a known canary
+	// that has not run. It is the only status gum emits until the §8.5
+	// passive runner lands.
+	canaryStatusStale = "stale"
 )
 
 // staticHealthSubsystems is the closed v0.1.0 enum for gum://status/health
@@ -105,18 +108,71 @@ func (s *Server) handleCatalogRead(_ context.Context, req *sdkmcp.ReadResourceRe
 	}, nil
 }
 
-// handleCanariesRead returns the canary roster as TOON with status="stale" for
-// every row (spec §13 line 3147 "initial state" rule). Until the §8.5 passive
-// canary runner is wired into the MCP server, every row is stale; a future
-// bead will replace this with the in-memory canary-runner state.
+// canaryStatusRow is one gum://status/canaries row. Field order matches the
+// §13 line 3252 column order.
+type canaryStatusRow struct {
+	CanaryID  string
+	OpID      string
+	VariantID string
+	Status    string
+	LastRunAt string
+	LatencyMS string
+	ErrorCode string
+}
+
+// canaryRoster returns one row per known plugin canary, sorted by canary_id.
+//
+// A plugin canary is per-plugin, not per-op: `gum canary --plugin=<id>` spawns
+// the subprocess once and reports whether it booted, so canary_id is the
+// plugin name and op_id/variant_id stay empty. Naming one of the plugin's N
+// advertised variants would claim a target the canary does not have.
+//
+// The roster is LoadPluginInventory unfiltered. gum://plugins drops
+// installed_pending_restart rows because those plugins cannot dispatch, but
+// §13 line 3252 requires the opposite here: "every known plugin canary,
+// including freshly-installed-but-never-run canaries".
+//
+// Every row is stale with an empty last_run_at. No §8.5 passive runner is
+// wired into the server and runCanary persists no result, so there is no run
+// to report; stale + empty last_run_at is the spec's "never run" encoding, not
+// an error. latency_ms is omitted for stale and error_code is set only when
+// status is fail, so both stay empty.
+func (s *Server) canaryRoster() []canaryStatusRow {
+	installed := LoadPluginInventory(s.profilePluginDir())
+	rows := make([]canaryStatusRow, 0, len(installed))
+	for _, p := range installed {
+		rows = append(rows, canaryStatusRow{CanaryID: p.Name, Status: canaryStatusStale})
+	}
+	return rows
+}
+
+// handleCanariesRead renders the canary roster as TOON. It is regenerated on
+// every resources/read, so a plugin installed after startup shows up on the
+// next read.
 func (s *Server) handleCanariesRead(_ context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
+	rows := s.canaryRoster()
 	var b strings.Builder
 	b.WriteString("op: gum.status.canaries\n")
 	b.WriteString("variant: gum.status.canaries.v1\n")
 	b.WriteString("format_version: 1\n")
 	b.WriteString("fields: canary_id,op_id,variant_id,status,last_run_at,latency_ms,error_code\n")
-	b.WriteString("count: 0\n")
-	b.WriteString("\n")
+	fmt.Fprintf(&b, "count: %d\n\n", len(rows))
+	for _, r := range rows {
+		b.WriteString(csvField(r.CanaryID))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.OpID))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.VariantID))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.Status))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.LastRunAt))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.LatencyMS))
+		b.WriteByte(',')
+		b.WriteString(csvField(r.ErrorCode))
+		b.WriteByte('\n')
+	}
 	return &sdkmcp.ReadResourceResult{
 		Contents: []*sdkmcp.ResourceContents{
 			{URI: req.Params.URI, MIMEType: "text/plain", Text: b.String()},
@@ -188,59 +244,19 @@ func (s *Server) handleStatusHealthRead(_ context.Context, req *sdkmcp.ReadResou
 	}, nil
 }
 
-// pluginInventoryRow is the shape of one gum://plugins row before TOON
-// rendering. Fields mirror spec §13 line 3148.
-type pluginInventoryRow struct {
-	Name         string
-	Version      string
-	Shape        string
-	Status       string
-	ToS          string
-	Risk         string
-	VariantCount int
-}
-
-// loadPluginInventoryRows reads plugin-state.json + plugins.lock for the
-// active profile and returns the visible-in-MCP row set. Missing files or
-// load errors yield an empty list — the MCP resource never fails on a missing
-// registry; that's a fresh-install or no-plugins-yet scenario.
-func (s *Server) loadPluginInventoryRows() []pluginInventoryRow {
-	profileDir := s.profilePluginDir()
-	if profileDir == "" {
-		return nil
-	}
-	statePath := filepath.Join(profileDir, "plugin-state.json")
-	lockPath := filepath.Join(profileDir, "plugins.lock")
-	stateRows := loadPluginRowsFromFile(statePath)
-	lockRows := loadPluginRowsFromFile(lockPath)
-	lockByName := make(map[string]map[string]any, len(lockRows))
-	for _, row := range lockRows {
-		if n, _ := row["name"].(string); n != "" {
-			lockByName[n] = row
-		}
-	}
-	out := make([]pluginInventoryRow, 0, len(stateRows))
-	for _, row := range stateRows {
-		name, _ := row["name"].(string)
-		if name == "" {
+// loadPluginInventoryRows returns the rows gum://plugins may show: the full
+// profile inventory minus installed_pending_restart, which spec §13 line 3234
+// filters out because those plugins cannot dispatch in this session. The CLI
+// reads the same inventory unfiltered through mcp.LoadPluginInventory.
+func (s *Server) loadPluginInventoryRows() []PluginInventoryRow {
+	all := LoadPluginInventory(s.profilePluginDir())
+	out := make([]PluginInventoryRow, 0, len(all))
+	for _, row := range all {
+		if row.Status == "installed_pending_restart" {
 			continue
 		}
-		status := resolvePluginStatus(row)
-		if status == "installed_pending_restart" {
-			continue // spec §13 line 3148 MCP filter
-		}
-		lock := lockByName[name]
-		out = append(out, pluginInventoryRow{
-			Name:         name,
-			Version:      stringFromRow(lock, "version"),
-			Shape:        stringFromRow(lock, "shape"),
-			Status:       status,
-			ToS:          stringFromRow(lock, "tos"),
-			Risk:         stringFromRow(lock, "risk"),
-			VariantCount: intFromRow(lock, "variant_count"),
-		})
+		out = append(out, row)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 

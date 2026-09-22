@@ -1,0 +1,26 @@
+{
+  "$id": "docs.documents.batchupdate.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "documentId": {
+      "type": "string"
+    },
+    "requests": {
+      "description": "Docs batchUpdate request objects.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "writeControl": {
+      "description": "Optional revision precondition.",
+      "type": "object"
+    }
+  },
+  "required": [
+    "documentId",
+    "requests"
+  ],
+  "title": "Edit a Doc (batchUpdate) request",
+  "type": "object"
+}

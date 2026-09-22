@@ -57,7 +57,7 @@ func (s *Server) registerResourceTemplates() {
 		&sdkmcp.ResourceTemplate{
 			Name:        "gum_schema",
 			Title:       "GUM JSON Schema document",
-			Description: "Full JSON Schema 2020-12 body served by the embedded gen/schemas/ store or the profile-local plugin-schemas/ copy (spec §13 line 3156). Refs absent from the active snapshot, owned by inactive/quarantined plugins, or violating the §8.2 safe served-ref grammar return RESOURCE_NOT_FOUND.",
+			Description: "Full JSON Schema 2020-12 body served by the embedded internal/embedded/schemas/ store or the profile-local plugin-schemas/ copy (spec §13 line 3156). Refs absent from the active snapshot, owned by inactive/quarantined plugins, or violating the §8.2 safe served-ref grammar return RESOURCE_NOT_FOUND.",
 			URITemplate: schemaResourceTemplate,
 			MIMEType:    mimeApplicationSchema,
 		},

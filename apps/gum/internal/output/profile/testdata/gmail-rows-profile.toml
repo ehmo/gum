@@ -1,0 +1,6 @@
+format = "toon"
+keep_fields = ["messages.id", "messages.threadId", "messages.snippet", "resultSizeEstimate"]
+flatten_singletons = false
+omit_zero_counts = true
+sort_by = "id"
+limit = 3

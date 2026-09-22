@@ -1,0 +1,36 @@
+{
+  "$id": "maps.distancematrix.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "departure_time": {
+      "description": "Departure time (Unix seconds or 'now') for traffic-aware durations.",
+      "type": "string"
+    },
+    "destinations": {
+      "description": "Pipe-separated destination places/coords.",
+      "type": "string"
+    },
+    "language": {
+      "description": "Language for results.",
+      "type": "string"
+    },
+    "mode": {
+      "description": "Travel mode: driving|walking|bicycling|transit.",
+      "type": "string"
+    },
+    "origins": {
+      "description": "Pipe-separated origin places/coords (e.g. Boston,MA|New York,NY).",
+      "type": "string"
+    },
+    "units": {
+      "description": "Unit system: metric|imperial.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "origins",
+    "destinations"
+  ],
+  "title": "Distance Matrix request",
+  "type": "object"
+}

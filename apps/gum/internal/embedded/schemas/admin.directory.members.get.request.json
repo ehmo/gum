@@ -1,0 +1,20 @@
+{
+  "$id": "admin.directory.members.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "groupKey": {
+      "description": "Identifies the group in the API request. The value can be the group's email address, group alias, or the unique group I…",
+      "type": "string"
+    },
+    "memberKey": {
+      "description": "Identifies the group member in the API request. A group member can be a user or another group. The value can be the mem…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "groupKey",
+    "memberKey"
+  ],
+  "title": "Get a group member request",
+  "type": "object"
+}

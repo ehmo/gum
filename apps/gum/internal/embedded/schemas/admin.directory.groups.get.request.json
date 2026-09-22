@@ -1,0 +1,15 @@
+{
+  "$id": "admin.directory.groups.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "groupKey": {
+      "description": "Identifies the group in the API request. The value can be the group's email address, group alias, or the unique group I…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "groupKey"
+  ],
+  "title": "Get a Workspace directory group request",
+  "type": "object"
+}

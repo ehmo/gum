@@ -14,7 +14,7 @@
 // Spec anchors:
 //   - spec.md §4.1 line ~284 — gum.destructive 10-param row
 //   - spec.md §4.1 line ~295 — gum.destructive semantics, MCP annotation
-//   - spec.md §6.1 — confirmation gate (requires_confirmation envelope)
+//   - spec.md §6.1 — confirmation gate (REQUIRES_CONFIRMATION envelope)
 //   - spec.md §13 annotation wire-form contract
 //
 // All tests MUST compile. They MUST fail for the right reasons (wrong schema
@@ -202,7 +202,7 @@ func TestGumDestructiveSchemaFormatEnum(t *testing.T) {
 // (boolean) and "confirmation_token" (string) are present as properties but
 // are NOT listed in the "required" array. This is the critical contract: a
 // caller must be able to invoke gum.destructive WITHOUT confirmed=true so the
-// dispatcher can return the requires_confirmation envelope (spec §6.1 / §4.1
+// dispatcher can return the REQUIRES_CONFIRMATION envelope (spec §6.1 / §4.1
 // line ~295).
 func TestGumDestructiveSchemaConfirmationFieldsOptional(t *testing.T) {
 	schema := parseDestructiveSchema(t)
@@ -225,7 +225,7 @@ func TestGumDestructiveSchemaConfirmationFieldsOptional(t *testing.T) {
 			t.Errorf("gum.destructive 'confirmed' has type %q, want \"boolean\" (spec §4.1)", typ)
 		}
 		if requiredSet["confirmed"] {
-			t.Error("gum.destructive 'confirmed' must NOT be in 'required' — caller must be able to omit it to trigger requires_confirmation envelope (spec §6.1)")
+			t.Error("gum.destructive 'confirmed' must NOT be in 'required' — caller must be able to omit it to trigger the REQUIRES_CONFIRMATION envelope (spec §6.1)")
 		}
 	}
 

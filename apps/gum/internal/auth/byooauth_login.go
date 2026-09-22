@@ -120,6 +120,13 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 		}
 	}
 	subject := oauthSubjectFromIDToken(tok.IDToken)
+	fingerprint := byoSubjectFingerprint(subject, tok.RefreshToken)
+	// prompt=select_account above means the operator can land on a different
+	// account than the profile is bound to. Refuse before storeLoginGrant so
+	// a refused consent leaves the previous grant in place (bead gum-q0kd).
+	if err := checkSubject("byo_oauth", b.cfg.ExpectedSubject, fingerprint, b.cfg.AllowSubjectChange); err != nil {
+		return nil, err
+	}
 	if err := b.storeLoginGrant(tok.RefreshToken, tok.Scope, subject); err != nil {
 		return nil, err
 	}
@@ -128,7 +135,7 @@ func (b *ByoOAuth) Login(ctx context.Context) (*Credentials, error) {
 		ExpiresAt:          time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
 		Scopes:             append([]string{}, b.cfg.Scopes...),
 		StrategyName:       "byo_oauth",
-		SubjectFingerprint: byoSubjectFingerprint(subject, tok.RefreshToken),
+		SubjectFingerprint: fingerprint,
 	}
 	b.cached = creds
 	return creds, nil

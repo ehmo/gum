@@ -14,8 +14,12 @@
 //   - quarantined               → JSON-RPC application error with envelope
 //     error_code: VARIANT_QUARANTINED + reason from plugin-state.json
 //   - active                    → return (nil, false) so the snapshot-miss
-//     remains a RESOURCE_NOT_FOUND (the active op should already be in
-//     the snapshot; falling through avoids masking a catalog-generation bug)
+//     remains a RESOURCE_NOT_FOUND. The boot-time merge
+//     (plugins.SessionCatalog) puts every active plugin variant in the
+//     snapshot, so reaching this arm means the row was refused as malformed
+//     or its install generation was torn. Both are real faults, and
+//     RESOURCE_NOT_FOUND is the honest answer; synthesising a record here
+//     would advertise an op no dispatch can route.
 //
 // VARIANT_QUARANTINED uses JSON-RPC code -32000 (spec §13 line 1427 "other
 // stable runtime resource errors"); RESOURCE_NOT_FOUND uses the SDK's
@@ -27,6 +31,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/ehmo/gum/internal/output/jcs"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -45,9 +50,10 @@ const (
 //     to RESOURCE_NOT_FOUND.
 //   - handled=true + err != nil → quarantined; caller returns the error.
 //   - handled=true + result != nil → pending_restart / needs_configuration.
-//   - handled=true + result == nil + err == nil → active; caller falls through
-//     (the active op should already be in the snapshot; falling through avoids
-//     masking a catalog-generation bug).
+//   - handled=true + result == nil + err == nil → active; caller falls through.
+//     An active plugin's ops are merged into the snapshot at boot, so this
+//     arm is reached only when the merge refused the row or the install
+//     generation was torn.
 func (s *Server) inactivePluginOpResponse(uri, opID string) (*sdkmcp.ReadResourceResult, *jsonrpc.Error, bool) {
 	owner, ok := s.lookupOpOwnerPlugin(opID)
 	if !ok {
@@ -177,10 +183,15 @@ func credentialAliasNames(stateRow map[string]any) []string {
 	return out
 }
 
-// jsonResourceResultFromPayload marshals payload (sort keys via stdlib;
-// inactive-plugin responses are tiny so the JCS path is overkill).
+// jsonResourceResultFromPayload canonicalizes payload per RFC 8785 and wraps
+// it in the one-content-item shape. gum://op/{id} and gum://variant/{id} are
+// named by spec §13 line 1562, so the body MUST be JCS-canonical; stdlib
+// json.Marshal is not a JCS encoder and would HTML-escape a credential alias
+// containing '&', '<' or '>'. The error is discarded because the payload
+// holds only strings and a []string, which neither encoder can reject
+// (bead gum-yi62).
 func jsonResourceResultFromPayload(uri string, payload map[string]any) *sdkmcp.ReadResourceResult {
-	body, _ := json.Marshal(payload)
+	body, _ := jcs.Marshal(payload)
 	return jsonResourceResult(uri, body)
 }
 

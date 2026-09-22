@@ -110,7 +110,7 @@ done
 
 ## Errors
 
-- `AUTH_SCOPE_MISSING` — your stored grant lacks `gmail.send` or
+- `SCOPE_MISSING` — your stored grant lacks `gmail.send` or
   `gmail.modify`. Re-run `gum auth login --scope <scope-url>` with the
   broader scope.
 - `RATE_LIMITED` — Gmail returned 429. The dispatcher honours

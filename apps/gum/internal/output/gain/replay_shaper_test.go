@@ -10,8 +10,8 @@ import (
 
 // TestRunFixtureReplayWithShaperUsesShapedTokens verifies that when a
 // Shaper returns a non-empty Body, the inner per-call savings
-// calculation tokenizes the shaped bytes rather than the raw TOON
-// re-encoding. With an aggressive 1-byte shaper the aggregate savings
+// calculation tokenizes the shaped bytes rather than the format-default
+// §9.0 encoding. With an aggressive 1-byte shaper the aggregate savings
 // must approach 100% — proving the shaper path is the one being
 // measured. This is the wiring point bench.ComputeReleaseSavings
 // relies on (bead gum-wqk4).
@@ -41,7 +41,7 @@ func TestRunFixtureReplayWithShaperUsesShapedTokens(t *testing.T) {
 
 // TestRunFixtureReplayWithShaperZeroResultFallsBack verifies that a
 // Shaper returning a zero ShapeResult (Body=nil) leaves per-call
-// savings unchanged from the raw TOON pass — the behaviour
+// savings unchanged from the format-default pass — the behaviour
 // bench.releaseShaper relies on for op_ids with no registered
 // profile.
 func TestRunFixtureReplayWithShaperZeroResultFallsBack(t *testing.T) {

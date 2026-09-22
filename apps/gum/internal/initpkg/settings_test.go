@@ -131,11 +131,7 @@ func TestApplyAtomicWrite(t *testing.T) {
 		Path:     filepath.Join(dir, ".claude", "settings.json"),
 		LockPath: filepath.Join(dir, ".claude", "settings.lock"),
 	}
-	plan, err := PlanPatch(target, "gum", DefaultMCPEntry())
-	if err != nil {
-		t.Fatalf("PlanPatch: %v", err)
-	}
-	if err := Apply(target, plan, time.Second); err != nil {
+	if err := Apply(target, "gum", DefaultMCPEntry(), time.Second); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 	raw, err := os.ReadFile(target.Path)
@@ -177,16 +173,12 @@ func TestApplyHoldsLock(t *testing.T) {
 		Path:     filepath.Join(dir, "settings.json"),
 		LockPath: filepath.Join(dir, "settings.lock"),
 	}
-	plan, err := PlanPatch(target, "gum", DefaultMCPEntry())
-	if err != nil {
-		t.Fatalf("PlanPatch: %v", err)
-	}
 	// First Apply succeeds.
-	if err := Apply(target, plan, time.Second); err != nil {
+	if err := Apply(target, "gum", DefaultMCPEntry(), time.Second); err != nil {
 		t.Fatalf("Apply #1: %v", err)
 	}
-	// Second Apply (still NoOp=false because we re-plan with a fresh result)
-	// should also succeed; the lock is released after each call.
+	// The second Apply is a no-op under the lock; it must still succeed, so
+	// the lock is released after each call.
 	plan2, err := PlanPatch(target, "gum", DefaultMCPEntry())
 	if err != nil {
 		t.Fatalf("PlanPatch #2: %v", err)
@@ -194,7 +186,7 @@ func TestApplyHoldsLock(t *testing.T) {
 	if !plan2.NoOp {
 		t.Errorf("second plan NoOp = false; want true (file already patched)")
 	}
-	if err := Apply(target, plan2, time.Second); err != nil {
+	if err := Apply(target, "gum", DefaultMCPEntry(), time.Second); err != nil {
 		t.Fatalf("Apply #2 (no-op): %v", err)
 	}
 }

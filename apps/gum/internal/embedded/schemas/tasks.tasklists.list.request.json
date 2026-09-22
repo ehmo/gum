@@ -1,0 +1,16 @@
+{
+  "$id": "tasks.tasklists.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "maxResults": {
+      "description": "Maximum number of task lists returned on one page. Optional. The default is 1000 (max allowed: 1000).",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Token specifying the result page to return. Optional.",
+      "type": "string"
+    }
+  },
+  "title": "List Task Lists request",
+  "type": "object"
+}

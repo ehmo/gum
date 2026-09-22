@@ -7,7 +7,7 @@ List installed plugins with their quarantine state
 ## Usage
 
 ```bash
-gum plugin list
+gum plugin list [flags]
 ```
 
 ## Parent
@@ -18,6 +18,7 @@ gum plugin list
 
 | Flag | Type | Default | Help |
 | --- | --- | --- | --- |
+| `--format` | `string` | text | Output format: text\|json |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |

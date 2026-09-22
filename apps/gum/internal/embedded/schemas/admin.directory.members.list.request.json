@@ -1,0 +1,31 @@
+{
+  "$id": "admin.directory.members.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "groupKey": {
+      "description": "Identifies the group in the API request. The value can be the group's email address, group alias, or the unique group I…",
+      "type": "string"
+    },
+    "includeDerivedMembership": {
+      "description": "Whether to list indirect memberships. Default: false.",
+      "type": "boolean"
+    },
+    "maxResults": {
+      "description": "Maximum number of results to return. Max allowed value is 200.",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Token to specify next page in the list.",
+      "type": "string"
+    },
+    "roles": {
+      "description": "The `roles` query parameter allows you to retrieve group members by role. Allowed values are `OWNER`, `MANAGER`, and `M…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "groupKey"
+  ],
+  "title": "List group members request",
+  "type": "object"
+}

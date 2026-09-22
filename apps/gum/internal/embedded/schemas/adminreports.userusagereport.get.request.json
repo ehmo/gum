@@ -1,0 +1,48 @@
+{
+  "$id": "adminreports.userusagereport.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The unique ID of the customer to retrieve data for.",
+      "type": "string"
+    },
+    "date": {
+      "description": "Represents the date the usage occurred, based on UTC-8:00 (Pacific Standard Time). The timestamp is in the [ISO 8601 fo…",
+      "type": "string"
+    },
+    "filters": {
+      "description": "The `filters` query string is a comma-separated list of an application's event parameters where the parameter's value i…",
+      "type": "string"
+    },
+    "groupIdFilter": {
+      "description": "Comma separated group ids (obfuscated) on which user activities are filtered, i.e. the response will contain activities…",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "Determines how many activity records are shown on each response page. For example, if the request sets `maxResults=1` a…",
+      "type": "integer"
+    },
+    "orgUnitID": {
+      "description": "ID of the organizational unit to report on. User activity will be shown only for users who belong to the specified orga…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token to specify next page. A report with multiple pages has a `nextPageToken` property in the response. In your follow…",
+      "type": "string"
+    },
+    "parameters": {
+      "description": "The `parameters` query string is a comma-separated list of event parameters that refine a report's results. The paramet…",
+      "type": "string"
+    },
+    "userKey": {
+      "description": "Represents the profile ID or the user email for which the data should be filtered. Can be `all` for all information, or…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "date",
+    "userKey"
+  ],
+  "title": "Get User Usage Report request",
+  "type": "object"
+}

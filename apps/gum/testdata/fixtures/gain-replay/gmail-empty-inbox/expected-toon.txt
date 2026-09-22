@@ -1,1 +1,7 @@
-resultSizeEstimate=0
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 1
+fields: resultSizeEstimate
+
+0

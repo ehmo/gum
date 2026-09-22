@@ -53,7 +53,9 @@ func TestPluginEnvProhibited(t *testing.T) {
 
 // TestPluginEnvAllowsNonDenylistedNames keeps the gate from rejecting the
 // declarations spec §8.1 explicitly permits: an ordinary third-party name and
-// the reserved compound-auth token component.
+// the reserved compound-auth token component. The reserved name additionally
+// needs an all-compound tool set, which writeEnvManifest supplies; §7's own
+// gate is proved separately in compound_token_forwarding_test.go.
 func TestPluginEnvAllowsNonDenylistedNames(t *testing.T) {
 	for _, needs := range [][]string{{"GCLOUD_PROJECT"}, {"google_access_token"}, {"PLUG_SESSION"}} {
 		src := writeEnvManifest(t, needs, nil)
@@ -90,7 +92,8 @@ func writeEnvManifest(t *testing.T, needs, envAllow []string) string {
 		"shape":                   "mcp-plugin",
 		"executable":              "executable",
 		"advertised_tools": []map[string]any{
-			{"name": "echo", "description": "echo", "risk_class": "read"},
+			{"name": "echo", "description": "echo", "risk_class": "read",
+				"auth_strategy": toolStrategyFor(needs)},
 		},
 		"declared_capabilities": map[string]any{"network": false, "env_allow": envAllow},
 		"requirements": map[string]any{
@@ -109,4 +112,17 @@ func writeEnvManifest(t *testing.T, needs, envAllow []string) string {
 		t.Fatalf("write executable: %v", err)
 	}
 	return dir
+}
+
+// toolStrategyFor gives the fixture's single tool the strategy the manifest
+// needs to be valid: §7 lets only an all-compound plugin ask for the forwarded
+// Google token. Every other case leaves the field off, which is what an
+// ordinary plugin manifest looks like.
+func toolStrategyFor(needs []string) string {
+	for _, n := range needs {
+		if n == "google_access_token" {
+			return "compound"
+		}
+	}
+	return ""
 }

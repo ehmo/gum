@@ -1,0 +1,20 @@
+{
+  "$id": "tasks.tasks.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "task": {
+      "description": "Task identifier.",
+      "type": "string"
+    },
+    "tasklist": {
+      "description": "Task list identifier.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task",
+    "tasklist"
+  ],
+  "title": "Delete a Task request",
+  "type": "object"
+}

@@ -13,9 +13,22 @@ import (
 )
 
 // TestTierARegistrationScan AST-scans the mcp package and asserts that every
-// AddTool registration uses a *sdkmcp.Tool composite literal that explicitly
-// sets both InputSchema AND OutputSchema. Required by docs/test-matrix.md:
-// "All Tier A tool registrations include outputSchema".
+// *sdkmcp.Tool composite literal declares both an input schema and an output
+// schema. Required by docs/test-matrix.md: "All Tier A tool registrations
+// include outputSchema".
+//
+// The scan walks every Tool literal in the package rather than only the ones
+// passed inline to AddTool. Two of the three registration sites build the
+// literal first and pass an identifier to AddTool, so an arguments-only scan
+// never saw them.
+//
+// A literal satisfies the output-schema rule in one of two ways: it sets the
+// OutputSchema field directly, or it is wrapped in setOutputSchema(lit, expr),
+// which assigns the field only when the schema is non-empty (bead gum-tq5v).
+// The wrapper form is syntax, not a runtime value, so it proves the site
+// supplies a schema expression, not that the expression is non-nil. The wire
+// shape is gated separately by TestToolsListNeverPutsNullOutputSchemaOnTheWire
+// and the pairing gate.
 func TestTierARegistrationScan(t *testing.T) {
 	t.Helper()
 
@@ -43,40 +56,52 @@ func TestTierARegistrationScan(t *testing.T) {
 		t.Fatal("no go files found in current dir")
 	}
 
+	// First pass: record every Tool literal that setOutputSchema wraps.
+	wrapped := map[token.Pos]bool{}
+	for _, f := range files {
+		ast.Inspect(f, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || len(call.Args) < 2 {
+				return true
+			}
+			ident, ok := call.Fun.(*ast.Ident)
+			if !ok || ident.Name != "setOutputSchema" {
+				return true
+			}
+			if lit := unwrapToolLiteral(call.Args[0]); lit != nil {
+				wrapped[lit.Pos()] = true
+			}
+			return true
+		})
+	}
+
+	// Second pass: every Tool literal in the package is a registration site.
 	var sites []registrationSite
 	for _, f := range files {
 		fname := fset.Position(f.Pos()).Filename
 		ast.Inspect(f, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
+			lit, ok := n.(*ast.CompositeLit)
+			if !ok || !typeIsTool(lit.Type) {
 				return true
 			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || sel.Sel.Name != "AddTool" {
-				return true
-			}
-			if len(call.Args) == 0 {
-				return true
-			}
-			// First arg should be the tool descriptor. Unwrap &Tool{...}.
-			toolLit := unwrapToolLiteral(call.Args[0])
-			if toolLit == nil {
-				return true
-			}
-			pos := fset.Position(call.Pos())
+			pos := fset.Position(lit.Pos())
 			site := registrationSite{
 				File:        filepath.Base(fname),
 				Line:        pos.Line,
-				ToolLiteral: toolLit,
+				ToolLiteral: lit,
 			}
-			site.HasInputSchema, site.HasOutputSchema = inspectToolLiteral(toolLit)
+			site.HasInputSchema, site.HasOutputSchema = inspectToolLiteral(lit)
+			site.HasOutputSchema = site.HasOutputSchema || wrapped[lit.Pos()]
 			sites = append(sites, site)
 			return true
 		})
 	}
 
-	if len(sites) == 0 {
-		t.Fatal("no AddTool registrations found via AST scan; test would silently pass")
+	// Three sites register tools: meta, skills and convenience. A refactor
+	// that drops below that is a scan that stopped seeing its subject.
+	const wantSites = 3
+	if len(sites) < wantSites {
+		t.Fatalf("AST scan found %d *sdkmcp.Tool literals, want at least %d; the scan stopped matching its subject and would silently pass", len(sites), wantSites)
 	}
 
 	var failures []string
@@ -85,7 +110,7 @@ func TestTierARegistrationScan(t *testing.T) {
 			failures = append(failures, fmt.Sprintf("%s:%d: AddTool literal missing InputSchema field", s.File, s.Line))
 		}
 		if !s.HasOutputSchema {
-			failures = append(failures, fmt.Sprintf("%s:%d: AddTool literal missing OutputSchema field (spec §4: every Tier A tool must declare outputSchema)", s.File, s.Line))
+			failures = append(failures, fmt.Sprintf("%s:%d: Tool literal declares no output schema: set the OutputSchema field or wrap the literal in setOutputSchema (spec §4: every Tier A tool must declare outputSchema)", s.File, s.Line))
 		}
 	}
 	if len(failures) > 0 {
@@ -135,8 +160,8 @@ type registrationSite struct {
 }
 
 // unwrapToolLiteral returns the &sdkmcp.Tool{...} composite literal, if the
-// expression is a unary & on a composite literal whose type name ends in
-// "Tool". Returns nil otherwise.
+// expression is a unary & on a composite literal whose type name is "Tool".
+// Returns nil otherwise.
 func unwrapToolLiteral(e ast.Expr) *ast.CompositeLit {
 	un, ok := e.(*ast.UnaryExpr)
 	if !ok || un.Op != token.AND {

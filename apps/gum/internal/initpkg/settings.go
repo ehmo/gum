@@ -13,8 +13,9 @@ import (
 	"github.com/ehmo/gum/internal/fsatomic"
 )
 
-// DefaultLockTimeout is the spec §12.2 ceiling for acquiring the patch lock
-// (30s, matches §8.7 plugins.install.lock).
+// DefaultLockTimeout is the spec §12.2 ceiling for acquiring the patch lock.
+// 30s, the same budget §8.7 gives the plugin registry lock; the two locks are
+// separate mutexes guarding separate files.
 const DefaultLockTimeout = 30 * time.Second
 
 // MCPEntry is the JSON value `gum init` adds to mcpServers.gum in the
@@ -73,8 +74,9 @@ type PatchPlan struct {
 }
 
 // PlanPatch computes the diff for inserting entry under mcpServers[name] in
-// the target file. The function does not acquire the file lock; callers use
-// Apply for the read-merge-write sequence.
+// the target file. It takes no lock, so its result is a preview only: by the
+// time a user confirms it, another writer may have changed the file. Apply
+// recomputes the merge under the lock before it writes.
 func PlanPatch(target SettingsTarget, name string, entry MCPEntry) (*PatchPlan, error) {
 	plan := &PatchPlan{Path: target.Path}
 	raw, err := os.ReadFile(target.Path)
@@ -118,14 +120,17 @@ func PlanPatch(target SettingsTarget, name string, entry MCPEntry) (*PatchPlan, 
 	return plan, nil
 }
 
-// Apply writes plan.PatchedBytes to plan.Path atomically while holding the
-// advisory lock on target.LockPath for the duration of the read-merge-write.
+// Apply merges entry into mcpServers[name] of the target file and writes the
+// result atomically, holding the advisory lock on target.LockPath across the
+// whole read-merge-write (spec §12.2). A file that already carries the exact
+// entry is left untouched.
+//
+// The merge is recomputed here rather than taken from a caller's PlanPatch
+// result on purpose: that result was read before the lock existed, so writing
+// its bytes would drop every key a concurrent writer added in between.
 //
 // timeout is the lock-acquisition ceiling (spec §12.2 default 30s).
-func Apply(target SettingsTarget, plan *PatchPlan, timeout time.Duration) error {
-	if plan.NoOp {
-		return nil
-	}
+func Apply(target SettingsTarget, name string, entry MCPEntry, timeout time.Duration) error {
 	if err := os.MkdirAll(filepath.Dir(target.Path), 0o755); err != nil {
 		return fmt.Errorf("initpkg: mkdir %s: %w", filepath.Dir(target.Path), err)
 	}
@@ -134,6 +139,14 @@ func Apply(target SettingsTarget, plan *PatchPlan, timeout time.Duration) error 
 		return err
 	}
 	defer func() { _ = release() }()
+
+	plan, err := PlanPatch(target, name, entry)
+	if err != nil {
+		return err
+	}
+	if plan.NoOp {
+		return nil
+	}
 	return atomicWrite(target.Path, plan.PatchedBytes, 0o644)
 }
 

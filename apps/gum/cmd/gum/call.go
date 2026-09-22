@@ -315,14 +315,14 @@ func completeFieldsForOp(_ *cobra.Command, args []string, toComplete string) ([]
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
-// fieldMaskCandidates expands a comma-separated default mask into completion
-// candidates: each distinct field (so users can pick one piece) plus the whole
-// mask (so they can accept it in one tab). Candidates are filtered by the
-// prefix the shell has typed so far.
+// fieldMaskCandidates expands a default mask into completion candidates: each
+// distinct top-level selector (so users can pick one piece) plus the whole mask
+// (so they can accept it in one tab). Candidates are filtered by the prefix the
+// shell has typed so far.
 func fieldMaskCandidates(defaultFields, toComplete string) []string {
 	var out []string
 	seen := map[string]bool{}
-	for _, p := range strings.Split(defaultFields, ",") {
+	for _, p := range splitTopLevel(defaultFields) {
 		p = strings.TrimSpace(p)
 		if p == "" || seen[p] {
 			continue
@@ -332,10 +332,39 @@ func fieldMaskCandidates(defaultFields, toComplete string) []string {
 			out = append(out, p)
 		}
 	}
-	if toComplete == "" || strings.HasPrefix(defaultFields, toComplete) {
+	// A single-selector mask is already in out; offering it twice shows the
+	// shell two identical candidates.
+	if !seen[strings.TrimSpace(defaultFields)] &&
+		(toComplete == "" || strings.HasPrefix(defaultFields, toComplete)) {
 		out = append(out, defaultFields)
 	}
+
 	return out
+}
+
+// splitTopLevel cuts a field mask at its top-level commas. Commas inside a
+// sub-selection belong to that selector, so "labels(id,name),nextPageToken"
+// yields two candidates and not three: "labels(id" is a mask no API accepts.
+func splitTopLevel(mask string) []string {
+	var out []string
+	depth, start := 0, 0
+	for i := 0; i < len(mask); i++ {
+		switch mask[i] {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				out = append(out, mask[start:i])
+				start = i + 1
+			}
+		}
+	}
+
+	return append(out, mask[start:])
 }
 
 // completeVariantIDForOp proposes variant_ids known to the op (gum-wcwn item 11).

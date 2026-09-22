@@ -15,7 +15,7 @@ import (
 // what keeps a direct caller from starting eight workers with no work.
 func TestRunParallelBatchWithNoElements(t *testing.T) {
 	t.Parallel()
-	env := runParallelBatch(context.Background(), &whiteboxMockDispatcher{}, nil, false, false)
+	env := runParallelBatch(context.Background(), &whiteboxMockDispatcher{}, nil, false, false, parallelBudget{})
 	results, ok := env["results"].([]any)
 	if !ok {
 		t.Fatalf("results type %T; want []any", env["results"])
@@ -112,7 +112,7 @@ func TestParallelWorkerCancelsAnElementPausedPastTheDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 	defer cancel()
 
-	env := runParallelBatch(ctx, mock, elements, false, false)
+	env := runParallelBatch(ctx, mock, elements, false, false, parallelBudget{})
 	results := env["results"].([]any)
 	last, ok := results[len(results)-1].(map[string]any)
 	if !ok {
@@ -148,7 +148,7 @@ func TestDispatchOneSkipsAnAlreadyCancelledElement(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	item := dispatchOne(ctx, disp, 3, parallelElement{OpID: "gmail.list"}, false, false)
+	item := dispatchOne(ctx, disp, "deadbeef", 3, parallelElement{OpID: "gmail.list"}, false, false)
 	errItem, ok := item["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("item = %#v; want a nested error map", item)

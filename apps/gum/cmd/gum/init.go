@@ -102,7 +102,7 @@ func newInitCmd() *cobra.Command {
 						return fmt.Errorf("init: patch declined by user")
 					}
 				}
-				if aerr := initpkg.Apply(target, plan, initpkg.DefaultLockTimeout); aerr != nil {
+				if aerr := initpkg.Apply(target, "gum", initpkg.DefaultMCPEntry(), initpkg.DefaultLockTimeout); aerr != nil {
 					return aerr
 				}
 				_, _ = fmt.Fprintf(out, "Patched %s\n", plan.Path)

@@ -1,0 +1,47 @@
+{
+  "$id": "datamanager.events.ingest.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "consent": {
+      "description": "Request-level consent applied to every user in the request. A user-level consent inside an event overrides it.",
+      "type": "object"
+    },
+    "destinations": {
+      "description": "Where the events go. Each entry carries operatingAccount {accountType, accountId} and productDestinationId, which for Google Ads is the conversion action id.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "encoding": {
+      "description": "Encoding of hashed user identifiers. Required only for userData uploads, not for click-id conversions.",
+      "enum": [
+        "ENCODING_UNSPECIFIED",
+        "HEX",
+        "BASE64"
+      ],
+      "type": "string"
+    },
+    "encryptionInfo": {
+      "description": "Encryption details for userData uploads. Omit when identifiers are hashed but not encrypted.",
+      "type": "object"
+    },
+    "events": {
+      "description": "The events to send. At most 2000 per request. Each carries eventTimestamp, eventSource (WEB, APP, IN_STORE, PHONE, MESSAGE, or OTHER), adIdentifiers {gclid|gbraid|wbraid}, conversionValue, currency, and transactionId.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "validateOnly": {
+      "description": "Validate the batch without recording it. Status lookup is unavailable for validation requests.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "destinations",
+    "events"
+  ],
+  "title": "Ingest events request",
+  "type": "object"
+}

@@ -1,0 +1,30 @@
+{
+  "$id": "gmail.users.drafts.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "format": {
+      "description": "The format to return the draft in.",
+      "enum": [
+        "minimal",
+        "full",
+        "raw",
+        "metadata"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "description": "The ID of the draft to retrieve.",
+      "type": "string"
+    },
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "userId"
+  ],
+  "title": "Get Gmail draft request",
+  "type": "object"
+}

@@ -1,6 +1,7 @@
 package dispatch
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -142,5 +143,64 @@ func TestShapeResponseInvalidJSONNonRawErrors(t *testing.T) {
 	_, err := d.shapeResponse(t.Context(), inv, rv, resp)
 	if err == nil {
 		t.Fatal("want error for invalid JSON in non-raw format, got nil")
+	}
+}
+
+// TestShapeResponseProjectsCodeOutputTruncated verifies the raw bypass carries
+// the §6.1 truncation flag into the expression envelope as
+// _code_output_truncated. gum.code answers with Format "raw", so the bypass is
+// the only place the flag can reach a client.
+func TestShapeResponseProjectsCodeOutputTruncated(t *testing.T) {
+	d := &dispatcher{}
+	inv := &Invocation{OpID: "gum.code", Format: "raw"}
+	rv := &ResolvedVariant{Variant: &catalog.Variant{}}
+
+	out, err := d.shapeResponse(t.Context(), inv, rv, &Response{
+		Body:                []byte("partial"),
+		Format:              "raw",
+		CodeOutputTruncated: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if out.Expression == nil {
+		t.Fatal("Expression is nil; the truncation flag has nowhere to ride")
+	}
+	if out.Expression.CodeOutputTruncated == nil {
+		t.Fatal("_code_output_truncated is absent after a truncated gum.code run")
+	}
+	if !*out.Expression.CodeOutputTruncated {
+		t.Error("_code_output_truncated = false; the field is emitted true-only")
+	}
+}
+
+// TestShapeResponseOmitsCodeOutputTruncatedWhenNothingWasCut verifies the flag
+// stays absent on an untruncated run. §13 makes it optional and true-only, so
+// an always-present false would be wire noise the client must ignore.
+func TestShapeResponseOmitsCodeOutputTruncatedWhenNothingWasCut(t *testing.T) {
+	d := &dispatcher{}
+	inv := &Invocation{OpID: "gum.code", Format: "raw"}
+	rv := &ResolvedVariant{Variant: &catalog.Variant{}}
+
+	out, err := d.shapeResponse(t.Context(), inv, rv, &Response{
+		Body:   []byte("whole"),
+		Format: "raw",
+	})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if out.Expression == nil {
+		t.Fatal("Expression is nil")
+	}
+	if out.Expression.CodeOutputTruncated != nil {
+		t.Errorf("_code_output_truncated = %v; nothing was cut, so the key must be absent", *out.Expression.CodeOutputTruncated)
+	}
+
+	encoded, err := json.Marshal(out.Expression)
+	if err != nil {
+		t.Fatalf("marshal expression: %v", err)
+	}
+	if bytes.Contains(encoded, []byte("_code_output_truncated")) {
+		t.Errorf("envelope %s carries the key with nothing truncated", encoded)
 	}
 }

@@ -1,0 +1,20 @@
+{
+  "$id": "calendar.acl.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "ruleId": {
+      "description": "ACL rule identifier.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "ruleId"
+  ],
+  "title": "Get a Calendar ACL rule request",
+  "type": "object"
+}

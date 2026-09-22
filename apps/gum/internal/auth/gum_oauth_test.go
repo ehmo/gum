@@ -255,6 +255,12 @@ func TestGumOAuthLoginPartitionsVaultByIDTokenSubject(t *testing.T) {
 			HTTPClient:       tokenSrv.Client(),
 			ManifestBody:     manifest,
 			ClientIDOverride: "test-client-id",
+			// This test deliberately logs in two accounts for one scope
+			// set, which is the switch the subject guard refuses by
+			// default (bead gum-znmd). The partitioning claim below is
+			// about where each account's token lands, not about whether
+			// the switch is allowed, so opt in.
+			AllowSubjectChange: true,
 			BrowserOpener: func(authURL string) error {
 				go followAuthURL(authURL)
 				return nil

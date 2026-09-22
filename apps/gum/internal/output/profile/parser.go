@@ -590,6 +590,14 @@ func parseInt(s string) (int, error) {
 var validRecovery = map[string]bool{RecoveryNone: true, RecoveryLocalArtifact: true, RecoveryResourceLink: true}
 var validTeeModes = map[string]bool{TeeModeOff: true, TeeModeFailures: true, TeeModeAlways: true}
 
+// ValidTeeMode reports whether s is one of the closed tee_mode values. The
+// global `output.tee_mode` override goes through the same enum as the DSL
+// field: the kernel treats an unrecognised mode as "off", so a typo there
+// would silently disable recovery for every profile that needs it.
+func ValidTeeMode(s string) bool {
+	return validTeeModes[s]
+}
+
 // splitTopLevelCommas splits an inline-table body on commas that are not nested
 // inside a {…}, […], or "…" — so `default_chars = 500, fields = { a = 1 }`
 // splits into two entries, not three.

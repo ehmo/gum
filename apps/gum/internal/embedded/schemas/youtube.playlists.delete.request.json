@@ -1,0 +1,18 @@
+{
+  "$id": "youtube.playlists.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Delete a Playlist request",
+  "type": "object"
+}

@@ -1,0 +1,15 @@
+{
+  "$id": "cloudidentity.groups.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "Required. The [resource name](https://cloud.google.com/apis/design/resource_names) of the `Group` to retrieve. Must be …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Cloud Identity Group request",
+  "type": "object"
+}

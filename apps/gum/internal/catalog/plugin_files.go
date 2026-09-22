@@ -30,8 +30,18 @@ var SupportedPluginsLockSchemaVersions = []int{1}
 var SupportedPluginStateSchemaVersions = []int{1}
 
 // PluginCatalog is the top-level shape of plugin-catalog.json per spec.md §8.7.
+//
+// install_generation and install_txid are the same pair plugins.lock and
+// plugin-state.json carry. Spec §8.7 step 4 makes a generation authoritative
+// only when all three files agree on it, so the catalog has to carry the
+// stamp or a publish that renamed the catalog and then failed is invisible.
+// A file written before gum-t3tl has neither field; generations start at 1,
+// so a zero generation with an empty txid means "not yet stamped" and never
+// collides with a real one.
 type PluginCatalog struct {
 	PluginCatalogSchemaVersion int    `json:"plugin_catalog_schema_version"`
+	InstallGeneration          int    `json:"install_generation,omitempty"`
+	InstallTxID                string `json:"install_txid,omitempty"`
 	UpdatedAt                  string `json:"updated_at,omitempty"`
 	Variants                   []any  `json:"variants,omitempty"`
 }

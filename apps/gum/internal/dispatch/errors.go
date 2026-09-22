@@ -38,6 +38,12 @@ const (
 	// Auth / scope
 	ErrCodeAuthRequired ErrorCode = "AUTH_REQUIRED"
 	ErrCodeScopeMissing ErrorCode = "SCOPE_MISSING"
+	// ErrCodeAuthSubjectMismatch is the §7 credential-resolution refusal: the
+	// resolved credential's auth_subject_fingerprint is not the subject the
+	// profile recorded for that auth strategy. Its string value matches
+	// auth.SubjectMismatchCode, which the login-time guard raises, so one code
+	// covers both entry points (bead gum-q0kd).
+	ErrCodeAuthSubjectMismatch ErrorCode = "AUTH_SUBJECT_MISMATCH"
 
 	// Transport / availability
 	ErrCodeRateLimited   ErrorCode = "RATE_LIMITED"
@@ -45,6 +51,11 @@ const (
 	ErrCodeCancelled     ErrorCode = "CANCELLED"
 	ErrCodeLROTimeout    ErrorCode = "LRO_TIMEOUT"
 	ErrCodeLROUnroutable ErrorCode = "LRO_UNROUTABLE"
+	// ErrCodeLROUnsupportedInCode is the §6.1 code-mode refusal: an op whose
+	// default variant is classified lro_return is not callable from gum.code
+	// in v0.1.0. It is raised by the code-mode host functions before dispatch,
+	// so no upstream request is made.
+	ErrCodeLROUnsupportedInCode ErrorCode = "LRO_UNSUPPORTED_IN_CODE"
 
 	// Output / artifacts
 	ErrCodeCodeOutputLimitExceeded ErrorCode = "CODE_OUTPUT_LIMIT_EXCEEDED"
@@ -264,6 +275,16 @@ func mapRateLimited(err error) error {
 				fmt.Sprintf("upstream service error (HTTP %d)", code)).
 				WithDetail("http_status", code).
 				WithRetryable(false)
+		}
+	}
+	// An adapter error that already knows its own §7 envelope keeps it. This
+	// runs after the status switch so a 429 stays RATE_LIMITED even when the
+	// body also named a policy reason: a rate limit clears on its own, a
+	// policy gap does not.
+	var sec StructuredErrorCarrier
+	if errors.As(err, &sec) {
+		if se := sec.AsStructuredError(); se != nil {
+			return se
 		}
 	}
 	if errors.Is(err, ErrRateLimited) {

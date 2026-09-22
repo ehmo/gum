@@ -10,7 +10,6 @@ import (
 	"github.com/ehmo/gum/internal/cli/callargs"
 	"github.com/ehmo/gum/internal/config"
 	"github.com/ehmo/gum/internal/dispatch"
-	"github.com/ehmo/gum/internal/embedded"
 )
 
 // gum-puum: Google Ads ops take customerId and loginCustomerId from
@@ -243,9 +242,7 @@ func TestAdsWizardWithoutCatalog(t *testing.T) {
 	t.Setenv(envAdsCustomerID, "1234567890")
 	fields := lookupRequestFields(historicalMetricsOp)
 
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = nil
+	setCatalogBlob(t, nil)
 
 	if op := lookupCatalogOp(historicalMetricsOp); op != nil {
 		t.Fatalf("lookupCatalogOp with no catalog = %s; want nil", op.OpID)

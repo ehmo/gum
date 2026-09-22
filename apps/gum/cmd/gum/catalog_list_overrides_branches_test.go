@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/ehmo/gum/internal/embedded"
 )
 
 // TestCatalogListOverridesEmbeddedRiskOverrideArm pins the inner
@@ -37,9 +35,7 @@ func TestCatalogListOverridesEmbeddedRiskOverrideArm(t *testing.T) {
     }
   ]
 }`)
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = synthetic
+	setCatalogBlob(t, synthetic)
 
 	out, err := runCLI(t, "catalog", "list-overrides")
 	if err != nil {

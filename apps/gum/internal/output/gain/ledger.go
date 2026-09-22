@@ -3,8 +3,11 @@
 //
 // Ledger path: <XDG_DATA_HOME|~/.local/share>/gum/<profile>/gain-ledger.jsonl
 // (default; override via NewLedger).
-// Rotation: the file is rotated when it exceeds 100 MB; the old file is renamed to
-// gain-ledger-<unix-timestamp>.jsonl.
+// Rotation: the file is rotated when it exceeds 100 MB; the old file is renamed
+// to gain-ledger-<unix-timestamp>.jsonl. The read path reads the archived
+// segments together with the live file, so rotation never drops a window from
+// `gum gain`. The threshold is a fixed size, not a time schedule; nothing in
+// the spec ties it to the §11 audit-log retention window.
 //
 // Token counting uses cl100k_base via github.com/tiktoken-go/tokenizer v0.7.0.
 //
@@ -27,6 +30,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +45,18 @@ const (
 	RecordTypeEntry  = "entry"
 	TokenizerName    = "cl100k_base"
 	SchemaVersion    = 1
+)
+
+// OpIDGumParallel is the §12.3 sentinel op_id and op_family of the outer
+// entry that records one gum_parallel batch's MCP round-trip.
+const OpIDGumParallel = "gum_parallel"
+
+// The two §12.3 baseline_method values. Only fixture-backed entries are
+// reproducible, so §12.3 "Savings-claim accounting" gates the release on
+// BaselineFixtureReplay entries alone and excludes BaselineEstimated ones.
+const (
+	BaselineFixtureReplay = "fixture_replay"
+	BaselineEstimated     = "estimated"
 )
 
 // LedgerFileName is the ledger's basename inside a profile data directory.
@@ -232,7 +249,7 @@ func NewGumParallelOuterEntry(session, batchID, argsHash string, n, requestToken
 	elem := n
 	return Entry{
 		Session:                session,
-		OpID:                   "gum_parallel",
+		OpID:                   OpIDGumParallel,
 		VariantID:              nil,
 		OutputProfile:          nil,
 		ArgsHash:               argsHash,
@@ -245,11 +262,43 @@ func NewGumParallelOuterEntry(session, batchID, argsHash string, n, requestToken
 		FieldMaskStatus:        "not_applicable",
 		ServedFromCache:        false,
 		IsRetry:                false,
-		OpFamily:               "gum_parallel",
+		OpFamily:               OpIDGumParallel,
 		BaselineMethod:         baselineMethod,
 		BatchID:                batchID,
 		ElementCount:           &elem,
 	}
+}
+
+// IsParallelOuter reports whether e is the §12.3 gum_parallel outer sentinel:
+// the row that carries one batch's MCP round-trip cost rather than any op's
+// shaping result. Its raw_tokens is 0 and its shaped_tokens is pure overhead,
+// so the diagnostic per-op figure has to leave it out.
+func (e Entry) IsParallelOuter() bool {
+	return e.OpFamily == OpIDGumParallel
+}
+
+// Subtotal is a savings subtotal over one subset of ledger entries: the naive
+// baseline the subset would have cost and the tokens it actually saved.
+type Subtotal struct {
+	// TokensIn is the sum of raw_tokens over the subset.
+	TokensIn int64 `json:"tokens_in"`
+
+	// TokensSaved is the sum of (raw_tokens - shaped_tokens) over the subset.
+	// It is negative when the subset spends more than it saves, which is what
+	// a batch of cheap ops under an expensive envelope looks like.
+	TokensSaved int64 `json:"tokens_saved"`
+}
+
+// Pct returns the savings percentage, or nil when the subset has no baseline
+// to divide by. GainResult types end_to_end_savings and
+// per_op_shaping_savings as number-or-null for exactly that case: no
+// reproducible evidence is not the same claim as zero savings.
+func (s Subtotal) Pct() *float64 {
+	if s.TokensIn <= 0 {
+		return nil
+	}
+	pct := float64(s.TokensSaved) / float64(s.TokensIn) * 100
+	return &pct
 }
 
 // Stats summarises gains across all entries in the ledger.
@@ -276,6 +325,29 @@ type Stats struct {
 	P50 int64 `json:"p50"`
 	P95 int64 `json:"p95"`
 	P99 int64 `json:"p99"`
+
+	// The three fields below are json:"-" on purpose. `gum gain --format=json`
+	// prints Stats verbatim, and spec §12.3 defines that surface as
+	// #/$defs/GainResult, whose savings-accounting keys are
+	// end_to_end_savings, per_op_shaping_savings and
+	// batch_envelope_overhead. Exporting the raw subtotals there would add a
+	// fourth spelling of the same numbers that no schema describes.
+	//
+	// Release is the fixture-backed subtotal (baseline_method="fixture_replay"),
+	// gum_parallel outer entries included. §12.3 excludes estimated entries
+	// from release-gating claims, so `end_to_end_savings` reads this subtotal
+	// and not TotalTokensIn/TotalTokensSaved, which cover the whole window.
+	Release Subtotal `json:"-"`
+
+	// ReleaseInner is Release with gum_parallel outer entries removed: the
+	// same calls priced as if the MCP envelope were free. It is the
+	// diagnostic `per_op_shaping_savings`, which §12.3 forbids gating on.
+	ReleaseInner Subtotal `json:"-"`
+
+	// BatchEnvelopeTokens is what the fixture-backed gum_parallel outer
+	// entries cost: the difference between ReleaseInner and Release, reported
+	// as the positive magnitude `batch_envelope_overhead`.
+	BatchEnvelopeTokens int64 `json:"-"`
 }
 
 // Ledger is an append-only gain ledger backed by a JSONL file.
@@ -290,6 +362,20 @@ type Ledger struct {
 	// every Stats call.
 	loaded  bool
 	entries []Entry
+
+	// logger is the §14.1 rule 2 injection point, set by
+	// NewLedgerWithLogger. nil means slog.Default().
+	logger *slog.Logger
+}
+
+// log returns the injected logger, or slog.Default() when the ledger was
+// built with NewLedger. Every diagnostic in this package goes through it, so
+// a ledger opened with slog.New(slog.DiscardHandler) emits nothing.
+func (l *Ledger) log() *slog.Logger {
+	if l.logger != nil {
+		return l.logger
+	}
+	return slog.Default()
 }
 
 // ensureLoadedLocked reads the on-disk ledger into l.entries once. Caller
@@ -304,7 +390,19 @@ func (l *Ledger) ensureLoadedLocked() {
 	}
 	l.loaded = true
 
-	f, err := os.Open(l.path)
+	// Archived segments first, oldest to newest, then the live file. Rotation
+	// moves a full window out of l.path; skipping the archives would drop
+	// every call made before the last rotation from `gum gain`.
+	for _, seg := range rotatedSegmentPaths(l.path) {
+		l.readSegmentLocked(seg)
+	}
+	l.readSegmentLocked(l.path)
+}
+
+// readSegmentLocked appends every entry record in one ledger file to
+// l.entries. Caller must hold l.mu.
+func (l *Ledger) readSegmentLocked(path string) {
+	f, err := os.Open(path)
 	if err != nil {
 		return
 	}
@@ -340,7 +438,7 @@ func (l *Ledger) ensureLoadedLocked() {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		slog.Warn("gain: scan ledger", "path", l.path, "err", err)
+		l.log().Warn("gain: scan ledger", "path", path, "err", err)
 	}
 }
 
@@ -385,6 +483,20 @@ func MeasureTokensCl100k(data []byte) (int, error) {
 // every `gum call` a parse of up to 100 MB of JSONL before it did any work.
 // The Stats readers load on first use instead (see ensureLoadedLocked).
 func NewLedger(path string) (*Ledger, error) {
+	return NewLedgerWithLogger(path, nil)
+}
+
+// NewLedgerWithLogger is NewLedger with the §14.1 rule 2 logger injected.
+// A nil logger leaves the ledger on slog.Default(). The logger is a
+// constructor parameter rather than a post-construction setter because
+// opening the ledger can already emit a warning: a chmod that cannot narrow
+// an inherited 0o644 file reports through this logger, before any caller has
+// a *Ledger to set a field on.
+func NewLedgerWithLogger(path string, logger *slog.Logger) (*Ledger, error) {
+	lg := logger
+	if lg == nil {
+		lg = slog.Default()
+	}
 	if path == "" {
 		p, err := DefaultPath(profile.DefaultName)
 		if err != nil {
@@ -410,12 +522,13 @@ func NewLedger(path string) (*Ledger, error) {
 	// the rest of its life. A chmod failure is not fatal: refusing to record
 	// gain would be a worse outcome than a permission gum could not narrow.
 	if cerr := f.Chmod(0o600); cerr != nil {
-		slog.Warn("gain: could not tighten ledger permissions", "path", path, "err", cerr)
+		lg.Warn("gain: could not tighten ledger permissions", "path", path, "err", cerr)
 	}
 
 	l := &Ledger{
-		path: path,
-		file: f,
+		path:   path,
+		file:   f,
+		logger: logger,
 	}
 
 	if info, statErr := f.Stat(); statErr == nil && info.Size() == 0 {
@@ -473,17 +586,30 @@ func (l *Ledger) Append(e Entry) error {
 	info, err := l.file.Stat()
 	if err == nil && info.Size() > maxLedgerSize {
 		if rotErr := l.rotateLocked(); rotErr != nil {
-			slog.Warn("gain: rotate ledger failed", "path", l.path, "err", rotErr)
+			l.log().Warn("gain: rotate ledger failed", "path", l.path, "err", rotErr)
 		}
 	}
 
 	return nil
 }
 
+// maxRotationNameProbes bounds the search for a free archive name. Rotation
+// stamps the name with a whole-second timestamp, so two rotations inside one
+// second collide; the search steps the suffix forward past the taken slots.
+const maxRotationNameProbes = 1024
+
 // rotateLocked renames the current ledger file, opens a new empty one,
 // and writes a fresh header so the new file is spec-compliant on first byte.
 // Must be called with l.mu held.
 func (l *Ledger) rotateLocked() error {
+	// Pick the archive name before touching the live file. A failure here
+	// leaves the ledger open and appendable; failing after the Close would
+	// leave l.file closed and every later Append broken.
+	rotated, err := freeRotatedPath(l.path, time.Now().Unix())
+	if err != nil {
+		return err
+	}
+
 	// fsync before the rename so the archived file's tail is durable: Close()
 	// flushes to the OS page cache but does not persist it, so a crash between
 	// Close and Rename could silently drop the most recent entries.
@@ -493,10 +619,6 @@ func (l *Ledger) rotateLocked() error {
 	if err := l.file.Close(); err != nil {
 		return fmt.Errorf("close before rotate: %w", err)
 	}
-	ts := time.Now().Unix()
-	ext := filepath.Ext(l.path)
-	base := l.path[:len(l.path)-len(ext)]
-	rotated := fmt.Sprintf("%s-%d%s", base, ts, ext)
 	if err := os.Rename(l.path, rotated); err != nil {
 		return fmt.Errorf("rename: %w", err)
 	}
@@ -506,6 +628,61 @@ func (l *Ledger) rotateLocked() error {
 	}
 	l.file = f
 	return l.writeHeaderLocked()
+}
+
+// rotationBase splits a ledger path into the prefix and extension that
+// archive names are built from: <base>-<unix><ext>.
+func rotationBase(path string) (base, ext string) {
+	ext = filepath.Ext(path)
+	return path[:len(path)-len(ext)], ext
+}
+
+// freeRotatedPath returns the first unused <base>-<unix><ext> archive name at
+// or after ts. The caller passes the clock reading so the probe window is a
+// fixed range rather than one that slides while the search runs.
+func freeRotatedPath(path string, ts int64) (string, error) {
+	base, ext := rotationBase(path)
+	for i := 0; i < maxRotationNameProbes; i++ {
+		candidate := fmt.Sprintf("%s-%d%s", base, ts+int64(i), ext)
+		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("gain: no free rotated ledger name near %s-%d%s", base, ts, ext)
+}
+
+// rotatedSegmentPaths returns the ledger's archived segments, oldest first.
+//
+// Only names whose suffix parses as an integer count. A neighbour file such
+// as gain-ledger-backup.jsonl is not an archive this package wrote, and
+// folding it into the read path would let an unrelated file change the
+// savings figure.
+func rotatedSegmentPaths(path string) []string {
+	base, ext := rotationBase(path)
+	matches, err := filepath.Glob(base + "-*" + ext)
+	if err != nil {
+		return nil
+	}
+	type segment struct {
+		path string
+		ts   int64
+	}
+	segments := make([]segment, 0, len(matches))
+	for _, m := range matches {
+		suffix := strings.TrimSuffix(strings.TrimPrefix(m, base+"-"), ext)
+		ts, convErr := strconv.ParseInt(suffix, 10, 64)
+		if convErr != nil {
+			continue
+		}
+		segments = append(segments, segment{path: m, ts: ts})
+	}
+	sort.Slice(segments, func(i, j int) bool { return segments[i].ts < segments[j].ts })
+
+	paths := make([]string, 0, len(segments))
+	for _, seg := range segments {
+		paths = append(paths, seg.path)
+	}
+	return paths
 }
 
 // Stats computes summary statistics over all entries currently in the ledger.
@@ -528,17 +705,7 @@ func (l *Ledger) Stats() Stats {
 // historical evidence. Callers who need strict time-bounded counts should
 // rotate the ledger first or filter the JSONL externally.
 func (l *Ledger) StatsBetween(since, until time.Time) Stats {
-	l.mu.Lock()
-	l.ensureLoadedLocked()
-	entries := make([]Entry, 0, len(l.entries))
-	for _, e := range l.entries {
-		if !entryInWindow(e, since, until) {
-			continue
-		}
-		entries = append(entries, e)
-	}
-	l.mu.Unlock()
-	return computeStats(entries)
+	return l.StatsFor(Filter{Since: since, Until: until})
 }
 
 // StatsByOp aggregates stats per op_id over the subset of entries whose
@@ -546,22 +713,7 @@ func (l *Ledger) StatsBetween(since, until time.Time) Stats {
 // StatsBetween). The result maps op_id → Stats for that op only. Used by
 // `gum gain --by-op` (review gum-y5wb).
 func (l *Ledger) StatsByOp(since, until time.Time) map[string]Stats {
-	l.mu.Lock()
-	l.ensureLoadedLocked()
-	byOp := make(map[string][]Entry)
-	for _, e := range l.entries {
-		if !entryInWindow(e, since, until) {
-			continue
-		}
-		byOp[e.OpID] = append(byOp[e.OpID], e)
-	}
-	l.mu.Unlock()
-
-	out := make(map[string]Stats, len(byOp))
-	for opID, entries := range byOp {
-		out[opID] = computeStats(entries)
-	}
-	return out
+	return l.StatsByOpFor(Filter{Since: since, Until: until})
 }
 
 // entryInWindow returns true when e falls in [since, until]. Entries
@@ -594,11 +746,25 @@ func computeStats(entries []Entry) Stats {
 
 	savings := make([]int64, len(entries))
 	var total, totalIn int64
+	var release, releaseInner Subtotal
+	var envelope int64
 	for i, e := range entries {
 		s := int64(e.RawTokens - e.ShapedTokens)
 		savings[i] = s
 		total += s
 		totalIn += int64(e.RawTokens)
+
+		if e.BaselineMethod != BaselineFixtureReplay {
+			continue
+		}
+		release.TokensIn += int64(e.RawTokens)
+		release.TokensSaved += s
+		if e.IsParallelOuter() {
+			envelope += int64(e.ShapedTokens)
+			continue
+		}
+		releaseInner.TokensIn += int64(e.RawTokens)
+		releaseInner.TokensSaved += s
 	}
 
 	sort.Slice(savings, func(i, j int) bool { return savings[i] < savings[j] })
@@ -629,6 +795,9 @@ func computeStats(entries []Entry) Stats {
 		P50:                 p50,
 		P95:                 p95,
 		P99:                 p99,
+		Release:             release,
+		ReleaseInner:        releaseInner,
+		BatchEnvelopeTokens: envelope,
 	}
 }
 

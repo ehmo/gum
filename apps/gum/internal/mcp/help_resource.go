@@ -9,6 +9,7 @@ import (
 
 	"github.com/ehmo/gum/internal/embedded"
 	"github.com/ehmo/gum/internal/help/topics"
+	"github.com/ehmo/gum/internal/output/jcs"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -52,12 +53,18 @@ type helpTopicsManifest struct {
 	Topics        []helpTopicRow `json:"topics"`
 }
 
+// validateHelpTopicSizes is the 8 KiB ceiling check registerHelpResources
+// runs at startup. It is a variable so a test can install a failing check and
+// reach the panic; the embedded filesystem it walks cannot be swapped from
+// this package, and every shipped topic fits (bead gum-p1ko).
+var validateHelpTopicSizes = topics.ValidateSizes
+
 // registerHelpResources wires gum://help/topics (fixed URI, TOON body) and
 // gum://help/{topic} (parameterised, markdown body) per spec §13.
 func (s *Server) registerHelpResources() {
 	// Build-time fail-safe: surface HELP_TOPIC_TOO_LARGE before any client
 	// hits a truncated topic. Defensive — the same check runs in tests.
-	if err := topics.ValidateSizes(); err != nil {
+	if err := validateHelpTopicSizes(); err != nil {
 		panic(fmt.Sprintf("mcp: %v", err))
 	}
 	s.sdkSrv.AddResource(
@@ -117,7 +124,12 @@ func (s *Server) handleHelpTopicRead(_ context.Context, req *sdkmcp.ReadResource
 		return nil, resourceNotFoundError(uri, name)
 	}
 	if row.Status == "deprecated" {
-		payload, _ := json.Marshal(map[string]any{
+		// jcs.Marshal, not json.Marshal: spec §13 line 1562 requires a
+		// JCS-canonical body and encoding/json HTML-escapes '&', '<' and '>',
+		// which RFC 8785 forbids. The error is discarded for the same reason
+		// json.Marshal's was: the payload is two strings, so neither encoder
+		// has a failure mode to report (bead gum-yi62).
+		payload, _ := jcs.Marshal(map[string]any{
 			"status":   "deprecated",
 			"redirect": row.RedirectTopic,
 		})

@@ -1,0 +1,24 @@
+{
+  "$id": "drive.drives.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "The maximum number of shared drives to return. The service may return fewer than this value. If unspecified, at most 10…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Page token for shared drives.",
+      "type": "string"
+    },
+    "q": {
+      "description": "Query string for searching shared drives.",
+      "type": "string"
+    },
+    "useDomainAdminAccess": {
+      "description": "Issue the request as a domain administrator; if set to true, then all shared drives of the domain in which the requeste…",
+      "type": "boolean"
+    }
+  },
+  "title": "List Shared Drives request",
+  "type": "object"
+}

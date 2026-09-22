@@ -194,6 +194,8 @@ func newProfileTestCmd() *cobra.Command {
 		goldenPath  string
 		userFormat  string
 		profileName string
+		opID        string
+		variantID   string
 	)
 	cmd := &cobra.Command{
 		Use:   "test <profile-path>",
@@ -254,7 +256,12 @@ func newProfileTestCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read input: %w", err)
 			}
-			out, err := profile.Apply(p, profile.ApplyInput{Body: body, UserFormat: userFormat})
+			out, err := profile.Apply(p, profile.ApplyInput{
+				Body:       body,
+				UserFormat: userFormat,
+				Op:         opID,
+				Variant:    variantID,
+			})
 			if err != nil {
 				return fmt.Errorf("%s: apply profile: %w", args[0], err)
 			}
@@ -285,6 +292,11 @@ func newProfileTestCmd() *cobra.Command {
 	cmd.Flags().StringVar(&inputPath, "input", "", "Path to input JSON (single-fixture mode)")
 	cmd.Flags().StringVar(&goldenPath, "golden", "", "Path to golden output; if set, compare byte-for-byte")
 	cmd.Flags().StringVar(&userFormat, "format", "", "Output format: in fixture-runner mode 'json' (default); in single-fixture mode overrides the profile format (toon|csv|json|markdown|raw)")
+	// A TOON body is a §9.0 document whose header names the op and variant that
+	// produced it. The command has no dispatch behind it, so a golden that
+	// carries real ids needs them supplied here.
+	cmd.Flags().StringVar(&opID, "op", "", "op_id written to the TOON op: header (single-fixture mode)")
+	cmd.Flags().StringVar(&variantID, "variant", "", "variant_id written to the TOON variant: header (single-fixture mode)")
 	return cmd
 }
 

@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/ehmo/gum/internal/cache"
 	"github.com/ehmo/gum/internal/catalog"
@@ -133,6 +134,21 @@ type DispatcherConfig struct {
 	// ArgDefaults, when non-nil, fills omitted args from configured defaults
 	// and supplies the hint for still-missing required args (gum-puum).
 	ArgDefaults ArgDefaulter
+	// ExpectedAuthSubjects maps an auth_strategy name to the
+	// auth_subject_fingerprint the active profile is bound to. Step 5 refuses
+	// any credential resolved under a listed strategy whose fingerprint
+	// differs, which is the §7 rule that a profile's credential is used "only
+	// if its auth_subject_fingerprint matches the selected profile's expected
+	// subject when one is recorded". The key is the strategy because the same
+	// account fingerprints differently per strategy namespace. A nil map, an
+	// unlisted strategy, or an empty expectation disables the check.
+	ExpectedAuthSubjects map[string]string
+	// Logger receives every diagnostic this package emits (spec §14.1 rule
+	// 2). A nil Logger falls back to slog.Default(), so an embedder that
+	// wires nothing keeps the process-wide handler. Injecting
+	// slog.New(slog.DiscardHandler) silences the kernel without silencing
+	// the rest of the process.
+	Logger *slog.Logger
 }
 
 // NewDispatcherWithConfig constructs a dispatch kernel that honours Phase-3
@@ -159,5 +175,18 @@ func NewDispatcherWithConfig(snapshot *catalog.Catalog, adapters map[string]Adap
 		profileLookup:           cfg.ProfileLookup,
 		profileBindings:         cfg.ProfileBindings,
 		argDefaulter:            cfg.ArgDefaults,
+		expectedAuthSubjects:    cfg.ExpectedAuthSubjects,
+		logger:                  cfg.Logger,
 	}
+}
+
+// log returns the injected logger, or slog.Default() when the caller wired
+// none. Every diagnostic in this package goes through it, so a caller that
+// injects slog.New(slog.DiscardHandler) sees no kernel output at all
+// (spec §14.1 rule 2).
+func (d *dispatcher) log() *slog.Logger {
+	if d.logger != nil {
+		return d.logger
+	}
+	return slog.Default()
 }

@@ -1,2 +1,9 @@
-messages=[{"id":"18ad6d5659","threadId":"18ad6d5659"}]
-resultSizeEstimate=1
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 1
+fields: id,threadId
+records: messages
+resultSizeEstimate: 1
+
+18ad6d5659,18ad6d5659

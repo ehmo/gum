@@ -1,0 +1,22 @@
+{
+  "$id": "admin.directory.groups.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "email": {
+      "description": "Group email address.",
+      "type": "string"
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "email"
+  ],
+  "title": "Create a directory group request",
+  "type": "object"
+}

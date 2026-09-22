@@ -2,8 +2,10 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -65,7 +67,7 @@ func (s *Server) registerPrompts() {
 			},
 			func(_ context.Context, req *sdkmcp.GetPromptRequest) (*sdkmcp.GetPromptResult, error) {
 				if len(req.Params.Arguments) != 0 {
-					return nil, fmt.Errorf("prompt %s: zero-argument; got %d arguments", prompt.Name, len(req.Params.Arguments))
+					return nil, promptInvalidArgsError(prompt.Name, len(req.Params.Arguments))
 				}
 				return &sdkmcp.GetPromptResult{
 					Description: prompt.Description,
@@ -78,5 +80,27 @@ func (s *Server) registerPrompts() {
 				}, nil
 			},
 		)
+	}
+}
+
+// promptInvalidArgsError builds the spec §7 line 1575 argument-rejection
+// envelope: JSON-RPC -32602 plus error.data carrying the stable gum error
+// code, the prompt name, and the user-facing message.
+//
+// The error is returned bare, never wrapped. jsonrpc2.toWireError forwards a
+// *jsonrpc.Error verbatim but rebuilds a wrapped one, keeping only its code
+// and dropping Data, which would strip error_code off the wire.
+func promptInvalidArgsError(name string, count int) *jsonrpc.Error {
+	data, _ := json.Marshal(map[string]any{
+		"error_code": "INVALID_ARGS",
+		"prompt":     name,
+		"user_message": fmt.Sprintf(
+			"Prompt '%s' takes no arguments in v0.1.0; remove the arguments field or upgrade once dynamic prompts ship.",
+			name),
+	})
+	return &jsonrpc.Error{
+		Code:    jsonrpc.CodeInvalidParams,
+		Message: fmt.Sprintf("prompt %s takes no arguments; got %d", name, count),
+		Data:    data,
 	}
 }

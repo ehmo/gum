@@ -1,0 +1,43 @@
+{
+  "$id": "calendar.calendarlist.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "maxResults": {
+      "description": "Maximum number of entries returned on one result page. By default the value is 100 entries. The page size can never be …",
+      "type": "integer"
+    },
+    "minAccessRole": {
+      "description": "The minimum access role for the user in the returned entries. Optional. The default is no restriction.",
+      "enum": [
+        "freeBusyReader",
+        "owner",
+        "reader",
+        "writer",
+        "writerWithoutPrivateAccess"
+      ],
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token specifying which result page to return. Optional.",
+      "type": "string"
+    },
+    "showDeleted": {
+      "description": "Whether to include deleted calendar list entries in the result. Optional. The default is False.",
+      "type": "boolean"
+    },
+    "showHidden": {
+      "description": "Whether to show hidden entries. Optional. The default is False.",
+      "type": "boolean"
+    },
+    "showOwnOrganizationOnly": {
+      "description": "Whether to show only entries for calendars from the organization. This parameter is only applicable to Google Workspace…",
+      "type": "boolean"
+    },
+    "syncToken": {
+      "description": "Token obtained from the nextSyncToken field returned on the last page of results from the previous list request. It mak…",
+      "type": "string"
+    }
+  },
+  "title": "List Calendar list request",
+  "type": "object"
+}

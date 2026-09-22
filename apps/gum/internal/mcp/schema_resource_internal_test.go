@@ -10,7 +10,7 @@ import (
 // loadFirstPartySchema's `SchemaFS.ReadFile err → return nil, false`
 // arm (schema_resource.go:107-109). Reached when the catalog
 // references a ref via op.response_ref but the embedded
-// gen/schemas/<ref>.json body doesn't exist (drift between catalog
+// internal/embedded/schemas/<ref>.json body doesn't exist (drift between catalog
 // and embed at build time, or a hand-crafted test snapshot).
 func TestLoadFirstPartySchemaReadFileErrorReturnsFalse(t *testing.T) {
 	op := catalog.Op{

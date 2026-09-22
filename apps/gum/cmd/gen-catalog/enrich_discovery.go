@@ -49,7 +49,7 @@ func enrichRequestFields(catalogPath string) error {
 		if len(op.RequestFields) > 0 {
 			continue
 		}
-		url, ok := discoveryURLForService[op.Service]
+		url, ok := discoveryURLFor(op.Service)
 		if !ok {
 			skipped = append(skipped, op.OpID)
 			continue
@@ -73,6 +73,35 @@ func enrichRequestFields(catalogPath string) error {
 		}
 	}
 
+	// 3. Classify lro_return from the same Discovery methods. The pass runs over
+	// every op, including the ones step 2 skipped because the hand-map already
+	// gave them RequestFields: the classification is independent of where the
+	// fields came from.
+	classified := 0
+	for i := range cat.Ops {
+		op := &cat.Ops[i]
+		url, ok := discoveryURLFor(op.Service)
+		if !ok {
+			continue
+		}
+		if _, ok := docCache[op.Service]; !ok {
+			doc, derr := fetchDiscoveryDoc(url)
+			if derr != nil {
+				return fmt.Errorf("enrich-request-fields: %s: %w", op.Service, derr)
+			}
+			docCache[op.Service] = doc
+			idxCache[op.Service] = indexDiscoveryMethods(doc)
+		}
+		method, ok := idxCache[op.Service][discoveryMethodID(op.OpID)]
+		if !ok {
+			continue
+		}
+		if !methodReturnsLRO(docCache[op.Service], method) {
+			continue
+		}
+		classified += stampLROReturn(op)
+	}
+
 	if err := validateGeneratedCatalog(&cat); err != nil {
 		return fmt.Errorf("enrich-request-fields: validate catalog: %w", err)
 	}
@@ -93,6 +122,7 @@ func enrichRequestFields(catalogPath string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "gen-catalog: enriched %d REST op(s) from Discovery; %d op(s) left to the hand-map/no-params: %v\n", enriched, len(skipped), skipped)
+	fmt.Fprintf(os.Stderr, "gen-catalog: classified %d REST variant(s) lro_return\n", classified)
 	return nil
 }
 
@@ -107,34 +137,6 @@ func enrichRequestFields(catalogPath string) error {
 // then for every REST op STILL lacking RequestFields it fetches the matching
 // Discovery method and derives them. Existing RequestFields are never
 // overwritten — the curated/verified data wins.
-
-// discoveryURLForService maps a catalog op's service to its Discovery document.
-// searchconsole is intentionally absent: its ops are hand-authored (the URL
-// Inspection v1 endpoint lives outside the webmasters/v3 Discovery doc).
-var discoveryURLForService = map[string]string{
-	"gmail":          "https://gmail.googleapis.com/$discovery/rest?version=v1",
-	"calendar":       "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
-	"drive":          "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
-	"docs":           "https://docs.googleapis.com/$discovery/rest?version=v1",
-	"sheets":         "https://sheets.googleapis.com/$discovery/rest?version=v4",
-	"slides":         "https://slides.googleapis.com/$discovery/rest?version=v1",
-	"tasks":          "https://tasks.googleapis.com/$discovery/rest?version=v1",
-	"admin":          "https://admin.googleapis.com/$discovery/rest?version=directory_v1",
-	"people":         "https://people.googleapis.com/$discovery/rest?version=v1",
-	"youtube":        "https://youtube.googleapis.com/$discovery/rest?version=v3",
-	"forms":          "https://forms.googleapis.com/$discovery/rest?version=v1",
-	"chat":           "https://chat.googleapis.com/$discovery/rest?version=v1",
-	"classroom":      "https://classroom.googleapis.com/$discovery/rest?version=v1",
-	"photoslibrary":  "https://photoslibrary.googleapis.com/$discovery/rest?version=v1",
-	"cloudidentity":  "https://cloudidentity.googleapis.com/$discovery/rest?version=v1",
-	"script":         "https://script.googleapis.com/$discovery/rest?version=v1",
-	"vault":          "https://vault.googleapis.com/$discovery/rest?version=v1",
-	"meet":           "https://meet.googleapis.com/$discovery/rest?version=v2",
-	"groupssettings": "https://www.googleapis.com/discovery/v1/apis/groupssettings/v1/rest",
-	"indexing":       "https://indexing.googleapis.com/$discovery/rest?version=v3",
-	"adminreports":   "https://admin.googleapis.com/$discovery/rest?version=reports_v1",
-	"customsearch":   "https://www.googleapis.com/discovery/v1/apis/customsearch/v1/rest",
-}
 
 // discoveryMethodID maps a gum op_id to its Discovery method id. They match for
 // most services; some APIs name their methods differently from gum's
@@ -310,4 +312,65 @@ func fetchDiscoveryDoc(url string) (map[string]any, error) {
 		return nil, fmt.Errorf("parse discovery %s: %w", url, err)
 	}
 	return doc, nil
+}
+
+// methodReturnsLRO reports whether a Discovery method answers with a
+// google.longrunning.Operation rather than the finished resource.
+//
+// The test is the shape of the referenced schema, not its name. Discovery
+// spells the type "Operation" in every document gum reads today, but other
+// Google APIs spell it "GoogleLongrunningOperation", and a name match on
+// "Operation" would also catch ListOperationsResponse, which is an ordinary
+// list payload. Every longrunning.Operation carries both `done` and `error`;
+// no list response does.
+func methodReturnsLRO(disc map[string]any, method map[string]any) bool {
+	resp, ok := method["response"].(map[string]any)
+	if !ok {
+		return false
+	}
+	ref, _ := resp["$ref"].(string)
+	if ref == "" {
+		return false
+	}
+
+	schemas, ok := disc["schemas"].(map[string]any)
+	if !ok {
+		return false
+	}
+	schema, ok := schemas[ref].(map[string]any)
+	if !ok {
+		return false
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return false
+	}
+
+	_, hasDone := props["done"]
+	_, hasError := props["error"]
+	return hasDone && hasError
+}
+
+// stampLROReturn appends the lro_return capability atom to every REST variant
+// of op that does not already declare it, and returns how many it changed.
+//
+// Only REST-backed variants are stamped: the evidence is a Discovery document,
+// which describes the REST surface. A gRPC SDK or plugin variant of the same op
+// may well answer differently, and its own generator owns that call.
+func stampLROReturn(op *catalog.Op) int {
+	changed := 0
+	for i := range op.Variants {
+		v := &op.Variants[i]
+		switch v.BackendKind {
+		case catalog.BackendKindTypedRestSDK, catalog.BackendKindDiscoveryREST, catalog.BackendKindRawHTTP:
+		default:
+			continue
+		}
+		if v.ReturnsLRO() {
+			continue
+		}
+		v.Capabilities = append(v.Capabilities, catalog.CapabilityLROReturn)
+		changed++
+	}
+	return changed
 }

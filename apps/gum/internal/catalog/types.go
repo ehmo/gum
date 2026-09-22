@@ -18,6 +18,7 @@ var (
 	ErrMissingRequiredField            = errors.New("catalog: missing required field")
 	ErrUnknownRiskClass                = errors.New("catalog: unknown risk_class")
 	ErrUnknownAuthStrategy             = errors.New("catalog: unknown auth_strategy")
+	ErrUnknownAuthComponent            = errors.New("catalog: AUTH_COMPONENT_UNKNOWN")
 	ErrUnknownBackendKind              = errors.New("catalog: unknown backend_kind")
 	ErrUnknownInterfaceKind            = errors.New("catalog: unknown interface_kind")
 	ErrUnknownAdminBlastRadius         = errors.New("catalog: unknown admin blast_radius")
@@ -31,6 +32,14 @@ var (
 	ErrUnsupportedCatalogSchemaVersion = errors.New("catalog: unsupported catalog_schema_version")
 	ErrServiceRootTemplateDeferred     = errors.New("catalog: SERVICE_ROOT_TEMPLATE_DEFERRED")
 	ErrNoDefaultDeclared               = errors.New("catalog: request field declares no default")
+
+	// The three GRPC_ROUTING_HEADER_* codes are the spec §7 registry names for
+	// the catalog-abi.md `routing_headers` invariant. Rule 1's alphabet has no
+	// registry code of its own, so its sentinel carries a plain message.
+	ErrGRPCRoutingHeaderInvalid     = errors.New("catalog: routing_headers entry violates the closed alphabet")
+	ErrGRPCRoutingHeaderNotFound    = errors.New("catalog: GRPC_ROUTING_HEADER_NOT_FOUND")
+	ErrGRPCRoutingHeaderDuplicate   = errors.New("catalog: GRPC_ROUTING_HEADER_DUPLICATE")
+	ErrGRPCRoutingHeaderNotRequired = errors.New("catalog: GRPC_ROUTING_HEADER_NOT_REQUIRED")
 
 	ErrUnknownExecutionSupport           = errors.New("catalog: unknown execution_support")
 	ErrMissingUnsupportedCapabilities    = errors.New("catalog: execution_support requires unsupported_capabilities")
@@ -190,8 +199,6 @@ const (
 	AuthStrategyAPIKey            AuthStrategy = "api_key"
 	AuthStrategyServiceAccountKey AuthStrategy = "service_account_key"
 	AuthStrategyServiceAccount    AuthStrategy = "service_account" // catalog-abi alias
-	AuthStrategyWorkloadIdentity  AuthStrategy = "workload_identity"
-	AuthStrategyImpersonation     AuthStrategy = "impersonation"
 	AuthStrategyNone              AuthStrategy = "none"
 	AuthStrategyCompound          AuthStrategy = "compound"
 	AuthStrategyPluginManaged     AuthStrategy = "plugin_managed"
@@ -202,11 +209,76 @@ func (as AuthStrategy) Valid() bool {
 	switch as {
 	case AuthStrategyADC, AuthStrategyBYOOAuth, AuthStrategyGUMOAuth, AuthStrategyAPIKey,
 		AuthStrategyServiceAccountKey, AuthStrategyServiceAccount,
-		AuthStrategyWorkloadIdentity, AuthStrategyImpersonation,
 		AuthStrategyNone, AuthStrategyCompound, AuthStrategyPluginManaged:
 		return true
 	}
 	return false
+}
+
+// AuthComponentKind is the closed enum of prerequisite component kinds from
+// spec.md §7. An unknown kind fails catalog build and plugin install with
+// AUTH_COMPONENT_UNKNOWN unless it carries the "x-" informational prefix.
+type AuthComponentKind string
+
+const (
+	AuthComponentOAuthScopes          AuthComponentKind = "oauth_scopes"
+	AuthComponentOAuthClient          AuthComponentKind = "oauth_client"
+	AuthComponentAPIEnabledProject    AuthComponentKind = "api_enabled_project"
+	AuthComponentAPIKey               AuthComponentKind = "api_key"
+	AuthComponentDeveloperToken       AuthComponentKind = "developer_token"
+	AuthComponentCustomerID           AuthComponentKind = "customer_id"
+	AuthComponentLoginCustomerID      AuthComponentKind = "login_customer_id"
+	AuthComponentBillingEnabled       AuthComponentKind = "billing_enabled"
+	AuthComponentManagerAccount       AuthComponentKind = "manager_account"
+	AuthComponentWorkspaceAdminTrust  AuthComponentKind = "workspace_admin_trust"
+	AuthComponentDomainWideDelegation AuthComponentKind = "domain_wide_delegation"
+	AuthComponentServiceAccountKey    AuthComponentKind = "service_account_key"
+	AuthComponentConsentVerification  AuthComponentKind = "consent_verification"
+	AuthComponentOAuthConsentScreen   AuthComponentKind = "oauth_consent_screen"
+	AuthComponentQuotaProject         AuthComponentKind = "quota_project"
+	AuthComponentServiceAllowlist     AuthComponentKind = "service_allowlist"
+	AuthComponentOrgPolicyException   AuthComponentKind = "org_policy_exception"
+	AuthComponentOAuthClientSecret    AuthComponentKind = "oauth_client_secret"
+	AuthComponentAccountPermission    AuthComponentKind = "account_permission"
+)
+
+// AuthComponentKinds is the §7 list in spec order. Tests snapshot its length,
+// so a spec revision that adds or drops a kind fails loudly here first.
+var AuthComponentKinds = []AuthComponentKind{
+	AuthComponentOAuthScopes, AuthComponentOAuthClient, AuthComponentAPIEnabledProject,
+	AuthComponentAPIKey, AuthComponentDeveloperToken, AuthComponentCustomerID,
+	AuthComponentLoginCustomerID, AuthComponentBillingEnabled, AuthComponentManagerAccount,
+	AuthComponentWorkspaceAdminTrust, AuthComponentDomainWideDelegation,
+	AuthComponentServiceAccountKey, AuthComponentConsentVerification,
+	AuthComponentOAuthConsentScreen, AuthComponentQuotaProject, AuthComponentServiceAllowlist,
+	AuthComponentOrgPolicyException, AuthComponentOAuthClientSecret, AuthComponentAccountPermission,
+}
+
+// Valid reports whether k is a standardized kind or an "x-" informational one.
+func (k AuthComponentKind) Valid() bool {
+	if slices.Contains(AuthComponentKinds, k) {
+		return true
+	}
+	return hasXPrefix(string(k))
+}
+
+// AuthComponent is one prerequisite of an authorized variant, per spec.md §7
+// and docs/catalog-abi.md "auth_components[]". It is a descriptor, never a
+// value: secret material lives only in the OS keychain, so this record
+// carries the kind and the setup hint that name it.
+type AuthComponent struct {
+	Kind AuthComponentKind `json:"kind"`
+	// Optional marks a component that only some accounts need, such as the
+	// Ads login_customer_id a manager account requires. The zero value is
+	// "required", so a forgotten flag fails safe.
+	Optional bool `json:"optional,omitempty"`
+	// Secret marks a component `gum auth setup` collects into the keychain.
+	Secret bool `json:"secret,omitempty"`
+	// External marks a step GUM can explain but cannot complete, such as
+	// getting an Ads developer token approved for standard access.
+	External bool `json:"external,omitempty"`
+	// SetupHint is user-facing copy. It MUST NOT carry a credential value.
+	SetupHint string `json:"setup_hint,omitempty"`
 }
 
 // AdminBlastRadius classifies Admin SDK write variants beyond the normal
@@ -488,6 +560,11 @@ func (op *Op) Validate() error {
 		if v.AuthStrategy != "" && !v.AuthStrategy.Valid() {
 			return fmt.Errorf("op %s: variant %s: %w", op.OpID, v.VariantID, ErrUnknownAuthStrategy)
 		}
+		for _, comp := range v.AuthComponents {
+			if !comp.Kind.Valid() {
+				return fmt.Errorf("op %s: variant %s: auth_components kind %q: %w", op.OpID, v.VariantID, comp.Kind, ErrUnknownAuthComponent)
+			}
+		}
 		if err := v.validateExecutionSupport(op.OpID); err != nil {
 			return err
 		}
@@ -509,6 +586,9 @@ func (op *Op) Validate() error {
 		}
 		if v.ServiceRootTemplate != "" {
 			return fmt.Errorf("op %s: variant %s: service_root_template %q: %w", op.OpID, v.VariantID, v.ServiceRootTemplate, ErrServiceRootTemplateDeferred)
+		}
+		if err := op.validateRoutingHeaders(v); err != nil {
+			return err
 		}
 	}
 
@@ -584,6 +664,7 @@ type Variant struct {
 	Preferred             bool             `json:"preferred,omitempty"`
 	RiskClass             RiskClass        `json:"risk_class"`
 	AuthStrategy          AuthStrategy     `json:"auth_strategy,omitempty"`
+	AuthComponents        []AuthComponent  `json:"auth_components,omitempty"`
 	ConfirmationPolicy    string           `json:"confirmation_policy,omitempty"`
 	Capabilities          []string         `json:"capabilities,omitempty"`
 	Scopes                []string         `json:"scopes,omitempty"`
@@ -691,6 +772,31 @@ type Scope struct {
 
 // Capability names an executable capability atom per spec.md §5.8.
 type Capability = string
+
+// CapabilityLROReturn marks a variant whose upstream method returns a
+// google.longrunning.Operation rather than the finished resource. It is the
+// single LRO classification the Catalog ABI carries: spec.md §5.8 lists the
+// atom in the closed capabilities enum, and the §6.1 code-mode gate keys on
+// it (gum-bgli).
+const CapabilityLROReturn Capability = "lro_return"
+
+// ReturnsLRO reports whether the variant is classified lro_return.
+func (v Variant) ReturnsLRO() bool {
+	return slices.Contains(v.Capabilities, CapabilityLROReturn)
+}
+
+// DefaultVariantReturnsLRO reports whether the op's default variant is
+// classified lro_return. An op whose default_variant_id names no variant
+// reports false; Op.Validate rejects that record at catalog build, so the
+// only callers that can observe it hold a hand-built Op.
+func (op *Op) DefaultVariantReturnsLRO() bool {
+	for _, v := range op.Variants {
+		if v.VariantID == op.DefaultVariantID {
+			return v.ReturnsLRO()
+		}
+	}
+	return false
+}
 
 // Annotation holds MCP tool hint flags per spec.md §4.1 / go-sdk v1.6.0 semantics.
 type Annotation struct {

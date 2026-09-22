@@ -1,0 +1,20 @@
+{
+  "$id": "chat.spaces.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "filter": {
+      "description": "Optional. A query filter. You can filter spaces by the space type ([`space_type`](https://developers.google.com/workspa…",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Optional. The maximum number of spaces to return. The service might return fewer than this value. If unspecified, at mo…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Optional. A page token, received from a previous list spaces call. Provide this parameter to retrieve the subsequent pa…",
+      "type": "string"
+    }
+  },
+  "title": "List Chat Spaces request",
+  "type": "object"
+}

@@ -1,0 +1,38 @@
+{
+  "$id": "calendar.events.move.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier of the source calendar where the event currently is on.",
+      "type": "string"
+    },
+    "destination": {
+      "description": "Calendar identifier of the target calendar where the event is to be moved to.",
+      "type": "string"
+    },
+    "eventId": {
+      "description": "Event identifier.",
+      "type": "string"
+    },
+    "sendNotifications": {
+      "description": "Deprecated. Please use sendUpdates instead.  Whether to send notifications about the change of the event's organizer. N…",
+      "type": "boolean"
+    },
+    "sendUpdates": {
+      "description": "Guests who should receive notifications about the change of the event's organizer.",
+      "enum": [
+        "all",
+        "externalOnly",
+        "none"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId",
+    "eventId",
+    "destination"
+  ],
+  "title": "Move event to another calendar request",
+  "type": "object"
+}

@@ -19,7 +19,7 @@ func annotate(t *testing.T, keywords []any, body string) map[string]any {
 		OpID: "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
 		Args: map[string]any{"keywords": keywords},
 	}
-	out := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
+	out, _ := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
 	doc := map[string]any{}
 	if err := json.Unmarshal(out, &doc); err != nil {
 		t.Fatalf("annotated body is not JSON: %v (%s)", err, out)
@@ -102,7 +102,7 @@ func TestOneToOneBatchIsUnchanged(t *testing.T) {
 		OpID: "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
 		Args: map[string]any{"keywords": []any{"Horse Breeds", "horse insurance"}},
 	}
-	out := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
+	out, _ := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
 	if string(out) != body {
 		t.Errorf("body = %s; want it byte-identical when every input matches its own result", out)
 	}
@@ -151,7 +151,7 @@ func TestAnnotateKeepsUpstreamNumbers(t *testing.T) {
 	if got, ok := metrics["competitionIndex"].(float64); !ok || got != 1234567890123 {
 		t.Errorf("competitionIndex = %#v; want 1234567890123", metrics["competitionIndex"])
 	}
-	out := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{
+	out, _ := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{
 		Args: map[string]any{"keywords": []any{"horse breeds", "horse breed"}},
 	}, rvFor(methodHistorical), []byte(body))
 	if !strings.Contains(string(out), "1234567890123") {
@@ -165,7 +165,7 @@ func TestAnnotateIgnoresOtherMethods(t *testing.T) {
 	body := `{"results":[{"text":"mars cruise"}]}`
 	for _, method := range []string{"generateKeywordIdeas", "generateKeywordForecastMetrics", "search"} {
 		inv := &dispatch.Invocation{Args: map[string]any{"keywords": []any{"mars cruises"}}}
-		out := (&Adapter{}).AnnotateResponse(inv, rvFor(method), []byte(body))
+		out, _ := (&Adapter{}).AnnotateResponse(inv, rvFor(method), []byte(body))
 		if string(out) != body {
 			t.Errorf("%s: body = %s; want it unchanged", method, out)
 		}
@@ -178,7 +178,7 @@ func TestAnnotateToleratesOddBodies(t *testing.T) {
 	cases := []string{`not json`, `{}`, `{"results":[]}`, `{"results":"nope"}`, ``}
 	for _, body := range cases {
 		inv := &dispatch.Invocation{Args: map[string]any{"keywords": []any{"horse breeds"}}}
-		out := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
+		out, _ := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
 		if string(out) != body {
 			t.Errorf("body %q became %q; want it unchanged", body, out)
 		}
@@ -189,7 +189,7 @@ func TestAnnotateToleratesOddBodies(t *testing.T) {
 // map, so the body is untouched.
 func TestAnnotateNeedsKeywords(t *testing.T) {
 	body := `{"results":[{"text":"horse breeds"}]}`
-	out := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{Args: map[string]any{}}, rvFor(methodHistorical), []byte(body))
+	out, _ := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{Args: map[string]any{}}, rvFor(methodHistorical), []byte(body))
 	if string(out) != body {
 		t.Errorf("body = %s; want it unchanged", out)
 	}
@@ -198,10 +198,10 @@ func TestAnnotateNeedsKeywords(t *testing.T) {
 // TestAnnotateNilInputs: a missing invocation or variant must not panic.
 func TestAnnotateNilInputs(t *testing.T) {
 	body := []byte(`{"results":[]}`)
-	if got := (&Adapter{}).AnnotateResponse(nil, rvFor(methodHistorical), body); string(got) != string(body) {
+	if got, _ := (&Adapter{}).AnnotateResponse(nil, rvFor(methodHistorical), body); string(got) != string(body) {
 		t.Errorf("nil invocation: body = %s", got)
 	}
-	if got := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{}, nil, body); string(got) != string(body) {
+	if got, _ := (&Adapter{}).AnnotateResponse(&dispatch.Invocation{}, nil, body); string(got) != string(body) {
 		t.Errorf("nil variant: body = %s", got)
 	}
 }
@@ -234,5 +234,69 @@ func TestDefaultedTargetingReachesTheWire(t *testing.T) {
 	}
 	if (*gotBody)["language"] != "languageConstants/1000" {
 		t.Errorf("language = %#v; want languageConstants/1000", (*gotBody)["language"])
+	}
+}
+
+// gum-9l5c: the shaping notice offers `--format raw` to recover a dropped
+// field, and raw bypasses this annotator. The second return value is what lets
+// the notice say which fields that costs, so it must name exactly the fields
+// this call added.
+func TestAnnotateResponseReportsTheFieldsItAdded(t *testing.T) {
+	merged := `{"results":[{"text":"akhal teke horse","closeVariants":["akhal-teke horse"],` +
+		`"keywordMetrics":{"avgMonthlySearches":"4400"}}]}`
+
+	inv := &dispatch.Invocation{
+		OpID: "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
+		Args: map[string]any{"keywords": []any{"akhal teke horse", "akhal-teke horse", "sailing lessons"}},
+	}
+	out, paths := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(merged))
+
+	want := []string{"results.matchedInputs", "unmatchedInputs"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Fatalf("paths = %#v; want %#v", paths, want)
+	}
+
+	// Every reported path must be in the body it returned, or the notice names
+	// a field the caller cannot find.
+	doc := map[string]any{}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatalf("annotated body is not JSON: %v (%s)", err, out)
+	}
+	if _, ok := doc["unmatchedInputs"]; !ok {
+		t.Errorf("unmatchedInputs reported but absent: %s", out)
+	}
+	if _, ok := resultAt(t, doc, 0)["matchedInputs"]; !ok {
+		t.Errorf("results.matchedInputs reported but absent: %s", out)
+	}
+}
+
+// Only unmatchedInputs: the singular arm the notice's noun agreement needs.
+func TestAnnotateResponseReportsUnmatchedInputsAlone(t *testing.T) {
+	body := `{"results":[{"text":"trail riding","keywordMetrics":{"avgMonthlySearches":"18100"}}]}`
+
+	inv := &dispatch.Invocation{
+		OpID: "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
+		Args: map[string]any{"keywords": []any{"trail riding", "sailing lessons"}},
+	}
+	if _, paths := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body)); !reflect.DeepEqual(paths, []string{"unmatchedInputs"}) {
+		t.Errorf("paths = %#v; want [unmatchedInputs]", paths)
+	}
+}
+
+// An untouched body reports nothing, so the ordinary batch keeps the plain raw
+// hint.
+func TestAnnotateResponseReportsNoPathsWhenUnchanged(t *testing.T) {
+	body := `{"results":[{"text":"horse breeds","keywordMetrics":{"avgMonthlySearches":"63875"}}]}`
+
+	inv := &dispatch.Invocation{
+		OpID: "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
+		Args: map[string]any{"keywords": []any{"horse breeds"}},
+	}
+	out, paths := (&Adapter{}).AnnotateResponse(inv, rvFor(methodHistorical), []byte(body))
+	if len(paths) != 0 {
+		t.Errorf("paths = %#v; want none for a one-to-one batch", paths)
+	}
+	if string(out) != body {
+		t.Errorf("body = %s; want it byte-identical", out)
 	}
 }

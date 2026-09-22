@@ -1,0 +1,24 @@
+{
+  "$id": "people.contactgroups.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "groupFields": {
+      "description": "Optional. A field mask to restrict which fields on the group are returned. Defaults to `metadata`, `groupType`, `member…",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Optional. The maximum number of resources to return. Valid values are between 1 and 1000, inclusive. Defaults to 30 if …",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Optional. The next_page_token value returned from a previous call to [ListContactGroups](/people/api/rest/v1/contactgro…",
+      "type": "string"
+    },
+    "syncToken": {
+      "description": "Optional. A sync token, returned by a previous call to `contactgroups.list`. Only resources changed since the sync toke…",
+      "type": "string"
+    }
+  },
+  "title": "List Contact Groups request",
+  "type": "object"
+}

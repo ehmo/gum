@@ -2,43 +2,49 @@ package main
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
-// TestNewCodeCmdTimeoutSecStampsArgs pins the "timeoutSec > 0" arm of
-// newCodeCmd: when --timeout-sec=N is set the helper MUST stamp
-// invArgs["timeout_sec"] before constructing the Invocation. Without
-// this assignment the sandbox runs with the kernel default and any
-// per-call deadline the operator typed silently has no effect.
-//
-// Cobra invocation is enough — we don't need to assert dispatcher
-// success; the goal is that both the assignment line and the
-// downstream dispatchToWriter call line execute. The dispatcher may
-// fail or succeed depending on the embedded catalog; either way both
-// branches were taken.
-func TestNewCodeCmdTimeoutSecStampsArgs(t *testing.T) {
+// TestNewCodeCmdElevatedFlagsReachDispatch drives the elevated arm of
+// newCodeCmd (--allow-write plus --allow-destructive, consented with --yes)
+// and reads the outcome instead of discarding it. With no
+// --destructive-budget the run must die on the §1083 budget refusal, which
+// proves the invocation reached the executor rather than failing earlier on an
+// argument gum.code never declared.
+func TestNewCodeCmdElevatedFlagsReachDispatch(t *testing.T) {
 	cmd := newCodeCmd()
-	cmd.SetArgs([]string{"1+1", "--timeout-sec=5", "--allow-write", "--allow-destructive"})
+	cmd.SetArgs([]string{"1+1", "--allow-write", "--allow-destructive", "--yes"})
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
 
-	// Execute may return an error (no creds, no kernel wiring in test env)
-	// — that's fine, the assignment line and the dispatch call were both
-	// reached, which is what we're covering.
-	_ = cmd.Execute()
+	err := cmd.Execute()
+	out := stdout.String() + stderr.String()
+	if err != nil {
+		out += err.Error()
+	}
+	if !strings.Contains(out, "destructive_budget") {
+		t.Fatalf("elevated run did not reach the destructive-budget gate: %q", out)
+	}
+	if strings.Contains(out, "unknown argument") {
+		t.Fatalf("elevated run stamped an argument gum.code does not declare: %q", out)
+	}
 }
 
-// TestNewCodeCmdZeroTimeoutDoesNotStamp pins the inverse arm: when the
-// operator omits --timeout-sec, the helper must NOT add a timeout_sec
-// key (zero is the sentinel for "use kernel default"). Calling Execute
-// twice with different flag shapes proves both arms of the if are
-// reached across this and the preceding test.
-func TestNewCodeCmdZeroTimeoutDoesNotStamp(t *testing.T) {
+// TestNewCodeCmdReadOnlyRunNeedsNoConsent pins the inverse arm: neither
+// capability flag set means no confirmation gate, so the script runs.
+func TestNewCodeCmdReadOnlyRunNeedsNoConsent(t *testing.T) {
 	cmd := newCodeCmd()
-	cmd.SetArgs([]string{"1+1"})
+	cmd.SetArgs([]string{`gum_print("read-only-ok")`})
 	var stdout, stderr bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stderr)
-	_ = cmd.Execute()
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("read-only run failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "read-only-ok") {
+		t.Fatalf("stdout = %q, want the script output", stdout.String())
+	}
 }

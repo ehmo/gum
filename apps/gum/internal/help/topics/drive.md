@@ -102,10 +102,10 @@ done
 
 ## Errors
 
-- `AUTH_SCOPE_MISSING` — your stored grant lacks `auth/drive`. Re-run
+- `SCOPE_MISSING` — your stored grant lacks `auth/drive`. Re-run
   `gum auth login --scope https://www.googleapis.com/auth/drive` with the
   broader scope.
-- `NOT_FOUND` — file id doesn't exist or the principal can't see it. Drive
+- `RESOURCE_NOT_FOUND` — file id doesn't exist or the principal can't see it. Drive
   doesn't distinguish, so check the share state.
 - `INVALID_ARGUMENT` (`q=`) — Drive rejected the query string. See the
   operator table above.

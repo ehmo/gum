@@ -19,6 +19,9 @@ type SandboxedRunner struct {
 // RunnerConfig configures a SandboxedRunner.
 type RunnerConfig struct {
 	Executable string
+	// Args are the residual argv tokens after the executable, taken from
+	// the install-time normalized argv. Never author-controlled at spawn.
+	Args       []string
 	WorkDir    string
 	Env        []string // pre-filtered allowlist
 	Stdin      io.Reader
@@ -59,7 +62,7 @@ func (r *SandboxedRunner) Start(ctx context.Context) (*exec.Cmd, error) {
 }
 
 func (r *SandboxedRunner) rawCommand(ctx context.Context) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, r.cfg.Executable)
+	cmd := exec.CommandContext(ctx, r.cfg.Executable, r.cfg.Args...)
 	applyCommandIO(cmd, r.cfg)
 	return cmd
 }

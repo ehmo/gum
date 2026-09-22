@@ -14,10 +14,12 @@ import (
 var TierARosterJSON []byte
 
 // SchemaFS is the first-party JSON Schema 2020-12 store served by
-// gum://schema/{ref}. The build-time generator that populates the directory
-// is deferred to v0.2.0 (see bd show gum-zev5); until then only the
-// `test-fixture.v1.json` placeholder ships so the embed wiring compiles and
-// the schema-resource happy path can be exercised in tests. Files prefixed
+// gum://schema/{ref}. `gen-catalog -emit-schemas` populates it with one
+// `<op_id>.request.json` document per op that declares request_fields, and
+// stamps the matching ref onto that op's variant bindings. Response schemas
+// are not in the store: the repository holds no offline source for them
+// (gum-wzmb). `test-fixture.v1.json` is hand-written and stays, because the
+// schema-resource tests inject a catalog that references it. Files prefixed
 // with `_` (READMEs, design notes) are excluded by go:embed.
 //
 //go:embed schemas

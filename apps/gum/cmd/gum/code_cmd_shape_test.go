@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// TestNewCodeCmdShape pins the cobra surface of `gum code`. The six
-// flags (--allow-write, --allow-destructive, --confirmed, --token,
-// --timeout-sec, --language, --format, --output)
+// TestNewCodeCmdShape pins the cobra surface of `gum code`. The eight
+// flags (--allow-write, --allow-destructive, --yes, --confirmed, --token,
+// --language, --format, --output)
 // must all be registered with the documented defaults so the user-facing
 // help stays stable.
 func TestNewCodeCmdShape(t *testing.T) {
@@ -17,7 +17,7 @@ func TestNewCodeCmdShape(t *testing.T) {
 	if !strings.HasPrefix(cmd.Use, "code") {
 		t.Errorf("Use=%q", cmd.Use)
 	}
-	for _, name := range []string{"allow-write", "allow-destructive", "confirmed", "token", "timeout-sec", "language", "format", "output"} {
+	for _, name := range []string{"allow-write", "allow-destructive", "yes", "confirmed", "token", "language", "format", "output"} { //nolint:lll
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag %q missing", name)
 		}

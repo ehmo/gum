@@ -1,0 +1,562 @@
+{
+  "generated_from": {
+    "calendar": "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+    "drive": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+    "gmail": "https://gmail.googleapis.com/$discovery/rest?version=v1",
+    "sheets": "https://sheets.googleapis.com/$discovery/rest?version=v4",
+    "tasks": "https://tasks.googleapis.com/$discovery/rest?version=v1",
+    "youtube": "https://youtube.googleapis.com/$discovery/rest?version=v3"
+  },
+  "ops": {
+    "calendar.calendarList.list": {
+      "ref": "CalendarList",
+      "fields": {
+        "etag": {},
+        "items": {
+          "ref": "CalendarListEntry",
+          "fields": {
+            "accessRole": {},
+            "autoAcceptInvitations": {},
+            "backgroundColor": {},
+            "colorId": {},
+            "conferenceProperties": {},
+            "dataOwner": {},
+            "defaultReminders": {},
+            "deleted": {},
+            "description": {},
+            "etag": {},
+            "foregroundColor": {},
+            "hidden": {},
+            "id": {},
+            "kind": {},
+            "location": {},
+            "notificationSettings": {},
+            "primary": {},
+            "selected": {},
+            "summary": {},
+            "summaryOverride": {},
+            "timeZone": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {},
+        "nextSyncToken": {}
+      }
+    },
+    "calendar.events.get": {
+      "ref": "Event",
+      "fields": {
+        "anyoneCanAddSelf": {},
+        "attachments": {},
+        "attendees": {
+          "ref": "EventAttendee",
+          "fields": {
+            "additionalGuests": {},
+            "asyncOperation": {},
+            "comment": {},
+            "displayName": {},
+            "email": {},
+            "id": {},
+            "optional": {},
+            "organizer": {},
+            "resource": {},
+            "responseStatus": {},
+            "self": {}
+          }
+        },
+        "attendeesOmitted": {},
+        "birthdayProperties": {},
+        "colorId": {},
+        "conferenceData": {},
+        "created": {},
+        "creator": {
+          "fields": {
+            "displayName": {},
+            "email": {},
+            "id": {},
+            "self": {}
+          }
+        },
+        "description": {},
+        "end": {},
+        "endTimeUnspecified": {},
+        "etag": {},
+        "eventLabelId": {},
+        "eventType": {},
+        "extendedProperties": {},
+        "focusTimeProperties": {},
+        "gadget": {},
+        "guestsCanInviteOthers": {},
+        "guestsCanModify": {},
+        "guestsCanSeeOtherGuests": {},
+        "hangoutLink": {},
+        "htmlLink": {},
+        "iCalUID": {},
+        "id": {},
+        "kind": {},
+        "location": {},
+        "locked": {},
+        "organizer": {
+          "fields": {
+            "displayName": {},
+            "email": {},
+            "id": {},
+            "self": {}
+          }
+        },
+        "originalStartTime": {},
+        "outOfOfficeProperties": {},
+        "privateCopy": {},
+        "recurrence": {},
+        "recurringEventId": {},
+        "reminders": {},
+        "sequence": {},
+        "source": {},
+        "start": {},
+        "status": {},
+        "summary": {},
+        "transparency": {},
+        "updated": {},
+        "visibility": {},
+        "workingLocationProperties": {}
+      }
+    },
+    "calendar.events.instances": {
+      "ref": "Events",
+      "fields": {
+        "accessRole": {},
+        "defaultReminders": {},
+        "description": {},
+        "etag": {},
+        "items": {
+          "ref": "Event",
+          "fields": {
+            "anyoneCanAddSelf": {},
+            "attachments": {},
+            "attendees": {
+              "ref": "EventAttendee",
+              "fields": {
+                "additionalGuests": {},
+                "asyncOperation": {},
+                "comment": {},
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "optional": {},
+                "organizer": {},
+                "resource": {},
+                "responseStatus": {},
+                "self": {}
+              }
+            },
+            "attendeesOmitted": {},
+            "birthdayProperties": {},
+            "colorId": {},
+            "conferenceData": {},
+            "created": {},
+            "creator": {
+              "fields": {
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "self": {}
+              }
+            },
+            "description": {},
+            "end": {},
+            "endTimeUnspecified": {},
+            "etag": {},
+            "eventLabelId": {},
+            "eventType": {},
+            "extendedProperties": {},
+            "focusTimeProperties": {},
+            "gadget": {},
+            "guestsCanInviteOthers": {},
+            "guestsCanModify": {},
+            "guestsCanSeeOtherGuests": {},
+            "hangoutLink": {},
+            "htmlLink": {},
+            "iCalUID": {},
+            "id": {},
+            "kind": {},
+            "location": {},
+            "locked": {},
+            "organizer": {
+              "fields": {
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "self": {}
+              }
+            },
+            "originalStartTime": {},
+            "outOfOfficeProperties": {},
+            "privateCopy": {},
+            "recurrence": {},
+            "recurringEventId": {},
+            "reminders": {},
+            "sequence": {},
+            "source": {},
+            "start": {},
+            "status": {},
+            "summary": {},
+            "transparency": {},
+            "updated": {},
+            "visibility": {},
+            "workingLocationProperties": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {},
+        "nextSyncToken": {},
+        "summary": {},
+        "timeZone": {},
+        "updated": {}
+      }
+    },
+    "calendar.events.list": {
+      "ref": "Events",
+      "fields": {
+        "accessRole": {},
+        "defaultReminders": {},
+        "description": {},
+        "etag": {},
+        "items": {
+          "ref": "Event",
+          "fields": {
+            "anyoneCanAddSelf": {},
+            "attachments": {},
+            "attendees": {
+              "ref": "EventAttendee",
+              "fields": {
+                "additionalGuests": {},
+                "asyncOperation": {},
+                "comment": {},
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "optional": {},
+                "organizer": {},
+                "resource": {},
+                "responseStatus": {},
+                "self": {}
+              }
+            },
+            "attendeesOmitted": {},
+            "birthdayProperties": {},
+            "colorId": {},
+            "conferenceData": {},
+            "created": {},
+            "creator": {
+              "fields": {
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "self": {}
+              }
+            },
+            "description": {},
+            "end": {},
+            "endTimeUnspecified": {},
+            "etag": {},
+            "eventLabelId": {},
+            "eventType": {},
+            "extendedProperties": {},
+            "focusTimeProperties": {},
+            "gadget": {},
+            "guestsCanInviteOthers": {},
+            "guestsCanModify": {},
+            "guestsCanSeeOtherGuests": {},
+            "hangoutLink": {},
+            "htmlLink": {},
+            "iCalUID": {},
+            "id": {},
+            "kind": {},
+            "location": {},
+            "locked": {},
+            "organizer": {
+              "fields": {
+                "displayName": {},
+                "email": {},
+                "id": {},
+                "self": {}
+              }
+            },
+            "originalStartTime": {},
+            "outOfOfficeProperties": {},
+            "privateCopy": {},
+            "recurrence": {},
+            "recurringEventId": {},
+            "reminders": {},
+            "sequence": {},
+            "source": {},
+            "start": {},
+            "status": {},
+            "summary": {},
+            "transparency": {},
+            "updated": {},
+            "visibility": {},
+            "workingLocationProperties": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {},
+        "nextSyncToken": {},
+        "summary": {},
+        "timeZone": {},
+        "updated": {}
+      }
+    },
+    "drive.about.get": {
+      "ref": "About",
+      "fields": {
+        "appInstalled": {},
+        "canCreateDrives": {},
+        "canCreateTeamDrives": {},
+        "driveThemes": {},
+        "exportFormats": {},
+        "folderColorPalette": {},
+        "importFormats": {},
+        "kind": {},
+        "maxImportSizes": {},
+        "maxUploadSize": {},
+        "storageQuota": {},
+        "teamDriveThemes": {},
+        "user": {
+          "ref": "User",
+          "fields": {
+            "displayName": {},
+            "emailAddress": {},
+            "kind": {},
+            "me": {},
+            "permissionId": {},
+            "photoLink": {}
+          }
+        }
+      }
+    },
+    "gmail.users.labels.list": {
+      "ref": "ListLabelsResponse",
+      "fields": {
+        "labels": {
+          "ref": "Label",
+          "fields": {
+            "color": {},
+            "id": {},
+            "labelListVisibility": {},
+            "messageListVisibility": {},
+            "messagesTotal": {},
+            "messagesUnread": {},
+            "name": {},
+            "threadsTotal": {},
+            "threadsUnread": {},
+            "type": {}
+          }
+        }
+      }
+    },
+    "sheets.spreadsheets.get": {
+      "ref": "Spreadsheet",
+      "fields": {
+        "dataSourceSchedules": {},
+        "dataSources": {},
+        "developerMetadata": {},
+        "namedRanges": {},
+        "properties": {
+          "ref": "SpreadsheetProperties",
+          "fields": {
+            "autoRecalc": {},
+            "defaultFormat": {},
+            "importFunctionsExternalUrlAccessAllowed": {},
+            "iterativeCalculationSettings": {},
+            "locale": {},
+            "spreadsheetTheme": {},
+            "timeZone": {},
+            "title": {}
+          }
+        },
+        "sheets": {
+          "ref": "Sheet",
+          "fields": {
+            "bandedRanges": {},
+            "basicFilter": {},
+            "charts": {},
+            "columnGroups": {},
+            "conditionalFormats": {},
+            "data": {},
+            "developerMetadata": {},
+            "filterViews": {},
+            "merges": {},
+            "properties": {
+              "ref": "SheetProperties",
+              "fields": {
+                "dataSourceSheetProperties": {},
+                "gridProperties": {},
+                "hidden": {},
+                "index": {},
+                "rightToLeft": {},
+                "sheetId": {},
+                "sheetType": {},
+                "tabColor": {},
+                "tabColorStyle": {},
+                "title": {}
+              }
+            },
+            "protectedRanges": {},
+            "rowGroups": {},
+            "slicers": {},
+            "tables": {}
+          }
+        },
+        "spreadsheetId": {},
+        "spreadsheetUrl": {}
+      }
+    },
+    "tasks.tasklists.list": {
+      "ref": "TaskLists",
+      "fields": {
+        "etag": {},
+        "items": {
+          "ref": "TaskList",
+          "fields": {
+            "etag": {},
+            "id": {},
+            "kind": {},
+            "selfLink": {},
+            "title": {},
+            "updated": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {}
+      }
+    },
+    "tasks.tasks.list": {
+      "ref": "Tasks",
+      "fields": {
+        "etag": {},
+        "items": {
+          "ref": "Task",
+          "fields": {
+            "assignmentInfo": {},
+            "completed": {},
+            "deleted": {},
+            "due": {},
+            "etag": {},
+            "hidden": {},
+            "id": {},
+            "kind": {},
+            "links": {},
+            "notes": {},
+            "parent": {},
+            "position": {},
+            "selfLink": {},
+            "status": {},
+            "title": {},
+            "updated": {},
+            "webViewLink": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {}
+      }
+    },
+    "youtube.playlistItems.list": {
+      "ref": "PlaylistItemListResponse",
+      "fields": {
+        "etag": {},
+        "eventId": {},
+        "items": {
+          "ref": "PlaylistItem",
+          "fields": {
+            "contentDetails": {},
+            "etag": {},
+            "id": {},
+            "kind": {},
+            "snippet": {
+              "ref": "PlaylistItemSnippet",
+              "fields": {
+                "channelId": {},
+                "channelTitle": {},
+                "description": {},
+                "playlistId": {},
+                "position": {},
+                "publishedAt": {},
+                "resourceId": {},
+                "thumbnails": {
+                  "ref": "ThumbnailDetails",
+                  "fields": {
+                    "default": {},
+                    "fhd": {},
+                    "high": {},
+                    "maxres": {},
+                    "medium": {},
+                    "qhd": {},
+                    "standard": {},
+                    "uhd": {}
+                  }
+                },
+                "title": {},
+                "videoOwnerChannelId": {},
+                "videoOwnerChannelTitle": {}
+              }
+            },
+            "status": {}
+          }
+        },
+        "kind": {},
+        "nextPageToken": {},
+        "pageInfo": {},
+        "prevPageToken": {},
+        "tokenPagination": {},
+        "visitorId": {}
+      }
+    },
+    "youtube.search.list": {
+      "ref": "SearchListResponse",
+      "fields": {
+        "etag": {},
+        "eventId": {},
+        "items": {
+          "ref": "SearchResult",
+          "fields": {
+            "etag": {},
+            "id": {},
+            "kind": {},
+            "snippet": {
+              "ref": "SearchResultSnippet",
+              "fields": {
+                "channelId": {},
+                "channelTitle": {},
+                "description": {},
+                "liveBroadcastContent": {},
+                "publishedAt": {},
+                "thumbnails": {
+                  "ref": "ThumbnailDetails",
+                  "fields": {
+                    "default": {},
+                    "fhd": {},
+                    "high": {},
+                    "maxres": {},
+                    "medium": {},
+                    "qhd": {},
+                    "standard": {},
+                    "uhd": {}
+                  }
+                },
+                "title": {}
+              }
+            }
+          }
+        },
+        "kind": {},
+        "nextPageToken": {},
+        "pageInfo": {},
+        "prevPageToken": {},
+        "regionCode": {},
+        "tokenPagination": {},
+        "visitorId": {}
+      }
+    }
+  }
+}

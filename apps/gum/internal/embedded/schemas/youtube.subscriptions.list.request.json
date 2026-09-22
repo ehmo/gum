@@ -1,0 +1,64 @@
+{
+  "$id": "youtube.subscriptions.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "channelId": {
+      "description": "Return the subscriptions of the given channel owner.",
+      "type": "string"
+    },
+    "forChannelId": {
+      "description": "Return the subscriptions to the subset of these channels that the authenticated user is subscribed to.",
+      "type": "string"
+    },
+    "id": {
+      "description": "Return the subscriptions with the given IDs for Stubby or Apiary.",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set.",
+      "type": "integer"
+    },
+    "mine": {
+      "description": "Flag for returning the subscriptions of the authenticated user.",
+      "type": "boolean"
+    },
+    "myRecentSubscribers": {
+      "type": "boolean"
+    },
+    "mySubscribers": {
+      "description": "Return the subscribers of the given channel owner.",
+      "type": "boolean"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "onBehalfOfContentOwnerChannel": {
+      "description": "This parameter can only be used in a properly authorized request. *Note:* This parameter is intended exclusively for Yo…",
+      "type": "string"
+    },
+    "order": {
+      "description": "The order of the returned subscriptions",
+      "enum": [
+        "subscriptionOrderUnspecified",
+        "relevance",
+        "unread",
+        "alphabetical"
+      ],
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter specifies a comma-separated list of one or more subscription resource properties that the API resp…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "List Subscriptions request",
+  "type": "object"
+}

@@ -99,20 +99,48 @@ func DetectSchemaRefCollision(existing, candidate []SchemaRef) error {
 	return nil
 }
 
-// ValidateNewPluginSchemas loads the active profile's plugin-catalog.json
-// and applies DetectSchemaRefCollision against the candidate refs. The
-// caller is responsible for hashing the candidate schemas (JCS canonical
-// SHA-256) before invoking this function.
+// ValidateNewPluginSchemas loads the active profile's plugin-catalog.json,
+// adds the embedded first-party schema store, and applies
+// DetectSchemaRefCollision against the candidate refs. The caller is
+// responsible for hashing the candidate schemas (JCS canonical SHA-256)
+// before invoking this function.
+//
+// The first-party half matters because both stores are served through one
+// gum://schema/{ref} namespace. A plugin claiming a ref the binary already
+// ships would shadow, or be shadowed by, a first-party schema depending on
+// which loader the reader tries first.
 //
 // A clean run returns nil; a collision returns ErrSchemaRefCollision
 // wrapped with diagnostic context. Storage errors (registry load) are
 // returned verbatim so the install path can distinguish "could not check"
 // from "definitely conflicts".
-func ValidateNewPluginSchemas(reg *registry.Registry, candidate []SchemaRef) error {
+func ValidateNewPluginSchemas(reg *registry.Registry, ownerPlugin string, candidate []SchemaRef) error {
 	files, err := reg.Load()
 	if err != nil {
 		return fmt.Errorf("schema collision check: load registry: %w", err)
 	}
-	existing := SchemaRefsFromCatalog(files.Catalog.Variants)
+	// A reinstall replaces the plugin's own catalog rows, so its prior
+	// hashes are not an obstacle to its new ones. Comparing against them
+	// would make every schema change fail as a self-collision.
+	existing := SchemaRefsFromCatalog(variantsExcludingOwner(files.Catalog.Variants, ownerPlugin))
+	existing = append(existing, FirstPartySchemaRefs()...)
 	return DetectSchemaRefCollision(existing, candidate)
+}
+
+// variantsExcludingOwner drops the rows one plugin owns. ownerPlugin == ""
+// keeps every row.
+func variantsExcludingOwner(variants []any, ownerPlugin string) []any {
+	if ownerPlugin == "" {
+		return variants
+	}
+	out := make([]any, 0, len(variants))
+	for _, raw := range variants {
+		if row, ok := raw.(map[string]any); ok {
+			if owner, _ := row["owner_plugin"].(string); owner == ownerPlugin {
+				continue
+			}
+		}
+		out = append(out, raw)
+	}
+	return out
 }

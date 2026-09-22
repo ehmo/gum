@@ -1,0 +1,81 @@
+{
+  "$id": "admin.directory.users.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customFieldMask": {
+      "description": "A comma-separated list of schema names. All fields from these schemas are fetched. This should only be set when `projec…",
+      "type": "string"
+    },
+    "customer": {
+      "description": "The unique ID for the customer's Google Workspace account. In case of a multi-domain account, to fetch all users for a …",
+      "type": "string"
+    },
+    "domain": {
+      "description": "The domain name. Use this field to get users from only one domain. To return all domains for a customer account, use th…",
+      "type": "string"
+    },
+    "event": {
+      "description": "Event on which subscription is intended (if subscribing)",
+      "enum": [
+        "add",
+        "delete",
+        "makeAdmin",
+        "undelete",
+        "update"
+      ],
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "Maximum number of results to return.",
+      "type": "integer"
+    },
+    "orderBy": {
+      "description": "Property to use for sorting results.",
+      "enum": [
+        "email",
+        "familyName",
+        "givenName"
+      ],
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token to specify next page in the list. The page token is only valid for three days.",
+      "type": "string"
+    },
+    "projection": {
+      "description": "What subset of fields to fetch for this user.",
+      "enum": [
+        "basic",
+        "custom",
+        "full"
+      ],
+      "type": "string"
+    },
+    "query": {
+      "description": "Query string for searching user fields. For more information on constructing user queries, see [Search for Users](https…",
+      "type": "string"
+    },
+    "showDeleted": {
+      "description": "If set to `true`, retrieves the list of deleted users. (Default: `false`)",
+      "type": "string"
+    },
+    "sortOrder": {
+      "description": "Whether to return results in ascending or descending order, ignoring case.",
+      "enum": [
+        "ASCENDING",
+        "DESCENDING"
+      ],
+      "type": "string"
+    },
+    "viewType": {
+      "description": "Whether to fetch the administrator-only or domain-wide public view of the user. For more information, see [Retrieve a u…",
+      "enum": [
+        "admin_view",
+        "domain_public"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "List Workspace directory users request",
+  "type": "object"
+}

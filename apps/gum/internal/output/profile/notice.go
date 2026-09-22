@@ -23,6 +23,13 @@ type NoticeInput struct {
 	// as "--format raw" or `format: "raw"`. Omitted when empty.
 	RawHint string
 
+	// AnnotationPaths are dot-paths the executing adapter added that the raw
+	// body does not carry. Naming them is what keeps the raw hint honest: raw
+	// bypasses the annotator, so a caller who takes the hint to recover one
+	// dropped field pays for it with these (gum-9l5c). Empty when the response
+	// carries no adapter annotation, and the hint then reads as before.
+	AnnotationPaths []string
+
 	// MaxItemsHint is the surface-specific way to lift the result cap, such as
 	// "--max-items all" or `max_items: "all"`. Omitted when empty.
 	MaxItemsHint string
@@ -89,7 +96,7 @@ func ShapingNotice(in NoticeInput) string {
 		}
 		sb.WriteString(lead + " " + droppedClause(in.DroppedPaths) + ".")
 		if in.RawHint != "" {
-			fmt.Fprintf(&sb, " Use %s for the complete body.", in.RawHint)
+			sb.WriteString(" " + rawHintSentence(in.RawHint, in.AnnotationPaths))
 		}
 	}
 
@@ -122,6 +129,26 @@ func collapsedClause(arrays []CollapsedArray) string {
 	}
 
 	return strings.Join(clauses, "; ")
+}
+
+// rawHintSentence points the caller at the unshaped body, and says what that
+// body costs when the adapter added fields the upstream response lacks.
+//
+// Without the second half the advice is a trap: on a merged keyword batch, raw
+// returns closeVariants and no matchedInputs, and the two are not the same
+// data. closeVariants lists the other variants merged into a result; only
+// matchedInputs says which submitted keywords a result answers for.
+func rawHintSentence(hint string, annotations []string) string {
+	if len(annotations) == 0 {
+		return fmt.Sprintf("Use %s for the complete body.", hint)
+	}
+
+	noun := "fields"
+	if len(annotations) == 1 {
+		noun = "field"
+	}
+	return fmt.Sprintf("Use %s for the complete upstream body; raw omits the gum-added %s %s.",
+		hint, noun, strings.Join(annotations, ", "))
 }
 
 // droppedClause renders the removed field paths as "1 field from this response:

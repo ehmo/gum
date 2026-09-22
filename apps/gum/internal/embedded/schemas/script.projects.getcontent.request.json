@@ -1,0 +1,19 @@
+{
+  "$id": "script.projects.getcontent.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "scriptId": {
+      "description": "The script project's Drive ID.",
+      "type": "string"
+    },
+    "versionNumber": {
+      "description": "The version number of the project to retrieve. If not provided, the project's HEAD version is returned.",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "scriptId"
+  ],
+  "title": "Get Apps Script Content request",
+  "type": "object"
+}

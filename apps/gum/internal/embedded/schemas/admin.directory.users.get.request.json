@@ -1,0 +1,36 @@
+{
+  "$id": "admin.directory.users.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customFieldMask": {
+      "description": "A comma-separated list of schema names. All fields from these schemas are fetched. This should only be set when `projec…",
+      "type": "string"
+    },
+    "projection": {
+      "description": "What subset of fields to fetch for this user.",
+      "enum": [
+        "basic",
+        "custom",
+        "full"
+      ],
+      "type": "string"
+    },
+    "userKey": {
+      "description": "Identifies the user in the API request. The value can be the user's primary email address, alias email address, or uniq…",
+      "type": "string"
+    },
+    "viewType": {
+      "description": "Whether to fetch the administrator-only or domain-wide public view of the user. For more information, see [Retrieve a u…",
+      "enum": [
+        "admin_view",
+        "domain_public"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "userKey"
+  ],
+  "title": "Get a Workspace directory user request",
+  "type": "object"
+}

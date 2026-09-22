@@ -66,7 +66,7 @@ func TestGumParallelCancellationProducesCANCELLEDWhitebox(t *testing.T) {
 		cancel()
 	}()
 
-	fn := buildParallelFn(ctx, mock, false, false)
+	fn := buildParallelFn(ctx, mock, false, false, parallelBudget{})
 	entries := make([]any, 12)
 	for i := range entries {
 		entries[i] = map[string]any{"op": "op.x"}
@@ -121,7 +121,7 @@ func TestGumParallelCancelBeforeAnyDispatchAllCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	fn := buildParallelFn(ctx, mock, false, false)
+	fn := buildParallelFn(ctx, mock, false, false, parallelBudget{})
 	entries := []any{
 		map[string]any{"op": "op.a"},
 		map[string]any{"op": "op.b"},
@@ -162,7 +162,7 @@ func TestGumParallelOuterEnvelopeContract(t *testing.T) {
 	mock := &whiteboxMockDispatcher{fn: func(ctx context.Context, inv *dispatch.Invocation) (*dispatch.ShapedResponse, error) {
 		return &dispatch.ShapedResponse{Format: "json", StructuredContent: map[string]any{"ok": true}}, nil
 	}}
-	fn := buildParallelFn(context.Background(), mock, false, false)
+	fn := buildParallelFn(context.Background(), mock, false, false, parallelBudget{})
 	got, err := fn([]any{map[string]any{"op": "op.a"}, map[string]any{"op": "op.b"}})
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestGumParallel429ServiceFamilyIsolation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	fn := buildParallelFn(ctx, mock, false, false)
+	fn := buildParallelFn(ctx, mock, false, false, parallelBudget{})
 	start := time.Now()
 	got, err := fn(entries)
 	if err != nil {
@@ -378,7 +378,7 @@ func TestGumParallel429SameFamilyIsPaused(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	fn := buildParallelFn(ctx, mock, false, false)
+	fn := buildParallelFn(ctx, mock, false, false, parallelBudget{})
 	got, err := fn(entries)
 	if err != nil {
 		t.Fatalf("gum_parallel: %v", err)

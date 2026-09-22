@@ -163,7 +163,7 @@ func TestAnnotateResponseWithoutAVariant(t *testing.T) {
 	t.Parallel()
 	d := &dispatcher{}
 	body := []byte(`{"a":1}`)
-	if got := d.annotateResponse(&Invocation{OpID: "x"}, nil, body); string(got) != string(body) {
+	if got, _ := d.annotateResponse(&Invocation{OpID: "x"}, nil, body); string(got) != string(body) {
 		t.Errorf("annotateResponse(nil rv) = %q; want the body unchanged", got)
 	}
 }
@@ -174,7 +174,7 @@ type panickingAnnotator struct {
 	funcAdapter
 }
 
-func (p *panickingAnnotator) AnnotateResponse(_ *Invocation, _ *ResolvedVariant, _ []byte) []byte {
+func (p *panickingAnnotator) AnnotateResponse(_ *Invocation, _ *ResolvedVariant, _ []byte) ([]byte, []string) {
 	panic("annotator exploded")
 }
 
@@ -189,9 +189,12 @@ func TestAnnotateSafelyRecordsAPanicInTheAuditSink(t *testing.T) {
 	inv := &Invocation{OpID: "gmail.messages.list", RequestID: "req-1", Args: map[string]any{"q": "x"}}
 	rv := &ResolvedVariant{AdapterKey: "boom", Variant: &catalog.Variant{VariantID: "v1"}}
 
-	out := d.annotateSafely(&panickingAnnotator{}, inv, rv, []byte(`{"a":1}`))
+	out, paths := d.annotateSafely(&panickingAnnotator{}, inv, rv, []byte(`{"a":1}`))
 	if out != nil {
 		t.Errorf("annotateSafely returned %q after a panic; want nil", out)
+	}
+	if paths != nil {
+		t.Errorf("annotateSafely returned paths %v after a panic; a dropped annotation must not be named in the notice", paths)
 	}
 	if len(sink.entries) != 1 {
 		t.Fatalf("audit sink got %d entries; want 1", len(sink.entries))

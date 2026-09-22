@@ -1,0 +1,14 @@
+{
+  "$id": "slides.presentations.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "presentationId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "presentationId"
+  ],
+  "title": "Get a Slides Presentation request",
+  "type": "object"
+}

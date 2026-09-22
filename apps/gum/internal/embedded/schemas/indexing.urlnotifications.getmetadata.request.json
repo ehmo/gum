@@ -1,0 +1,12 @@
+{
+  "$id": "indexing.urlnotifications.getmetadata.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "url": {
+      "description": "URL that is being queried.",
+      "type": "string"
+    }
+  },
+  "title": "Get URL Notification Metadata request",
+  "type": "object"
+}

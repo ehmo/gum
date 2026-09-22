@@ -163,7 +163,7 @@ func TestGainSuccessEnvelopeNonZeroSavingsComputesPct(t *testing.T) {
 	// Realistic stats: 1000 raw tokens in, 850 saved → 150 shaped, 85% reduction.
 	// baseline_tokens is the raw total (TotalTokensIn), NOT the savings (the old
 	// approximation reported baseline==savings → actual=0, savings_pct=100% always).
-	got := gainSuccessEnvelope(gain.Stats{TotalTokensIn: 1000, TotalTokensSaved: 850})
+	got := gainSuccessEnvelope(gain.Stats{TotalTokensIn: 1000, TotalTokensSaved: 850}, nil)
 	if got["baseline_tokens"] != int64(1000) {
 		t.Errorf("baseline_tokens=%v; want 1000 (the raw-token total)", got["baseline_tokens"])
 	}
@@ -186,7 +186,7 @@ func TestGainSuccessEnvelopeNonZeroSavingsComputesPct(t *testing.T) {
 // when no savings recorded, baseline stays 0 and savings_pct is nil
 // (skips the divide-by-zero risk). Counterpart to the non-zero arm.
 func TestGainSuccessEnvelopeZeroSavingsLeavesPctNil(t *testing.T) {
-	got := gainSuccessEnvelope(gain.Stats{TotalTokensSaved: 0})
+	got := gainSuccessEnvelope(gain.Stats{TotalTokensSaved: 0}, nil)
 	if got["savings_pct"] != nil {
 		t.Errorf("savings_pct=%v; want nil (zero baseline must NOT divide)", got["savings_pct"])
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
 	"github.com/ehmo/gum/internal/output/profile"
+	"github.com/ehmo/gum/internal/output/toon"
 )
 
 // ---------------------------------------------------------------------------
@@ -437,41 +438,41 @@ func TestSearchAPIsCollapseAtK(t *testing.T) {
 	text := tc.Text
 
 	// When >k results exist and CollapseArrays fires, applyCollapseArrays wraps
-	// the top-level array as {"items":[<k items>],"omitted_count":<N>} which TOON
-	// encodes as key=value format. The "omitted_count" key must appear.
-	if !strings.Contains(text, "omitted_count") {
-		t.Errorf("TOON body missing \"omitted_count\" — collapse_arrays not applied (spec §2129 k=3 against 6 results);\nbody:\n%s", text)
+	// the top-level array as {"items":[<k items>],"omitted_count":<N>}. In a
+	// §9.0 document the array becomes the rows and omitted_count rides the
+	// header, so the count is read off the decoded document.
+	doc, err := toon.DecodeTOONDocument([]byte(text))
+	if err != nil {
+		t.Fatalf("DecodeTOONDocument: %v;\nbody:\n%s", err, text)
+	}
+	if doc.RecordKey != "items" {
+		t.Errorf("records header = %q; want \"items\" (collapse_arrays wraps under items);\nbody:\n%s", doc.RecordKey, text)
+	}
+	if doc.Count > 3 {
+		t.Errorf("count = %d; want at most 3 (k=3 limit, spec §2129);\nbody:\n%s", doc.Count, text)
 	}
 
-	// Verify that at most 3 data rows appear. Count lines that contain "match-token"
-	// (each result row will contain the summary "match-token operation N").
-	matchLines := 0
-	for _, line := range strings.Split(text, "\n") {
-		if strings.Contains(line, "match-token") {
-			matchLines++
-		}
+	// The k=3 binding held only if collapse dropped rows, so omitted_count must
+	// be present and positive.
+	omitted, found := headerNumber(doc, "omitted_count")
+	if !found {
+		t.Fatalf("TOON header missing \"omitted_count\" — collapse_arrays not applied (spec §2129 k=3 against 6 results);\nbody:\n%s", text)
 	}
-	if matchLines > 3 {
-		t.Errorf("body contains %d lines with 'match-token'; want at most 3 (k=3 limit, spec §2129);\nbody:\n%s",
-			matchLines, text)
+	if omitted <= 0 {
+		t.Errorf("omitted_count = %v; want > 0 with k=3 and 6 matching ops;\nbody:\n%s", omitted, text)
 	}
+}
 
-	// Verify the profile correctly carries k=3 binding — indirectly: if
-	// omitted_count is present, collapse fired. Assert omitted_count value > 0.
-	// The TOON key=value line will be "omitted_count=<N>".
-	foundOmittedPositive := false
-	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(line, "omitted_count=") {
-			val := strings.TrimPrefix(line, "omitted_count=")
-			val = strings.TrimSpace(val)
-			if val != "0" && val != "" {
-				foundOmittedPositive = true
-			}
+// headerNumber reads one numeric extra header off a decoded §9.0 document.
+func headerNumber(doc *toon.TOONDocument, key string) (float64, bool) {
+	for _, h := range doc.Extra {
+		if h.Key != key {
+			continue
 		}
+		f, ok := h.Value.(float64)
+		return f, ok
 	}
-	if !foundOmittedPositive {
-		t.Errorf("omitted_count present but is zero or absent — expected positive omitted_count with k=3 and 6 matching ops;\nbody:\n%s", text)
-	}
+	return 0, false
 }
 
 // Compile-time check: ensure profile package is used (prevents import-not-used error

@@ -11,6 +11,7 @@
 package fieldmask_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ehmo/gum/internal/output/fieldmask"
@@ -390,5 +391,41 @@ func TestMaskHasEmptyPathFalse(t *testing.T) {
 	}
 	if m.Has() {
 		t.Errorf("Has() with no args returned true; want false")
+	}
+}
+
+func TestMaskPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		mask string
+		want [][]string
+	}{
+		{"flat", "a,b", [][]string{{"a"}, {"b"}}},
+		{"sub selection replaces the parent", "b(c,d)", [][]string{{"b", "c"}, {"b", "d"}}},
+		{"mixed", "a,b(c,d),e", [][]string{{"a"}, {"b", "c"}, {"b", "d"}, {"e"}}},
+		{"nested twice", "a(b(c))", [][]string{{"a", "b", "c"}}},
+		{"wildcard is a segment", "a(*)", [][]string{{"a", "*"}}},
+		{"bare wildcard", "*", [][]string{{"*"}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := fieldmask.Parse(tc.mask)
+			if err != nil {
+				t.Fatalf("Parse(%q): %v", tc.mask, err)
+			}
+			got := m.Paths()
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("Paths() = %v; want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// A nil receiver is reachable: Parse returns (nil, err) on a bad mask, and a
+// caller that logs the error and carries on holds a nil *Mask.
+func TestMaskPathsNilReceiver(t *testing.T) {
+	var m *fieldmask.Mask
+	if got := m.Paths(); got != nil {
+		t.Fatalf("(*Mask)(nil).Paths() = %v; want nil", got)
 	}
 }

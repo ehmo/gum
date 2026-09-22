@@ -141,10 +141,10 @@ func TestStaticHealthResourceClosedEnum(t *testing.T) {
 	}
 }
 
-// TestStaticCanariesResourceInitialStale asserts the spec §13 line 3147
-// initial-state rule: until the §8.5 passive canary runner is wired in,
-// the resource returns count:0 — never a stale entry for a plugin that
-// never registered.
+// TestStaticCanariesResourceInitialStale covers the zero case: a profile with
+// no installed plugin has no known canary, so the roster is empty rather than
+// carrying a synthetic row. The populated startup shape spec §13 line 3252
+// makes normative is TestCanaryStaleOnStartup.
 func TestStaticCanariesResourceInitialStale(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
@@ -160,6 +160,9 @@ func TestStaticCanariesResourceInitialStale(t *testing.T) {
 		t.Errorf("body missing op header; got:\n%s", body)
 	}
 	if !strings.Contains(body, "count: 0") {
-		t.Errorf("body missing 'count: 0' (initial state); got:\n%s", body)
+		t.Errorf("body missing 'count: 0' (no plugins installed); got:\n%s", body)
+	}
+	if rows := canaryRows(t, body); len(rows) != 0 {
+		t.Errorf("empty profile emitted %d rows: %q", len(rows), rows)
 	}
 }

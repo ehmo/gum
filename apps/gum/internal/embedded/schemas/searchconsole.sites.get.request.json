@@ -1,0 +1,14 @@
+{
+  "$id": "searchconsole.sites.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "siteUrl": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "siteUrl"
+  ],
+  "title": "Get a Search Console site request",
+  "type": "object"
+}

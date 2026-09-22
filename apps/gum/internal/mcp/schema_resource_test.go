@@ -5,8 +5,10 @@
 // every stage.
 //
 // First-party happy path is exercised by injecting a custom catalog that
-// references the embedded `test-fixture.v1` schema (the v0.1.0 generator
-// does not yet populate any first-party refs; see bd show gum-zev5).
+// references the embedded `test-fixture.v1` schema. The generated store
+// (gum-wzmb) also ships real `<op_id>.request` refs; the fixture is kept
+// because it pins the stage independently of what the catalog happens to
+// reference.
 // Plugin happy path seeds plugin-catalog.json + plugin-state.json +
 // `<profile>/plugin-schemas/<ref>.<sha256>.json` to mirror the on-disk
 // shape written by install_registry.go.
@@ -31,11 +33,13 @@ import (
 
 	"github.com/ehmo/gum/internal/catalog"
 	gummcp "github.com/ehmo/gum/internal/mcp"
+	"github.com/ehmo/gum/internal/plugins"
+	"github.com/ehmo/gum/internal/plugins/registry"
 )
 
 // TestSchemaResourceFirstPartyHit covers the §13 line 3156 first-party path:
 // a ref that is referenced by an op in the active snapshot AND has a body
-// in the embedded gen/schemas/ store resolves to application/schema+json
+// in the embedded schema store resolves to application/schema+json
 // with JCS-canonical bytes.
 func TestSchemaResourceFirstPartyHit(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -86,6 +90,45 @@ func TestSchemaResourceFirstPartyHit(t *testing.T) {
 	}
 	if got, _ := schema["$id"].(string); got != "test-fixture.v1" {
 		t.Errorf("$id=%q; want test-fixture.v1", got)
+	}
+}
+
+// TestSchemaResourceServesAGeneratedRequestSchema reads a ref that
+// `gen-catalog -emit-schemas` produced, against the real embedded catalog
+// rather than an injected one. It proves the three generated halves line up:
+// the op's variant binding carries request_ref, the store holds the matching
+// body, and the resolver serves it (gum-wzmb).
+func TestSchemaResourceServesAGeneratedRequestSchema(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	ctx, cs, _, cleanup := connectResourceClient(t)
+	defer cleanup()
+
+	const ref = "gmail.users.messages.list.request"
+	res, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: "gum://schema/" + ref})
+	if err != nil {
+		t.Fatalf("ReadResource(gum://schema/%s): %v", ref, err)
+	}
+	if len(res.Contents) != 1 {
+		t.Fatalf("Contents=%d; want 1", len(res.Contents))
+	}
+	if got := res.Contents[0].MIMEType; got != "application/schema+json" {
+		t.Errorf("MIMEType=%q; want application/schema+json", got)
+	}
+
+	var schema map[string]any
+	if err := json.Unmarshal([]byte(res.Contents[0].Text), &schema); err != nil {
+		t.Fatalf("schema body not JSON: %v; raw=%q", err, res.Contents[0].Text)
+	}
+	if got, _ := schema["$id"].(string); got != ref {
+		t.Errorf("$id=%q; want %q", got, ref)
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("properties is %T; want an object", schema["properties"])
+	}
+	if _, ok := props["userId"]; !ok {
+		t.Errorf("properties has no userId; got keys %v", props)
 	}
 }
 
@@ -355,4 +398,88 @@ func seedPluginSchemaInventoryWithStatus(t *testing.T, profileDir, plugin, ref, 
 		"plugins":                     []map[string]any{stateRow},
 	}
 	writePluginRegistryFiles(t, profileDir, cat, lock, state)
+}
+
+// TestSchemaResourceServesInstalledPluginSchema closes the loop between the
+// install write side (internal/plugins/schema_bundle.go) and this read side.
+// Every other plugin case here hand-seeds the store, so a change to the
+// on-disk naming or the digest rule on one side would not be caught. This one
+// runs a real InstallWithRegistry, promotes the plugin to active, and reads
+// the derived response ref back over MCP.
+func TestSchemaResourceServesInstalledPluginSchema(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	ctx, cs, profileDir, cleanup := connectResourceClient(t)
+	defer cleanup()
+
+	source := writeSchemaPluginSource(t)
+	reg := registry.New(profileDir)
+	host := plugins.NewHost(plugins.HostConfig{InstallRoot: t.TempDir()})
+	if _, err := host.InstallWithRegistry(ctx, source, plugins.InstallOptions{Registry: reg}); err != nil {
+		t.Fatalf("InstallWithRegistry: %v", err)
+	}
+	if _, err := plugins.PromotePendingRestart(ctx, reg, time.Now()); err != nil {
+		t.Fatalf("PromotePendingRestart: %v", err)
+	}
+
+	const uri = "gum://schema/demo.v1.response"
+	res, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: uri})
+	if err != nil {
+		t.Fatalf("ReadResource(%s): %v", uri, err)
+	}
+	if len(res.Contents) != 1 {
+		t.Fatalf("Contents=%d; want 1", len(res.Contents))
+	}
+	if got := res.Contents[0].MIMEType; got != "application/schema+json" {
+		t.Errorf("MIMEType=%q; want application/schema+json", got)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal([]byte(res.Contents[0].Text), &schema); err != nil {
+		t.Fatalf("schema body not JSON: %v; raw=%q", err, res.Contents[0].Text)
+	}
+	props, _ := schema["properties"].(map[string]any)
+	if _, ok := props["results"]; !ok {
+		t.Errorf("served body is not the bundle's $defs.response: %v", schema)
+	}
+}
+
+// writeSchemaPluginSource builds an mcp-plugin source tree whose single tool
+// declares schema_ref "demo.v1".
+func writeSchemaPluginSource(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	manifest := `{
+  "manifest_schema_version": 1,
+  "plugin_id": "demo",
+  "name": "demo",
+  "version": "0.1.0",
+  "namespace_owner": "io.example.demo",
+  "shape": "mcp-plugin",
+  "executable": "executable",
+  "advertised_tools": [
+    {"name": "search", "description": "Search", "risk_class": "read", "schema_ref": "demo.v1"}
+  ],
+  "declared_capabilities": {"network": true, "fs_write_dir": "", "env_allow": []}
+}`
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "executable"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
+	}
+	schemaDir := filepath.Join(dir, "schemas")
+	if err := os.MkdirAll(schemaDir, 0o755); err != nil {
+		t.Fatalf("mkdir schemas: %v", err)
+	}
+	bundle := `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "request": {"type": "object", "properties": {"query": {"type": "string"}}},
+    "response": {"type": "object", "properties": {"results": {"type": "array"}}}
+  }
+}`
+	if err := os.WriteFile(filepath.Join(schemaDir, "demo.v1.json"), []byte(bundle), 0o644); err != nil {
+		t.Fatalf("write bundle: %v", err)
+	}
+	return dir
 }

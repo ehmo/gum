@@ -1,0 +1,32 @@
+{
+  "$id": "maps.geocoding.geocode.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "address": {
+      "description": "The street address or plus code to geocode.",
+      "type": "string"
+    },
+    "components": {
+      "description": "Component filter (e.g. country:US|postal_code:94043).",
+      "type": "string"
+    },
+    "language": {
+      "description": "Language for results (e.g. en).",
+      "type": "string"
+    },
+    "latlng": {
+      "description": "Latitude,longitude for reverse geocoding (e.g. 40.714,-73.961).",
+      "type": "string"
+    },
+    "place_id": {
+      "description": "A place ID to geocode.",
+      "type": "string"
+    },
+    "region": {
+      "description": "Region bias ccTLD (e.g. us).",
+      "type": "string"
+    }
+  },
+  "title": "Geocode an Address request",
+  "type": "object"
+}

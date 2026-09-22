@@ -100,12 +100,12 @@ with empty strings.
 
 ## Errors
 
-- `AUTH_SCOPE_MISSING` — your stored grant lacks `auth/spreadsheets`. Re-run
+- `SCOPE_MISSING` — your stored grant lacks `auth/spreadsheets`. Re-run
   `gum auth login --scope https://www.googleapis.com/auth/spreadsheets` with
   the broader scope.
 - `INVALID_ARGUMENT` — malformed A1 range (e.g. unquoted sheet name with a
   space) or unrecognised `valueInputOption`.
-- `NOT_FOUND` — spreadsheet id doesn't exist or the principal can't see it.
+- `RESOURCE_NOT_FOUND` — spreadsheet id doesn't exist or the principal can't see it.
 - `RATE_LIMITED` — Sheets returned 429 (per-user-per-100s quota is the usual
   culprit). The dispatcher honours `Retry-After`.
 

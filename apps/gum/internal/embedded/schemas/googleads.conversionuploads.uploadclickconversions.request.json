@@ -1,0 +1,32 @@
+{
+  "$id": "googleads.conversionuploads.uploadclickconversions.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "conversions": {
+      "description": "ClickConversion objects with conversionAction, conversionDateTime (including timezone), and click ids or userIdentifiers. Optional fields include conversionValue, currencyCode, orderId, and consent. Google permits each orderId once per conversion action; inspect partialFailureError for rejected entries.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "customerId": {
+      "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager.",
+      "type": "string"
+    },
+    "loginCustomerId": {
+      "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account.",
+      "type": "string"
+    },
+    "validateOnly": {
+      "default": false,
+      "description": "Validate the batch and return errors without recording anything.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "customerId",
+    "conversions"
+  ],
+  "title": "Upload click conversions request",
+  "type": "object"
+}

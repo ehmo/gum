@@ -19,7 +19,8 @@ func (r *SandboxedRunner) sandboxedCommand(ctx context.Context) (*exec.Cmd, erro
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, sandboxExecPath, "-p", darwinSandboxProfile(allowedWriteRoot, r.cfg.Network), r.cfg.Executable)
+	sandboxArgv := append([]string{"-p", darwinSandboxProfile(allowedWriteRoot, r.cfg.Network), r.cfg.Executable}, r.cfg.Args...)
+	cmd := exec.CommandContext(ctx, sandboxExecPath, sandboxArgv...)
 	applyCommandIO(cmd, r.cfg)
 	return cmd, nil
 }

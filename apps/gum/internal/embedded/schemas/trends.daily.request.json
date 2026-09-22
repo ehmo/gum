@@ -1,0 +1,15 @@
+{
+  "$id": "trends.daily.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "geo": {
+      "description": "Region code for trending searches, e.g. US.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "geo"
+  ],
+  "title": "Google Trends daily report request",
+  "type": "object"
+}

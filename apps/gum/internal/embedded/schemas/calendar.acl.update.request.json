@@ -1,0 +1,24 @@
+{
+  "$id": "calendar.acl.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "ruleId": {
+      "description": "ACL rule identifier.",
+      "type": "string"
+    },
+    "sendNotifications": {
+      "description": "Whether to send notifications about the calendar sharing change. Note that there are no notifications on access removal…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "calendarId",
+    "ruleId"
+  ],
+  "title": "Update a Calendar ACL rule request",
+  "type": "object"
+}

@@ -1,0 +1,36 @@
+{
+  "$id": "drive.permissions.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fileId": {
+      "type": "string"
+    },
+    "permissionId": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "organizer",
+        "fileOrganizer",
+        "writer",
+        "commenter",
+        "reader"
+      ],
+      "type": "string"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    },
+    "transferOwnership": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId",
+    "permissionId",
+    "role"
+  ],
+  "title": "Update a File Permission request",
+  "type": "object"
+}

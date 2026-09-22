@@ -1,0 +1,28 @@
+{
+  "$id": "googleads.googleads.search.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager.",
+      "type": "string"
+    },
+    "loginCustomerId": {
+      "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account.",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "nextPageToken from a previous response, to fetch the next 10000 rows.",
+      "type": "string"
+    },
+    "query": {
+      "description": "GAQL query, e.g. SELECT campaign.name, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_7_DAYS.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "customerId",
+    "query"
+  ],
+  "title": "Search with GAQL request",
+  "type": "object"
+}

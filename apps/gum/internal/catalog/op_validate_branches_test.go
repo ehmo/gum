@@ -190,3 +190,26 @@ func TestOpValidateRejectsUnknownBackendKind(t *testing.T) {
 		t.Fatalf("Validate()=%v; want ErrUnknownBackendKind", err)
 	}
 }
+
+// TestOpValidateRejectsUndocumentedAuthStrategy pins the two values that used
+// to pass Validate and then fail at dispatch with
+// AUTH_STRATEGY_NOT_IMPLEMENTED. Spec §7 calls the auth_strategy enum closed
+// at (gum_oauth, byo_oauth, adc, service_account, api_key, compound,
+// plugin_managed, none), and docs/catalog-abi.md's cross-reference names
+// neither of these, so a catalog or plugin variant declaring one must fail
+// closed at build and install like every other unknown capability.
+func TestOpValidateRejectsUndocumentedAuthStrategy(t *testing.T) {
+	for _, name := range []string{"workload_identity", "impersonation"} {
+		t.Run(name, func(t *testing.T) {
+			if catalog.AuthStrategy(name).Valid() {
+				t.Errorf("AuthStrategy(%q).Valid() = true; the wire enum does not define it", name)
+			}
+			c := loadFixture(t, "sample-catalog.json")
+			c.Ops[0].Variants[0].AuthStrategy = catalog.AuthStrategy(name)
+			err := c.Validate()
+			if !errors.Is(err, catalog.ErrUnknownAuthStrategy) {
+				t.Fatalf("Validate(%q) = %v; want ErrUnknownAuthStrategy", name, err)
+			}
+		})
+	}
+}

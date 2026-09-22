@@ -1,0 +1,15 @@
+{
+  "$id": "meet.spaces.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "Required. Resource name of the space. Format: `spaces/{space}` or `spaces/{meetingCode}`. `{space}` is the resource ide…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Meet Space request",
+  "type": "object"
+}

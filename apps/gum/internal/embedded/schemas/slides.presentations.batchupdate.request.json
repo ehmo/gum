@@ -1,0 +1,15 @@
+{
+  "$id": "slides.presentations.batchupdate.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "presentationId": {
+      "description": "The presentation to apply the updates to.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "presentationId"
+  ],
+  "title": "Edit a Slides Presentation (batchUpdate) request",
+  "type": "object"
+}

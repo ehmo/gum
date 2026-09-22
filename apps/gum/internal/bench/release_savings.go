@@ -33,8 +33,9 @@ type ReleaseSavings struct {
 	NaiveResponseTokensSum int
 
 	// GumShapedResponseTokensSum is the sum across fixtures of the
-	// shaped (profile.Apply + TOON) response token count — GUM's
-	// per-call cost.
+	// shaped (profile.Apply + compact TOON) response token count —
+	// GUM's per-call cost. The compaction is encodeCompact's baseline
+	// form, not the §9.0 wire document; see encodeCompact.
 	GumShapedResponseTokensSum int
 
 	// NaiveTotalTokens = NaiveToolsListTokens + NaiveResponseTokensSum.
@@ -178,6 +179,13 @@ func shapeParallel(raw []byte) (gain.ShapeResult, error) {
 // inner array is deep-flattened (one dot-path column per scalar leaf)
 // and re-encoded as a top-level TOON table. Anything else falls
 // through to plain toon.Encode.
+//
+// These are not the bytes gum puts on the wire. The response path emits
+// the §9.0 two-section document (toon.EncodeDocument), which adds a
+// header block this form has no equivalent for. encodeCompact is the
+// deliberate compact-TOON baseline the published savings claim is
+// measured against, and it is held fixed so the claim stays comparable
+// across releases. gain replay measures the §9.0 wire form instead.
 func encodeCompact(jsonBody []byte) []byte {
 	var v any
 	if err := json.Unmarshal(jsonBody, &v); err != nil {

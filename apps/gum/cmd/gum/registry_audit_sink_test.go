@@ -14,7 +14,7 @@ import (
 // (gum-452w).
 func TestRegistryAuditSinkWritesProfileAuditRow(t *testing.T) {
 	dir := t.TempDir()
-	sink := registryAuditSink{profileDir: dir}
+	sink := profileAuditSink{profileDir: dir}
 
 	sink.Append(map[string]any{
 		"event_type":    "fsync_not_supported",
@@ -41,5 +41,5 @@ func TestRegistryAuditSinkWritesProfileAuditRow(t *testing.T) {
 
 // An unresolved profile dir must not create files anywhere.
 func TestRegistryAuditSinkSkipsEmptyProfileDir(t *testing.T) {
-	registryAuditSink{}.Append(map[string]any{"event_type": "fsync_not_supported"})
+	profileAuditSink{}.Append(map[string]any{"event_type": "fsync_not_supported"})
 }

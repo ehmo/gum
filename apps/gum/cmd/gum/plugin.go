@@ -442,17 +442,17 @@ func emitTransferAudit(profileDir, prefix, oldOwner, newOwner string, release bo
 	})
 }
 
-// registryAuditSink carries registry warnings into the profile audit log. It
-// opens the writer on first Append rather than up front: the only row it
-// currently carries is the §8.7 fsync warning, which fires at most once per
-// profile per process and on a healthy filesystem never fires at all.
+// profileAuditSink carries a plugin-subsystem row into the profile audit log.
+// It serves two: the §8.7 registry fsync warning and the §7
+// plugin_token_forwarded record. It opens the writer on first Append rather
+// than up front, because a profile can go a whole process without either row.
 //
 // A write failure is swallowed the way emitTransferAudit swallows one. The
 // on-disk transaction has already committed by then, and failing an install
 // because its warning could not be recorded is the worse outcome.
-type registryAuditSink struct{ profileDir string }
+type profileAuditSink struct{ profileDir string }
 
-func (s registryAuditSink) Append(entry map[string]any) {
+func (s profileAuditSink) Append(entry map[string]any) {
 	if s.profileDir == "" {
 		return
 	}
@@ -468,7 +468,7 @@ func (s registryAuditSink) Append(entry map[string]any) {
 // fsync warning. Read-only registries (digest lookups) skip the sink because
 // they never reach the publish step that raises it.
 func writableRegistry(profileDir string) *registry.Registry {
-	return registry.New(profileDir).WithAuditSink(registryAuditSink{profileDir: profileDir})
+	return registry.New(profileDir).WithAuditSink(profileAuditSink{profileDir: profileDir})
 }
 
 // openRegistry resolves the registry for the active profile. The factory hook
@@ -514,6 +514,7 @@ func defaultPluginsHost(profile, profileDir string) pluginsHostInterface {
 	cfg := plugins.HostConfig{Profile: profile}
 	if profileDir != "" {
 		cfg.TrustedDigest = plugins.RecordedDigestResolver(registry.New(profileDir))
+		cfg.Audit = profileAuditSink{profileDir: profileDir}
 	}
 	if profile != "" {
 		// Spec §8.2: `gum plugin setup` stores each plugin credential under
@@ -521,6 +522,9 @@ func defaultPluginsHost(profile, profileDir string) pluginsHostInterface {
 		// spawn env carries no stored credential and every plugin that needs
 		// one fails its first upstream call (gum-yq50).
 		cfg.Keyring = auth.NewOSKeyring()
+		// §7: the same forwarded Google token a dispatched call would get, so
+		// `gum plugin run` reproduces the real spawn rather than a weaker one.
+		cfg.TokenResolver = newGoogleTokenForwarder(profile)
 	}
 	return plugins.NewHost(cfg)
 }
@@ -576,8 +580,9 @@ func newPluginCmd() *cobra.Command {
 // setup_hint — raw env var names are never shown (spec §1414, §1606).
 func newPluginSetupCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "setup <name>",
-		Short: "Configure plugin credentials and run a live canary",
+		Use:               "setup <name>",
+		ValidArgsFunction: completePluginNames,
+		Short:             "Configure plugin credentials and run a live canary",
 		Long: `Reads the plugin's credential_descriptors from its manifest, prompts for
 each missing credential by display_name and setup_hint, stores secrets in the
 OS keychain, then runs
@@ -668,10 +673,11 @@ to the namespace lease and has no interactive prompt.`,
 
 func newPluginReloadCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "reload <id>",
-		Short: "Clear quarantine, restart the plugin subprocess, and run a passive canary",
-		Long:  "Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "reload <id>",
+		ValidArgsFunction: completePluginNames,
+		Short:             "Clear quarantine, restart the plugin subprocess, and run a passive canary",
+		Long:              "Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
 			profileDir, err := resolveProfileDir(profile)
@@ -690,10 +696,11 @@ func newPluginReloadCmd() *cobra.Command {
 
 func newPluginUnquarantineCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "unquarantine <id>",
-		Short: "Clear quarantine state without restarting the plugin",
-		Long:  "Resets quarantined, retry_count, backoff_step, and next_retry_at in plugin-state.json so the plugin can be invoked on the next call. Use when the operator has independently verified the plugin is healthy and wants to bypass the exponential-backoff window.",
-		Args:  cobra.ExactArgs(1),
+		Use:               "unquarantine <id>",
+		ValidArgsFunction: completePluginNames,
+		Short:             "Clear quarantine state without restarting the plugin",
+		Long:              "Resets quarantined, retry_count, backoff_step, and next_retry_at in plugin-state.json so the plugin can be invoked on the next call. Use when the operator has independently verified the plugin is healthy and wants to bypass the exponential-backoff window.",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
 			profileDir, err := resolveProfileDir(profile)
@@ -764,7 +771,8 @@ fails with PLUGIN_NAMESPACE_CONFLICT.`,
 }
 
 func newPluginListCmd() *cobra.Command {
-	return &cobra.Command{
+	var format string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List installed plugins with their quarantine state",
 		Args:  cobra.NoArgs,
@@ -774,6 +782,19 @@ func newPluginListCmd() *cobra.Command {
 			// resolve failure is not fatal here: report what we can (gum-mmzr).
 			profile := resolveProfileFlag(cmd)
 			profileDir, _ := resolveProfileDir(profile)
+
+			if format == "json" {
+				out, err := formatPluginListJSON(profileDir)
+				if err != nil {
+					return err
+				}
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), out)
+				return nil
+			}
+			if format != "text" {
+				return fmt.Errorf("gum plugin list: unsupported --format %q; expected text or json", format)
+			}
+
 			out, err := DispatchPluginCommandWithRegistry([]string{"list"}, defaultPluginsHost(profile, profileDir), profileDir, nil)
 			if err != nil {
 				return err
@@ -791,13 +812,16 @@ func newPluginListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&format, "format", "text", "Output format: text|json")
+	return cmd
 }
 
 func newPluginRemoveCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove <id>",
-		Short: "Remove a plugin by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:               "remove <id>",
+		ValidArgsFunction: completePluginNames,
+		Short:             "Remove a plugin by ID",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
 			// §8.7 line 1893: removal drops the catalog variants, the lock row
@@ -822,9 +846,10 @@ func newPluginRemoveCmd() *cobra.Command {
 
 func newPluginRunCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "run <id> <tool> [args-json]",
-		Short: "Call a tool on a running plugin",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:               "run <id> <tool> [args-json]",
+		ValidArgsFunction: completePluginNames,
+		Short:             "Call a tool on a running plugin",
+		Args:              cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
 			profileDir, _ := resolveProfileDir(profile)

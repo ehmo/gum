@@ -1,0 +1,15 @@
+{
+  "$id": "calendar.calendars.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calendarId"
+  ],
+  "title": "Get a calendar's metadata request",
+  "type": "object"
+}

@@ -15,9 +15,9 @@ func (a *annotatingAdapter) Execute(context.Context, *Invocation, *ResolvedVaria
 	return nil, nil
 }
 
-func (a *annotatingAdapter) AnnotateResponse(_ *Invocation, _ *ResolvedVariant, body []byte) []byte {
+func (a *annotatingAdapter) AnnotateResponse(_ *Invocation, _ *ResolvedVariant, body []byte) ([]byte, []string) {
 	a.calls++
-	return []byte(`{"annotated":true}`)
+	return []byte(`{"annotated":true}`), []string{"annotated"}
 }
 
 func annotatorDispatcher(a Adapter) (*dispatcher, *ResolvedVariant) {
@@ -104,7 +104,10 @@ func TestAnnotateResponseOptional(t *testing.T) {
 	for name, d := range cases {
 		t.Run(name, func(t *testing.T) {
 			rv := &ResolvedVariant{Variant: &catalog.Variant{}, AdapterKey: "test.plain"}
-			got := d.annotateResponse(&Invocation{OpID: "x"}, rv, body)
+			got, paths := d.annotateResponse(&Invocation{OpID: "x"}, rv, body)
+			if len(paths) != 0 {
+				t.Errorf("paths = %v; want none when no annotator ran", paths)
+			}
 			if string(got) != string(body) {
 				t.Errorf("body = %q; want it unchanged", got)
 			}
@@ -115,13 +118,15 @@ func TestAnnotateResponseOptional(t *testing.T) {
 // nilAdapter returns nil from AnnotateResponse.
 type nilAdapter struct{ plainAdapter }
 
-func (nilAdapter) AnnotateResponse(*Invocation, *ResolvedVariant, []byte) []byte { return nil }
+func (nilAdapter) AnnotateResponse(*Invocation, *ResolvedVariant, []byte) ([]byte, []string) {
+	return nil, nil
+}
 
 func TestAnnotateResponseNilKeepsBody(t *testing.T) {
 	d, rv := annotatorDispatcher(nilAdapter{})
 	body := []byte(`{"a":1}`)
 
-	if got := d.annotateResponse(&Invocation{OpID: "x"}, rv, body); string(got) != string(body) {
+	if got, _ := d.annotateResponse(&Invocation{OpID: "x"}, rv, body); string(got) != string(body) {
 		t.Errorf("body = %q; want it unchanged when the annotator returns nil", got)
 	}
 }

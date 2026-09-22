@@ -5,23 +5,34 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/spf13/pflag"
 )
 
-// TestNewGainCmdShape pins the cobra surface: all five flags must exist
-// with the documented defaults (format=toon; the booleans default false;
-// since/until empty). NoArgs is implicit (cobra accepts any unless we
+// TestNewGainCmdShape pins the cobra surface: all eight flags must exist
+// with the documented defaults (format empty, because its default depends on
+// whether --fixture-replay is set; the booleans default false;
+// session/since/until empty). NoArgs is implicit (cobra accepts any unless we
 // constrain — we don't, but the Use line names no positional).
+//
+// The list is exhaustive on purpose. A flag that stops being registered, or
+// one registered with a default the docs do not state, is a surface change
+// nothing else in the suite would catch.
 func TestNewGainCmdShape(t *testing.T) {
 	cmd := newGainCmd()
 	if cmd.Use != "gain" {
 		t.Errorf("Use=%q", cmd.Use)
 	}
+	known := make(map[string]bool)
 	for _, want := range []struct{ name, def string }{
 		{"by-op", "false"},
 		{"fixture-replay", "false"},
-		{"format", "toon"},
+		{"format", ""},
 		{"since", ""},
 		{"until", ""},
+		{"session", ""},
+		{"history", "false"},
+		{"exclude-retries", "false"},
 	} {
 		f := cmd.Flags().Lookup(want.name)
 		if f == nil {
@@ -31,7 +42,14 @@ func TestNewGainCmdShape(t *testing.T) {
 		if f.DefValue != want.def {
 			t.Errorf("flag %q default=%q; want %q", want.name, f.DefValue, want.def)
 		}
+		known[want.name] = true
 	}
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if !known[f.Name] {
+			t.Errorf("flag %q is registered but undeclared here; add it with its "+
+				"default or drop the flag", f.Name)
+		}
+	})
 }
 
 // TestNewGainCmdSinceInvalidPropagates exercises the RunE since-parsing
@@ -72,16 +90,16 @@ func TestNewGainCmdUntilInvalidPropagates(t *testing.T) {
 	}
 }
 
-// TestNewGainCmdHappyPath drives the ledger-stats branch end-to-end:
-// with no flags the command must open the user's ledger (we redirect
-// HOME/XDG_DATA_HOME to a tempdir so we never touch the real one) and
-// print a JSON-encoded Stats object on stdout.
+// TestNewGainCmdHappyPath drives the ledger-report branch end-to-end: the
+// command must open the user's ledger (we redirect HOME/XDG_DATA_HOME to a
+// tempdir so we never touch the real one) and print a JSON-encoded
+// GainResult on stdout under --format=json.
 func TestNewGainCmdHappyPath(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 
 	cmd := newGainCmd()
-	cmd.SetArgs(nil)
+	cmd.SetArgs([]string{"--format", "json"})
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)

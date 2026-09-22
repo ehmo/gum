@@ -32,9 +32,16 @@ Additive fields are allowed when older binaries can ignore them without changing
   (`gum_oauth`, `byo_oauth`, `adc`, `service_account`, `api_key`, `compound`,
   `plugin_managed`, `none`). `auth_components[]` uses the standardized
   component kinds in `spec.md` §7 and fails build/install with
-  `AUTH_COMPONENT_UNKNOWN` for unknown non-`x-*` values. Secret component
-  values are never stored in `catalog.json`; the catalog stores descriptors and
-  setup hints only. Variants using `auth_strategy="gum_oauth"` may reference
+  `AUTH_COMPONENT_UNKNOWN` for unknown non-`x-*` values. Each entry is a
+  descriptor with `kind` (the §7 enum value), `optional` (default `false`, so a
+  forgotten flag fails safe as required), `secret` (`gum auth setup` collects it
+  into the OS keychain), `external` (a step GUM can explain but cannot
+  complete), and `setup_hint` (user-facing copy). Secret component values are
+  never stored in `catalog.json`; the catalog stores descriptors and setup
+  hints only. A `compound` variant's `AUTH_REQUIRED` envelope reports every
+  declared `kind` in `missing_components`, in declaration order; a `compound`
+  variant that declares none falls back to the single marker
+  `see_setup_command`. Variants using `auth_strategy="gum_oauth"` may reference
   only scopes listed as active, verified, project-ready, and live-canary-passing
   in `apps/gum/internal/embedded/data/auth-managed-scopes.v1.json`; otherwise
   generation fails with `GUM_OAUTH_SCOPE_NOT_MANAGED` or
@@ -52,6 +59,26 @@ Deprecated variants stay invokable by explicit `variant_id` for 90 days unless q
 Unknown executable capability atoms fail closed with `UNKNOWN_CAPABILITY`. Experimental atoms must be prefixed `x-` and may only appear on variants with `execution_support = "schema_only"`.
 
 Adding a new executable capability class requires generator validation, executor support, describe/invoke behavior, documentation, and fixture-backed tests. The full normative checklist lives in `spec.md` §5.8; the test-matrix gates live in `docs/test-matrix.md`.
+
+### `lro_return`
+
+`lro_return` marks a variant whose upstream method returns a
+`google.longrunning.Operation` instead of the finished resource. It is the only
+LRO classification the ABI carries. There is no separate initiate-only or
+poll-cycle atom.
+
+- `cmd/gen-catalog` stamps the atom during the Discovery enrichment pass, when
+  the method's `response.$ref` resolves to `Operation`. No shipped op qualifies
+  today: all 228 cataloged ops return a concrete resource, checked against the
+  22 Discovery documents the generator fetches.
+- The runtime reads the atom through `Variant.ReturnsLRO` and
+  `Op.DefaultVariantReturnsLRO`. Code mode refuses an op whose default variant
+  carries it, before dispatch, with `LRO_UNSUPPORTED_IN_CODE` (`spec.md` §6.1).
+  The CLI and the MCP `gum.call` tool are unaffected: they return the operation
+  envelope and the caller polls it with `gum.poll`.
+- The atom is orthogonal to `execution_support`. A variant that returns an
+  Operation still executes through generic dispatch, so `lro_return` alone does
+  not make the variant `partial`.
 
 ### `execution_support` and `unsupported_capabilities`
 
@@ -145,7 +172,7 @@ The future `service_root_template` validation contract is: the template MUST con
 
 **Unknown `backend_kind` at build time**: `cmd/gen-catalog` MUST reject a manifest entry whose `backend_kind` is not in this table and is not prefixed `x-`, with error `UNKNOWN_BACKEND_KIND: '<value>' is not a known backend_kind; use 'x-<name>' for experimental kinds with execution_support = "schema_only"`.
 
-**Unknown `backend_kind` at runtime**: The catalog loader treats an unrecognized `backend_kind` (one not in the enum above and not prefixed `x-`) as `UNSUPPORTED_CAPABILITY` with the §5.8 loader-incompatible discriminator (`loader_kind="backend_kind"`) and returns that error before any upstream call. An `x-*` backend_kind variant with `execution_support = "schema_only"` is loadable and describable but not executable; an invocation attempt returns `UNSUPPORTED_CAPABILITY` with `unsupported_capabilities`.
+**Unknown `backend_kind`**: `Catalog.Validate` rejects an unrecognized `backend_kind` (one not in the enum above and not prefixed `x-`) with `UNKNOWN_BACKEND_KIND`, and `cmd/gen-catalog` is its only non-test caller, so the rejection happens at catalog build. There is no runtime loader arm: the main catalog is compiled in with `//go:embed catalog.json` and has no override path, so a binary never loads a catalog it did not build (spec §5.8). An `x-*` backend_kind variant with `execution_support = "schema_only"` is loadable and describable but not executable; an invocation attempt returns `UNSUPPORTED_CAPABILITY` with `unsupported_capabilities`.
 
 ## Interface Kind
 
@@ -160,7 +187,7 @@ The future `service_root_template` validation contract is: the template MUST con
 | `sdk-native` | Non-discovery native Go SDK surface such as GenAI or Maps | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
-Adding a new stable `interface_kind` value follows the same PR requirements as `backend_kind`: update this table, generator validation, runtime loader behavior, docs, and a fixture-backed contract test. Unknown non-`x-*` interface kinds fail build/install with `UNKNOWN_INTERFACE_KIND`; runtime loaders fail closed with `UNSUPPORTED_CAPABILITY` using `loader_kind="interface_kind"`.
+Adding a new stable `interface_kind` value follows the same PR requirements as `backend_kind`: update this table, generator validation, docs, and a fixture-backed contract test. Unknown non-`x-*` interface kinds fail catalog build with `UNKNOWN_INTERFACE_KIND`. There is no runtime loader arm, on the same grounds as `backend_kind`.
 
 **`interface_kind` extension procedure (normative).** Promoting an `x-*` experimental interface kind to a stable value (or adding a new stable kind without an experimental precursor) is a multi-step PR sequence:
 
@@ -169,7 +196,7 @@ Adding a new stable `interface_kind` value follows the same PR requirements as `
 3. In a separate PR, promote the kind by renaming `x-<name>` to `<name>` in this table (drop the `x-` prefix), set its `ABI stability` column to `stable`, register it in `cmd/gen-catalog`'s closed-enum validator, and flip the catalog records' `execution_support` from `schema_only` to `full`. The promotion PR MUST update `docs/test-matrix.md` to add a `TestInterfaceKind<Name>` row, ship a fixture-backed contract test for the executable path, and update `spec.md` §5.4.2 if the new kind imposes a new capability-class requirement.
 4. Removing or renaming a stable `interface_kind` value requires a deprecation cycle: the old value remains in the table marked `deprecated; superseded by <new>` for at least one minor release with `execution_support` retained, then drops out.
 
-Catalog rebuilds during the promotion window MUST treat the experimental `x-<name>` and the stable `<name>` as distinct values; the migration is not silent. `TestInterfaceKindClosedEnum` enforces the closed-enum membership at build time.
+Catalog rebuilds during the promotion window MUST treat the experimental `x-<name>` and the stable `<name>` as distinct values; the migration is not silent. `TestInterfaceKindValid` and `TestOpValidateRejectsUnknownInterfaceKind` enforce the closed-enum membership at build time; `TestInterfaceKindPromotionFixture` walks the procedure on a fixture and pins the promotion-window distinction.
 
 ## Backend Binding Schemas
 
@@ -221,7 +248,7 @@ Common binding fields:
    absence is the correct encoding.
 5. **Stability under catalog regeneration.** Once a variant ships with a non-empty `routing_headers` list, subsequent catalog regenerations MUST NOT silently drop entries. If an upstream service redefinition removes a routing-header field, the curator MUST update the override file explicitly (per the §5.4.1 expansion checklist); `cmd/gen-catalog` will fail the build until the override is resolved.
 
-`TestGrpcRoutingHeaderInvariant` (in `internal/catalog/grpc_routing_test.go`) verifies points 1–4 on a fixture set covering both present and omitted forms. Point 5 is enforced by the gen-catalog override diffing pass.
+`TestGrpcRoutingHeaderInvariant` (in `internal/catalog/grpc_routing_test.go`) verifies points 1–4 on a fixture set covering both present and omitted forms. Point 5 is enforced by the gen-catalog override diffing pass. The runtime half of point 2 and the ordering half of point 3 live in `internal/adapters/grpc`, which joins the resolved values into one `x-goog-request-params` metadata entry; `TestRoutingHeaderReachesTheWire` reads that header off a live gRPC round trip.
 
 `sdk-native` binding object:
 
@@ -298,7 +325,7 @@ Both atoms are reserved but inert in v1.3.0: their **schema slots** are part of 
 
 ## Schema Refs
 
-Embedded first-party schemas and bundled-plugin request/response schemas live under `gen/schemas/`. Runtime-installed third-party plugin request/response schemas live under the active profile's copied `plugin-schemas/` store by SHA-256. Plugin manifests declare a bundle-level `schema_ref`; build/install derives `request_ref = "<schema_ref>.request"` and `response_ref = "<schema_ref>.response"` by extracting `$defs.request` and `$defs.response` as specified in `spec.md` §8.2. `gum.describe_op`, `gum://op/{id}`, and `gum://variant/{id}` expose served request/response refs only. Full JSON Schema bodies are served exclusively through `gum://schema/{ref}`, which resolves embedded refs first, then active profile-local plugin schemas, and never asks a live plugin subprocess for schema. The selected profile's full inventory MUST contain no divergent schema-ref collisions: reuse of a ref is allowed only when JCS-canonical schema-body digests match across embedded, active, pending-restart, needs-configuration, and quarantined plugin schemas; otherwise build/install fails with `SCHEMA_REF_COLLISION`. Inactive plugin refs are inventory metadata only and MUST resolve as `RESOURCE_NOT_FOUND` through `gum://schema/{ref}` until activation.
+Embedded first-party request schemas live in the compiled-in `internal/embedded/schemas/` store, generated by `gen-catalog -emit-schemas`. The store carries no response schemas. Runtime-installed third-party plugin request/response schemas live under the active profile's copied `plugin-schemas/` store by SHA-256. Plugin manifests declare a bundle-level `schema_ref`; build/install derives `request_ref = "<schema_ref>.request"` and `response_ref = "<schema_ref>.response"` by extracting `$defs.request` and `$defs.response` as specified in `spec.md` §8.2. `gum.describe_op`, `gum://op/{id}`, and `gum://variant/{id}` expose served request/response refs only. Full JSON Schema bodies are served exclusively through `gum://schema/{ref}`, which resolves embedded refs first, then active profile-local plugin schemas, and never asks a live plugin subprocess for schema. The selected profile's full inventory MUST contain no divergent schema-ref collisions: reuse of a ref is allowed only when JCS-canonical schema-body digests match across embedded, active, pending-restart, needs-configuration, and quarantined plugin schemas; otherwise build/install fails with `SCHEMA_REF_COLLISION`. Inactive plugin refs are inventory metadata only and MUST resolve as `RESOURCE_NOT_FOUND` through `gum://schema/{ref}` until activation.
 
 ## Resolved Catalog
 
@@ -315,11 +342,11 @@ The persisted plugin registry ABI is the three-file generation set defined in `s
 - `plugins.lock`: package source/ref/checksum plus normalized executable binding.
 - `plugin-state.json`: installed/activated/configuration/quarantine lifecycle state.
 
-All three files carry the same `install_generation` and `install_txid`; no single file is authoritative if generations disagree. Startup recovery selects the newest complete shared generation. Startup activation writes are persisted `plugin-state.json` transactions under `plugins.install.lock`, not in-memory derivations.
+All three files carry the same `install_generation` and `install_txid`; no single file is authoritative if generations disagree. Startup recovery selects the newest complete shared generation. A `plugin-catalog.json` with no `install_generation` and an empty `install_txid` predates the field pair and adopts the generation the other two files agree on; the next transaction stamps it. See `spec.md` §8.7 "Unstamped catalog migration". Startup activation writes are persisted `plugin-state.json` transactions under `plugins.install.lock`, not in-memory derivations.
 
 Runtime uses two views of this data:
 
 - **Inventory registry**: live `plugin-catalog.json` plus `plugin-state.json`. Metadata resources such as `gum://plugins` and `gum://plugin/{name}` read this live view so installs are visible immediately. `gum://op/{id}` and `gum://variant/{id}` are normally active-snapshot resources, but they may consult inventory only to return status-only inactive-plugin responses (`installed_pending_restart` or `needs_configuration`) or quarantine resource errors (`VARIANT_QUARANTINED`) defined in `spec.md`; they MUST NOT expose full inactive or quarantined variant schemas before activation.
-- **Active session catalog snapshot**: embedded `gen/catalog.json` plus plugin variants whose registry entry has `activated_at` set and not later than the current MCP server's `session_started_at`, and whose state is neither `quarantined` nor `needs_configuration`. Search, describe, completions for operations/variants, invoke, code mode, and normal full `gum://op/{id}` / `gum://variant/{id}` dispatch metadata use this snapshot for the lifetime of the MCP server. A standalone CLI process first marks install-valid, non-quarantined, configured plugins as activated with its `process_started_at` timestamp, then takes the same one-shot snapshot for that command.
+- **Active session catalog snapshot**: embedded `gen/catalog.json` plus the plugin variants whose `plugin-state.json` row reads `status: active` with `quarantined: false` when the snapshot is taken. Startup activation runs first and is what sets that status from the `activated_at` / `session_started_at` timestamp contract below, so `installed_pending_restart`, `needs_configuration` and quarantined rows are excluded by construction. The snapshot is built once per process, after activation and before the transport accepts sessions. A profile whose three registry files disagree on one `install_generation` contributes no variants at all. Search, describe, completions for operations/variants, invoke, code mode, and normal full `gum://op/{id}` / `gum://variant/{id}` dispatch metadata use this snapshot for the lifetime of the MCP server. A standalone CLI process first marks install-valid, non-quarantined, configured plugins as activated with its `process_started_at` timestamp, then takes the same one-shot snapshot for that command.
 
 `gum plugin install` writes `installed_at` and leaves `activated_at` null. On MCP server startup, the host marks install-valid, non-quarantined, configured plugins as activated by setting `activated_at` to the server's `session_started_at`. On standalone CLI startup, the host performs the same activation step with the CLI process timestamp before command resolution, so new CLI invocations see previously installed configured plugins without a persistent server restart. This timestamp contract is the deterministic source for `active` versus `installed_pending_restart`; implementations MUST NOT infer activation from file modification time.

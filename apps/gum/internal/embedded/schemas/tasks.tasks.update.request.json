@@ -1,0 +1,37 @@
+{
+  "$id": "tasks.tasks.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "due": {
+      "description": "Due date (RFC 3339).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "needsAction",
+        "completed"
+      ],
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "tasklist": {
+      "type": "string"
+    },
+    "title": {
+      "description": "Task title.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tasklist",
+    "task"
+  ],
+  "title": "Update a Task request",
+  "type": "object"
+}

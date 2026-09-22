@@ -1,0 +1,91 @@
+{
+  "$id": "searchconsole.searchanalytics.query.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "aggregationType": {
+      "description": "How data is aggregated.",
+      "enum": [
+        "auto",
+        "byPage",
+        "byProperty",
+        "byNewsShowcasePanel"
+      ],
+      "type": "string"
+    },
+    "dataState": {
+      "description": "Whether to include fresh/partial data.",
+      "enum": [
+        "all",
+        "final",
+        "hourly_all"
+      ],
+      "type": "string"
+    },
+    "dimensionFilterGroups": {
+      "description": "Filter groups (nested; pass as JSON via dimensionFilterGroups:=...).",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "dimensions": {
+      "description": "Group results by these dimensions (repeatable).",
+      "enum": [
+        "date",
+        "query",
+        "page",
+        "country",
+        "device",
+        "searchAppearance"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "endDate": {
+      "description": "End date, inclusive (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+    },
+    "rowLimit": {
+      "default": 1000,
+      "description": "Maximum rows to return (1-25000).",
+      "format": "int64",
+      "type": "integer"
+    },
+    "siteUrl": {
+      "type": "string"
+    },
+    "startDate": {
+      "description": "Start date, inclusive (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+    },
+    "startRow": {
+      "default": 0,
+      "description": "Zero-based first-row index for pagination.",
+      "format": "int64",
+      "type": "integer"
+    },
+    "type": {
+      "description": "Search type to filter on.",
+      "enum": [
+        "web",
+        "image",
+        "video",
+        "news",
+        "discover",
+        "googleNews"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "siteUrl",
+    "startDate",
+    "endDate"
+  ],
+  "title": "Query search analytics request",
+  "type": "object"
+}

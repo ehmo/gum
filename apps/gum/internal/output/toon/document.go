@@ -9,6 +9,23 @@
 // Optional header key:  next_page_token (omitted when empty).
 // count=0 body emits the sentinel "{}".
 // Null values are empty CSV cells; empty strings are double-quoted empty fields "".
+//
+// Two header extensions beyond §9.0's required set keep the document from
+// dropping what the response carried.
+//
+// "records" names the JSON key the rows came from, when the rows were nested
+// under one. §9.0's header has no slot for it, and §9.0 says reconstruction
+// needs the variant's response schema, which names the array. A client reading
+// a tee artifact or a plugin's output has no schema, and the key is one short
+// token, so it rides the header.
+//
+// A response often carries scalar fields beside its record array: kind,
+// resultSizeEstimate, the <field>_omitted_count that collapse_arrays writes.
+// The CSV body has no column for them and dropping them would lose data the
+// caller asked for, so they ride the header as extra keys after the required
+// set. Their values are compact JSON, which is valid YAML flow scalar syntax,
+// keeps a string with a newline or a leading space on one line, and preserves
+// the string/number/bool distinction the bare required keys do not need.
 package toon
 
 import (
@@ -32,11 +49,47 @@ type TOONDocument struct {
 	Fields        []string
 	FormatVersion int
 	NextPageToken string // empty = absent
+	RecordKey     string // JSON key the rows came from; empty = absent
+	Extra         []DocumentHeader
 	Rows          [][]any
+}
+
+// DocumentHeader is one header line beyond the §9.0 required set: a scalar the
+// response carried beside its record array. Value is a JSON scalar (string,
+// float64, bool, or nil).
+type DocumentHeader struct {
+	Key   string
+	Value any
 }
 
 // requiredHeaderKeys lists the §9.0 header keys that must be present.
 var requiredHeaderKeys = []string{"op", "variant", "count", "fields", "format_version"}
+
+// reservedHeaderKeys are the header keys the document shape owns. An extra
+// header may not use one: a response field named "count" would otherwise
+// shadow the row count and the decoder would read the wrong number.
+var reservedHeaderKeys = map[string]bool{
+	"op": true, "variant": true, "count": true,
+	"fields": true, "format_version": true, "next_page_token": true,
+	"records": true,
+}
+
+// ErrReservedHeaderKey is returned when an extra header collides with a
+// reserved key or is not a legal one-line header key.
+var ErrReservedHeaderKey = errors.New("toon: extra header key is reserved or malformed")
+
+// ValidExtraHeaderKey reports whether k may carry an extra header value.
+// Callers building a document use it to decide between the header and the
+// JSON fallback, rather than discovering the clash at encode time.
+func ValidExtraHeaderKey(k string) bool {
+	if k == "" || reservedHeaderKeys[k] {
+		return false
+	}
+	if k != strings.TrimSpace(k) {
+		return false
+	}
+	return !strings.ContainsAny(k, ":\n\r")
+}
 
 // DecodeTOONDocument parses a §9.0 header+body TOON document.
 //
@@ -49,9 +102,13 @@ func DecodeTOONDocument(data []byte) (*TOONDocument, error) {
 	if sepIdx < 0 {
 		return nil, fmt.Errorf("toon: §9.0 document missing blank-line separator between header and body")
 	}
-	headers, err := parseDocumentHeaders(s[:sepIdx])
+	lines, err := parseDocumentHeaders(s[:sepIdx])
 	if err != nil {
 		return nil, err
+	}
+	headers := make(map[string]string, len(lines))
+	for _, l := range lines {
+		headers[l.key] = l.val
 	}
 
 	for _, k := range requiredHeaderKeys {
@@ -82,6 +139,8 @@ func DecodeTOONDocument(data []byte) (*TOONDocument, error) {
 		Fields:        fields,
 		FormatVersion: fv,
 		NextPageToken: headers["next_page_token"],
+		RecordKey:     headers["records"],
+		Extra:         extraHeaders(lines),
 	}
 
 	body := strings.TrimRight(s[sepIdx+2:], "\r\n")
@@ -103,10 +162,17 @@ func DecodeTOONDocument(data []byte) (*TOONDocument, error) {
 	return doc, nil
 }
 
-// parseDocumentHeaders parses the header section into a key→value map.
+// headerLine is one parsed "key: value" header, kept in file order so extra
+// headers decode in the order they were written.
+type headerLine struct {
+	key string
+	val string
+}
+
+// parseDocumentHeaders parses the header section into ordered key/value pairs.
 // Lines are "key: value"; blank lines and CRLF are tolerated.
-func parseDocumentHeaders(section string) (map[string]string, error) {
-	headers := make(map[string]string)
+func parseDocumentHeaders(section string) ([]headerLine, error) {
+	var lines []headerLine
 	for _, line := range strings.Split(section, "\n") {
 		line = strings.TrimRight(line, "\r")
 		if line == "" {
@@ -116,9 +182,32 @@ func parseDocumentHeaders(section string) (map[string]string, error) {
 		if colonIdx < 0 {
 			return nil, fmt.Errorf("toon: malformed header line %q", line)
 		}
-		headers[strings.TrimSpace(line[:colonIdx])] = strings.TrimSpace(line[colonIdx+1:])
+		lines = append(lines, headerLine{
+			key: strings.TrimSpace(line[:colonIdx]),
+			val: strings.TrimSpace(line[colonIdx+1:]),
+		})
 	}
-	return headers, nil
+	return lines, nil
+}
+
+// extraHeaders returns the non-reserved header lines as typed values.
+//
+// A value that is not valid JSON is kept as the raw string rather than
+// dropped: a hand-written document from a plugin may spell a scalar the way
+// the spec example spells op and variant, bare.
+func extraHeaders(lines []headerLine) []DocumentHeader {
+	var out []DocumentHeader
+	for _, l := range lines {
+		if reservedHeaderKeys[l.key] {
+			continue
+		}
+		var v any
+		if err := json.Unmarshal([]byte(l.val), &v); err != nil {
+			v = l.val
+		}
+		out = append(out, DocumentHeader{Key: l.key, Value: v})
+	}
+	return out
 }
 
 // splitFields splits the bare comma-separated fields header value into names.
@@ -248,8 +337,10 @@ func decodeDocumentCell(s string) any {
 // EncodeTOONDocument encodes a TOONDocument to §9.0 wire format.
 //
 // Header keys are emitted in canonical order:
-// op, variant, format_version, count, fields[, next_page_token]
+// op, variant, format_version, count, fields[, records][, next_page_token][, extra...]
 // followed by a blank line, then the CSV body.
+// Extra headers keep the order the caller built them in, and their values are
+// compact JSON.
 // count=0 emits the body sentinel "{}".
 // nil cell values encode as empty CSV cells; empty-string values encode as "".
 func EncodeTOONDocument(doc TOONDocument) ([]byte, error) {
@@ -267,8 +358,21 @@ func EncodeTOONDocument(doc TOONDocument) ([]byte, error) {
 	writeHeader("format_version", strconv.Itoa(doc.FormatVersion))
 	writeHeader("count", strconv.Itoa(doc.Count))
 	writeHeader("fields", strings.Join(doc.Fields, ","))
+	if doc.RecordKey != "" {
+		writeHeader("records", doc.RecordKey)
+	}
 	if doc.NextPageToken != "" {
 		writeHeader("next_page_token", doc.NextPageToken)
+	}
+	for _, h := range doc.Extra {
+		if !ValidExtraHeaderKey(h.Key) {
+			return nil, fmt.Errorf("%w: %q", ErrReservedHeaderKey, h.Key)
+		}
+		val, err := json.Marshal(h.Value)
+		if err != nil {
+			return nil, fmt.Errorf("toon: extra header %q: %w", h.Key, err)
+		}
+		writeHeader(h.Key, string(val))
 	}
 	buf.WriteByte('\n') // blank-line separator
 
@@ -303,6 +407,14 @@ func EncodeTOONDocument(doc TOONDocument) ([]byte, error) {
 //   - ""         → `""` (quoted empty, preserves empty-string distinction)
 //   - string     → RFC 4180 quoted if needed, otherwise bare
 //   - bool/float → canonical string representation
+//   - anything else → compact JSON in a quoted cell
+//
+// The JSON arm carries a field whose value is a list or an object, which §9.4
+// requires: gum.search_apis names params_required as a TOON field and its
+// value is an array. A CSV cell has no type, so such a cell decodes back as
+// the JSON text rather than as the structure. That is the lossy case §9.0
+// already covers, and the alternative — refusing the whole response — would
+// send every list-valued op to the JSON fallback.
 func encodeDocumentCell(v any) (string, error) {
 	if v == nil {
 		return "", nil
@@ -331,7 +443,11 @@ func encodeDocumentCell(v any) (string, error) {
 	case int32:
 		return strconv.FormatInt(int64(val), 10), nil
 	default:
-		return encodeDocumentString(fmt.Sprintf("%v", val)), nil
+		b, err := json.Marshal(val)
+		if err != nil {
+			return "", fmt.Errorf("toon: encode cell %T: %w", val, err)
+		}
+		return encodeDocumentString(string(b)), nil
 	}
 }
 

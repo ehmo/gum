@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/ehmo/gum/internal/config"
 	"github.com/ehmo/gum/internal/output/tee"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -18,11 +19,6 @@ const resultsResourceTemplate = "gum://results/{hash}"
 // We deliberately reject schemes or hosts that do not match exactly so a
 // stray `https://results/...` cannot collide with the template.
 const resultsURIPrefix = "gum://results/"
-
-// resultsScanMaxDaysDefault is the v0.1.0 default reverse-lookup window:
-// 24 hours rounded up to a 2-day scan to cover the UTC-day boundary the
-// artifact path uses.
-const resultsScanMaxDaysDefault = 2
 
 // jsonRPCResultArtifactExpired is the spec §13 normative JSON-RPC error
 // code for `RESULT_ARTIFACT_EXPIRED`. Distinct from jsonRPCResourceNotFnd,
@@ -61,7 +57,7 @@ func (s *Server) handleResultsResource(_ context.Context, req *sdkmcp.ReadResour
 	if profileDir == "" {
 		return nil, expiredArtifactError(uri, hash)
 	}
-	path, ok, err := tee.FindArtifact(profileDir, hash, resultsScanMaxDaysDefault)
+	path, ok, err := tee.FindArtifact(profileDir, hash, s.resultsScanWindowDays())
 	if err != nil || !ok {
 		return nil, expiredArtifactError(uri, hash)
 	}
@@ -78,6 +74,22 @@ func (s *Server) handleResultsResource(_ context.Context, req *sdkmcp.ReadResour
 			},
 		},
 	}, nil
+}
+
+// resultsScanWindowDays is how many UTC-day directories a gum://results/{hash}
+// lookup walks for the active profile. It follows the configured retention so
+// the read window never falls short of the expiry the same profile advertised
+// in _expression.artifact_expires_at (bead gum-sd58).
+//
+// The config is read per call rather than cached at SetProfile: a
+// `gum config set output.tee_retention_hours=N` in another process must take
+// effect without restarting a long-running `gum mcp --stdio` session.
+func (s *Server) resultsScanWindowDays() int {
+	hours := 0
+	if cfg, _, err := config.Load(s.profile.String()); err == nil && cfg != nil {
+		hours = cfg.TeeRetentionHours()
+	}
+	return tee.ScanWindowDays(hours)
 }
 
 // parseResultsURI accepts `gum://results/<hash>` and returns the hash.

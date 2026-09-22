@@ -400,9 +400,11 @@ gum_print(out)
 	}
 }
 
-// TestGumParallelNoHoistWhenDiffers asserts the hoist negative case: when
-// fields differ across results, no field is hoisted; per-result _expression
-// keeps each value.
+// TestGumParallelNoHoistWhenDiffers asserts the hoist negative case: a field
+// whose value differs across results is not hoisted and stays in each
+// per-result _expression. The two elements name different ops, so op_id is
+// that field; the ExpressionMeta fields they do share still hoist, per
+// §9.0.1 rule 5.
 func TestGumParallelNoHoistWhenDiffers(t *testing.T) {
 	mock := &mockDispatcher{fn: func(ctx context.Context, inv *dispatch.Invocation) (*dispatch.ShapedResponse, error) {
 		return &dispatch.ShapedResponse{Format: "json", StructuredContent: map[string]any{"ok": true}}, nil
@@ -411,13 +413,19 @@ func TestGumParallelNoHoistWhenDiffers(t *testing.T) {
 let env = gum_parallel([{op: "op.a"}, {op: "op.b"}])
 let shared = env.get("shared_expression_fields")
 let out = ""
-if (shared == nil) { out = out + "shared=nil;" } else { out = out + "shared.op_id=" + shared["op_id"] + ";" }
+if (shared == nil) {
+    out = out + "shared=nil;"
+} else if (shared.get("op_id") == nil) {
+    out = out + "op_id-not-shared;"
+} else {
+    out = out + "op_id-shared=" + shared["op_id"] + ";"
+}
 out = out + "a=" + env["results"][0]["_expression"]["op_id"] + ";"
 out = out + "b=" + env["results"][1]["_expression"]["op_id"] + ";"
 gum_print(out)
 `
 	got := execScript(t, context.Background(), mock, script)
-	want := "shared=nil;a=op.a;b=op.b;"
+	want := "op_id-not-shared;a=op.a;b=op.b;"
 	if got != want {
 		t.Errorf("no-hoist mismatch:\ngot:  %q\nwant: %q", got, want)
 	}

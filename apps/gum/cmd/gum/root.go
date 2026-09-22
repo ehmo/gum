@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ehmo/gum/internal/adapters"
@@ -97,6 +98,7 @@ func newRootCmd() *cobra.Command {
 				return err
 			}
 			promotePendingPlugins(cmd)
+			initSessionCatalog(cmd)
 			return nil
 		},
 	}
@@ -147,6 +149,7 @@ func newRootCmd() *cobra.Command {
 	if root.PersistentFlags().Lookup("profile") == nil {
 		root.PersistentFlags().String("profile", "default", "Profile name to read/write config under")
 	}
+	_ = root.RegisterFlagCompletionFunc("profile", completeProfileNames)
 	root.PersistentFlags().String("log-level", "info", "Log level: debug|info|warn|error (overrides GUM_LOG_LEVEL)")
 	root.PersistentFlags().String("log-format", "json", "Log format: json|text")
 	return root
@@ -182,16 +185,8 @@ func promotePendingPlugins(cmd *cobra.Command) {
 	if cmd == nil || cmd.Root() == nil {
 		return
 	}
-	f := cmd.Root().PersistentFlags().Lookup("profile")
-	if f == nil {
-		return
-	}
-	name, err := profilepkg.Parse(f.Value.String())
-	if err != nil {
-		return
-	}
-	dir, err := name.DataDir()
-	if err != nil || dir == "" {
+	name, dir := profileTargetForCmd(cmd)
+	if dir == "" {
 		return
 	}
 	ctx := cmd.Context()
@@ -200,11 +195,11 @@ func promotePendingPlugins(cmd *cobra.Command) {
 	}
 	promoted, err := plugins.PromotePendingRestart(ctx, writableRegistry(dir), time.Now())
 	if err != nil {
-		slog.Warn("plugin startup activation skipped", "profile", name.String(), "err", err)
+		slog.Warn("plugin startup activation skipped", "profile", name, "err", err)
 		return
 	}
 	for _, p := range promoted {
-		slog.Info("plugin promoted to active", "plugin", p, "profile", name.String())
+		slog.Info("plugin promoted to active", "plugin", p, "profile", name)
 	}
 }
 
@@ -297,8 +292,27 @@ func maybeNotifyUpdate(cmd *cobra.Command) {
 	notify.MaybeNotify(cmd.ErrOrStderr(), version, profile, enabled, nil, nil)
 }
 
-// loadCatalog returns the embedded catalog snapshot, or nil if unavailable.
+// sessionSnapshot holds the catalog this process dispatches against: the
+// embedded catalog plus the active plugin variants of the profile the process
+// booted with (spec §5 line 405). initSessionCatalog fills it once, during the
+// root PersistentPreRunE, before any command resolves an op.
+//
+// It stays nil until then, which is how a unit test that calls loadCatalog()
+// without booting the root command keeps reading the embedded catalog alone.
+var sessionSnapshot atomic.Pointer[catalog.Catalog]
+
+// loadCatalog returns the session catalog snapshot, or the embedded catalog
+// when no session snapshot has been built, or nil if neither is available.
 func loadCatalog() *catalog.Catalog {
+	if c := sessionSnapshot.Load(); c != nil {
+		return c
+	}
+	return embeddedCatalog()
+}
+
+// embeddedCatalog parses the build-time catalog, or returns nil if the
+// embedded JSON is absent or unparseable.
+func embeddedCatalog() *catalog.Catalog {
 	if len(embedded.CatalogJSON) == 0 {
 		return nil
 	}
@@ -307,6 +321,60 @@ func loadCatalog() *catalog.Catalog {
 		return nil
 	}
 	return &c
+}
+
+// initSessionCatalog merges the profile's active plugin variants into the
+// embedded catalog and publishes the result as the session snapshot.
+//
+// It runs once per process, after promotePendingPlugins has flipped the
+// pending-restart rows, so a plugin installed by an earlier process is active
+// by the time the merge reads plugin-state.json. Running here also puts the
+// merge before `gum mcp --stdio` reaches Server.Run: the MCP tool roster is
+// fixed at registration, so no plugin install can move it mid-session and
+// tools/list_changed never fires (spec §13 line 3148).
+//
+// Failures are logged and dropped. A profile whose plugin registry gum cannot
+// read must still dispatch the built-in catalog.
+func initSessionCatalog(cmd *cobra.Command) {
+	base := embeddedCatalog()
+	if base == nil {
+		return
+	}
+	name, dir := profileTargetForCmd(cmd)
+	if dir == "" {
+		sessionSnapshot.Store(base)
+		return
+	}
+	snapshot, refused, err := plugins.SessionCatalog(base, writableRegistry(dir))
+	if err != nil {
+		slog.Warn("plugin variants excluded from the session catalog", "profile", name, "err", err)
+	}
+	for _, r := range refused {
+		slog.Warn("plugin catalog row refused", "profile", name, "err", r)
+	}
+	sessionSnapshot.Store(snapshot)
+}
+
+// profileTargetForCmd resolves the active profile's name and data directory
+// from the root --profile flag. The directory is "" when the flag is missing,
+// the name does not parse, or the platform data dir cannot be resolved.
+func profileTargetForCmd(cmd *cobra.Command) (string, string) {
+	if cmd == nil || cmd.Root() == nil {
+		return "", ""
+	}
+	f := cmd.Root().PersistentFlags().Lookup("profile")
+	if f == nil {
+		return "", ""
+	}
+	name, err := profilepkg.Parse(f.Value.String())
+	if err != nil {
+		return "", ""
+	}
+	dir, err := name.DataDir()
+	if err != nil {
+		return name.String(), ""
+	}
+	return name.String(), dir
 }
 
 // defaultAdapters returns the adapter map shared by CLI and MCP entry points.
@@ -320,6 +388,11 @@ func loadCatalog() *catalog.Catalog {
 // shape from cmd/gen-catalog/gen_flights.go.
 func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.CodeRunner) {
 	cr := adapters.NewCodeRunner()
+	// §6.1 code.output_limit_bytes. A profile with no config file, or one that
+	// never set the key, yields 0 and the sandbox applies the spec default.
+	if cfg, _, err := config.Load(profile); err == nil {
+		cr = cr.WithOutputLimitBytes(cfg.CodeOutputLimitBytes())
+	}
 	// rest.typed-rest-sdk, rest.discovery-rest, and rest.raw-http all share the
 	// same TypedRestSDK executor in v0.1.0 — they only differ in catalog
 	// metadata (interface_kind / backend_kind). v0.2.0 will split raw-http into
@@ -329,11 +402,17 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		// Profile + Keyring let Start resolve the credentials `gum plugin
 		// setup` stored for this profile (§8.2); without them a plugin that
 		// declares needs_user_creds spawns unconfigured (gum-yq50).
-		cfg := plugins.HostConfig{Profile: profile, Keyring: auth.NewOSKeyring()}
+		cfg := plugins.HostConfig{
+			Profile: profile, Keyring: auth.NewOSKeyring(),
+			// §7: a compound plugin calls Google as the user, so the host
+			// hands it the live access token and records the handover.
+			TokenResolver: newGoogleTokenForwarder(profile),
+		}
 		// The plugins.lock row is the authoritative install-time digest; the
 		// sidecar in the 0o755 install dir is only a cross-check copy.
 		if dir, err := resolveProfileDir(profile); err == nil {
 			cfg.TrustedDigest = plugins.RecordedDigestResolver(registry.New(dir))
+			cfg.Audit = profileAuditSink{profileDir: dir}
 		}
 		return plugins.NewHost(cfg)
 	}, func(ctx context.Context, host *plugins.Host, pluginID string) (*plugins.Plugin, error) {
@@ -462,36 +541,12 @@ func newDefaultDispatcherWithCloser(profile string, buffered bool) (dispatch.Dis
 	return newDefaultDispatcherWithCloserAndScopeLoading(profile, buffered, true)
 }
 
-func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loadProfileScopes bool) (dispatch.Dispatcher, func() error) {
-	adapterMap, codeRunner := defaultAdapters(profile)
-	name, nameErr := profilepkg.Parse(profile)
-	profileName := ""
-	profileDataDir := ""
-	if nameErr == nil {
-		profileName = name.String()
-		if dir, err := name.DataDir(); err == nil {
-			profileDataDir = dir
-		}
-	}
-	scopeProfile := profile
-	if profileName != "" {
-		scopeProfile = profileName
-	}
-	// Bind the auth resolver to the ACTIVE profile so it loads the client and
-	// reads the byo_oauth grant under the same per-profile key that `gum login`
-	// stored them under (gum-2fu0). Without this the resolver defaults to
-	// "default" regardless of --profile, stranding non-default-profile grants.
-	authResolver := auth.NewDefaultCompositeResolver()
-	authResolver.Profile = scopeProfile
-	var allowedScopes []string
-	if loadProfileScopes {
-		// Best-effort tier: nobody asked for this read, and a locked keychain
-		// (a headless Linux box whose Secret Service prompt has no one to
-		// answer it) must degrade to "no granted scopes" instead of stalling
-		// every command on the interactive bound.
-		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile))
-	}
-	cfg := dispatch.DispatcherConfig{
+// newDispatcherConfigForProfile assembles the kernel's policy wiring for one
+// profile. It is a named seam so a test can assert what the shipped binary
+// hands the kernel; an unset field here is a stage that never runs in
+// production, whatever its package tests prove in isolation.
+func newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir string, authResolver dispatch.AuthResolver, allowedScopes []string) dispatch.DispatcherConfig {
+	return dispatch.DispatcherConfig{
 		Auth: authResolver,
 		// Spec §10.3 semantic response cache. In-process for v0.1.0; the
 		// per-profile persistent semantic.db lands in v0.2.0 — until then,
@@ -523,7 +578,74 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 		// Env and profile-config defaults for omitted args, such as the
 		// Google Ads account ids (gum-puum).
 		ArgDefaults: newArgDefaulter(scopeProfile),
+		// §7: the account each strategy is bound to. Step 5 refuses a
+		// credential resolved under a listed strategy whose fingerprint
+		// differs, so a swapped keychain entry cannot quietly move the
+		// profile to another Google account (gum-q0kd).
+		ExpectedAuthSubjects: expectedAuthSubjects(scopeProfile),
+		// §9.0 filesystem tee. Without it the kernel skips every artifact
+		// write, so no response carries full_result_path,
+		// full_result_resource or artifact_expires_at and every
+		// gum://results/{hash} read answers RESULT_ARTIFACT_EXPIRED
+		// (gum-sd58).
+		Tee: teeConfigForProfile(scopeProfile, profileDataDir),
 	}
+}
+
+// teeConfigForProfile reads the two global §9.0 tee overrides for profile.
+// profileDataDir is the resolved <data home>/gum/<profile>; an empty value
+// leaves the stage off, because a relative "tee/" directory would scatter
+// artifacts wherever the process happened to start.
+//
+// Both keys fall back rather than fail: the kernel maps an unknown tee_mode to
+// "off" and a 0 retention to the spec default, so an unusable value must reach
+// it as the zero value, not as the typo.
+func teeConfigForProfile(profile, profileDataDir string) dispatch.TeeConfig {
+	if profileDataDir == "" {
+		return dispatch.TeeConfig{}
+	}
+	cfg := dispatch.TeeConfig{ProfileDir: profileDataDir}
+	loaded, _, err := config.Load(profile)
+	if err != nil || loaded == nil {
+		return cfg
+	}
+	if mode, ok := loaded.Get("output.tee_mode"); ok && outprofile.ValidTeeMode(mode) {
+		cfg.Mode = mode
+	}
+	cfg.RetentionHours = loaded.TeeRetentionHours()
+	return cfg
+}
+
+func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loadProfileScopes bool) (dispatch.Dispatcher, func() error) {
+	adapterMap, codeRunner := defaultAdapters(profile)
+	name, nameErr := profilepkg.Parse(profile)
+	profileName := ""
+	profileDataDir := ""
+	if nameErr == nil {
+		profileName = name.String()
+		if dir, err := name.DataDir(); err == nil {
+			profileDataDir = dir
+		}
+	}
+	scopeProfile := profile
+	if profileName != "" {
+		scopeProfile = profileName
+	}
+	// Bind the auth resolver to the ACTIVE profile so it loads the client and
+	// reads the byo_oauth grant under the same per-profile key that `gum login`
+	// stored them under (gum-2fu0). Without this the resolver defaults to
+	// "default" regardless of --profile, stranding non-default-profile grants.
+	authResolver := auth.NewDefaultCompositeResolver()
+	authResolver.Profile = scopeProfile
+	var allowedScopes []string
+	if loadProfileScopes {
+		// Best-effort tier: nobody asked for this read, and a locked keychain
+		// (a headless Linux box whose Secret Service prompt has no one to
+		// answer it) must degrade to "no granted scopes" instead of stalling
+		// every command on the interactive bound.
+		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile))
+	}
+	cfg := newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir, authResolver, allowedScopes)
 	closer := func() error { return nil }
 	if dir := profileDataDir; dir != "" {
 		opts := auditOptionsForProfile(profileName, buffered)

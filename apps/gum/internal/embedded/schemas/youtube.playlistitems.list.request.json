@@ -1,0 +1,38 @@
+{
+  "$id": "youtube.playlistitems.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set.",
+      "type": "integer"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter specifies a comma-separated list of one or more playlistItem resource properties that the API resp…",
+      "type": "string"
+    },
+    "playlistId": {
+      "description": "Return the playlist items within the given playlist.",
+      "type": "string"
+    },
+    "videoId": {
+      "description": "Return the playlist items associated with the given video ID.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "List Playlist Items request",
+  "type": "object"
+}

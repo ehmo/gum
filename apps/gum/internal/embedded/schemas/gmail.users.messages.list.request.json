@@ -1,0 +1,34 @@
+{
+  "$id": "gmail.users.messages.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "includeSpamTrash": {
+      "type": "boolean"
+    },
+    "labelIds": {
+      "description": "Only return messages with these label IDs.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "maxResults": {
+      "type": "integer"
+    },
+    "pageToken": {
+      "type": "string"
+    },
+    "q": {
+      "description": "Gmail search query, e.g. from:alice is:unread.",
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId"
+  ],
+  "title": "List Gmail messages request",
+  "type": "object"
+}

@@ -44,13 +44,19 @@ gum code --allow-write @./script.risor
 
 Use `--allow-write` or `--allow-destructive` only for scripts you have reviewed.
 
+Both flags need your confirmation before the sandbox runs. On a terminal `gum`
+prints the script's capability on stderr and waits for `y`. Any other answer
+exits `REQUIRES_CONFIRMATION` and nothing runs. When stdin is not a terminal,
+such as in a script or a CI job, pass `--yes` instead. A read-only `gum code`
+confirms nothing.
+
 `--allow-destructive` also needs `--destructive-budget=N`, where N is 1 to 20
 and caps how many destructive calls the script may make. Narrow the target set
 further with repeated `--destructive-scope op_id[:resource_key]`, at most 20
 entries; a destructive call outside the scope fails before it reaches the API.
 
 ```bash
-gum code --allow-destructive --destructive-budget 2 \
+gum code --allow-destructive --yes --destructive-budget 2 \
   --destructive-scope drive.files.delete:FILE_ID @./cleanup.risor
 ```
 

@@ -1,0 +1,37 @@
+{
+  "$id": "admin.directory.members.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "email": {
+      "description": "Member email address.",
+      "type": "string"
+    },
+    "groupKey": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "OWNER",
+        "MANAGER",
+        "MEMBER"
+      ],
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "USER",
+        "GROUP",
+        "CUSTOMER",
+        "EXTERNAL"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "groupKey",
+    "email",
+    "role"
+  ],
+  "title": "Add a group member request",
+  "type": "object"
+}

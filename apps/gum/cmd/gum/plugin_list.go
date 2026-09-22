@@ -7,6 +7,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/ehmo/gum/internal/mcp"
+	"github.com/ehmo/gum/internal/output/jcs"
 	"github.com/ehmo/gum/internal/plugins"
 )
 
@@ -143,4 +145,31 @@ func dashIfEmpty(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// formatPluginListJSON renders the §12 line 2537 root
+// `{"plugins": PluginInventoryRow[]}` for one profile. The rows come from the
+// same loader that backs gum://plugins, so the two surfaces cannot report
+// different columns; unlike the resource, this listing keeps
+// installed_pending_restart rows, which spec §13 line 3234 requires an
+// operator to be able to see.
+//
+// The text listing is a different join (manifest walk plus state rows) and
+// stays as it is. It answers "can this plugin spawn right now", which needs the
+// manifests on disk; the JSON contract is a projection of the registry files.
+//
+// An empty inventory prints `{"plugins":[]}`, not an empty string: a script
+// parsing this needs valid JSON for the no-plugins case, and the caller's
+// empty-output branch exists only to keep the human text form quiet.
+func formatPluginListJSON(profileDir string) (string, error) {
+	rows := mcp.LoadPluginInventory(profileDir)
+	if rows == nil {
+		rows = []mcp.PluginInventoryRow{}
+	}
+
+	body, err := jcs.Marshal(map[string]any{"plugins": rows})
+	if err != nil {
+		return "", fmt.Errorf("gum plugin list: canonical JSON encoding failed: %w", err)
+	}
+	return string(body) + "\n", nil
 }

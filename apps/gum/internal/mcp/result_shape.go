@@ -52,15 +52,18 @@ func tierAResult(shaped *dispatch.ShapedResponse) any {
 		env["data"] = string(shaped.Body)
 
 	default:
-		// ToonResult. The TOON text carries the count and fields headers, so
-		// only op and variant repeat as top-level convenience keys. §13 closes
-		// this object, so nothing else may be added here.
+		// ToonResult. The body is a §9.0 TOON document: a header block of
+		// key: value lines, a blank line, then CSV rows carrying no CSV header
+		// row of their own. The header already states op, variant, count,
+		// fields and format_version, so op and variant repeat here only as
+		// top-level convenience keys. §13 closes this object, so nothing else
+		// may be added here.
 		//
 		// This is the default rather than a `case "toon"` because profile.Apply
 		// falls back to TOON for any format it does not implement. It renames
-		// the format when it does so, so the constant here agrees with the
-		// body in every case, including a format added to the enum before its
-		// encoder ships.
+		// the format when it does so, and a body no §9.0 document can hold
+		// comes back labelled "json" and lands in the case above, so the
+		// constant here agrees with the body in every case.
 		env["format"] = "toon"
 		env["toon"] = string(shaped.Body)
 		if meta.OpID != "" {

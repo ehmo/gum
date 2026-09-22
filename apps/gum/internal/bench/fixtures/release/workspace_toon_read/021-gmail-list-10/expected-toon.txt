@@ -1,2 +1,18 @@
-messages=[{"id":"18a74ab00d","threadId":"18a74ab00d"},{"id":"18afe573d1","threadId":"18afe573d1"},{"id":"18affd549f","threadId":"18affd549f"},{"id":"18a91b5199","threadId":"18a91b5199"},{"id":"18a28c432f","threadId":"18a28c432f"},{"id":"18a1b101e4","threadId":"18a1b101e4"},{"id":"18a3eb9b94","threadId":"18a3eb9b94"},{"id":"18af3778cd","threadId":"18af3778cd"},{"id":"18adb49c47","threadId":"18adb49c47"},{"id":"18a4baa560","threadId":"18a4baa560"}]
-resultSizeEstimate=10
+op: gmail.users.messages.list
+variant: 
+format_version: 1
+count: 10
+fields: id,threadId
+records: messages
+resultSizeEstimate: 10
+
+18a74ab00d,18a74ab00d
+18afe573d1,18afe573d1
+18affd549f,18affd549f
+18a91b5199,18a91b5199
+18a28c432f,18a28c432f
+18a1b101e4,18a1b101e4
+18a3eb9b94,18a3eb9b94
+18af3778cd,18af3778cd
+18adb49c47,18adb49c47
+18a4baa560,18a4baa560

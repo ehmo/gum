@@ -134,7 +134,17 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 	}
 	strat, err := strategyFromCatalog(rv.Variant.AuthStrategy)
 	if err != nil {
-		return nil, err
+		// A strategy string the catalog enum does not define. Catalog.Validate
+		// and plugin install both refuse these first, so reaching here means a
+		// catalog was hand-edited past validation. Answer with the same
+		// structured envelope the unwired-strategy arm below uses, rather than
+		// a bare sentinel the dispatcher would have to flatten into
+		// SERVICE_DOWN.
+		return nil, &AuthError{
+			Code:             "AUTH_STRATEGY_NOT_IMPLEMENTED",
+			Strategy:         string(rv.Variant.AuthStrategy),
+			HumanRemediation: fmt.Sprintf("auth_strategy %q is not in the spec §7 enum; see docs/catalog-abi.md", string(rv.Variant.AuthStrategy)),
+		}
 	}
 
 	scopeNames := append([]string{}, rv.Variant.Scopes...)
@@ -228,13 +238,13 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 	case StrategyCompound:
 		// Spec §7 lines 1289-1305 + 1378-1389: a compound-auth failure
 		// envelope MUST include auth_strategy, missing_components, and
-		// setup_command so the LLM/user can act on it. v0.1.0 does not
-		// have a per-component resolver chain yet (gum-qa3 carries the
-		// scaffold), so the missing_components slice reflects the
-		// variant's declared components when present and falls back to
-		// a single "see_setup_command" marker otherwise. The op id is
-		// surfaced when the dispatcher has resolved it so the operator
-		// can run `gum auth setup <op_id>` verbatim.
+		// setup_command so the LLM/user can act on it. missing_components
+		// carries the variant's declared auth_components and falls back to
+		// a single "see_setup_command" marker when it declares none. There
+		// is no per-component resolver chain yet, so every declared
+		// component is reported. The op id is surfaced when the dispatcher
+		// has resolved it so the operator can run `gum auth setup <op_id>`
+		// verbatim.
 		missing := compoundMissingComponents(rv)
 		opID := ""
 		if inv != nil {
@@ -265,17 +275,40 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 }
 
 // compoundMissingComponents derives the missing_components slice for a
-// compound-auth failure envelope. v0.1.0 does not yet carry per-variant
-// component records in catalog.json (compound auth lands fully with
-// plugin-managed manifests post-v0.1), so the fallback is a single
-// "see_setup_command" sentinel — enough to satisfy spec §7's "MUST
-// include missing_components" while signaling that the canonical
-// component list lives behind `gum auth setup <op_id>`.
+// compound-auth failure envelope from the variant's declared
+// auth_components (spec §7, docs/catalog-abi.md).
+//
+// Every declared component is reported, optional ones included: nothing
+// resolves compound components per-account yet, so GUM cannot tell a
+// satisfied prerequisite from an unsatisfied one, and dropping a component
+// would hide a step the operator still has to decide about. The order is the
+// catalog's, so `gum auth setup <op_id>` walks the steps as the curator
+// sequenced them.
+//
+// A compound variant that declares no components falls back to a single
+// "see_setup_command" marker, which keeps spec §7's "MUST include
+// missing_components" true while pointing at the setup command.
 func compoundMissingComponents(rv *dispatch.ResolvedVariant) []string {
-	if rv == nil || rv.Variant == nil {
+	if rv == nil || rv.Variant == nil || len(rv.Variant.AuthComponents) == 0 {
 		return []string{"see_setup_command"}
 	}
-	// Future: pull from rv.Variant.MissingComponents once the catalog
-	// ABI carries the closed-enum component list (spec §7 line 1296).
-	return []string{"see_setup_command"}
+
+	out := make([]string, 0, len(rv.Variant.AuthComponents))
+	seen := make(map[string]struct{}, len(rv.Variant.AuthComponents))
+	for _, comp := range rv.Variant.AuthComponents {
+		kind := string(comp.Kind)
+		if kind == "" {
+			continue
+		}
+		if _, dup := seen[kind]; dup {
+			continue
+		}
+		seen[kind] = struct{}{}
+		out = append(out, kind)
+	}
+
+	if len(out) == 0 {
+		return []string{"see_setup_command"}
+	}
+	return out
 }

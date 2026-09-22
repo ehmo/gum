@@ -1,0 +1,49 @@
+{
+  "$id": "sheets.spreadsheets.values.batchupdate.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "data": {
+      "description": "ValueRange objects to write.",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "includeValuesInResponse": {
+      "type": "boolean"
+    },
+    "responseDateTimeRenderOption": {
+      "enum": [
+        "SERIAL_NUMBER",
+        "FORMATTED_STRING"
+      ],
+      "type": "string"
+    },
+    "responseValueRenderOption": {
+      "enum": [
+        "FORMATTED_VALUE",
+        "UNFORMATTED_VALUE",
+        "FORMULA"
+      ],
+      "type": "string"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    },
+    "valueInputOption": {
+      "description": "How input data is interpreted.",
+      "enum": [
+        "RAW",
+        "USER_ENTERED"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "valueInputOption",
+    "data"
+  ],
+  "title": "Update Multiple Sheets Ranges request",
+  "type": "object"
+}

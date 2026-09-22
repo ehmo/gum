@@ -29,7 +29,7 @@ func TestAuthTopicContainsConsoleWalkthrough(t *testing.T) {
 		"gum auth login --scope",
 		"gum auth probe --scopes",
 		"scope strings come from the catalog",
-		"AUTH_SCOPE_MISSING",
+		"SCOPE_MISSING",
 	}
 	for _, want := range mustContain {
 		if !strings.Contains(text, want) {

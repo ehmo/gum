@@ -1,0 +1,12 @@
+{
+  "$id": "forms.forms.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "unpublished": {
+      "description": "Optional. Whether the form is unpublished. If set to `true`, the form doesn't accept responses. If set to `false` or un…",
+      "type": "boolean"
+    }
+  },
+  "title": "Create a Form request",
+  "type": "object"
+}

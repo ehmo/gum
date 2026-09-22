@@ -1,0 +1,31 @@
+{
+  "$id": "drive.files.copy.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fields": {
+      "type": "string"
+    },
+    "fileId": {
+      "type": "string"
+    },
+    "name": {
+      "description": "Name for the copied file.",
+      "type": "string"
+    },
+    "parents": {
+      "description": "Parent folder IDs for the copy.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId"
+  ],
+  "title": "Copy a Drive File request",
+  "type": "object"
+}

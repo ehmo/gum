@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -23,6 +24,12 @@ import (
 	profilepkg "github.com/ehmo/gum/internal/profile"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// listPageCap is the server-chosen page cap for MCP list methods
+// (resources/list, resources/templates/list, tools/list, prompts/list).
+// Spec §13: "v0.1.0 uses a server-chosen page cap of 100 entries; there is
+// no client page-size input in the MCP 2025-11-25 contract".
+const listPageCap = 100
 
 // metaToolNames is the canonical ordered list of Tier A meta-tools.
 var metaToolNames = []string{
@@ -75,7 +82,24 @@ type Server struct {
 	pollerFactory        pollerFactory   // injectable; nil → default production poller
 	profile              profilepkg.Name // active profile; resolves <data home>/gum/<profile>/audit.broken
 	healthCache          healthSnapshotCache
-	roots                rootsCache // per-session roots/list cache (§9.2)
+	roots                rootsCache   // per-session roots/list cache (§9.2)
+	logger               *slog.Logger // §14.1 rule 2 injected logger; nil means slog.Default()
+}
+
+// SetLogger injects the logger this package emits through (spec §14.1 rule
+// 2). Passing nil restores the slog.Default() fallback. Callers inject
+// before Run; the field is not guarded, because the SDK server is
+// single-threaded until Run starts.
+func (s *Server) SetLogger(l *slog.Logger) {
+	s.logger = l
+}
+
+// log returns the injected logger, or slog.Default() when none was wired.
+func (s *Server) log() *slog.Logger {
+	if s.logger != nil {
+		return s.logger
+	}
+	return slog.Default()
 }
 
 // SetProfile sets the active profile used for per-profile filesystem paths
@@ -146,6 +170,10 @@ func NewServerWithCatalog(disp dispatch.Dispatcher, snapshot *catalog.Catalog) *
 				Completions: &sdkmcp.CompletionCapabilities{},
 			},
 			CompletionHandler: s.handleComplete,
+			// Spec §13 fixes the v0.1.0 list page cap at 100 entries. The SDK
+			// default is 1000, so leaving this unset would hand clients pages
+			// the spec does not permit.
+			PageSize: listPageCap,
 		},
 	)}
 	s.sdkSrv = sdkSrv
@@ -155,14 +183,13 @@ func NewServerWithCatalog(disp dispatch.Dispatcher, snapshot *catalog.Catalog) *
 	metaAnnotations := TierAMetaToolAnnotations()
 	for _, name := range metaToolNames {
 		toolName := name
-		tool := &sdkmcp.Tool{
-			Name:         toolName,
-			Description:  metaToolDescription(toolName),
-			InputSchema:  metaToolSchema(toolName),
-			OutputSchema: metaToolOutputSchema(toolName),
-			Annotations:  metaAnnotations[toolName],
-			Meta:         promptCacheHintMeta(),
-		}
+		tool := setOutputSchema(&sdkmcp.Tool{
+			Name:        toolName,
+			Description: metaToolDescription(toolName),
+			InputSchema: metaToolSchema(toolName),
+			Annotations: metaAnnotations[toolName],
+			Meta:        promptCacheHintMeta(),
+		}, metaToolOutputSchema(toolName))
 		sdkSrv.AddTool(tool, s.makeMetaToolHandler(toolName))
 	}
 	s.registerSkillTools()
@@ -174,7 +201,27 @@ func NewServerWithCatalog(disp dispatch.Dispatcher, snapshot *catalog.Catalog) *
 	s.registerResourceTemplates()
 	s.registerPrompts()
 
+	// Spec §13.2 pins the contract to MCP 2025-11-25. The floor also closes
+	// legacy JSON-RPC batching, which the pinned transport still accepts on a
+	// pre-2025-06-18 session with no size cap of any kind.
+	s.sdkSrv.AddReceivingMiddleware(rejectLegacyProtocol)
+
 	return s
+}
+
+// setOutputSchema assigns an output schema only when there is one to assign.
+//
+// sdkmcp.Tool.OutputSchema is `any` with `omitempty`. Assigning a nil
+// json.RawMessage to it yields a non-nil interface holding a nil slice, so
+// omitempty never fires and the tool ships `"outputSchema":null`. MCP allows
+// the key to be absent but requires a schema object when it is present, so a
+// strict client rejects the entire tools/list response over one such tool
+// (bead gum-tq5v). Guarded by TestToolsListNeverPutsNullOutputSchemaOnTheWire.
+func setOutputSchema(tool *sdkmcp.Tool, schema json.RawMessage) *sdkmcp.Tool {
+	if len(schema) > 0 {
+		tool.OutputSchema = schema
+	}
+	return tool
 }
 
 func (s *Server) registerSkillTools() {
@@ -209,14 +256,13 @@ func (s *Server) registerSkillTools() {
 		},
 	} {
 		toolDef := def
-		s.sdkSrv.AddTool(&sdkmcp.Tool{
-			Name:         toolDef.name,
-			Description:  toolDef.description,
-			InputSchema:  toolDef.schema,
-			OutputSchema: toolDef.outputSchema,
-			Annotations:  annotations,
-			Meta:         promptCacheHintMeta(),
-		}, validatedHandler(toolDef.name, toolDef.schema, toolDef.handler))
+		s.sdkSrv.AddTool(setOutputSchema(&sdkmcp.Tool{
+			Name:        toolDef.name,
+			Description: toolDef.description,
+			InputSchema: toolDef.schema,
+			Annotations: annotations,
+			Meta:        promptCacheHintMeta(),
+		}, toolDef.outputSchema), validatedHandler(toolDef.name, toolDef.schema, toolDef.handler))
 	}
 }
 
@@ -256,14 +302,13 @@ func (s *Server) registerConvenienceTools(rosterData []byte) {
 	for _, name := range roster.ConvenienceTools {
 		toolName := name
 		s.sdkSrv.AddTool(
-			&sdkmcp.Tool{
-				Name:         toolName,
-				Description:  convenienceToolDescription(toolName),
-				InputSchema:  convenienceToolSchema(toolName),
-				OutputSchema: convenienceToolOutputSchema(toolName),
-				Annotations:  annotations[toolName],
-				Meta:         promptCacheHintMeta(),
-			},
+			setOutputSchema(&sdkmcp.Tool{
+				Name:        toolName,
+				Description: convenienceToolDescription(toolName),
+				InputSchema: convenienceToolSchema(toolName),
+				Annotations: annotations[toolName],
+				Meta:        promptCacheHintMeta(),
+			}, convenienceToolOutputSchema(toolName)),
 			s.makeConvenienceHandler(toolName),
 		)
 		s.convenienceToolNames = append(s.convenienceToolNames, name)

@@ -45,7 +45,7 @@ Generated from `gum schema --json`.
   - [`gum plugin`](commands/gum-plugin.md) - Manage gum plugins: install, list, run, and curate third-party subprocess
     - [`gum plugin info <name> [flags]`](commands/gum-plugin-info.md) - Prints the plugin record assembled from plugins.lock, plugin-state.json and
     - [`gum plugin install <local-dir> [flags]`](commands/gum-plugin-install.md) - Installs a plugin through an atomic registry update: validates the manifest,
-    - [`gum plugin list`](commands/gum-plugin-list.md) - List installed plugins with their quarantine state
+    - [`gum plugin list [flags]`](commands/gum-plugin-list.md) - List installed plugins with their quarantine state
     - [`gum plugin reload <id>`](commands/gum-plugin-reload.md) - Clears any quarantine state for the named plugin, then spawns the subprocess once via the supervisor to act as a passive canary. A spawn failure re-quarantines the plugin.
     - [`gum plugin remove <id>`](commands/gum-plugin-remove.md) - Remove a plugin by ID
     - [`gum plugin run <id> <tool> [args-json]`](commands/gum-plugin-run.md) - Call a tool on a running plugin

@@ -243,8 +243,9 @@ func TestCallRiskCompletion(t *testing.T) {
 }
 
 // TestCompleteFieldsForOpArms covers the guards of the --fields completion.
-// No shipped variant declares default_fields, so every catalog path returns an
-// empty candidate list; fieldMaskCandidates carries the expansion logic.
+// Each case names an op outside the curated §9.1 default_fields set, so every
+// catalog path here returns an empty candidate list; fieldMaskCandidates
+// carries the expansion logic.
 func TestCompleteFieldsForOpArms(t *testing.T) {
 	cases := []struct {
 		name string
@@ -297,6 +298,32 @@ func TestFieldMaskCandidates(t *testing.T) {
 			mask:       "id,snippet",
 			toComplete: "id,",
 			want:       []string{"id,snippet"},
+		},
+		{
+			// A sub-selection is one candidate, not one per inner field. The
+			// commas inside the parentheses are not separators, so splitting on
+			// them would offer "labels(id" -- a mask no API accepts.
+			name: "sub-selection stays whole",
+			mask: "labels(id,name),nextPageToken",
+			want: []string{
+				"labels(id,name)",
+				"nextPageToken",
+				"labels(id,name),nextPageToken",
+			},
+		},
+		{
+			name: "a single-selector mask is offered once",
+			mask: "labels(id,name)",
+			want: []string{"labels(id,name)"},
+		},
+		{
+			name: "nested sub-selections stay whole",
+			mask: "items(id,snippet(title,thumbnails(default))),pageInfo",
+			want: []string{
+				"items(id,snippet(title,thumbnails(default)))",
+				"pageInfo",
+				"items(id,snippet(title,thumbnails(default))),pageInfo",
+			},
 		},
 	}
 	for _, tc := range cases {

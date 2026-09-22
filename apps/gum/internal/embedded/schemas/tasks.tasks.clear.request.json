@@ -1,0 +1,15 @@
+{
+  "$id": "tasks.tasks.clear.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "tasklist": {
+      "description": "Task list identifier.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tasklist"
+  ],
+  "title": "Clear Completed Tasks request",
+  "type": "object"
+}

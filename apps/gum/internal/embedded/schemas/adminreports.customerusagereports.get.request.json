@@ -1,0 +1,27 @@
+{
+  "$id": "adminreports.customerusagereports.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The unique ID of the customer to retrieve data for.",
+      "type": "string"
+    },
+    "date": {
+      "description": "Represents the date the usage occurred, based on UTC-8:00 (Pacific Standard Time). The timestamp is in the [ISO 8601 fo…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token to specify next page. A report with multiple pages has a `nextPageToken` property in the response. For your follo…",
+      "type": "string"
+    },
+    "parameters": {
+      "description": "The `parameters` query string is a comma-separated list of event parameters that refine a report's results. The paramet…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "date"
+  ],
+  "title": "Get Customer Usage Report request",
+  "type": "object"
+}

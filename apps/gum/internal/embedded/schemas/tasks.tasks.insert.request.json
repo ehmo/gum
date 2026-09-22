@@ -1,0 +1,41 @@
+{
+  "$id": "tasks.tasks.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "due": {
+      "description": "Due date (RFC 3339).",
+      "format": "date-time",
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "parent": {
+      "description": "Parent task ID (for subtasks).",
+      "type": "string"
+    },
+    "previous": {
+      "description": "Previous sibling task ID (ordering).",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "needsAction",
+        "completed"
+      ],
+      "type": "string"
+    },
+    "tasklist": {
+      "type": "string"
+    },
+    "title": {
+      "description": "Task title.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tasklist"
+  ],
+  "title": "Insert a Task request",
+  "type": "object"
+}

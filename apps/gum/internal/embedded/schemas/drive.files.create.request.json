@@ -1,0 +1,29 @@
+{
+  "$id": "drive.files.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fields": {
+      "type": "string"
+    },
+    "mimeType": {
+      "description": "Set to application/vnd.google-apps.folder to create a folder.",
+      "type": "string"
+    },
+    "name": {
+      "description": "File or folder name.",
+      "type": "string"
+    },
+    "parents": {
+      "description": "Parent folder IDs.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "title": "Create a Drive File or Folder request",
+  "type": "object"
+}

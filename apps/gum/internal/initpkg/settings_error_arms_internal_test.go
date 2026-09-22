@@ -28,9 +28,9 @@ func TestPlanPatchUnreadableSettingsWraps(t *testing.T) {
 	}
 }
 
-// TestApplyLockFailureSurfaces pins the acquireSettingsLock arm
-// (settings.go:134). A directory at the lock path cannot be opened O_RDWR,
-// so Apply must refuse before it writes anything.
+// TestApplyLockFailureSurfaces pins the acquireSettingsLock arm. A directory
+// at the lock path cannot be opened O_RDWR, so Apply must refuse before it
+// reads or writes anything.
 func TestApplyLockFailureSurfaces(t *testing.T) {
 	dir := t.TempDir()
 	target := SettingsTarget{
@@ -40,12 +40,7 @@ func TestApplyLockFailureSurfaces(t *testing.T) {
 	if err := os.Mkdir(target.LockPath, 0o755); err != nil {
 		t.Fatalf("plant lock directory: %v", err)
 	}
-	plan, err := PlanPatch(target, "gum", DefaultMCPEntry())
-	if err != nil {
-		t.Fatalf("PlanPatch: %v", err)
-	}
-
-	err = Apply(target, plan, time.Second)
+	err := Apply(target, "gum", DefaultMCPEntry(), time.Second)
 	if err == nil {
 		t.Fatal("Apply err=nil; want the lock failure")
 	}

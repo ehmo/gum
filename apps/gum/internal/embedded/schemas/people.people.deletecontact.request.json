@@ -1,0 +1,15 @@
+{
+  "$id": "people.people.deletecontact.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "resourceName": {
+      "description": "Required. The resource name of the contact to delete.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resourceName"
+  ],
+  "title": "Delete a Contact request",
+  "type": "object"
+}

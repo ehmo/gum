@@ -320,7 +320,7 @@ func TestRunLoginErrorArms(t *testing.T) {
 	t.Run("keychain read fault", func(t *testing.T) {
 		keyringlib.MockInitWithError(errors.New("keychain locked"))
 		t.Cleanup(keyringlib.MockInit)
-		err := runLogin(newCmd(), nil, nil, false, true)
+		err := runLogin(newCmd(), nil, nil, false, true, false)
 		if err == nil || !strings.Contains(err.Error(), "read OAuth client from keychain") {
 			t.Fatalf("got %v; want a keychain read error", err)
 		}
@@ -332,7 +332,7 @@ func TestRunLoginErrorArms(t *testing.T) {
 		if err := auth.StoreByoClient(auth.NewOSKeyring(), auth.DefaultAPIKeyProfile, auth.ByoClient{ClientID: "cid"}); err != nil {
 			t.Fatalf("StoreByoClient: %v", err)
 		}
-		err := runLogin(newCmd(), nil, []string{"no-such-service"}, false, true)
+		err := runLogin(newCmd(), nil, []string{"no-such-service"}, false, true, false)
 		if err == nil || !strings.Contains(err.Error(), "no OAuth scopes for service(s)") {
 			t.Fatalf("got %v; want the unknown-service error", err)
 		}
@@ -350,7 +350,7 @@ func TestRunLoginErrorArms(t *testing.T) {
 		interactiveByoLogin = func(context.Context, auth.ByoOAuthConfig, func(string) error) (*auth.Credentials, error) {
 			return nil, boom
 		}
-		if err := runLogin(newCmd(), []string{"gmail.readonly"}, nil, false, true); !errors.Is(err, boom) {
+		if err := runLogin(newCmd(), []string{"gmail.readonly"}, nil, false, true, false); !errors.Is(err, boom) {
 			t.Fatalf("got %v; want the login error", err)
 		}
 	})

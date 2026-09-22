@@ -1,0 +1,15 @@
+{
+  "$id": "cloudidentity.groups.memberships.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "Required. The [resource name](https://cloud.google.com/apis/design/resource_names) of the `Membership` to retrieve. Mus…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Group Membership request",
+  "type": "object"
+}

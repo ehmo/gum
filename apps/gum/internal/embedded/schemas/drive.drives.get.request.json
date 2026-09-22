@@ -1,0 +1,19 @@
+{
+  "$id": "drive.drives.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "driveId": {
+      "description": "The ID of the shared drive.",
+      "type": "string"
+    },
+    "useDomainAdminAccess": {
+      "description": "Issue the request as a domain administrator; if set to true, then the requester will be granted access if they are an a…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "driveId"
+  ],
+  "title": "Get a Shared Drive request",
+  "type": "object"
+}

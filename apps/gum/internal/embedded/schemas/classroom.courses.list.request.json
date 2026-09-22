@@ -1,0 +1,36 @@
+{
+  "$id": "classroom.courses.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "courseStates": {
+      "description": "Restricts returned courses to those in one of the specified states. If unspecified, Courses in any state are returned.",
+      "enum": [
+        "COURSE_STATE_UNSPECIFIED",
+        "ACTIVE",
+        "ARCHIVED",
+        "PROVISIONED",
+        "DECLINED",
+        "SUSPENDED"
+      ],
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Maximum number of items to return. Zero or unspecified indicates that the server may assign a maximum. The server may r…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "nextPageToken value returned from a previous list call, indicating that the subsequent page of results should be return…",
+      "type": "string"
+    },
+    "studentId": {
+      "description": "Restricts returned courses to those having a student with the specified identifier. The identifier can be one of the fo…",
+      "type": "string"
+    },
+    "teacherId": {
+      "description": "Restricts returned courses to those having a teacher with the specified identifier. The identifier can be one of the fo…",
+      "type": "string"
+    }
+  },
+  "title": "List Classroom Courses request",
+  "type": "object"
+}

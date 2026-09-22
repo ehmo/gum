@@ -1,0 +1,45 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-09-20T00:00:00Z",
+  "generator_version": "gum/cmd/gen-catalog@fixture",
+  "ops": [
+    {
+      "op_id": "labs.widgets.render",
+      "op_schema_version": 1,
+      "title": "Render a widget",
+      "summary": "Render a widget through the experimental surface.",
+      "params_required": [["widgetId", "string"]],
+      "response_ref": "labs.widgets.render.response",
+      "tags": ["labs"],
+      "service_family": "labs",
+      "service": "labs",
+      "default_variant_id": "labs.v1.experimental.widgets.render",
+      "variants": [
+        {
+          "variant_id": "labs.v1.experimental.widgets.render",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "alpha",
+          "interface_kind": "x-sdk-native",
+          "backend_kind": "typed-rest-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "gum_oauth",
+          "execution_support": "schema_only",
+          "capabilities": ["json_request", "json_response"],
+          "unsupported_capabilities": ["json_request", "json_response"],
+          "scopes": ["labs.readonly"],
+          "default_format": "toon",
+          "annotations": {
+            "readOnly": true,
+            "openWorld": true,
+            "idempotent": true
+          }
+        }
+      ],
+      "deprecated_op_ids": [],
+      "deprecated_variant_ids": [],
+      "superseded_variant_ids": {}
+    }
+  ]
+}

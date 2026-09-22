@@ -1,0 +1,47 @@
+{
+  "$id": "admin.directory.groups.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customer": {
+      "description": "The unique ID for the customer's Google Workspace account. In case of a multi-domain account, to fetch all groups for a…",
+      "type": "string"
+    },
+    "domain": {
+      "description": "The domain name. Use this field to get groups from only one domain. To return all domains for a customer account, use t…",
+      "type": "string"
+    },
+    "maxResults": {
+      "description": "Maximum number of results to return. Max allowed value is 200.",
+      "type": "integer"
+    },
+    "orderBy": {
+      "description": "Column to use for sorting results",
+      "enum": [
+        "email"
+      ],
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "Token to specify next page in the list",
+      "type": "string"
+    },
+    "query": {
+      "description": "Query string search. Contains one or more search clauses, each with a field, operator, and value. For complete document…",
+      "type": "string"
+    },
+    "sortOrder": {
+      "description": "Whether to return results in ascending or descending order. Only of use when orderBy is also used",
+      "enum": [
+        "ASCENDING",
+        "DESCENDING"
+      ],
+      "type": "string"
+    },
+    "userKey": {
+      "description": "Email or immutable ID of the user if only those groups are to be listed, the given user is a member of. If it's an ID, …",
+      "type": "string"
+    }
+  },
+  "title": "List Workspace directory groups request",
+  "type": "object"
+}

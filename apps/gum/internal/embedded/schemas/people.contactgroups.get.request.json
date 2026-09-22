@@ -1,0 +1,23 @@
+{
+  "$id": "people.contactgroups.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "groupFields": {
+      "description": "Optional. A field mask to restrict which fields on the group are returned. Defaults to `metadata`, `groupType`, `member…",
+      "type": "string"
+    },
+    "maxMembers": {
+      "description": "Optional. Specifies the maximum number of members to return. Defaults to 0 if not set, which will return zero members.",
+      "type": "integer"
+    },
+    "resourceName": {
+      "description": "Required. The resource name of the contact group to get.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resourceName"
+  ],
+  "title": "Get a Contact Group request",
+  "type": "object"
+}

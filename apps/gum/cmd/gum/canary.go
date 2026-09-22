@@ -72,13 +72,19 @@ func runCanary(cmd *cobra.Command, pluginID string, live bool) error {
 	// The canary is the gate that clears needs_configuration (§8.7), so it has
 	// to spawn with the same credentials a real call gets: the profile keychain
 	// entries `gum plugin setup` wrote.
-	cfg := plugins.HostConfig{Profile: profile, Keyring: auth.NewOSKeyring()}
+	cfg := plugins.HostConfig{
+		Profile: profile, Keyring: auth.NewOSKeyring(),
+		// Same reason: a compound plugin whose canary ran without the §7
+		// token would clear the gate and then fail every real call.
+		TokenResolver: newGoogleTokenForwarder(profile),
+	}
 	// Verify against the plugins.lock row when one exists, so a rewritten
 	// sidecar cannot make a swapped binary pass the canary.
 	var reg *registry.Registry
 	if dir, err := resolveProfileDir(profile); err == nil {
 		reg = registry.New(dir)
 		cfg.TrustedDigest = plugins.RecordedDigestResolver(reg)
+		cfg.Audit = profileAuditSink{profileDir: dir}
 	}
 	host := plugins.NewHost(cfg)
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)

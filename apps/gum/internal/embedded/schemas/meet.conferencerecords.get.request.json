@@ -1,0 +1,15 @@
+{
+  "$id": "meet.conferencerecords.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "Required. Resource name of the conference.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Conference Record request",
+  "type": "object"
+}

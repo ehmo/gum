@@ -58,6 +58,13 @@ type GumOAuth struct {
 	// Now is the clock used for refresh-token freshness checks.
 	// Default time.Now.
 	Now func() time.Time
+	// AllowSubjectChange lets Login adopt a Google account that differs from
+	// the one already bound to the requested scope set. It is off by default
+	// because swapping the subject silently orphans every cache entry, tee
+	// artifact and gain-ledger row keyed on the old fingerprint (§10.0.1),
+	// and because the consent screen shows an account chooser the operator
+	// can miss. `gum login --switch-account` sets it.
+	AllowSubjectChange bool
 }
 
 // NewGumOAuth constructs a GumOAuth wired with the default vault and
@@ -235,6 +242,16 @@ func (g *GumOAuth) Login(ctx context.Context, scopes []string) (*Credentials, er
 	}
 	fp, err := managedSubjectFingerprintFromIDToken(tok.IDToken)
 	if err != nil {
+		return nil, err
+	}
+	// The scope set may already be bound to another Google account. Refuse
+	// before anything is written, so a refused login leaves the previous
+	// account's refresh token and subject pointer intact (bead gum-znmd).
+	bound, err := g.Vault.LookupGumOAuthSubject(scopes)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkSubject(gumOAuthStrategyName, bound, fp, g.AllowSubjectChange); err != nil {
 		return nil, err
 	}
 	vaultK := vaultKey(gumOAuthStrategyName, fp, scopes)

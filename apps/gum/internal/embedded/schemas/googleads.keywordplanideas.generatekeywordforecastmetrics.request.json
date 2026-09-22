@@ -1,0 +1,73 @@
+{
+  "$id": "googleads.keywordplanideas.generatekeywordforecastmetrics.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager.",
+      "type": "string"
+    },
+    "forecastEndDate": {
+      "description": "Forecast window end (YYYY-MM-DD). Defaults to 30 days out.",
+      "format": "date",
+      "type": "string"
+    },
+    "forecastStartDate": {
+      "description": "Forecast window start (YYYY-MM-DD). Defaults to tomorrow.",
+      "format": "date",
+      "type": "string"
+    },
+    "geoTargetConstants": {
+      "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "keywordPlanNetwork": {
+      "default": "GOOGLE_SEARCH",
+      "description": "Search network to estimate against.",
+      "enum": [
+        "GOOGLE_SEARCH",
+        "GOOGLE_SEARCH_AND_PARTNERS"
+      ],
+      "type": "string"
+    },
+    "keywords": {
+      "description": "Keywords to forecast (repeatable).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "language": {
+      "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages.",
+      "type": "string"
+    },
+    "loginCustomerId": {
+      "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account.",
+      "type": "string"
+    },
+    "matchType": {
+      "default": "BROAD",
+      "description": "Keyword match type for the forecast.",
+      "enum": [
+        "BROAD",
+        "PHRASE",
+        "EXACT"
+      ],
+      "type": "string"
+    },
+    "maxCpcMicros": {
+      "default": 1000000,
+      "description": "Max CPC bid in micros (1000000 = $1.00).",
+      "format": "int64",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "customerId",
+    "keywords"
+  ],
+  "title": "Generate keyword forecast metrics request",
+  "type": "object"
+}

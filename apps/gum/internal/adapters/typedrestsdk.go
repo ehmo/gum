@@ -49,6 +49,22 @@ type UpstreamError struct {
 	// RATE_LIMITED envelope (spec §1635).
 	RetryAfterMillis int64
 
+	// ErrorReason is the machine-readable refusal reason Google attaches to
+	// the failure: google.rpc.ErrorInfo.reason when the API emits one (e.g.
+	// "USER_BLOCKED_BY_ADMIN"), otherwise the legacy error.errors[0].reason
+	// token older APIs still ship (e.g. Drive v3's "domainPolicy"). Empty
+	// when the body carried neither.
+	ErrorReason string `json:",omitempty"`
+	// ErrorDomain scopes ErrorReason. ErrorInfo domains are service names
+	// such as "googleapis.com"; the legacy array uses "global".
+	ErrorDomain string `json:",omitempty"`
+	// OpID and AuthStrategy name the invocation that hit the refusal. They
+	// are not part of the upstream body; parseUpstreamError copies them off
+	// the invocation so AsStructuredError can build an op-scoped
+	// setup_command without a second catalog lookup.
+	OpID         string `json:",omitempty"`
+	AuthStrategy string `json:",omitempty"`
+
 	// rawBody is the verbatim non-2xx response body. It is unexported so the
 	// struct's JSON shape is unchanged, and it is read back through
 	// UpstreamBody() so dispatch can artifact the real upstream payload when
@@ -267,12 +283,22 @@ type googleErrorBody struct {
 		Details []struct {
 			Type            string `json:"@type"`
 			RequestID       string `json:"requestId"`
+			Reason          string `json:"reason"`
+			Domain          string `json:"domain"`
 			FieldViolations []struct {
 				Field       string `json:"field"`
 				Reason      string `json:"reason"`
 				Description string `json:"description"`
 			} `json:"fieldViolations"`
 		} `json:"details"`
+		// Errors is the legacy Google JSON error array. Discovery-era APIs
+		// (Drive v3, the Admin SDK) still populate it and emit no ErrorInfo
+		// detail, so it is the only place their refusal reason appears.
+		Errors []struct {
+			Domain  string `json:"domain"`
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"errors"`
 	} `json:"error"`
 }
 
@@ -416,7 +442,12 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 	// or 503) and surfaced as RetryAfterMillis so the dispatch boundary can
 	// attach retry_after_ms to the RATE_LIMITED envelope (spec §1635).
 	parseUpstreamError := func(status int, body []byte, headers http.Header) *UpstreamError {
-		ue := &UpstreamError{HTTPStatus: status, rawBody: append([]byte(nil), body...)}
+		ue := &UpstreamError{
+			HTTPStatus:   status,
+			OpID:         inv.OpID,
+			AuthStrategy: string(rv.Variant.AuthStrategy),
+			rawBody:      append([]byte(nil), body...),
+		}
 		var eb googleErrorBody
 		if jsonErr := json.Unmarshal(body, &eb); jsonErr == nil {
 			ue.GoogleCode = eb.Error.Code.String()
@@ -427,6 +458,9 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 				switch detail.Type {
 				case "type.googleapis.com/google.rpc.RequestInfo":
 					ue.RequestID = detail.RequestID
+				case "type.googleapis.com/google.rpc.ErrorInfo":
+					ue.ErrorReason = detail.Reason
+					ue.ErrorDomain = detail.Domain
 				case "type.googleapis.com/google.rpc.BadRequest":
 					for _, v := range detail.FieldViolations {
 						violations++
@@ -438,6 +472,12 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 			}
 			if violations > len(ue.Details) {
 				ue.Details = append(ue.Details, fmt.Sprintf("%d more field violations", violations-len(ue.Details)))
+			}
+			// Fall back to the legacy array only when no ErrorInfo detail
+			// supplied a reason. An API that ships both keeps the typed one.
+			if ue.ErrorReason == "" && len(eb.Error.Errors) > 0 {
+				ue.ErrorReason = eb.Error.Errors[0].Reason
+				ue.ErrorDomain = eb.Error.Errors[0].Domain
 			}
 		}
 		if headers != nil {

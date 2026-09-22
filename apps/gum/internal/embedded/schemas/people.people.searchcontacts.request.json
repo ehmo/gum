@@ -1,0 +1,31 @@
+{
+  "$id": "people.people.searchcontacts.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "Optional. The number of results to return. Defaults to 10 if field is not set, or set to 0. Values greater than 30 will…",
+      "type": "integer"
+    },
+    "query": {
+      "description": "Required. The plain-text query for the request. The query is used to match prefix phrases of the fields on a person. Fo…",
+      "type": "string"
+    },
+    "readMask": {
+      "description": "Required. A field mask to restrict which fields on each person are returned. Multiple fields can be specified by separa…",
+      "type": "string"
+    },
+    "sources": {
+      "description": "Optional. A mask of what source types to return. Defaults to READ_SOURCE_TYPE_CONTACT if not set.",
+      "enum": [
+        "READ_SOURCE_TYPE_UNSPECIFIED",
+        "READ_SOURCE_TYPE_PROFILE",
+        "READ_SOURCE_TYPE_CONTACT",
+        "READ_SOURCE_TYPE_DOMAIN_CONTACT",
+        "READ_SOURCE_TYPE_OTHER_CONTACT"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "Search Contacts request",
+  "type": "object"
+}

@@ -1,0 +1,23 @@
+{
+  "$id": "chat.spaces.messages.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "allowMissing": {
+      "description": "Optional. If `true` and the message isn't found, a new message is created and `updateMask` is ignored. The specified me…",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Identifier. Resource name of the message. Format: `spaces/{space}/messages/{message}` Where `{space}` is the ID of the …",
+      "type": "string"
+    },
+    "updateMask": {
+      "description": "Required. The field paths to update. Separate multiple values with commas or use `*` to update all field paths. Current…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Update a Chat Message request",
+  "type": "object"
+}

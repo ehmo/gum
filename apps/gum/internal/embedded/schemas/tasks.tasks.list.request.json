@@ -1,0 +1,42 @@
+{
+  "$id": "tasks.tasks.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "dueMax": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dueMin": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "maxResults": {
+      "type": "integer"
+    },
+    "pageToken": {
+      "type": "string"
+    },
+    "showCompleted": {
+      "type": "boolean"
+    },
+    "showDeleted": {
+      "type": "boolean"
+    },
+    "showHidden": {
+      "type": "boolean"
+    },
+    "tasklist": {
+      "type": "string"
+    },
+    "updatedMin": {
+      "description": "Only tasks modified since this RFC 3339 time.",
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tasklist"
+  ],
+  "title": "List Tasks request",
+  "type": "object"
+}

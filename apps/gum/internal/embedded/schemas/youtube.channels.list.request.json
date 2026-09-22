@@ -1,0 +1,59 @@
+{
+  "$id": "youtube.channels.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "categoryId": {
+      "description": "Return the channels within the specified guide category ID.",
+      "type": "string"
+    },
+    "forHandle": {
+      "description": "Return the channel associated with a YouTube handle.",
+      "type": "string"
+    },
+    "forUsername": {
+      "description": "Return the channel associated with a YouTube username.",
+      "type": "string"
+    },
+    "hl": {
+      "description": "Stands for \"host language\". Specifies the localization language of the metadata to be filled into snippet.localized. Th…",
+      "type": "string"
+    },
+    "id": {
+      "description": "Return the channels with the specified IDs.",
+      "type": "string"
+    },
+    "managedByMe": {
+      "description": "Return the channels managed by the authenticated user.",
+      "type": "boolean"
+    },
+    "maxResults": {
+      "description": "The *maxResults* parameter specifies the maximum number of items that should be returned in the result set.",
+      "type": "integer"
+    },
+    "mine": {
+      "description": "Return the ids of channels owned by the authenticated user.",
+      "type": "boolean"
+    },
+    "mySubscribers": {
+      "description": "Return the channels subscribed to the authenticated user",
+      "type": "boolean"
+    },
+    "onBehalfOfContentOwner": {
+      "description": "*Note:* This parameter is intended exclusively for YouTube content partners. The *onBehalfOfContentOwner* parameter ind…",
+      "type": "string"
+    },
+    "pageToken": {
+      "description": "The *pageToken* parameter identifies a specific page in the result set that should be returned. In an API response, the…",
+      "type": "string"
+    },
+    "part": {
+      "description": "The *part* parameter specifies a comma-separated list of one or more channel resource properties that the API response …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "part"
+  ],
+  "title": "List Channels request",
+  "type": "object"
+}

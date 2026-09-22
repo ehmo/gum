@@ -1,0 +1,20 @@
+{
+  "$id": "gmail.users.threads.trash.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "description": "The ID of the thread to Trash.",
+      "type": "string"
+    },
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "userId"
+  ],
+  "title": "Trash Gmail thread request",
+  "type": "object"
+}

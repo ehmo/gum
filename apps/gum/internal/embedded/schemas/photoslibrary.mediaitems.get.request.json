@@ -1,0 +1,15 @@
+{
+  "$id": "photoslibrary.mediaitems.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "mediaItemId": {
+      "description": "Required. Identifier of the media item to be requested.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "mediaItemId"
+  ],
+  "title": "Get a Media Item request",
+  "type": "object"
+}

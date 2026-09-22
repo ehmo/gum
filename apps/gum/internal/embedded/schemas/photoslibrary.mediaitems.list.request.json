@@ -1,0 +1,16 @@
+{
+  "$id": "photoslibrary.mediaitems.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "Maximum number of media items to return in the response. Fewer media items might be returned than the specified number.…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "A continuation token to get the next page of the results. Adding this to the request returns the rows after the `pageTo…",
+      "type": "string"
+    }
+  },
+  "title": "List Media Items request",
+  "type": "object"
+}

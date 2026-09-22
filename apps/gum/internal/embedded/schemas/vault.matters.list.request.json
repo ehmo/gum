@@ -1,0 +1,35 @@
+{
+  "$id": "vault.matters.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "pageSize": {
+      "description": "The number of matters to return in the response. Default and maximum are 100.",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "The pagination token as returned in the response.",
+      "type": "string"
+    },
+    "state": {
+      "description": "If set, lists only matters with the specified state. The default lists matters of all states.",
+      "enum": [
+        "STATE_UNSPECIFIED",
+        "OPEN",
+        "CLOSED",
+        "DELETED"
+      ],
+      "type": "string"
+    },
+    "view": {
+      "description": "Specifies how much information about the matter to return in response.",
+      "enum": [
+        "VIEW_UNSPECIFIED",
+        "BASIC",
+        "FULL"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "List Vault Matters request",
+  "type": "object"
+}

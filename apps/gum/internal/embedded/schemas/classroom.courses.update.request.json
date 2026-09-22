@@ -1,0 +1,15 @@
+{
+  "$id": "classroom.courses.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "description": "Identifier of the course to update. This identifier can be either the Classroom-assigned identifier or an alias.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "Update a Classroom Course request",
+  "type": "object"
+}

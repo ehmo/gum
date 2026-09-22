@@ -13,7 +13,7 @@ import (
 // path isn't reached on a nil shape.
 func TestBuildParallelFnNoArgsReturnsInvalidArgs(t *testing.T) {
 	mock := &whiteboxMockDispatcher{}
-	fn := buildParallelFn(context.Background(), mock, false, false)
+	fn := buildParallelFn(context.Background(), mock, false, false, parallelBudget{})
 	got, err := fn() // zero args
 	if err == nil {
 		t.Fatalf("fn() err=nil, got=%+v; want INVALID_ARGS", got)
@@ -29,7 +29,7 @@ func TestBuildParallelFnNoArgsReturnsInvalidArgs(t *testing.T) {
 // without a dispatcher (mis-wired execution context). The error names
 // the missing dependency so operators can locate the wiring bug.
 func TestBuildParallelFnNilDispatcherReturnsInvalidArgs(t *testing.T) {
-	fn := buildParallelFn(context.Background(), nil, false, false)
+	fn := buildParallelFn(context.Background(), nil, false, false, parallelBudget{})
 	got, err := fn([]any{map[string]any{"op": "op.x"}})
 	if err == nil {
 		t.Fatalf("fn(_) err=nil, got=%+v; want INVALID_ARGS for nil dispatcher", got)

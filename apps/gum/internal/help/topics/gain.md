@@ -7,29 +7,38 @@ the tool exists.
 
 ## What gets recorded
 
-Every successful dispatch appends one row to the local gain ledger,
-`~/.local/share/gum/gain-ledger.jsonl`, containing:
+Every dispatch appends one JSON line to the profile's gain ledger at
+`~/.local/share/gum/<profile>/gain-ledger.jsonl`, honouring `XDG_DATA_HOME`.
+The first line is a header record that pins the schema version and the
+tokenizer, so old rows stay comparable if either changes.
 
-| Field        | Meaning                                                       |
-|--------------|---------------------------------------------------------------|
-| `op_id`      | The op invoked (e.g. `gmail.users.messages.list`).            |
-| `variant_id` | The resolved variant (rest/grpc/code-mode).                   |
-| `format`     | The output wire format (`toon`, `json`, `markdown`).          |
-| `bytes_in`   | Bytes the host client sent (request body + tool args).        |
-| `bytes_out`  | Bytes returned to the host client after projection + format.  |
-| `wall_ms`    | Wall-clock dispatch latency.                                  |
-| `cache_hit`  | Whether the semantic response cache served the request.       |
-| `timestamp`  | UTC RFC 3339 timestamp.                                       |
+The fields that carry the savings claim:
 
-The ledger is principal-scoped: rows for one user never bleed into another
-user's view.
+| Field                      | Meaning                                                    |
+|----------------------------|------------------------------------------------------------|
+| `op_id` / `op_family`      | The op invoked, and the same id with the method stripped.  |
+| `variant_id`               | The resolved variant. Null for a `gum_parallel` outer row. |
+| `output_profile`           | The expression profile that shaped the response.           |
+| `raw_tokens`               | The upstream body before any shaping.                      |
+| `shaped_tokens`            | The body after shaping. The gain is the difference.        |
+| `request_tokens`           | The outgoing request.                                      |
+| `response_tokens`          | What the host client received.                             |
+| `cache_status`             | `miss`, `hit`, `semantic`, or `not_applicable`.            |
+| `field_mask_status`        | `applied`, `skipped`, or `not_applicable`.                 |
+| `is_retry`                 | Same session, op family, and args hash within 5 minutes.   |
+| `error_code`               | Set on a failed dispatch.                                  |
+| `timestamp`                | RFC3339 UTC at append time.                                |
 
-## Token estimation
+The ledger lives in one profile's data directory, so a second profile keeps
+its own file. Each row also carries `args_hash` and
+`auth_subject_fingerprint`, which is why the file is written mode 600.
 
-GUM converts `bytes_in` / `bytes_out` to tokens using the `cl100k_base`
-tokenizer in BM25-only-v1 mode. No external model API is called — the
-estimator is deterministic and runs entirely offline. Future versions may
-add a per-model tokenizer when the upstream contract stabilises.
+## Token counting
+
+GUM counts tokens with `cl100k_base` through `tiktoken-go/tokenizer`. The
+count is exact for that encoding, not an estimate from byte length, and no
+external API is called. The header row records the tokenizer name so a later
+change to it is visible in the file rather than silent.
 
 ## Reporting
 
@@ -44,23 +53,27 @@ add a per-model tokenizer when the upstream contract stabilises.
 - `gum.gain` (meta-tool) — the same data surfaced through MCP so the host
   client can render its own dashboard.
 
-The gain ledger never includes argument values or response bodies; only the
-byte counts and op identifiers. Run `gum gain --raw` to inspect the file
-directly; it is plain JSONL.
+The ledger never stores argument values or response bodies, only token
+counts, identifiers, and the two hashes above. It is plain JSONL, so read it
+with any line-oriented tool.
 
 ## Retention
 
-The ledger rotates by file size. Time-windowed reporting is controlled at read
+The ledger rotates once it passes 100 MB. Time-windowed reporting is controlled at read
 time with `--since` and `--until`; v0.1.x does not expose a profile-specific
 retention knob.
 
 ## Errors
 
-- `GAIN_LEDGER_LOCKED` — concurrent writer in another process is holding
-  the advisory lock for longer than 5 s. Retry; this should be rare.
-- `GAIN_LEDGER_CORRUPT` — a row failed JSON parse. GUM quarantines the
-  ledger to `gain.ledger.corrupt-<timestamp>` and starts fresh so reporting
-  doesn't poison subsequent dispatches.
+- `GAIN_DISABLED` — accounting is off for this profile. Both the recorder
+  and the reader consult one switch, so `gum config set gain.enabled=false`
+  or `GUM_GAIN_DISABLED=1` makes `gum.gain` return this instead of zeroes.
+- `GAIN_LEDGER_UNAVAILABLE` — GUM could not resolve the profile's data
+  directory or open the ledger file there.
+
+A row that fails JSON parse is skipped and the rest of the ledger still
+reports. A torn trailing line from an interrupted write costs you that one
+entry, not the report.
 
 See `gum://help/toon-format` for why bytes saved on the wire translate to
 tokens saved at the model.

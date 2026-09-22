@@ -1,0 +1,19 @@
+{
+  "$id": "chat.spaces.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "name": {
+      "description": "Required. Resource name of the space, in the form `spaces/{space}`. Format: `spaces/{space}`",
+      "type": "string"
+    },
+    "useAdminAccess": {
+      "description": "Optional. When `true`, the method runs using the user's Google Workspace administrator privileges. The calling user mus…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Chat Space request",
+  "type": "object"
+}

@@ -1,0 +1,103 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-09-20T00:00:00Z",
+  "generator_version": "gum/cmd/gen-catalog@fixture",
+  "ops": [
+    {
+      "op_id": "ads.keywordplanner.generate",
+      "op_schema_version": 1,
+      "title": "Generate keyword ideas",
+      "summary": "Generate Google Ads keyword ideas for a seed term.",
+      "params_required": [["customerId", "string"], ["keywordSeed", "string"]],
+      "response_ref": "ads.keywordplanner.generate.response",
+      "tags": ["ads"],
+      "service_family": "ads",
+      "service": "ads",
+      "default_variant_id": "ads.v18.grpc.keywordplanidea.generate",
+      "variants": [
+        {
+          "variant_id": "ads.v18.grpc.keywordplanidea.generate",
+          "variant_schema_version": 1,
+          "version": "v18",
+          "stability": "stable",
+          "interface_kind": "grpc",
+          "backend_kind": "grpc-sdk",
+          "preferred": true,
+          "risk_class": "read",
+          "auth_strategy": "compound",
+          "auth_components": [
+            {
+              "kind": "developer_token",
+              "secret": true,
+              "external": true,
+              "setup_hint": "Apply for an Ads developer token and get basic or standard access approved for your permissible use case."
+            },
+            {
+              "kind": "oauth_client",
+              "setup_hint": "Register your own Google Cloud Desktop OAuth client, then run: gum auth use-oauth-client"
+            },
+            {
+              "kind": "oauth_client_secret",
+              "secret": true,
+              "setup_hint": "Paste the client secret from your own OAuth client; it is stored in the OS keychain."
+            },
+            {
+              "kind": "oauth_scopes",
+              "setup_hint": "Consent to https://www.googleapis.com/auth/adwords so the refresh token covers the Ads API."
+            },
+            {
+              "kind": "customer_id",
+              "setup_hint": "The 10-digit Ads account the request runs against, digits only."
+            },
+            {
+              "kind": "login_customer_id",
+              "optional": true,
+              "setup_hint": "Only for manager (MCC) accounts: the manager account you authenticate through."
+            },
+            {
+              "kind": "billing_enabled",
+              "external": true,
+              "setup_hint": "The Ads account needs an active billing setup; Keyword Planner ranges stay coarse without one."
+            },
+            {
+              "kind": "manager_account",
+              "optional": true,
+              "external": true,
+              "setup_hint": "Link the account to your manager account if you authenticate through an MCC."
+            },
+            {
+              "kind": "account_permission",
+              "external": true,
+              "setup_hint": "The signed-in user needs at least read access on the Ads account; check account access levels."
+            },
+            {
+              "kind": "service_allowlist",
+              "external": true,
+              "setup_hint": "Standard access is granted per permissible use; basic access stays rate-limited until allowlisted."
+            }
+          ],
+          "capabilities": ["json_request", "json_response"],
+          "scopes": ["adwords"],
+          "default_format": "toon",
+          "annotations": {
+            "readOnly": true,
+            "openWorld": true,
+            "idempotent": true
+          },
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "grpc.grpc-sdk",
+            "operation_key": "ads.v18.grpc.keywordplanidea.generate",
+            "go_pkg": "google.golang.org/googleapis/ads/googleads/v18/services",
+            "go_call": "KeywordPlanIdeaService.GenerateKeywordIdeas",
+            "request_ref": "ads.keywordplanner.generate.request",
+            "response_ref": "ads.keywordplanner.generate.response"
+          }
+        }
+      ],
+      "deprecated_op_ids": [],
+      "deprecated_variant_ids": [],
+      "superseded_variant_ids": {}
+    }
+  ]
+}

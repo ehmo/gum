@@ -1,0 +1,32 @@
+{
+  "$id": "drive.files.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "acknowledgeAbuse": {
+      "type": "boolean"
+    },
+    "alt": {
+      "description": "media downloads file content.",
+      "enum": [
+        "json",
+        "media",
+        "proto"
+      ],
+      "type": "string"
+    },
+    "fields": {
+      "type": "string"
+    },
+    "fileId": {
+      "type": "string"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId"
+  ],
+  "title": "Get a Drive File request",
+  "type": "object"
+}

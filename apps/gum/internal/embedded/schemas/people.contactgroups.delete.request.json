@@ -1,0 +1,19 @@
+{
+  "$id": "people.contactgroups.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "deleteContacts": {
+      "description": "Optional. Set to true to also delete the contacts in the specified group.",
+      "type": "boolean"
+    },
+    "resourceName": {
+      "description": "Required. The resource name of the contact group to delete.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resourceName"
+  ],
+  "title": "Delete a Contact Group request",
+  "type": "object"
+}

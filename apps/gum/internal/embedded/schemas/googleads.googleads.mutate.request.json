@@ -1,0 +1,46 @@
+{
+  "$id": "googleads.googleads.mutate.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "description": "The 10-digit Google Ads account id to query, e.g. 1234567890 (dashes allowed). Under a manager account this is the client account, not the manager.",
+      "type": "string"
+    },
+    "loginCustomerId": {
+      "description": "Manager (MCC) account id, sent as the login-customer-id header. Required when the account is accessed through a manager account.",
+      "type": "string"
+    },
+    "mutateOperations": {
+      "description": "Ordered MutateOperation objects, e.g. {\"campaignBudgetOperation\":{\"create\":{...}}}. Later operations may reference earlier ones by temporary resource id (a negative id such as customers/123/campaignBudgets/-1).",
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "partialFailure": {
+      "default": false,
+      "description": "Apply the operations that succeed instead of failing the whole batch. Leave false to keep the batch atomic.",
+      "type": "boolean"
+    },
+    "responseContentType": {
+      "default": "RESOURCE_NAME_ONLY",
+      "description": "RESOURCE_NAME_ONLY returns resource names; MUTABLE_RESOURCE returns the written resources.",
+      "enum": [
+        "RESOURCE_NAME_ONLY",
+        "MUTABLE_RESOURCE"
+      ],
+      "type": "string"
+    },
+    "validateOnly": {
+      "default": false,
+      "description": "Validate the batch and return errors without writing anything. Run every new batch this way first.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "customerId",
+    "mutateOperations"
+  ],
+  "title": "Mutate resources request",
+  "type": "object"
+}

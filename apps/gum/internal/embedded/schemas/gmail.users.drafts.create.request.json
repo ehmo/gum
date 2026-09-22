@@ -1,0 +1,18 @@
+{
+  "$id": "gmail.users.drafts.create.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "message": {
+      "description": "Draft message object, e.g. message:={\"raw\":\"...\"}.",
+      "type": "object"
+    },
+    "userId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId"
+  ],
+  "title": "Create Gmail draft request",
+  "type": "object"
+}

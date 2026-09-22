@@ -1,0 +1,24 @@
+{
+  "$id": "chat.spaces.messages.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "markupSyntax": {
+      "description": "Optional. Specifies the desired output syntax for the Chat message `formatted_text` field.",
+      "enum": [
+        "MARKUP_SYNTAX_UNSPECIFIED",
+        "MARKUP_SYNTAX_CHAT",
+        "MARKUP_SYNTAX_MARKDOWN"
+      ],
+      "type": "string"
+    },
+    "name": {
+      "description": "Required. Resource name of the message. Format: `spaces/{space}/messages/{message}` If you've set a custom ID for your …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Get a Chat Message request",
+  "type": "object"
+}

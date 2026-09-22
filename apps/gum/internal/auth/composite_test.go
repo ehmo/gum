@@ -60,7 +60,7 @@ func TestCompositeRoutesByStrategy(t *testing.T) {
 	}
 }
 
-// TestCompositeRejectsDisabledStrategies verifies that gum_oauth and the six
+// TestCompositeRejectsDisabledStrategies verifies that gum_oauth and the
 // stubbed strategies surface a clean AuthError instead of crashing.
 func TestCompositeRejectsDisabledStrategies(t *testing.T) {
 	c := &CompositeResolver{
@@ -71,8 +71,6 @@ func TestCompositeRejectsDisabledStrategies(t *testing.T) {
 		catalog.AuthStrategyGUMOAuth,
 		catalog.AuthStrategyAPIKey,
 		catalog.AuthStrategyServiceAccountKey,
-		catalog.AuthStrategyWorkloadIdentity,
-		catalog.AuthStrategyImpersonation,
 	} {
 		t.Run(string(strat), func(t *testing.T) {
 			rv := &dispatch.ResolvedVariant{

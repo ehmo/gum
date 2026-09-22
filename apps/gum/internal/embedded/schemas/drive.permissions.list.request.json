@@ -1,0 +1,26 @@
+{
+  "$id": "drive.permissions.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fields": {
+      "type": "string"
+    },
+    "fileId": {
+      "type": "string"
+    },
+    "pageSize": {
+      "type": "integer"
+    },
+    "pageToken": {
+      "type": "string"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId"
+  ],
+  "title": "List File Permissions request",
+  "type": "object"
+}

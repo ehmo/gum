@@ -1,0 +1,44 @@
+{
+  "$id": "chat.spaces.messages.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "filter": {
+      "description": "Optional. A query filter. You can filter messages by date (`create_time`) and thread (`thread.name`). To filter message…",
+      "type": "string"
+    },
+    "markupSyntax": {
+      "description": "Optional. Specifies the desired output syntax for the Chat message `formatted_text` field.",
+      "enum": [
+        "MARKUP_SYNTAX_UNSPECIFIED",
+        "MARKUP_SYNTAX_CHAT",
+        "MARKUP_SYNTAX_MARKDOWN"
+      ],
+      "type": "string"
+    },
+    "orderBy": {
+      "description": "Optional. How the list of messages is ordered. Specify a value to order by an ordering operation. Valid ordering operat…",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Optional. The maximum number of messages returned. The service might return fewer messages than this value. If unspecif…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "Optional. A page token received from a previous list messages call. Provide this parameter to retrieve the subsequent p…",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Required. The resource name of the space to list messages from. Format: `spaces/{space}`",
+      "type": "string"
+    },
+    "showDeleted": {
+      "description": "Optional. Whether to include deleted messages. Deleted messages include deleted time and metadata about their deletion,…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "parent"
+  ],
+  "title": "List Chat Messages request",
+  "type": "object"
+}

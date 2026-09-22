@@ -1,1 +1,15 @@
-places=[{"displayName":{"text":"Cafe 1"},"id":"ChIJ0994190944","location":{"latitude":37.424,"longitude":-122.048},"rating":4.5},{"displayName":{"text":"Cafe 2"},"id":"ChIJ0699684365","location":{"latitude":37.482,"longitude":-122.004},"rating":4.9},{"displayName":{"text":"Cafe 3"},"id":"ChIJ0403429970","location":{"latitude":37.459,"longitude":-122.013},"rating":4.4},{"displayName":{"text":"Cafe 4"},"id":"ChIJ0171031425","location":{"latitude":37.514,"longitude":-122.068},"rating":4.2},{"displayName":{"text":"Cafe 5"},"id":"ChIJ0615372823","location":{"latitude":37.473,"longitude":-122.033},"rating":4.6},{"displayName":{"text":"Cafe 6"},"id":"ChIJ0967647094","location":{"latitude":37.42,"longitude":-122.039},"rating":4},{"displayName":{"text":"Cafe 7"},"id":"ChIJ0107183439","location":{"latitude":37.517,"longitude":-122.05499999999999},"rating":4.9},{"displayName":{"text":"Cafe 8"},"id":"ChIJ0012669064","location":{"latitude":37.439,"longitude":-122.071},"rating":3.6}]
+op: maps.places.searchText
+variant: 
+format_version: 1
+count: 8
+fields: displayName,id,location,rating
+records: places
+
+"{""text"":""Cafe 1""}",ChIJ0994190944,"{""latitude"":37.424,""longitude"":-122.048}",4.5
+"{""text"":""Cafe 2""}",ChIJ0699684365,"{""latitude"":37.482,""longitude"":-122.004}",4.9
+"{""text"":""Cafe 3""}",ChIJ0403429970,"{""latitude"":37.459,""longitude"":-122.013}",4.4
+"{""text"":""Cafe 4""}",ChIJ0171031425,"{""latitude"":37.514,""longitude"":-122.068}",4.2
+"{""text"":""Cafe 5""}",ChIJ0615372823,"{""latitude"":37.473,""longitude"":-122.033}",4.6
+"{""text"":""Cafe 6""}",ChIJ0967647094,"{""latitude"":37.42,""longitude"":-122.039}",4
+"{""text"":""Cafe 7""}",ChIJ0107183439,"{""latitude"":37.517,""longitude"":-122.05499999999999}",4.9
+"{""text"":""Cafe 8""}",ChIJ0012669064,"{""latitude"":37.439,""longitude"":-122.071}",3.6

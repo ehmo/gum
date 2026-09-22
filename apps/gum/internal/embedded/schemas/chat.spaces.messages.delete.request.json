@@ -1,0 +1,19 @@
+{
+  "$id": "chat.spaces.messages.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "force": {
+      "description": "Optional. When `true`, deleting a message also deletes its threaded replies. When `false`, if a message has threaded re…",
+      "type": "boolean"
+    },
+    "name": {
+      "description": "Required. Resource name of the message. Format: `spaces/{space}/messages/{message}` If you've set a custom ID for your …",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "Delete a Chat Message request",
+  "type": "object"
+}

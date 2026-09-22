@@ -1,0 +1,15 @@
+{
+  "$id": "places.searchtext.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fieldMask": {
+      "description": "Required X-Goog-FieldMask — comma-separated response fields (e.g. places.displayName,places.formattedAddress,places.location, or * for all, which bills at the highest tier).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fieldMask"
+  ],
+  "title": "Search Places by Text request",
+  "type": "object"
+}

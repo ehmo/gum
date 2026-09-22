@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"github.com/ehmo/gum/internal/embedded"
 )
 
 // TestNewSearchCmdEmptyCatalogTableBranch pins the "snap == nil" arm under
@@ -13,9 +11,7 @@ import (
 // degrade to a clear "no results (catalog empty)" message rather than
 // panicking on a nil snapshot inside embed.Build.
 func TestNewSearchCmdEmptyCatalogTableBranch(t *testing.T) {
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = nil
+	setCatalogBlob(t, nil)
 
 	cmd := newSearchCmd()
 	cmd.SetArgs([]string{"anything", "--format", "table"})
@@ -35,9 +31,7 @@ func TestNewSearchCmdEmptyCatalogTableBranch(t *testing.T) {
 // {"results":[]} envelope so scripts piping the output never see a
 // missing key.
 func TestNewSearchCmdEmptyCatalogJSONBranch(t *testing.T) {
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = nil
+	setCatalogBlob(t, nil)
 
 	cmd := newSearchCmd()
 	cmd.SetArgs([]string{"anything", "--format", "json"})

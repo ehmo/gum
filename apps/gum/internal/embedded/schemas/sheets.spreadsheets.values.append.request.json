@@ -1,0 +1,46 @@
+{
+  "$id": "sheets.spreadsheets.values.append.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "includeValuesInResponse": {
+      "type": "boolean"
+    },
+    "insertDataOption": {
+      "enum": [
+        "OVERWRITE",
+        "INSERT_ROWS"
+      ],
+      "type": "string"
+    },
+    "range": {
+      "description": "A1 table range to append after.",
+      "type": "string"
+    },
+    "spreadsheetId": {
+      "type": "string"
+    },
+    "valueInputOption": {
+      "description": "How input data is interpreted.",
+      "enum": [
+        "RAW",
+        "USER_ENTERED"
+      ],
+      "type": "string"
+    },
+    "values": {
+      "description": "Row-major 2D array to append.",
+      "items": {
+        "type": "array"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "spreadsheetId",
+    "range",
+    "valueInputOption",
+    "values"
+  ],
+  "title": "Append Rows to a Sheet request",
+  "type": "object"
+}

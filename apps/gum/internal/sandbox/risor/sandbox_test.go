@@ -97,19 +97,20 @@ func TestRisorRunStepLimitNotExceeded(t *testing.T) {
 	}
 }
 
-// TestGumPrintUtf8Boundary verifies that the PrintByteCap truncation lands on
-// a UTF-8 boundary.  spec.md §14 / docs/test-matrix.md TestGumPrintUtf8Boundary.
+// TestGumPrintUtf8Boundary verifies that the §6.1 output-budget truncation
+// lands on a UTF-8 boundary.  spec.md §14 / docs/test-matrix.md
+// TestGumPrintUtf8Boundary.
 //
-// Strategy: "é" (U+00E9) is 2 bytes in UTF-8. 33000 × "é" = 66000 bytes.
-// With PrintByteCap=65000, the cap must cut at a 2-byte boundary (even offset),
-// producing valid UTF-8 of at most 65000 bytes.
+// Strategy: "é" (U+00E9) is 2 bytes in UTF-8. 4000 × "é" = 8000 bytes. An odd
+// budget cannot be met on a rune boundary, so the cut must walk back one byte
+// and stop at 3000 rather than split the rune that straddles 3001.
 func TestGumPrintUtf8Boundary(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	const cap = 65000
-	source_str := strings.Repeat("é", 33000) // 66000 bytes
+	const budget = 3001
+	source_str := strings.Repeat("é", 4000) // 8000 bytes
 	opts := risor.Options{
-		PrintByteCap: cap,
+		OutputLimitBytes: budget,
 		Globals: map[string]any{
 			"gum_print": func(s string) {},
 		},
@@ -119,10 +120,13 @@ func TestGumPrintUtf8Boundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
 	}
-	if len(out.Printed) > cap {
-		t.Errorf("Printed length %d exceeds cap %d", len(out.Printed), cap)
+	if len(out.Printed) != budget-1 {
+		t.Errorf("Printed length %d; want %d, the last 2-byte boundary below the %d-byte budget", len(out.Printed), budget-1, budget)
 	}
 	if !utf8.ValidString(string(out.Printed)) {
-		t.Error("Printed bytes are not valid UTF-8 after cap truncation")
+		t.Error("Printed bytes are not valid UTF-8 after budget truncation")
+	}
+	if !out.Truncated {
+		t.Error("Truncated = false after the budget cut an 8000-byte print")
 	}
 }

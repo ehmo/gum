@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -27,6 +28,11 @@ var newMetaToolDispatcher = newDefaultDispatcherForProfile
 // newCodeToolDispatcher avoids eager profile-scope keyring reads for the
 // no-auth top-level gum.code op. It remains injectable for CLI tests.
 var newCodeToolDispatcher = newDefaultCodeDispatcherForProfile
+
+// codeStdinIsTTY decides whether `gum code` may prompt for the spec §6.1
+// confirmation. It is a package var so tests can drive the interactive arm
+// without a PTY, mirroring the dispatcher seams above.
+var codeStdinIsTTY = isReaderTerminal
 
 // parseArgsJSON unmarshals a --args=JSON flag into a map. Empty string yields
 // an empty map.
@@ -97,6 +103,7 @@ func printShapingNotice(errW io.Writer, shaped *dispatch.ShapedResponse) {
 		DedupedRows:     shaped.DedupedRows,
 		LimitedRows:     shaped.LimitedRows,
 		RawHint:         "--format raw",
+		AnnotationPaths: shaped.AnnotationPaths,
 		MaxItemsHint:    "--max-items all",
 		FullResultPath:  shaped.FullResultPath,
 		OnEmptyMessage:  onEmptyMessageOf(shaped),
@@ -661,7 +668,23 @@ func addDestructiveArgs(args map[string]any, allowDestructive bool, budget int, 
 	return nil
 }
 
-// newCodeCmd implements `gum code <script> [--allow-write] [--allow-destructive] [--timeout-sec=N]`.
+// codeInvocationArgs builds the argument map the `gum code` CLI dispatches as
+// gum.code. Every key it can emit must be a declared gum.code parameter:
+// step 1 rejects an unknown argument before the sandbox starts, so a flag that
+// stamps an undeclared key breaks every invocation that uses it.
+// TestCodeInvocationArgsAreDeclared holds that line.
+func codeInvocationArgs(language, source string, allowDestructive bool, budget int, scope []string) (map[string]any, error) {
+	args := map[string]any{
+		"language": language,
+		"source":   source,
+	}
+	if err := addDestructiveArgs(args, allowDestructive, budget, scope); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+// newCodeCmd implements `gum code <script> [--allow-write] [--allow-destructive]`.
 // The script may be inline or @path/to/file.risor.
 func newCodeCmd() *cobra.Command {
 	var (
@@ -669,8 +692,8 @@ func newCodeCmd() *cobra.Command {
 		allowDestructive  bool
 		destructiveBudget int
 		destructiveScope  []string
-		timeoutSec        int
 		language          string
+		yes               bool
 		confirmed         bool
 		token             string
 		format            string
@@ -715,15 +738,12 @@ Scripts may be passed inline or as @path/to/file.risor.`,
 			if ferr != nil {
 				return ferr
 			}
-			invArgs := map[string]any{
-				"language": language,
-				"source":   source,
-			}
-			if timeoutSec > 0 {
-				invArgs["timeout_sec"] = timeoutSec
-			}
-			if err := addDestructiveArgs(invArgs, allowDestructive, destructiveBudget, destructiveScope); err != nil {
+			invArgs, err := codeInvocationArgs(language, source, allowDestructive, destructiveBudget, destructiveScope)
+			if err != nil {
 				return err
+			}
+			if cerr := confirmCodeElevation(cmd.InOrStdin(), cmd.ErrOrStderr(), yes, confirmed, allowWrite, allowDestructive); cerr != nil {
+				return printDispatchError(cmd.ErrOrStderr(), "", cerr)
 			}
 			inv := &dispatch.Invocation{
 				OpID:              "gum.code",
@@ -735,20 +755,122 @@ Scripts may be passed inline or as @path/to/file.risor.`,
 				Caller:            dispatch.CallerCLI,
 				Format:            fmtSel,
 			}
-			return dispatchToWriterWithFactory(cmd.Context(), resolveProfileFlag(cmd), cmd.OutOrStdout(), cmd.ErrOrStderr(), inv, "", newCodeToolDispatcher)
+			// Consent is collected above, so the kernel's confirmation
+			// handshake runs inside the CLI rather than on the operator's
+			// keyboard. Read-only runs never reach that gate.
+			factory := newCodeToolDispatcher
+			if allowWrite || allowDestructive {
+				factory = newCodeConsentDispatcher
+			}
+			return dispatchToWriterWithFactory(cmd.Context(), resolveProfileFlag(cmd), cmd.OutOrStdout(), cmd.ErrOrStderr(), inv, "", factory)
 		},
 	}
 	cmd.Flags().BoolVar(&allowWrite, "allow-write", false, "Authorise sandbox writes")
 	cmd.Flags().BoolVar(&allowDestructive, "allow-destructive", false, "Authorise destructive sandbox ops")
 	cmd.Flags().IntVar(&destructiveBudget, "destructive-budget", 0, "Maximum destructive calls the script may make (1..20); required with --allow-destructive")
 	cmd.Flags().StringArrayVar(&destructiveScope, "destructive-scope", nil, "Narrow destructive calls to op_id[:resource_key]; repeatable, at most 20 entries")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm --allow-write/--allow-destructive without a prompt (required when stdin is not a terminal)")
 	cmd.Flags().BoolVar(&confirmed, "confirmed", false, "Set the signed-confirmation flag for elevated sandbox ops")
 	cmd.Flags().StringVar(&token, "token", "", "Confirmation token returned by a prior elevated gum code attempt")
-	cmd.Flags().IntVar(&timeoutSec, "timeout-sec", 0, "Per-invocation timeout in seconds (0=default)")
 	cmd.Flags().StringVar(&language, "language", "risor", "Sandbox language (only risor in v0.1.0)")
 	cmd.Flags().StringVar(&format, "format", "", "Output format (toon|json|raw)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format: json|toon|raw (raw script output remains raw)")
 	return cmd
+}
+
+// confirmCodeElevation applies the spec §6.1 bare-CLI confirmation rule for
+// `gum code`. Either capability flag needs consent before the sandbox runs: on
+// a terminal gum prompts on stderr and accepts only y, and in a non-interactive
+// session --yes is the only way through. Read-only scripts confirm nothing.
+// A refusal is REQUIRES_CONFIRMATION, raised before dispatch.
+//
+// An explicit --confirmed already states the same intent, so it satisfies the
+// gate and the kernel then judges the token that came with it.
+func confirmCodeElevation(in io.Reader, errW io.Writer, yes, confirmed, allowWrite, allowDestructive bool) *dispatch.StructuredError {
+	if !allowWrite && !allowDestructive {
+		return nil
+	}
+	if yes || confirmed {
+		return nil
+	}
+	if !codeStdinIsTTY(in) {
+		return codeConsentRequired(allowDestructive)
+	}
+
+	_, _ = fmt.Fprintf(errW, "gum code %s lets this script change your data. Continue? [y/N]: ",
+		codeElevationFlag(allowDestructive))
+	answer, rerr := bufio.NewReader(in).ReadString('\n')
+	if rerr != nil && answer == "" {
+		return codeConsentRequired(allowDestructive)
+	}
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes":
+		return nil
+	}
+	return codeConsentRequired(allowDestructive)
+}
+
+func codeElevationFlag(allowDestructive bool) string {
+	if allowDestructive {
+		return "--allow-destructive"
+	}
+	return "--allow-write"
+}
+
+// codeConsentRequired is the terminal envelope for an unconfirmed elevated
+// run. The hint names --yes because spec §6.1 keeps confirmation_token an
+// MCP-stdio construct: a CLI operator never types one.
+func codeConsentRequired(allowDestructive bool) *dispatch.StructuredError {
+	purpose := dispatch.ConfirmationPurposeCodeWrite
+	if allowDestructive {
+		purpose = dispatch.ConfirmationPurposeCodeDestroy
+	}
+	return dispatch.NewStructuredError(dispatch.ErrCodeRequiresConfirmation,
+		"gum code "+codeElevationFlag(allowDestructive)+" needs confirmation before the sandbox runs").
+		WithDetail("op_id", "gum.code").
+		WithDetail("confirmation_purpose", purpose).
+		WithDetail("hint", "re-run with --yes, or answer y at the prompt when stdin is a terminal").
+		WithRetryable(false)
+}
+
+// newCodeConsentDispatcher wraps the code dispatcher for a run the operator
+// already consented to.
+func newCodeConsentDispatcher(profile string) dispatch.Dispatcher {
+	return codeConsentDispatcher{inner: newCodeToolDispatcher(profile)}
+}
+
+// codeConsentDispatcher finishes the §6.1.2 confirmation handshake on behalf of
+// an operator who already answered y or passed --yes. The policy gate rejects
+// first contact before anything executes, so echoing the kernel's own token
+// once is safe and keeps confirmation_token off the CLI surface. Any other
+// error, and a second REQUIRES_CONFIRMATION, pass through unchanged.
+type codeConsentDispatcher struct{ inner dispatch.Dispatcher }
+
+func (c codeConsentDispatcher) Dispatch(ctx context.Context, inv *dispatch.Invocation) (*dispatch.ShapedResponse, error) {
+	res, err := c.inner.Dispatch(ctx, inv)
+	if err == nil || inv.Confirmed {
+		return res, err
+	}
+	issued := confirmationTokenOf(err)
+	if issued == "" {
+		return res, err
+	}
+
+	retry := *inv
+	retry.Confirmed = true
+	retry.ConfirmationToken = issued
+	return c.inner.Dispatch(ctx, &retry)
+}
+
+// confirmationTokenOf returns the token a REQUIRES_CONFIRMATION envelope
+// carries, or "" for every other error.
+func confirmationTokenOf(err error) string {
+	var se *dispatch.StructuredError
+	if !errors.As(err, &se) || se.ErrCode != dispatch.ErrCodeRequiresConfirmation {
+		return ""
+	}
+	issued, _ := se.Detail["confirmation_token"].(string)
+	return issued
 }
 
 func writeJSON(w io.Writer, v any) error {

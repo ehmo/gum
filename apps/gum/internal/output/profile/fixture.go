@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ehmo/gum/internal/output/gain"
+	"github.com/ehmo/gum/internal/output/toon"
 )
 
 // ProfileFixtureResult is one row in the JSON output of `gum profile test`.
@@ -220,44 +221,10 @@ func inspectShape(shaped []byte) (int, int) {
 	return 0, 0
 }
 
-// recordArrayKeys are the record-array field names, in precedence order. A
-// named key wins over the single-array fallback so a response carrying a second
-// array still reports its records: the Google Ads keyword-history adapter adds
-// unmatchedInputs beside results, and without "results" here a 243-row response
-// reported result_count 0 with 100 rows in the body (gum-36zi).
-var recordArrayKeys = []string{"items", "data", "messages", "results"}
-
-// recordArrayKey returns the key holding the record array of a shaped top-level
-// object, or "" when the object has none. Named keys win; otherwise a lone
-// array-valued field is the records, which covers both the stage-5 wrap and a
-// service-specific key such as "files". An object with two or more unnamed
-// arrays has no record array, because guessing between them would count or
-// reorder the wrong one.
-func recordArrayKey(m map[string]any) string {
-	for _, key := range recordArrayKeys {
-		if _, ok := m[key].([]any); ok {
-			return key
-		}
-	}
-	only := ""
-	found := 0
-	for key, val := range m {
-		if _, ok := val.([]any); !ok {
-			continue
-		}
-		found++
-		if found > 1 {
-			return ""
-		}
-		only = key
-	}
-	return only
-}
-
 // recordArray returns the record array of a shaped top-level object, or nil when
 // the object has none.
 func recordArray(m map[string]any) []any {
-	key := recordArrayKey(m)
+	key := toon.RecordArrayKey(m)
 	if key == "" {
 		return nil
 	}

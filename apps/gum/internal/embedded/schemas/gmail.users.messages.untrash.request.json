@@ -1,0 +1,20 @@
+{
+  "$id": "gmail.users.messages.untrash.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "id": {
+      "description": "The ID of the message to remove from Trash.",
+      "type": "string"
+    },
+    "userId": {
+      "description": "The user's email address. The special value `me` can be used to indicate the authenticated user.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "userId"
+  ],
+  "title": "Untrash Gmail message request",
+  "type": "object"
+}

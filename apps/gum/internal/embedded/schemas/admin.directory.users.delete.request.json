@@ -1,0 +1,15 @@
+{
+  "$id": "admin.directory.users.delete.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "userKey": {
+      "description": "Identifies the user in the API request. The value can be the user's primary email address, alias email address, or uniq…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "userKey"
+  ],
+  "title": "Delete a directory user request",
+  "type": "object"
+}

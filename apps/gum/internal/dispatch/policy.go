@@ -251,6 +251,8 @@ func (d *dispatcher) confirmationParams(inv *Invocation, v *catalog.Variant, pur
 		Scope:                destructiveScopeCanonical(inv.Args),
 		Caller:               string(inv.Caller),
 		RiskClass:            string(v.RiskClass),
+		AllowWrite:           inv.AllowWrite,
+		AllowDestructive:     inv.AllowDestructive,
 		Purpose:              purpose,
 		TTL:                  DefaultTTLForPurpose(purpose),
 		ReplayStoreDir:       d.confirmationReplayDir,

@@ -26,6 +26,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.list",
+            "request_ref": "gmail.users.messages.list.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.List",
             "http": {
@@ -95,6 +96,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.get",
+            "request_ref": "gmail.users.messages.get.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Get",
             "http": {
@@ -157,10 +159,12 @@
           "preferred": true,
           "risk_class": "read",
           "auth_strategy": "byo_oauth",
+          "default_fields": "labels(id,name,type,messagesTotal,messagesUnread)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.list",
+            "request_ref": "gmail.users.labels.list.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.List",
             "http": {
@@ -203,6 +207,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.send",
+            "request_ref": "gmail.users.messages.send.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Send",
             "http": {
@@ -256,6 +261,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.trash",
+            "request_ref": "gmail.users.messages.trash.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Trash",
             "http": {
@@ -305,6 +311,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.create",
+            "request_ref": "gmail.users.drafts.create.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.Create",
             "http": {
@@ -348,10 +355,12 @@
           "preferred": true,
           "risk_class": "read",
           "auth_strategy": "byo_oauth",
+          "default_fields": "nextPageToken,nextSyncToken,timeZone,accessRole,summary,updated,items(id,status,summary,description,location,start,end,recurrence,recurringEventId,originalStartTime,transparency,eventType,htmlLink,hangoutLink,created,updated,creator(email,displayName,self),organizer(email,displayName,self),attendees(email,displayName,responseStatus,optional,organizer,self,resource),reminders,colorId,visibility,sequence,attachments)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.list",
+            "request_ref": "calendar.events.list.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.List",
             "http": {
@@ -437,10 +446,12 @@
           "preferred": true,
           "risk_class": "read",
           "auth_strategy": "byo_oauth",
+          "default_fields": "nextPageToken,nextSyncToken,items(id,summary,summaryOverride,description,location,timeZone,primary,selected,hidden,deleted,accessRole,colorId,backgroundColor,foregroundColor)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.list",
+            "request_ref": "calendar.calendarlist.list.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.List",
             "http": {
@@ -564,6 +575,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sites.get",
+            "request_ref": "searchconsole.sites.get.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sites.Get",
             "http": {
@@ -608,6 +620,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sites.add",
+            "request_ref": "searchconsole.sites.add.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sites.Add",
             "http": {
@@ -652,6 +665,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sites.delete",
+            "request_ref": "searchconsole.sites.delete.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sites.Delete",
             "http": {
@@ -696,6 +710,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sitemaps.list",
+            "request_ref": "searchconsole.sitemaps.list.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sitemaps.List",
             "http": {
@@ -740,6 +755,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sitemaps.get",
+            "request_ref": "searchconsole.sitemaps.get.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sitemaps.Get",
             "http": {
@@ -790,6 +806,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sitemaps.submit",
+            "request_ref": "searchconsole.sitemaps.submit.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sitemaps.Submit",
             "http": {
@@ -840,6 +857,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.sitemaps.delete",
+            "request_ref": "searchconsole.sitemaps.delete.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Sitemaps.Delete",
             "http": {
@@ -890,6 +908,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.searchanalytics.query",
+            "request_ref": "searchconsole.searchanalytics.query.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "Searchanalytics.Query",
             "http": {
@@ -1025,6 +1044,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "searchconsole.urlInspection.index.inspect",
+            "request_ref": "searchconsole.urlinspection.index.inspect.request",
             "go_pkg": "google.golang.org/api/searchconsole/v1",
             "go_call": "UrlInspection.Index.Inspect",
             "http": {
@@ -1083,6 +1103,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.insert",
+            "request_ref": "calendar.events.insert.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Insert",
             "http": {
@@ -1174,6 +1195,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.update",
+            "request_ref": "calendar.events.update.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Update",
             "http": {
@@ -1257,10 +1279,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/tasks.readonly"
           ],
+          "default_fields": "nextPageToken,items(id,title,updated)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasklists.list",
+            "request_ref": "tasks.tasklists.list.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasklists.List",
             "http": {
@@ -1311,6 +1335,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasklists.get",
+            "request_ref": "tasks.tasklists.get.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasklists.Get",
             "http": {
@@ -1356,6 +1381,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasklists.insert",
+            "request_ref": "tasks.tasklists.insert.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasklists.Insert",
             "http": {
@@ -1401,6 +1427,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasklists.update",
+            "request_ref": "tasks.tasklists.update.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasklists.Update",
             "http": {
@@ -1452,6 +1479,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasklists.delete",
+            "request_ref": "tasks.tasklists.delete.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasklists.Delete",
             "http": {
@@ -1493,10 +1521,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/tasks.readonly"
           ],
+          "default_fields": "nextPageToken,items(id,title,status,due,completed,notes,parent,position,updated,hidden,deleted,webViewLink)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.list",
+            "request_ref": "tasks.tasks.list.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.List",
             "http": {
@@ -1585,6 +1615,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.get",
+            "request_ref": "tasks.tasks.get.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Get",
             "http": {
@@ -1637,6 +1668,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.insert",
+            "request_ref": "tasks.tasks.insert.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Insert",
             "http": {
@@ -1720,6 +1752,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.update",
+            "request_ref": "tasks.tasks.update.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Update",
             "http": {
@@ -1797,6 +1830,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.delete",
+            "request_ref": "tasks.tasks.delete.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Delete",
             "http": {
@@ -1849,6 +1883,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.move",
+            "request_ref": "tasks.tasks.move.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Move",
             "http": {
@@ -1919,6 +1954,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "tasks.tasks.clear",
+            "request_ref": "tasks.tasks.clear.request",
             "go_pkg": "google.golang.org/api/tasks/v1",
             "go_call": "Tasks.Clear",
             "http": {
@@ -1961,6 +1997,7 @@
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",
             "operation_key": "flights.search",
+            "request_ref": "flights.search.request",
             "plugin_name": "google-flights",
             "tool_name": "flights_search"
           }
@@ -2036,6 +2073,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "docs.documents.get",
+            "request_ref": "docs.documents.get.request",
             "go_pkg": "google.golang.org/api/docs/v1",
             "go_call": "Documents.Get",
             "http": {
@@ -2096,6 +2134,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "docs.documents.create",
+            "request_ref": "docs.documents.create.request",
             "go_pkg": "google.golang.org/api/docs/v1",
             "go_call": "Documents.Create",
             "http": {
@@ -2140,6 +2179,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "docs.documents.batchUpdate",
+            "request_ref": "docs.documents.batchupdate.request",
             "go_pkg": "google.golang.org/api/docs/v1",
             "go_call": "Documents.BatchUpdate",
             "http": {
@@ -2198,6 +2238,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.create",
+            "request_ref": "sheets.spreadsheets.create.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Create",
             "http": {
@@ -2245,10 +2286,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/spreadsheets.readonly"
           ],
+          "default_fields": "spreadsheetId,spreadsheetUrl,properties(title,locale,timeZone,autoRecalc),namedRanges,sheets(properties(sheetId,title,index,sheetType,hidden,gridProperties),data)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.get",
+            "request_ref": "sheets.spreadsheets.get.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Get",
             "http": {
@@ -2303,6 +2346,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.batchUpdate",
+            "request_ref": "sheets.spreadsheets.batchupdate.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.BatchUpdate",
             "http": {
@@ -2366,6 +2410,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.get",
+            "request_ref": "sheets.spreadsheets.values.get.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.Get",
             "http": {
@@ -2445,6 +2490,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.batchGet",
+            "request_ref": "sheets.spreadsheets.values.batchget.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.BatchGet",
             "http": {
@@ -2525,6 +2571,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.update",
+            "request_ref": "sheets.spreadsheets.values.update.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.Update",
             "http": {
@@ -2618,6 +2665,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.batchUpdate",
+            "request_ref": "sheets.spreadsheets.values.batchupdate.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.BatchUpdate",
             "http": {
@@ -2705,6 +2753,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.append",
+            "request_ref": "sheets.spreadsheets.values.append.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.Append",
             "http": {
@@ -2789,6 +2838,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "sheets.spreadsheets.values.clear",
+            "request_ref": "sheets.spreadsheets.values.clear.request",
             "go_pkg": "google.golang.org/api/sheets/v4",
             "go_call": "Spreadsheets.Values.Clear",
             "http": {
@@ -2840,6 +2890,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "slides.presentations.get",
+            "request_ref": "slides.presentations.get.request",
             "go_pkg": "google.golang.org/api/slides/v1",
             "go_call": "Presentations.Get",
             "http": {
@@ -2884,6 +2935,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "slides.presentations.create",
+            "request_ref": "slides.presentations.create.request",
             "go_pkg": "google.golang.org/api/slides/v1",
             "go_call": "Presentations.Create",
             "http": {
@@ -2928,6 +2980,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "slides.presentations.batchUpdate",
+            "request_ref": "slides.presentations.batchupdate.request",
             "go_pkg": "google.golang.org/api/slides/v1",
             "go_call": "Presentations.BatchUpdate",
             "http": {
@@ -2973,6 +3026,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.list",
+            "request_ref": "drive.files.list.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.List",
             "http": {
@@ -3064,6 +3118,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.get",
+            "request_ref": "drive.files.get.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Get",
             "http": {
@@ -3134,6 +3189,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.create",
+            "request_ref": "drive.files.create.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Create",
             "http": {
@@ -3201,6 +3257,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.update",
+            "request_ref": "drive.files.update.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Update",
             "http": {
@@ -3286,6 +3343,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.copy",
+            "request_ref": "drive.files.copy.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Copy",
             "http": {
@@ -3353,6 +3411,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.delete",
+            "request_ref": "drive.files.delete.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Delete",
             "http": {
@@ -3402,6 +3461,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.files.export",
+            "request_ref": "drive.files.export.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Files.Export",
             "http": {
@@ -3453,6 +3513,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.permissions.list",
+            "request_ref": "drive.permissions.list.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Permissions.List",
             "http": {
@@ -3517,6 +3578,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.permissions.get",
+            "request_ref": "drive.permissions.get.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Permissions.Get",
             "http": {
@@ -3572,6 +3634,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.permissions.create",
+            "request_ref": "drive.permissions.create.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Permissions.Create",
             "http": {
@@ -3669,6 +3732,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.permissions.update",
+            "request_ref": "drive.permissions.update.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Permissions.Update",
             "http": {
@@ -3743,6 +3807,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.permissions.delete",
+            "request_ref": "drive.permissions.delete.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Permissions.Delete",
             "http": {
@@ -3798,6 +3863,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.drives.list",
+            "request_ref": "drive.drives.list.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Drives.List",
             "http": {
@@ -3860,6 +3926,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "drive.drives.get",
+            "request_ref": "drive.drives.get.request",
             "go_pkg": "google.golang.org/api/drive/v3",
             "go_call": "Drives.Get",
             "http": {
@@ -3907,6 +3974,7 @@
           "scopes": [
             "https://www.googleapis.com/auth/drive.readonly"
           ],
+          "default_fields": "user(displayName,emailAddress,photoLink),storageQuota,maxUploadSize,appInstalled,canCreateDrives",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
@@ -3947,6 +4015,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.threads.list",
+            "request_ref": "gmail.users.threads.list.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Threads.List",
             "http": {
@@ -4022,6 +4091,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.threads.get",
+            "request_ref": "gmail.users.threads.get.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Threads.Get",
             "http": {
@@ -4091,6 +4161,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.threads.modify",
+            "request_ref": "gmail.users.threads.modify.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Threads.Modify",
             "http": {
@@ -4143,6 +4214,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.threads.trash",
+            "request_ref": "gmail.users.threads.trash.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Threads.Trash",
             "http": {
@@ -4195,6 +4267,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.threads.untrash",
+            "request_ref": "gmail.users.threads.untrash.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Threads.Untrash",
             "http": {
@@ -4247,6 +4320,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.untrash",
+            "request_ref": "gmail.users.messages.untrash.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Untrash",
             "http": {
@@ -4299,6 +4373,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.modify",
+            "request_ref": "gmail.users.messages.modify.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Modify",
             "http": {
@@ -4351,6 +4426,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.batchModify",
+            "request_ref": "gmail.users.messages.batchmodify.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.BatchModify",
             "http": {
@@ -4396,6 +4472,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.delete",
+            "request_ref": "gmail.users.messages.delete.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Delete",
             "http": {
@@ -4448,6 +4525,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.batchDelete",
+            "request_ref": "gmail.users.messages.batchdelete.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.BatchDelete",
             "http": {
@@ -4493,6 +4571,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.messages.attachments.get",
+            "request_ref": "gmail.users.messages.attachments.get.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Messages.Attachments.Get",
             "http": {
@@ -4552,6 +4631,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.get",
+            "request_ref": "gmail.users.labels.get.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.Get",
             "http": {
@@ -4604,6 +4684,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.create",
+            "request_ref": "gmail.users.labels.create.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.Create",
             "http": {
@@ -4649,6 +4730,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.update",
+            "request_ref": "gmail.users.labels.update.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.Update",
             "http": {
@@ -4701,6 +4783,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.patch",
+            "request_ref": "gmail.users.labels.patch.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.Patch",
             "http": {
@@ -4753,6 +4836,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.labels.delete",
+            "request_ref": "gmail.users.labels.delete.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Labels.Delete",
             "http": {
@@ -4805,6 +4889,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.list",
+            "request_ref": "gmail.users.drafts.list.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.List",
             "http": {
@@ -4874,6 +4959,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.get",
+            "request_ref": "gmail.users.drafts.get.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.Get",
             "http": {
@@ -4938,6 +5024,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.update",
+            "request_ref": "gmail.users.drafts.update.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.Update",
             "http": {
@@ -4990,6 +5077,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.send",
+            "request_ref": "gmail.users.drafts.send.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.Send",
             "http": {
@@ -5035,6 +5123,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.drafts.delete",
+            "request_ref": "gmail.users.drafts.delete.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Drafts.Delete",
             "http": {
@@ -5087,6 +5176,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.history.list",
+            "request_ref": "gmail.users.history.list.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.History.List",
             "http": {
@@ -5168,6 +5258,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.getProfile",
+            "request_ref": "gmail.users.getprofile.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.GetProfile",
             "http": {
@@ -5213,6 +5304,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.settings.getVacation",
+            "request_ref": "gmail.users.settings.getvacation.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Settings.GetVacation",
             "http": {
@@ -5258,6 +5350,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "gmail.users.settings.updateVacation",
+            "request_ref": "gmail.users.settings.updatevacation.request",
             "go_pkg": "google.golang.org/api/gmail/v1",
             "go_call": "Users.Settings.UpdateVacation",
             "http": {
@@ -5299,10 +5392,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/calendar.readonly"
           ],
+          "default_fields": "id,status,summary,description,location,start,end,recurrence,recurringEventId,originalStartTime,transparency,eventType,htmlLink,hangoutLink,conferenceData,created,updated,creator(email,displayName,self),organizer(email,displayName,self),attendees(email,displayName,responseStatus,optional,organizer,self,resource),reminders,colorId,visibility,sequence,attachments",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.get",
+            "request_ref": "calendar.events.get.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Get",
             "http": {
@@ -5373,6 +5468,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.patch",
+            "request_ref": "calendar.events.patch.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Patch",
             "http": {
@@ -5472,6 +5568,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.delete",
+            "request_ref": "calendar.events.delete.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Delete",
             "http": {
@@ -5537,10 +5634,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/calendar.readonly"
           ],
+          "default_fields": "nextPageToken,nextSyncToken,timeZone,accessRole,summary,updated,items(id,status,summary,description,location,start,end,recurrence,recurringEventId,originalStartTime,transparency,eventType,htmlLink,hangoutLink,created,updated,creator(email,displayName,self),organizer(email,displayName,self),attendees(email,displayName,responseStatus,optional,organizer,self,resource),reminders,colorId,visibility,sequence,attachments)",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.instances",
+            "request_ref": "calendar.events.instances.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Instances",
             "http": {
@@ -5647,6 +5746,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.move",
+            "request_ref": "calendar.events.move.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.Move",
             "http": {
@@ -5723,6 +5823,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.events.quickAdd",
+            "request_ref": "calendar.events.quickadd.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Events.QuickAdd",
             "http": {
@@ -5792,6 +5893,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.get",
+            "request_ref": "calendar.calendars.get.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Get",
             "http": {
@@ -5837,6 +5939,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.insert",
+            "request_ref": "calendar.calendars.insert.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Insert",
             "http": {
@@ -5898,6 +6001,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.update",
+            "request_ref": "calendar.calendars.update.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Update",
             "http": {
@@ -5943,6 +6047,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.patch",
+            "request_ref": "calendar.calendars.patch.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Patch",
             "http": {
@@ -5988,6 +6093,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.delete",
+            "request_ref": "calendar.calendars.delete.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Delete",
             "http": {
@@ -6033,6 +6139,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendars.clear",
+            "request_ref": "calendar.calendars.clear.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Calendars.Clear",
             "http": {
@@ -6078,6 +6185,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.get",
+            "request_ref": "calendar.calendarlist.get.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.Get",
             "http": {
@@ -6123,6 +6231,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.insert",
+            "request_ref": "calendar.calendarlist.insert.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.Insert",
             "http": {
@@ -6167,6 +6276,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.update",
+            "request_ref": "calendar.calendarlist.update.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.Update",
             "http": {
@@ -6218,6 +6328,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.patch",
+            "request_ref": "calendar.calendarlist.patch.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.Patch",
             "http": {
@@ -6269,6 +6380,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.calendarList.delete",
+            "request_ref": "calendar.calendarlist.delete.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "CalendarList.Delete",
             "http": {
@@ -6314,6 +6426,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.list",
+            "request_ref": "calendar.acl.list.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.List",
             "http": {
@@ -6383,6 +6496,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.get",
+            "request_ref": "calendar.acl.get.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.Get",
             "http": {
@@ -6435,6 +6549,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.insert",
+            "request_ref": "calendar.acl.insert.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.Insert",
             "http": {
@@ -6486,6 +6601,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.update",
+            "request_ref": "calendar.acl.update.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.Update",
             "http": {
@@ -6544,6 +6660,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.patch",
+            "request_ref": "calendar.acl.patch.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.Patch",
             "http": {
@@ -6602,6 +6719,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.acl.delete",
+            "request_ref": "calendar.acl.delete.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Acl.Delete",
             "http": {
@@ -6690,6 +6808,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.freebusy.query",
+            "request_ref": "calendar.freebusy.query.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Freebusy.Query",
             "http": {
@@ -6757,6 +6876,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.settings.list",
+            "request_ref": "calendar.settings.list.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Settings.List",
             "http": {
@@ -6813,6 +6933,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "calendar.settings.get",
+            "request_ref": "calendar.settings.get.request",
             "go_pkg": "google.golang.org/api/calendar/v3",
             "go_call": "Settings.Get",
             "http": {
@@ -6886,6 +7007,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.users.list",
+            "request_ref": "admin.directory.users.list.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/users"
@@ -7035,6 +7157,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.users.get",
+            "request_ref": "admin.directory.users.get.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/users/{userKey}"
@@ -7133,6 +7256,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.groups.list",
+            "request_ref": "admin.directory.groups.list.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/groups"
@@ -7230,6 +7354,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.groups.get",
+            "request_ref": "admin.directory.groups.get.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/groups/{groupKey}"
@@ -7297,6 +7422,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.members.list",
+            "request_ref": "admin.directory.members.list.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/groups/{groupKey}/members"
@@ -7374,6 +7500,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.raw-http",
             "operation_key": "admin.directory.members.get",
+            "request_ref": "admin.directory.members.get.request",
             "http": {
               "method": "GET",
               "path": "/admin/directory/v1/groups/{groupKey}/members/{memberKey}"
@@ -7431,6 +7558,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.users.insert",
+            "request_ref": "admin.directory.users.insert.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Users.Insert",
             "http": {
@@ -7511,6 +7639,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.users.update",
+            "request_ref": "admin.directory.users.update.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Users.Update",
             "http": {
@@ -7593,6 +7722,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.users.delete",
+            "request_ref": "admin.directory.users.delete.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Users.Delete",
             "http": {
@@ -7645,6 +7775,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.groups.insert",
+            "request_ref": "admin.directory.groups.insert.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Groups.Insert",
             "http": {
@@ -7708,6 +7839,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.groups.update",
+            "request_ref": "admin.directory.groups.update.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Groups.Update",
             "http": {
@@ -7776,6 +7908,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.groups.delete",
+            "request_ref": "admin.directory.groups.delete.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Groups.Delete",
             "http": {
@@ -7829,6 +7962,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.members.insert",
+            "request_ref": "admin.directory.members.insert.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Members.Insert",
             "http": {
@@ -7910,6 +8044,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "admin.directory.members.delete",
+            "request_ref": "admin.directory.members.delete.request",
             "go_pkg": "google.golang.org/api/admin/directory/v1",
             "go_call": "Members.Delete",
             "http": {
@@ -7998,6 +8133,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.people.get",
+            "request_ref": "people.people.get.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "People.Get",
             "http": {
@@ -8068,6 +8204,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.people.searchContacts",
+            "request_ref": "people.people.searchcontacts.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "People.SearchContacts",
             "http": {
@@ -8137,6 +8274,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.people.createContact",
+            "request_ref": "people.people.createcontact.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "People.CreateContact",
             "http": {
@@ -8194,6 +8332,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.people.updateContact",
+            "request_ref": "people.people.updatecontact.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "People.UpdateContact",
             "http": {
@@ -8264,6 +8403,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.people.deleteContact",
+            "request_ref": "people.people.deletecontact.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "People.DeleteContact",
             "http": {
@@ -8309,6 +8449,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.contactGroups.list",
+            "request_ref": "people.contactgroups.list.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "ContactGroups.List",
             "http": {
@@ -8371,6 +8512,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.contactGroups.get",
+            "request_ref": "people.contactgroups.get.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "ContactGroups.Get",
             "http": {
@@ -8464,6 +8606,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "people.contactGroups.delete",
+            "request_ref": "people.contactgroups.delete.request",
             "go_pkg": "google.golang.org/api/people/v1",
             "go_call": "ContactGroups.Delete",
             "http": {
@@ -8511,10 +8654,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/youtube.readonly"
           ],
+          "default_fields": "nextPageToken,prevPageToken,regionCode,pageInfo,items(id,snippet(publishedAt,channelId,title,description,channelTitle,liveBroadcastContent,thumbnails(default)))",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.search.list",
+            "request_ref": "youtube.search.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Search.List",
             "http": {
@@ -8814,6 +8959,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.videos.list",
+            "request_ref": "youtube.videos.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Videos.List",
             "http": {
@@ -8938,6 +9084,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.channels.list",
+            "request_ref": "youtube.channels.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Channels.List",
             "http": {
@@ -9049,6 +9196,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlists.list",
+            "request_ref": "youtube.playlists.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Playlists.List",
             "http": {
@@ -9138,10 +9286,12 @@
           "scopes": [
             "https://www.googleapis.com/auth/youtube.readonly"
           ],
+          "default_fields": "nextPageToken,prevPageToken,pageInfo,items(id,contentDetails,status,snippet(publishedAt,channelId,title,description,channelTitle,playlistId,position,resourceId,videoOwnerChannelId,videoOwnerChannelTitle,thumbnails(default)))",
           "binding": {
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlistItems.list",
+            "request_ref": "youtube.playlistitems.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "PlaylistItems.List",
             "http": {
@@ -9222,6 +9372,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.subscriptions.list",
+            "request_ref": "youtube.subscriptions.list.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Subscriptions.List",
             "http": {
@@ -9338,6 +9489,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlists.insert",
+            "request_ref": "youtube.playlists.insert.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Playlists.Insert",
             "http": {
@@ -9395,6 +9547,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlists.delete",
+            "request_ref": "youtube.playlists.delete.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "Playlists.Delete",
             "http": {
@@ -9445,6 +9598,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlistItems.insert",
+            "request_ref": "youtube.playlistitems.insert.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "PlaylistItems.Insert",
             "http": {
@@ -9496,6 +9650,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "youtube.playlistItems.delete",
+            "request_ref": "youtube.playlistitems.delete.request",
             "go_pkg": "google.golang.org/api/youtube/v3",
             "go_call": "PlaylistItems.Delete",
             "http": {
@@ -9546,6 +9701,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "forms.forms.create",
+            "request_ref": "forms.forms.create.request",
             "go_pkg": "google.golang.org/api/forms/v1",
             "go_call": "Forms.Create",
             "http": {
@@ -9590,6 +9746,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "forms.forms.get",
+            "request_ref": "forms.forms.get.request",
             "go_pkg": "google.golang.org/api/forms/v1",
             "go_call": "Forms.Get",
             "http": {
@@ -9635,6 +9792,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "forms.forms.batchUpdate",
+            "request_ref": "forms.forms.batchupdate.request",
             "go_pkg": "google.golang.org/api/forms/v1",
             "go_call": "Forms.BatchUpdate",
             "http": {
@@ -9680,6 +9838,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "forms.forms.responses.list",
+            "request_ref": "forms.forms.responses.list.request",
             "go_pkg": "google.golang.org/api/forms/v1",
             "go_call": "Forms.Responses.List",
             "http": {
@@ -9743,6 +9902,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "forms.forms.responses.get",
+            "request_ref": "forms.forms.responses.get.request",
             "go_pkg": "google.golang.org/api/forms/v1",
             "go_call": "Forms.Responses.Get",
             "http": {
@@ -9795,6 +9955,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.list",
+            "request_ref": "chat.spaces.list.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.List",
             "http": {
@@ -9851,6 +10012,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.get",
+            "request_ref": "chat.spaces.get.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Get",
             "http": {
@@ -9902,6 +10064,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.messages.list",
+            "request_ref": "chat.spaces.messages.list.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Messages.List",
             "http": {
@@ -9988,6 +10151,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.messages.get",
+            "request_ref": "chat.spaces.messages.get.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Messages.Get",
             "http": {
@@ -10044,6 +10208,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.messages.create",
+            "request_ref": "chat.spaces.messages.create.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Messages.Create",
             "http": {
@@ -10129,6 +10294,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.messages.update",
+            "request_ref": "chat.spaces.messages.update.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Messages.Update",
             "http": {
@@ -10186,6 +10352,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.messages.delete",
+            "request_ref": "chat.spaces.messages.delete.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Messages.Delete",
             "http": {
@@ -10237,6 +10404,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "chat.spaces.members.list",
+            "request_ref": "chat.spaces.members.list.request",
             "go_pkg": "google.golang.org/api/chat/v1",
             "go_call": "Spaces.Members.List",
             "http": {
@@ -10318,6 +10486,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.list",
+            "request_ref": "classroom.courses.list.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.List",
             "http": {
@@ -10394,6 +10563,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.get",
+            "request_ref": "classroom.courses.get.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.Get",
             "http": {
@@ -10475,6 +10645,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.update",
+            "request_ref": "classroom.courses.update.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.Update",
             "http": {
@@ -10520,6 +10691,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.delete",
+            "request_ref": "classroom.courses.delete.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.Delete",
             "http": {
@@ -10565,6 +10737,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.courseWork.list",
+            "request_ref": "classroom.courses.coursework.list.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.CourseWork.List",
             "http": {
@@ -10640,6 +10813,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.courseWork.get",
+            "request_ref": "classroom.courses.coursework.get.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.CourseWork.Get",
             "http": {
@@ -10692,6 +10866,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.courseWork.create",
+            "request_ref": "classroom.courses.coursework.create.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.CourseWork.Create",
             "http": {
@@ -10737,6 +10912,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.students.list",
+            "request_ref": "classroom.courses.students.list.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.Students.List",
             "http": {
@@ -10794,6 +10970,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "classroom.courses.announcements.list",
+            "request_ref": "classroom.courses.announcements.list.request",
             "go_pkg": "google.golang.org/api/classroom/v1",
             "go_call": "Courses.Announcements.List",
             "http": {
@@ -10869,6 +11046,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "photoslibrary.albums.list",
+            "request_ref": "photoslibrary.albums.list.request",
             "go_pkg": "google.golang.org/api/photoslibrary/v1",
             "go_call": "Albums.List",
             "http": {
@@ -10925,6 +11103,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "photoslibrary.albums.get",
+            "request_ref": "photoslibrary.albums.get.request",
             "go_pkg": "google.golang.org/api/photoslibrary/v1",
             "go_call": "Albums.Get",
             "http": {
@@ -11006,6 +11185,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "photoslibrary.mediaItems.list",
+            "request_ref": "photoslibrary.mediaitems.list.request",
             "go_pkg": "google.golang.org/api/photoslibrary/v1",
             "go_call": "MediaItems.List",
             "http": {
@@ -11056,6 +11236,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "photoslibrary.mediaItems.get",
+            "request_ref": "photoslibrary.mediaitems.get.request",
             "go_pkg": "google.golang.org/api/photoslibrary/v1",
             "go_call": "MediaItems.Get",
             "http": {
@@ -11137,6 +11318,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "cloudidentity.groups.list",
+            "request_ref": "cloudidentity.groups.list.request",
             "go_pkg": "google.golang.org/api/cloudidentity/v1",
             "go_call": "Groups.List",
             "http": {
@@ -11204,6 +11386,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "cloudidentity.groups.get",
+            "request_ref": "cloudidentity.groups.get.request",
             "go_pkg": "google.golang.org/api/cloudidentity/v1",
             "go_call": "Groups.Get",
             "http": {
@@ -11249,6 +11432,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "cloudidentity.groups.memberships.list",
+            "request_ref": "cloudidentity.groups.memberships.list.request",
             "go_pkg": "google.golang.org/api/cloudidentity/v1",
             "go_call": "Groups.Memberships.List",
             "http": {
@@ -11317,6 +11501,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "cloudidentity.groups.memberships.get",
+            "request_ref": "cloudidentity.groups.memberships.get.request",
             "go_pkg": "google.golang.org/api/cloudidentity/v1",
             "go_call": "Groups.Memberships.Get",
             "http": {
@@ -11398,6 +11583,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "script.projects.get",
+            "request_ref": "script.projects.get.request",
             "go_pkg": "google.golang.org/api/script/v1",
             "go_call": "Projects.Get",
             "http": {
@@ -11443,6 +11629,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "script.projects.getContent",
+            "request_ref": "script.projects.getcontent.request",
             "go_pkg": "google.golang.org/api/script/v1",
             "go_call": "Projects.GetContent",
             "http": {
@@ -11494,6 +11681,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "script.projects.updateContent",
+            "request_ref": "script.projects.updatecontent.request",
             "go_pkg": "google.golang.org/api/script/v1",
             "go_call": "Projects.UpdateContent",
             "http": {
@@ -11539,6 +11727,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "script.projects.deployments.list",
+            "request_ref": "script.projects.deployments.list.request",
             "go_pkg": "google.golang.org/api/script/v1",
             "go_call": "Projects.Deployments.List",
             "http": {
@@ -11596,6 +11785,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "vault.matters.list",
+            "request_ref": "vault.matters.list.request",
             "go_pkg": "google.golang.org/api/vault/v1",
             "go_call": "Matters.List",
             "http": {
@@ -11669,6 +11859,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "vault.matters.get",
+            "request_ref": "vault.matters.get.request",
             "go_pkg": "google.golang.org/api/vault/v1",
             "go_call": "Matters.Get",
             "http": {
@@ -11761,6 +11952,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "vault.matters.update",
+            "request_ref": "vault.matters.update.request",
             "go_pkg": "google.golang.org/api/vault/v1",
             "go_call": "Matters.Update",
             "http": {
@@ -11806,6 +11998,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "vault.matters.close",
+            "request_ref": "vault.matters.close.request",
             "go_pkg": "google.golang.org/api/vault/v1",
             "go_call": "Matters.Close",
             "http": {
@@ -11851,6 +12044,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "vault.matters.delete",
+            "request_ref": "vault.matters.delete.request",
             "go_pkg": "google.golang.org/api/vault/v1",
             "go_call": "Matters.Delete",
             "http": {
@@ -11932,6 +12126,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "meet.spaces.get",
+            "request_ref": "meet.spaces.get.request",
             "go_pkg": "google.golang.org/api/meet/v2",
             "go_call": "Spaces.Get",
             "http": {
@@ -11977,6 +12172,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "meet.conferenceRecords.list",
+            "request_ref": "meet.conferencerecords.list.request",
             "go_pkg": "google.golang.org/api/meet/v2",
             "go_call": "ConferenceRecords.List",
             "http": {
@@ -12033,6 +12229,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "meet.conferenceRecords.get",
+            "request_ref": "meet.conferencerecords.get.request",
             "go_pkg": "google.golang.org/api/meet/v2",
             "go_call": "ConferenceRecords.Get",
             "http": {
@@ -12078,6 +12275,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "meet.conferenceRecords.recordings.list",
+            "request_ref": "meet.conferencerecords.recordings.list.request",
             "go_pkg": "google.golang.org/api/meet/v2",
             "go_call": "ConferenceRecords.Recordings.List",
             "http": {
@@ -12135,6 +12333,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "meet.conferenceRecords.transcripts.list",
+            "request_ref": "meet.conferencerecords.transcripts.list.request",
             "go_pkg": "google.golang.org/api/meet/v2",
             "go_call": "ConferenceRecords.Transcripts.List",
             "http": {
@@ -12192,6 +12391,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "groupssettings.groups.get",
+            "request_ref": "groupssettings.groups.get.request",
             "go_pkg": "google.golang.org/api/groupssettings/v1",
             "go_call": "Groups.Get",
             "http": {
@@ -12237,6 +12437,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "groupssettings.groups.update",
+            "request_ref": "groupssettings.groups.update.request",
             "go_pkg": "google.golang.org/api/groupssettings/v1",
             "go_call": "Groups.Update",
             "http": {
@@ -12318,6 +12519,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "indexing.urlNotifications.getMetadata",
+            "request_ref": "indexing.urlnotifications.getmetadata.request",
             "go_pkg": "google.golang.org/api/indexing/v3",
             "go_call": "UrlNotifications.GetMetadata",
             "http": {
@@ -12361,6 +12563,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "adminreports.activities.list",
+            "request_ref": "adminreports.activities.list.request",
             "go_pkg": "google.golang.org/api/admin/reports/v1",
             "go_call": "Activities.List",
             "http": {
@@ -12557,6 +12760,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "adminreports.customerUsageReports.get",
+            "request_ref": "adminreports.customerusagereports.get.request",
             "go_pkg": "google.golang.org/api/admin/reports/v1",
             "go_call": "CustomerUsageReports.Get",
             "http": {
@@ -12619,6 +12823,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "adminreports.userUsageReport.get",
+            "request_ref": "adminreports.userusagereport.get.request",
             "go_pkg": "google.golang.org/api/admin/reports/v1",
             "go_call": "UserUsageReport.Get",
             "http": {
@@ -12712,6 +12917,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "adminreports.entityUsageReports.get",
+            "request_ref": "adminreports.entityusagereports.get.request",
             "go_pkg": "google.golang.org/api/admin/reports/v1",
             "go_call": "EntityUsageReports.Get",
             "http": {
@@ -12801,6 +13007,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "customsearch.cse.list",
+            "request_ref": "customsearch.cse.list.request",
             "go_pkg": "google.golang.org/api/customsearch/v1",
             "go_call": "Cse.List",
             "http": {
@@ -13091,6 +13298,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "maps.geocoding.geocode",
+            "request_ref": "maps.geocoding.geocode.request",
             "go_call": "Geocoding.Geocode",
             "http": {
               "method": "GET",
@@ -13161,6 +13369,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "maps.timezone.get",
+            "request_ref": "maps.timezone.get.request",
             "go_call": "TimeZone.Get",
             "http": {
               "method": "GET",
@@ -13215,6 +13424,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "maps.distancematrix.get",
+            "request_ref": "maps.distancematrix.get.request",
             "go_call": "DistanceMatrix.Get",
             "http": {
               "method": "GET",
@@ -13287,6 +13497,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "places.searchText",
+            "request_ref": "places.searchtext.request",
             "go_call": "Places.SearchText",
             "http": {
               "method": "POST",
@@ -13331,6 +13542,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "places.searchNearby",
+            "request_ref": "places.searchnearby.request",
             "go_call": "Places.SearchNearby",
             "http": {
               "method": "POST",
@@ -13375,6 +13587,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "routes.computeRoutes",
+            "request_ref": "routes.computeroutes.request",
             "go_call": "Routes.ComputeRoutes",
             "http": {
               "method": "POST",
@@ -13419,6 +13632,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "routes.computeRouteMatrix",
+            "request_ref": "routes.computeroutematrix.request",
             "go_call": "Routes.ComputeRouteMatrix",
             "http": {
               "method": "POST",
@@ -13467,6 +13681,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.generateKeywordIdeas",
             "operation_key": "googleads.keywordPlanIdeas.generateKeywordIdeas",
+            "request_ref": "googleads.keywordplanideas.generatekeywordideas.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}:generateKeywordIdeas"
@@ -13568,6 +13783,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.generateKeywordHistoricalMetrics",
             "operation_key": "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
+            "request_ref": "googleads.keywordplanideas.generatekeywordhistoricalmetrics.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}:generateKeywordHistoricalMetrics"
@@ -13649,6 +13865,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.generateKeywordForecastMetrics",
             "operation_key": "googleads.keywordPlanIdeas.generateKeywordForecastMetrics",
+            "request_ref": "googleads.keywordplanideas.generatekeywordforecastmetrics.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}:generateKeywordForecastMetrics"
@@ -13761,6 +13978,7 @@
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",
             "operation_key": "scholar.search",
+            "request_ref": "scholar.search.request",
             "plugin_name": "google-scholar",
             "tool_name": "scholar_search"
           }
@@ -13799,6 +14017,7 @@
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",
             "operation_key": "patents.search",
+            "request_ref": "patents.search.request",
             "plugin_name": "google-patents",
             "tool_name": "patents_search"
           }
@@ -13837,6 +14056,7 @@
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",
             "operation_key": "youtube.transcripts.get",
+            "request_ref": "youtube.transcripts.get.request",
             "plugin_name": "youtube-transcripts",
             "tool_name": "youtube_transcripts_get"
           }
@@ -13881,6 +14101,7 @@
             "binding_schema_version": 1,
             "adapter_key": "plugin.mcp",
             "operation_key": "trends.daily",
+            "request_ref": "trends.daily.request",
             "plugin_name": "google-trends",
             "tool_name": "trends_daily"
           }
@@ -13989,6 +14210,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.search",
             "operation_key": "googleads.googleAds.search",
+            "request_ref": "googleads.googleads.search.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}/googleAds:search"
@@ -14051,6 +14273,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.mutate",
             "operation_key": "googleads.googleAds.mutate",
+            "request_ref": "googleads.googleads.mutate.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}/googleAds:mutate"
@@ -14133,6 +14356,7 @@
             "binding_schema_version": 1,
             "adapter_key": "googleads.uploadClickConversions",
             "operation_key": "googleads.conversionUploads.uploadClickConversions",
+            "request_ref": "googleads.conversionuploads.uploadclickconversions.request",
             "http": {
               "method": "POST",
               "path": "https://googleads.googleapis.com/v24/customers/{customerId}:uploadClickConversions"
@@ -14197,6 +14421,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "datamanager.events.ingest",
+            "request_ref": "datamanager.events.ingest.request",
             "go_pkg": "google.golang.org/api/datamanager/v1",
             "go_call": "Events.Ingest",
             "http": {
@@ -14280,6 +14505,7 @@
             "binding_schema_version": 1,
             "adapter_key": "rest.typed-rest-sdk",
             "operation_key": "datamanager.requestStatus.retrieve",
+            "request_ref": "datamanager.requeststatus.retrieve.request",
             "go_pkg": "google.golang.org/api/datamanager/v1",
             "go_call": "RequestStatus.Retrieve",
             "http": {

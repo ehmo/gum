@@ -100,9 +100,9 @@ func TestAuthStrategyImplementedSet(t *testing.T) {
 		name  string
 		strat auth.Strategy
 	}{
-		{"workload_identity", auth.StrategyWorkloadIdentity},
-		{"impersonation", auth.StrategyImpersonation},
 		{"none", auth.StrategyNone},
+		{"compound", auth.StrategyCompound},
+		{"plugin_managed", auth.StrategyPluginManaged},
 	}
 
 	for _, tc := range stubbedCases {
@@ -141,9 +141,9 @@ func TestStrategyStringCanonical(t *testing.T) {
 		{auth.StrategyADC, "adc"},
 		{auth.StrategyAPIKey, "api_key"},
 		{auth.StrategyServiceAccountKey, "service_account_key"},
-		{auth.StrategyWorkloadIdentity, "workload_identity"},
-		{auth.StrategyImpersonation, "impersonation"},
 		{auth.StrategyNone, "none"},
+		{auth.StrategyCompound, "compound"},
+		{auth.StrategyPluginManaged, "plugin_managed"},
 	}
 
 	for _, tc := range cases {

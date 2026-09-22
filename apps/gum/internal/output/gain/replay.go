@@ -24,6 +24,11 @@ type ReplayResult struct {
 }
 
 // fixtureTokenCounts holds the token counts for a fixture.
+//
+// OutToon is measured on the bytes the response path emits for
+// format=toon: the §9.0 two-section document, or the JSON fallback when
+// the body is not representable as one. It is not the headerless
+// toon.Encode form.
 type fixtureTokenCounts struct {
 	In      int `json:"in"`
 	OutJSON int `json:"out_json"`
@@ -54,7 +59,9 @@ type Shaper func(opID, format string, rawBody []byte) (ShapeResult, error)
 //
 // RunFixtureReplay:
 //  1. Reads each fixture subdirectory under fixtureDir (request.json + response.json).
-//  2. Applies the output profile / TOON encoding according to format.
+//  2. Encodes each response in the requested format. format=toon measures
+//     the §9.0 two-section document the response path emits, falling back
+//     to JSON for a body §9.0 cannot carry, exactly as that path does.
 //  3. Counts tokens using MeasureTokensCl100k on the raw and shaped bodies.
 //  4. Runs the pipeline twice and sets Deterministic = true only when the two
 //     runs produce identical Stats.
@@ -67,7 +74,7 @@ func RunFixtureReplay(fixtureDir, format string) (ReplayResult, error) {
 // RunFixtureReplayWithShaper is RunFixtureReplay with an injectable shaper
 // hook so callers in internal/bench can apply field-mask + expression-profile
 // stages before TOON encoding (bead gum-wqk4). When shape is nil the
-// behaviour matches RunFixtureReplay (raw TOON/JSON, no profile).
+// behaviour matches RunFixtureReplay: the format default, no profile.
 func RunFixtureReplayWithShaper(fixtureDir, format string, shape Shaper) (ReplayResult, error) {
 	if format == "" {
 		format = "toon"
@@ -185,16 +192,33 @@ func processFixture(dir, name, format string, writeFiles bool, shape Shaper) (En
 		return Entry{}, fmt.Errorf("parse response.json: %w", err)
 	}
 
-	// Encode to TOON.
-	toonBytes, err := toon.Encode(responseVal)
-	if err != nil {
-		return Entry{}, fmt.Errorf("encode toon: %w", err)
+	// Resolve op_id from request.json when present, else fall back to the
+	// fixture path. This both fixes the Entry.OpID surface for the
+	// release-fixture layout (where `name` is a path, not an op_id) and
+	// gives the optional Shaper a stable lookup key. The §9.0 document
+	// carries it in its op header, so it is resolved before encoding.
+	opID := readRequestOpID(dir)
+	if opID == "" {
+		opID = name
 	}
 
 	// Canonical JSON (compact re-marshal).
 	canonicalJSON, err := json.Marshal(responseVal)
 	if err != nil {
 		return Entry{}, fmt.Errorf("canonical json: %w", err)
+	}
+
+	// Encode through the §9.0 two-section document, which is what the
+	// response path puts on the wire (profile.Apply -> toon.EncodeDocument).
+	// A body §9.0 cannot represent falls back to JSON there and relabels the
+	// format, so it falls back to the same bytes here. The fixture has no
+	// profile, so variant is empty and omit_zero_counts is off.
+	toonBytes, err := toon.EncodeDocument(opID, "", responseVal, false)
+	if err != nil {
+		return Entry{}, fmt.Errorf("encode toon: %w", err)
+	}
+	if toonBytes == nil {
+		toonBytes = canonicalJSON
 	}
 
 	// Measure tokens.
@@ -238,15 +262,6 @@ func processFixture(dir, name, format string, writeFiles bool, shape Shaper) (En
 		tokensOut = tokensOutJSON
 	} else {
 		tokensOut = tokensOutToon
-	}
-
-	// Resolve op_id from request.json when present, else fall back to the
-	// fixture path. This both fixes the Entry.OpID surface for the
-	// release-fixture layout (where `name` is a path, not an op_id) and
-	// gives the optional Shaper a stable lookup key.
-	opID := readRequestOpID(dir)
-	if opID == "" {
-		opID = name
 	}
 
 	outputProfile := ""

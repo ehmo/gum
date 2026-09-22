@@ -1,0 +1,20 @@
+{
+  "$id": "forms.forms.responses.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "formId": {
+      "description": "Required. The form ID.",
+      "type": "string"
+    },
+    "responseId": {
+      "description": "Required. The response ID within the form.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "formId",
+    "responseId"
+  ],
+  "title": "Get a Form Response request",
+  "type": "object"
+}

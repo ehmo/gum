@@ -30,6 +30,14 @@ type ApplyInput struct {
 	// MaxItems, when set, replaces the profile's collapse_arrays.max_items for
 	// this one call. The zero value leaves the profile's own rule in force.
 	MaxItems MaxItemsOverride
+
+	// Op and Variant fill the op: and variant: headers of the §9.0 TOON
+	// document. They are the resolved ids for this invocation, so the caller
+	// supplies them; the applier sees only a response body. A caller with no
+	// catalog behind it (a meta tool, a fixture) leaves them empty, and the
+	// header is then present with an empty value.
+	Op      string
+	Variant string
 }
 
 // MaxItemsMode selects where the collapse_arrays cap comes from for one
@@ -391,9 +399,19 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 		outBytes = buf.Bytes()
 	default:
 		format = "toon"
-		outBytes, err = toon.EncodeWithOptions(v, toon.EncoderOptions{OmitZeroCounts: p.OmitZeroCounts})
+		outBytes, err = toon.EncodeDocument(in.Op, in.Variant, v, p.OmitZeroCounts)
 		if err != nil {
 			return ApplyOutput{}, fmt.Errorf("profile apply: encode TOON: %w", err)
+		}
+		if outBytes == nil {
+			// §9.0: TOON covers uniform arrays of records and "falls back to
+			// JSON for nested/non-uniform". The label follows the bytes, so
+			// the caller never parses a header block that is not there.
+			format = "json"
+			outBytes, err = json.Marshal(v)
+			if err != nil {
+				return ApplyOutput{}, fmt.Errorf("profile apply: marshal JSON: %w", err)
+			}
 		}
 	}
 
@@ -1024,7 +1042,7 @@ func truncateString(s string, limit int) (string, bool) {
 
 // applyToRowArray runs fn over the record array in v and returns v with that
 // array replaced. The record array is the top-level value when it is an array,
-// otherwise the field recordArrayKey names in a top-level object.
+// otherwise the field toon.RecordArrayKey names in a top-level object.
 //
 // The row stages (dedupe, sort_by, limit) used to require a top-level array,
 // which made all three dead for real bodies: a Google list response is an
@@ -1040,7 +1058,7 @@ func applyToRowArray(v any, fn func([]any) []any) any {
 	case []any:
 		return fn(vt)
 	case map[string]any:
-		rowKey := recordArrayKey(vt)
+		rowKey := toon.RecordArrayKey(vt)
 		if rowKey == "" {
 			return v
 		}

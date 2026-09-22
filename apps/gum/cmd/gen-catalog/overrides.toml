@@ -1,0 +1,99 @@
+# gen-catalog source-metadata manifest (spec section 5.2).
+#
+# gen-catalog validates this file against overrides.schema.json (JSON Schema
+# 2020-12 applied to the TOML decoded as JSON) before every run; a violation
+# stops the run with OVERRIDES_SCHEMA_INVALID before any variant is evaluated.
+#
+# [apis.<service>] maps a catalog op's service to its Discovery document.
+# Adding a REST service starts here; the expansion playbooks in
+# docs/expansion-playbooks.md walk the rest of the checklist.
+#
+# searchconsole is intentionally absent: its ops are hand-authored (the URL
+# Inspection v1 endpoint lives outside the webmasters/v3 Discovery doc).
+
+[apis.gmail]
+discovery_url = "https://gmail.googleapis.com/$discovery/rest?version=v1"
+
+[apis.calendar]
+discovery_url = "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"
+
+[apis.drive]
+discovery_url = "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
+
+[apis.docs]
+discovery_url = "https://docs.googleapis.com/$discovery/rest?version=v1"
+
+[apis.sheets]
+discovery_url = "https://sheets.googleapis.com/$discovery/rest?version=v4"
+
+[apis.slides]
+discovery_url = "https://slides.googleapis.com/$discovery/rest?version=v1"
+
+[apis.tasks]
+discovery_url = "https://tasks.googleapis.com/$discovery/rest?version=v1"
+
+[apis.admin]
+discovery_url = "https://admin.googleapis.com/$discovery/rest?version=directory_v1"
+
+[apis.people]
+discovery_url = "https://people.googleapis.com/$discovery/rest?version=v1"
+
+[apis.youtube]
+discovery_url = "https://youtube.googleapis.com/$discovery/rest?version=v3"
+
+[apis.forms]
+discovery_url = "https://forms.googleapis.com/$discovery/rest?version=v1"
+
+[apis.chat]
+discovery_url = "https://chat.googleapis.com/$discovery/rest?version=v1"
+
+[apis.classroom]
+discovery_url = "https://classroom.googleapis.com/$discovery/rest?version=v1"
+
+[apis.photoslibrary]
+discovery_url = "https://photoslibrary.googleapis.com/$discovery/rest?version=v1"
+
+[apis.cloudidentity]
+discovery_url = "https://cloudidentity.googleapis.com/$discovery/rest?version=v1"
+
+[apis.script]
+discovery_url = "https://script.googleapis.com/$discovery/rest?version=v1"
+
+[apis.vault]
+discovery_url = "https://vault.googleapis.com/$discovery/rest?version=v1"
+
+[apis.meet]
+discovery_url = "https://meet.googleapis.com/$discovery/rest?version=v2"
+
+[apis.groupssettings]
+discovery_url = "https://www.googleapis.com/discovery/v1/apis/groupssettings/v1/rest"
+
+[apis.indexing]
+discovery_url = "https://indexing.googleapis.com/$discovery/rest?version=v3"
+
+[apis.adminreports]
+discovery_url = "https://admin.googleapis.com/$discovery/rest?version=reports_v1"
+
+[apis.customsearch]
+discovery_url = "https://www.googleapis.com/discovery/v1/apis/customsearch/v1/rest"
+
+# [sdk_only.<service>] points a non-discovery service at the official Go SDK
+# call an adapter dispatches (spec section 5.2 point 2). Empty today: the
+# shipped SDK-backed services carry their bindings in gen_*.go generators.
+[sdk_only]
+
+# [grpc_preferred.<variant_id>] regenerates a deprecated grpc-sdk stub from an
+# alternative SDK call when upstream drops a Go symbol inside the 90-day
+# grace window (spec section 5.4.1). Empty until that event occurs.
+[grpc_preferred]
+
+# [op_id_overrides] maps a discovery-doc path prefix to an explicit op_id
+# prefix, resolving OP_ID_COLLISION between sub-services (spec section 5.2
+# point 6b). Empty: the built-in sub-service segmentation covers the shipped
+# catalog.
+[op_id_overrides]
+
+# [risk_overrides] forces a risk class ("read", "write", "destructive") for
+# one op_id when the hand-authored class is wrong. Empty: no shipped op needs
+# a correction.
+[risk_overrides]

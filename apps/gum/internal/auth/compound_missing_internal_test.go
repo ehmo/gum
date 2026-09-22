@@ -8,11 +8,12 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestCompoundMissingComponentsBranches covers the three nil-guard
-// outcomes plus the populated-variant happy path. The function is the
-// per-variant compound-auth marker the envelope serializer reads — until
-// the catalog ABI exposes a real component list (spec §7 line 1296) all
-// branches return the placeholder sentinel.
+// TestCompoundMissingComponentsBranches covers the fallback arms: a nil
+// resolved variant, a nil variant, a variant that declares no
+// auth_components, and one whose only component has an empty kind. Each
+// must reach the "see_setup_command" marker, which is what keeps spec §7's
+// "MUST include missing_components" true on an under-declared variant.
+// The declared-taxonomy path is in compound_components_test.go.
 func TestCompoundMissingComponentsBranches(t *testing.T) {
 	want := []string{"see_setup_command"}
 
@@ -24,6 +25,13 @@ func TestCompoundMissingComponentsBranches(t *testing.T) {
 	}
 	rv := &dispatch.ResolvedVariant{Variant: &catalog.Variant{VariantID: "anything"}}
 	if got := compoundMissingComponents(rv); !reflect.DeepEqual(got, want) {
-		t.Errorf("populated rv: got %v; want %v", got, want)
+		t.Errorf("no declared components: got %v; want %v", got, want)
+	}
+	empty := &dispatch.ResolvedVariant{Variant: &catalog.Variant{
+		VariantID:      "anything",
+		AuthComponents: []catalog.AuthComponent{{Kind: ""}},
+	}}
+	if got := compoundMissingComponents(empty); !reflect.DeepEqual(got, want) {
+		t.Errorf("empty component kind: got %v; want %v", got, want)
 	}
 }

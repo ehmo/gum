@@ -19,8 +19,11 @@ gum gain [flags]
 | Flag | Type | Default | Help |
 | --- | --- | --- | --- |
 | `--by-op` | `bool` | false | Aggregate gain by op_id |
+| `--exclude-retries` | `bool` | false | Drop is_retry=true entries from the reported aggregate; the ledger file is unchanged |
 | `--fixture-replay` | `bool` | false | Replay fixtures from testdata/fixtures/gain-replay |
-| `--format` | `string` | toon | Output format for --fixture-replay only (json\|toon); ignored otherwise |
+| `--format` | `string` |  | Report format: text (default), json or csv. With --fixture-replay it selects the shaping format measured, json or toon, and defaults to toon |
+| `--history` | `bool` | false | Report savings per session grouped by op_family, in ledger order |
+| `--session` | `string` |  | Report one session: per-op rows grouped by op_id, cache status and field-mask status |
 | `--since` | `string` |  | Filter ledger entries with ts >= since (RFC3339 UTC) |
 | `--until` | `string` |  | Filter ledger entries with ts <= until (RFC3339 UTC) |
 | `--log-format` | `string` | json | Log format: json\|text |

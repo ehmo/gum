@@ -1,0 +1,23 @@
+{
+  "$id": "people.people.createcontact.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "personFields": {
+      "description": "Required. A field mask to restrict which fields on each person are returned. Multiple fields can be specified by separa…",
+      "type": "string"
+    },
+    "sources": {
+      "description": "Optional. A mask of what source types to return. Defaults to READ_SOURCE_TYPE_CONTACT and READ_SOURCE_TYPE_PROFILE if n…",
+      "enum": [
+        "READ_SOURCE_TYPE_UNSPECIFIED",
+        "READ_SOURCE_TYPE_PROFILE",
+        "READ_SOURCE_TYPE_CONTACT",
+        "READ_SOURCE_TYPE_DOMAIN_CONTACT",
+        "READ_SOURCE_TYPE_OTHER_CONTACT"
+      ],
+      "type": "string"
+    }
+  },
+  "title": "Create a Contact request",
+  "type": "object"
+}

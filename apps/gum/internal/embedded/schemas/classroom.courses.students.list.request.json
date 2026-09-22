@@ -1,0 +1,23 @@
+{
+  "$id": "classroom.courses.students.list.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "courseId": {
+      "description": "Identifier of the course. This identifier can be either the Classroom-assigned identifier or an alias.",
+      "type": "string"
+    },
+    "pageSize": {
+      "description": "Maximum number of items to return. The default is 30 if unspecified or `0`. The server may return fewer than the specif…",
+      "type": "integer"
+    },
+    "pageToken": {
+      "description": "nextPageToken value returned from a previous list call, indicating that the subsequent page of results should be return…",
+      "type": "string"
+    }
+  },
+  "required": [
+    "courseId"
+  ],
+  "title": "List Course Students request",
+  "type": "object"
+}

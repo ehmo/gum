@@ -2,8 +2,6 @@ package main
 
 import (
 	"testing"
-
-	"github.com/ehmo/gum/internal/embedded"
 )
 
 // TestCompleteVariantIDForOpNoArgsReturnsEmpty pins the
@@ -36,9 +34,7 @@ func TestCompleteVariantIDForOpUnknownOpIDFallsThrough(t *testing.T) {
 // mutated embedded.CatalogJSON), completion MUST return empty rather
 // than NPE on snap.Ops.
 func TestCompleteVariantIDForOpEmptyCatalogReturnsEmpty(t *testing.T) {
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = nil
+	setCatalogBlob(t, nil)
 
 	out, _ := completeVariantIDForOp(nil, []string{"gmail.users.messages.list"}, "")
 	if len(out) != 0 {

@@ -1,0 +1,26 @@
+{
+  "$id": "docs.documents.get.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "documentId": {
+      "type": "string"
+    },
+    "includeTabsContent": {
+      "type": "boolean"
+    },
+    "suggestionsViewMode": {
+      "enum": [
+        "DEFAULT_FOR_CURRENT_ACCESS",
+        "SUGGESTIONS_INLINE",
+        "PREVIEW_SUGGESTIONS_ACCEPTED",
+        "PREVIEW_WITHOUT_SUGGESTIONS"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "documentId"
+  ],
+  "title": "Get a Doc request",
+  "type": "object"
+}

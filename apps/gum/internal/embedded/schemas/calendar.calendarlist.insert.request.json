@@ -1,0 +1,12 @@
+{
+  "$id": "calendar.calendarlist.insert.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "colorRgbFormat": {
+      "description": "Whether to use the foregroundColor and backgroundColor fields to write the calendar colors (RGB). If this feature is us…",
+      "type": "boolean"
+    }
+  },
+  "title": "Subscribe to a calendar request",
+  "type": "object"
+}

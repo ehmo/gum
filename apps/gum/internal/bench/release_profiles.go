@@ -5,12 +5,13 @@ import "github.com/ehmo/gum/internal/output/profile"
 // ProfileForReleaseOp returns the canonical compact expression-profile used
 // by the release-fixture savings calculation (bead gum-wqk4) for opID.
 // The profile is a Go-literal stand-in for the catalog-embedded profiles
-// that gum-l5b2 / gum-zev5 will eventually ship; it MUST stay narrow
+// that gum-l5b2 will eventually ship; it MUST stay narrow
 // enough that the shaped fixtures hit the spec §1/§2 ≥80% aggregate
 // savings floor against the naive baseline.
 //
 // Returns nil when opID has no registered profile, in which case the
-// caller falls back to raw TOON re-encoding of the response body. Every
+// caller falls back to the format default: the §9.0 TOON document, or
+// JSON when the body cannot be carried as one. Every
 // op_id present in internal/bench/fixtures/release/manifest.json MUST
 // map to a non-nil profile.
 func ProfileForReleaseOp(opID string) *profile.Profile {

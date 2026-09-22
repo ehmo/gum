@@ -1,0 +1,39 @@
+{
+  "$id": "drive.files.update.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "addParents": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "string"
+    },
+    "fileId": {
+      "type": "string"
+    },
+    "name": {
+      "description": "New file name.",
+      "type": "string"
+    },
+    "removeParents": {
+      "type": "string"
+    },
+    "starred": {
+      "type": "boolean"
+    },
+    "supportsAllDrives": {
+      "type": "boolean"
+    },
+    "trashed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "fileId"
+  ],
+  "title": "Update a Drive File request",
+  "type": "object"
+}

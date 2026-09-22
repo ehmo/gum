@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ehmo/gum/internal/dispatch"
+	sandbox "github.com/ehmo/gum/internal/sandbox/risor"
 )
 
 // parallelMaxWorkers is the bounded fan-out per spec §6.3 / §6.1.1.
@@ -39,10 +40,24 @@ type parallelElement struct {
 	VariantID string
 }
 
+// parallelBudget carries the §9.0.1 output accounting into one gum_parallel
+// closure: what the enclosing script's §6.1 cumulative budget has left right
+// now, the configured per-script ceiling, and the batch's worker count.
+//
+// remaining is nil-tolerant and reports ok=false when no sandbox bound it.
+// A batch built without a budget skips both ceilings rather than truncating
+// every element against a zero remainder.
+type parallelBudget struct {
+	remaining   func() (int, bool)
+	limitBytes  int
+	concurrency int
+}
+
 // buildParallelFn returns the gum_parallel closure for one Risor execution.
 // The closure captures the enclosing context so cancellation propagates to all
-// in-flight workers (spec §6.3 lines 1007-1016).
-func buildParallelFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite, allowDestructive bool) func(...any) (any, error) {
+// in-flight workers (spec §6.3 lines 1007-1016), and the §9.0.1 output budget
+// so the batch can refuse or truncate its own encoding.
+func buildParallelFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite, allowDestructive bool, budget parallelBudget) func(...any) (any, error) {
 	return func(args ...any) (any, error) {
 		if disp == nil {
 			return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
@@ -56,9 +71,38 @@ func buildParallelFn(parentCtx context.Context, disp dispatch.Dispatcher, allowW
 		if err != nil {
 			return nil, err
 		}
+		if err := checkBatchCeiling(elements, budget); err != nil {
+			return nil, err
+		}
 
-		return runParallelBatch(parentCtx, disp, elements, allowWrite, allowDestructive), nil
+		return runParallelBatch(parentCtx, disp, elements, allowWrite, allowDestructive, budget), nil
 	}
+}
+
+// checkBatchCeiling applies the §9.0.1 pre-dispatch batch ceiling. The batch's
+// declared input size is the byte length of the canonical JSON encoding of the
+// declared-input object — the same `{"elements":[...]}` shape §12.3 hashes as
+// the outer batch entry's args. It is refused when it exceeds
+// code.output_limit_bytes x concurrency (32768 bytes at the defaults), before
+// any worker dispatches, so no upstream request is made.
+func checkBatchCeiling(elements []parallelElement, budget parallelBudget) error {
+	if budget.limitBytes <= 0 || budget.concurrency <= 0 {
+		return nil
+	}
+	limit := budget.limitBytes * budget.concurrency
+	declared, err := json.Marshal(batchLedgerArgs(elements))
+	if err != nil {
+		return nil
+	}
+	if len(declared) <= limit {
+		return nil
+	}
+	return dispatch.NewStructuredError(dispatch.ErrCodeCodeOutputLimitExceeded,
+		fmt.Sprintf("gum_parallel batch input of %d bytes exceeds the %d-byte aggregate output ceiling (%d bytes x %d workers)",
+			len(declared), limit, budget.limitBytes, budget.concurrency)).
+		WithDetail("limit_bytes", limit).
+		WithDetail("requested_bytes", len(declared)).
+		WithRetryable(false)
 }
 
 // parseParallelInput normalises Risor's []any input into []parallelElement.
@@ -114,10 +158,17 @@ func parseParallelInput(raw any) ([]parallelElement, error) {
 // Workers honour per-service-family 429 isolation: a RATE_LIMITED result on a
 // gmail op pauses other gmail-family workers for retry_after_ms but does NOT
 // stall workers in other families (spec §6.3 line 1171).
-func runParallelBatch(parentCtx context.Context, disp dispatch.Dispatcher, elements []parallelElement, allowWrite, allowDestructive bool) map[string]any {
+func runParallelBatch(parentCtx context.Context, disp dispatch.Dispatcher, elements []parallelElement, allowWrite, allowDestructive bool, budget parallelBudget) map[string]any {
+	// The batch id is generated before any dispatch, not when the envelope is
+	// assembled, because every inner invocation has to carry it: §12.3 links
+	// the outer ledger entry to its N inner entries by this value alone.
+	batchID := newBatchID()
+
 	results := make([]map[string]any, len(elements))
 	if len(elements) == 0 {
-		return assembleParallelEnvelope(results)
+		env := assembleParallelEnvelope(batchID, results)
+		recordParallelBatch(disp, batchID, elements, results, env, false)
+		return env
 	}
 
 	nWorkers := parallelMaxWorkers
@@ -152,7 +203,7 @@ func runParallelBatch(parentCtx context.Context, disp dispatch.Dispatcher, eleme
 						continue
 					}
 				}
-				results[j.idx] = dispatchOne(parentCtx, disp, j.idx, j.el, allowWrite, allowDestructive)
+				results[j.idx] = dispatchOne(parentCtx, disp, batchID, j.idx, j.el, allowWrite, allowDestructive)
 				if family != "" {
 					if pause := extractRateLimitedPause(results[j.idx]); pause > 0 {
 						gate.pause(family, pause)
@@ -182,7 +233,249 @@ func runParallelBatch(parentCtx context.Context, disp dispatch.Dispatcher, eleme
 			results[i] = cancelledItem(i, elements[i].OpID)
 		}
 	}
-	return assembleParallelEnvelope(results)
+
+	env := assembleParallelEnvelope(batchID, results)
+	// The ceiling runs after the hoist so it measures the shape the caller
+	// actually receives, and before the ledger so §12.3 records what was
+	// returned rather than what was assembled.
+	applyOutputCeiling(env, results, budget)
+	recordParallelBatch(disp, batchID, elements, results, env, parentCtx.Err() != nil)
+	return env
+}
+
+// applyOutputCeiling applies the §9.0.1 element-level truncation. It charges
+// the assembled envelope against what the enclosing script's §6.1 budget has
+// left. Elements are walked in index order: each one that fits is paid for in
+// full, and the first one that does not, plus every element after it, is cut
+// at a UTF-8 boundary and marked `_code_output_truncated: true`.
+//
+// It owns the outer envelope flag too: the flag is set when at least one
+// element lost bytes, and its own bytes are charged against the budget before
+// any element is measured. An unbound budget, or a batch that fits, changes
+// nothing.
+//
+// The cut is best-effort by construction: an element whose required §13 keys
+// already cost more than its allowance still costs that much, because those
+// keys are not droppable. The sandbox's own §6.1 counter remains the hard
+// clamp on what any script can print.
+func applyOutputCeiling(env map[string]any, results []map[string]any, budget parallelBudget) {
+	if budget.remaining == nil {
+		return
+	}
+	remaining, ok := budget.remaining()
+	if !ok {
+		return
+	}
+
+	full, err := json.Marshal(env)
+	if err != nil || len(full) <= remaining {
+		return
+	}
+
+	// The envelope's own keys are charged first; what is left belongs to the
+	// result elements. The outer flag is set before the skeleton is measured
+	// so its own bytes are inside the budget, and removed again if no element
+	// turns out to have lost anything.
+	env[codeOutputTruncatedKey] = true
+	saved := env["results"]
+	env["results"] = []any{}
+	skeleton, err := json.Marshal(env)
+	env["results"] = saved
+	if err != nil {
+		delete(env, codeOutputTruncatedKey)
+		return
+	}
+
+	forResults := remaining - len(skeleton)
+	spent := 0
+	anyTruncated := false
+	for i, item := range results {
+		// Every element after the first also costs the comma json.Marshal
+		// writes before it.
+		sep := 0
+		if i > 0 {
+			sep = 1
+		}
+		encoded, err := json.Marshal(item)
+		if err == nil && spent+sep+len(encoded) <= forResults {
+			spent += sep + len(encoded)
+			continue
+		}
+		allow := forResults - spent - sep
+		if allow < 0 {
+			allow = 0
+		}
+		cost, cut := truncateResultItem(item, allow)
+		spent += sep + cost
+		if cut {
+			anyTruncated = true
+		}
+	}
+	if !anyTruncated {
+		delete(env, codeOutputTruncatedKey)
+	}
+}
+
+// truncateResultItem cuts one result element so its JSON encoding fits in
+// allow bytes, and reports what it now costs and whether anything was lost.
+//
+// An element that has nothing to give up is returned untouched: §13's
+// ParallelResultItem oneOf requires `format` plus `toon` or `data` on a
+// success element and `error_code` on a failure, so those keys are never
+// dropped to make room.
+func truncateResultItem(item map[string]any, allow int) (int, bool) {
+	field, text := itemPayloadText(item)
+	if field == "" {
+		b, err := json.Marshal(item)
+		if err != nil {
+			return 0, false
+		}
+		return len(b), false
+	}
+
+	item[codeOutputTruncatedKey] = true
+	setItemPayload(item, field, "")
+	skeleton, err := json.Marshal(item)
+	if err != nil {
+		delete(item, codeOutputTruncatedKey)
+		setItemPayload(item, field, text)
+		return 0, false
+	}
+
+	room := allow - len(skeleton)
+	if room < 0 {
+		room = 0
+	}
+	// JSON escaping makes the encoded payload no shorter than its raw bytes
+	// and sometimes longer, so the first cut can still overshoot. Re-cut
+	// against the overshoot until the element fits or there is nothing left
+	// to give. Each pass drops room by at least the overshoot, so this
+	// terminates at room == 0 in the worst case.
+	for {
+		kept := sandbox.TruncateToUTF8Boundary([]byte(text), room)
+		setItemPayload(item, field, string(kept))
+		// The skeleton marshalled, and the only value that changed since is a
+		// string, so this one cannot fail.
+		b, _ := json.Marshal(item)
+		if len(b) <= allow || room == 0 {
+			if len(kept) == len(text) {
+				// An element with an empty payload loses nothing to the cut,
+				// so it must not claim it was truncated.
+				delete(item, codeOutputTruncatedKey)
+				b, _ = json.Marshal(item)
+				return len(b), false
+			}
+			return len(b), true
+		}
+		room -= len(b) - allow
+		if room < 0 {
+			room = 0
+		}
+	}
+}
+
+// codeOutputTruncatedKey is the §13 per-element and outer truncation marker.
+// It is a sibling of `_expression`, never a field inside it.
+const codeOutputTruncatedKey = "_code_output_truncated"
+
+// itemPayloadText names the one field of a result element whose text the
+// §9.0.1 ceiling may cut, and returns that text. A success element gives up
+// its payload; a failed element can give up only its free-text `message`,
+// because §13 requires `error_code`. An empty name means nothing is cuttable.
+//
+// A `data` tree is rendered as its JSON text, because a cut at a UTF-8
+// boundary is defined over bytes, not over a parsed tree. The truncated text
+// replaces the tree: §13 declares `data` with an empty schema, so a string is
+// a legal value there.
+func itemPayloadText(item map[string]any) (string, string) {
+	if s, ok := item["toon"].(string); ok {
+		return "toon", s
+	}
+	if v, ok := item["data"]; ok {
+		if s, ok := v.(string); ok {
+			return "data", s
+		}
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "", ""
+		}
+		return "data", string(b)
+	}
+	if errObj, ok := item["error"].(map[string]any); ok {
+		if s, ok := errObj["message"].(string); ok && s != "" {
+			return "error.message", s
+		}
+	}
+	return "", ""
+}
+
+// setItemPayload writes text back to the field itemPayloadText named.
+func setItemPayload(item map[string]any, field, text string) {
+	switch field {
+	case "toon", "data":
+		item[field] = text
+	case "error.message":
+		if errObj, ok := item["error"].(map[string]any); ok {
+			errObj["message"] = text
+		}
+	}
+}
+
+// recordParallelBatch hands the completed batch to the dispatcher's §12.3
+// ledger accounting, when it offers that capability. Elements that dispatched
+// wrote their own inner entry; the recorder supplies the outer sentinel and
+// the inner entries for elements that were cancelled instead.
+func recordParallelBatch(disp dispatch.Dispatcher, batchID string, elements []parallelElement, results []map[string]any, envelope map[string]any, cancelled bool) {
+	rec, ok := disp.(dispatch.ParallelBatchRecorder)
+	if !ok {
+		return
+	}
+
+	recorded := make([]dispatch.ParallelBatchElement, len(elements))
+	for i, el := range elements {
+		recorded[i] = dispatch.ParallelBatchElement{
+			OpID:      el.OpID,
+			Args:      el.Args,
+			Cancelled: itemWasCancelled(results[i]),
+		}
+	}
+
+	rec.RecordParallelBatch(dispatch.ParallelBatch{
+		BatchID:   batchID,
+		Args:      batchLedgerArgs(elements),
+		Envelope:  envelope,
+		Elements:  recorded,
+		Cancelled: cancelled,
+	})
+}
+
+// itemWasCancelled reports whether a per-element envelope is the CANCELLED
+// one. Reading the result rather than tracking a separate flag keeps the
+// ledger's view of the batch identical to the caller's.
+func itemWasCancelled(item map[string]any) bool {
+	errObj, _ := item["error"].(map[string]any)
+	if errObj == nil {
+		return false
+	}
+	return errObj["error_code"] == string(dispatch.ErrCodeCancelled)
+}
+
+// batchLedgerArgs renders the batch's own input as the map the §12.3 outer
+// entry hashes and prices. The Risor-side input is a list, and args_hash is
+// defined over a JCS object, so the list is wrapped under one key.
+func batchLedgerArgs(elements []parallelElement) map[string]any {
+	list := make([]any, len(elements))
+	for i, el := range elements {
+		item := map[string]any{"op_id": el.OpID}
+		if len(el.Args) > 0 {
+			item["args"] = el.Args
+		}
+		if el.VariantID != "" {
+			item["variant_id"] = el.VariantID
+		}
+		list[i] = item
+	}
+	return map[string]any{"elements": list}
 }
 
 // familyGate tracks per-service-family pause windows for gum_parallel 429
@@ -278,15 +571,20 @@ func extractRateLimitedPause(result map[string]any) time.Duration {
 
 // dispatchOne executes a single element via the kernel and maps the result to
 // a ParallelResultItem shape (success/error XOR per spec §9.0.1).
-func dispatchOne(ctx context.Context, disp dispatch.Dispatcher, idx int, el parallelElement, allowWrite, allowDestructive bool) map[string]any {
+func dispatchOne(ctx context.Context, disp dispatch.Dispatcher, batchID string, idx int, el parallelElement, allowWrite, allowDestructive bool) map[string]any {
 	if ctx.Err() != nil {
 		return cancelledItem(idx, el.OpID)
+	}
+	if err := refuseLRO(disp, el.OpID); err != nil {
+		return errorItem(idx, el.OpID, err)
 	}
 	inv := &dispatch.Invocation{
 		OpID:             el.OpID,
 		Args:             el.Args,
 		AllowWrite:       allowWrite,
 		AllowDestructive: allowDestructive,
+		BatchID:          batchID,
+		BatchIndex:       idx,
 	}
 	shaped, err := disp.Dispatch(ctx, inv)
 	if err != nil {
@@ -298,12 +596,40 @@ func dispatchOne(ctx context.Context, disp dispatch.Dispatcher, idx int, el para
 	return successItem(idx, el.OpID, shaped)
 }
 
+// parallelBatchOpID is the op_id the outer §9.0.1 batch entry reports. It is
+// a script builtin, not a catalog op, so nothing else resolves this name.
+const parallelBatchOpID = "gum_parallel"
+
+// elementExpression builds one per-element `_expression` object, before the
+// §9.0.1 hoist strips the fields the whole batch shares.
+//
+// The shaped envelope is the authority when dispatch produced one. An element
+// that failed, or a degraded path that shaped nothing, still gets the §13
+// required field set: the receiver reconstructs an effective ExpressionMeta
+// for every element and validates it against the full schema, so a per-result
+// object carrying op_id alone is not a legal delta.
+//
+// op_id comes from the batch element either way. It is what the caller asked
+// for, and dispatch copies it onto the invocation the envelope reports.
+func elementExpression(opID string, meta *dispatch.ExpressionMeta) map[string]any {
+	if meta == nil {
+		meta = &dispatch.ExpressionMeta{}
+	}
+	fields := meta.Fields()
+	fields["op_id"] = opID
+	return fields
+}
+
 // successItem builds the per-element envelope for a successful dispatch.
 // Carries `format` + `data` (parsed JSON tree); falls back to body string.
 func successItem(idx int, opID string, shaped *dispatch.ShapedResponse) map[string]any {
+	var meta *dispatch.ExpressionMeta
+	if shaped != nil {
+		meta = shaped.Expression
+	}
 	item := map[string]any{
 		"_idx":        idx,
-		"_expression": map[string]any{"op_id": opID},
+		"_expression": elementExpression(opID, meta),
 	}
 	if shaped == nil {
 		return item
@@ -358,7 +684,7 @@ func errorItem(idx int, opID string, err error) map[string]any {
 	}
 	return map[string]any{
 		"_idx":        idx,
-		"_expression": map[string]any{"op_id": opID},
+		"_expression": elementExpression(opID, nil),
 		"error":       errObj,
 	}
 }
@@ -369,7 +695,7 @@ func errorItem(idx int, opID string, err error) map[string]any {
 func cancelledItem(idx int, opID string) map[string]any {
 	return map[string]any{
 		"_idx":        idx,
-		"_expression": map[string]any{"op_id": opID},
+		"_expression": elementExpression(opID, nil),
 		"error": map[string]any{
 			"error_code": string(dispatch.ErrCodeCancelled),
 			"op_id":      opID,
@@ -382,16 +708,20 @@ func cancelledItem(idx int, opID string) map[string]any {
 // assembleParallelEnvelope builds the outer §9.0.1 envelope: format,
 // batch_id, shared_expression_fields, results, and the outer _expression
 // sentinel (`op_id="gum_parallel"`, `variant_id=null`).
-func assembleParallelEnvelope(results []map[string]any) map[string]any {
+func assembleParallelEnvelope(batchID string, results []map[string]any) map[string]any {
 	shared := hoistSharedExpressionFields(results)
 	env := map[string]any{
 		"format":   "parallel_results",
-		"batch_id": newBatchID(),
+		"batch_id": batchID,
 		"results":  toAnySlice(results),
-		"_expression": map[string]any{
-			"op_id":      "gum_parallel",
-			"variant_id": nil,
-		},
+		// The batch entry has no profile and no single variant (§12.3), but
+		// §13 requires the whole ExpressionMeta field set on it, so it
+		// reports the batch's own record count and a null variant_id
+		// instead of a two-key stub.
+		"_expression": (&dispatch.ExpressionMeta{
+			OpID:        parallelBatchOpID,
+			ResultCount: len(results),
+		}).Fields(),
 	}
 	if len(shared) > 0 {
 		env["shared_expression_fields"] = shared

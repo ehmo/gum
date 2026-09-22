@@ -1,0 +1,57 @@
+{
+  "catalog_schema_version": 1,
+  "generated_at": "2026-09-21T00:00:00Z",
+  "generator_version": "gum/cmd/gen-catalog@testdata",
+  "ops": [
+    {
+      "op_id": "spanner.execute_sql",
+      "op_schema_version": 1,
+      "title": "Execute a Spanner SQL statement",
+      "summary": "Runs a SQL statement against a Cloud Spanner database.",
+      "default_variant_id": "spanner.v1.grpc.execute_sql",
+      "request_fields": [
+        {
+          "name": "database",
+          "location": "body",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "session",
+          "location": "body",
+          "type": "string"
+        },
+        {
+          "name": "params",
+          "location": "body",
+          "type": "object"
+        },
+        {
+          "name": "statements",
+          "location": "body",
+          "type": "array",
+          "item_type": "string"
+        }
+      ],
+      "variants": [
+        {
+          "variant_id": "spanner.v1.grpc.execute_sql",
+          "variant_schema_version": 1,
+          "version": "v1",
+          "stability": "stable",
+          "interface_kind": "grpc",
+          "backend_kind": "grpc-sdk",
+          "risk_class": "read",
+          "binding": {
+            "binding_schema_version": 1,
+            "adapter_key": "spanner.execute_sql",
+            "operation_key": "spanner.v1.ExecuteSql",
+            "request_ref": "spanner.execute_sql.request",
+            "proto_service": "google.spanner.v1.Spanner",
+            "proto_method": "ExecuteSql"
+          }
+        }
+      ]
+    }
+  ]
+}

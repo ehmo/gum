@@ -1,0 +1,15 @@
+{
+  "$id": "routes.computeroutematrix.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "fieldMask": {
+      "description": "Required X-Goog-FieldMask — comma-separated response fields (e.g. originIndex,destinationIndex,duration,distanceMeters, or * for all, which bills at the highest tier).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fieldMask"
+  ],
+  "title": "Compute Route Matrix request",
+  "type": "object"
+}

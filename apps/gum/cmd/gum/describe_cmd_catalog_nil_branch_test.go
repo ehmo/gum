@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"github.com/ehmo/gum/internal/embedded"
 )
 
 // TestDescribeCmdCatalogNotLoadedSurfacesError pins the
@@ -19,9 +17,7 @@ import (
 // in a populated catalog — operators can grep on the suffix to
 // diagnose deployment misconfig vs. typo.
 func TestDescribeCmdCatalogNotLoadedSurfacesError(t *testing.T) {
-	saved := embedded.CatalogJSON
-	t.Cleanup(func() { embedded.CatalogJSON = saved })
-	embedded.CatalogJSON = nil
+	setCatalogBlob(t, nil)
 
 	root := newRootCmd()
 	var out bytes.Buffer

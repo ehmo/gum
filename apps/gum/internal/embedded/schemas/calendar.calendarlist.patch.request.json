@@ -1,0 +1,19 @@
+{
+  "$id": "calendar.calendarlist.patch.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "colorRgbFormat": {
+      "description": "Whether to use the foregroundColor and backgroundColor fields to write the calendar colors (RGB). If this feature is us…",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "calendarId"
+  ],
+  "title": "Patch calendar-list entry request",
+  "type": "object"
+}

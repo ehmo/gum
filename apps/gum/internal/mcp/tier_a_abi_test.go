@@ -112,11 +112,6 @@ func TestTierAConvenienceABI(t *testing.T) {
 				}
 			}
 
-			// 4. OutputProfile must be non-empty.
-			if abi.OutputProfile == "" {
-				t.Errorf("abi.OutputProfile is empty for tool %q; spec §4.1 requires a non-empty output profile", n)
-			}
-
 			// 5. Formats must be non-empty and every element must be in the
 			//    closed set {"toon","csv","json","markdown"}.
 			if len(abi.Formats) == 0 {

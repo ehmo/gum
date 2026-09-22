@@ -1,0 +1,53 @@
+{
+  "$id": "calendar.events.patch.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "alwaysIncludeEmail": {
+      "description": "Deprecated and ignored. A value will always be returned in the email field for the organizer, creator and attendees, ev…",
+      "type": "boolean"
+    },
+    "calendarId": {
+      "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you want to access the primary cale…",
+      "type": "string"
+    },
+    "conferenceDataVersion": {
+      "description": "Version number of conference data supported by the API client. Version 0 assumes no conference data support and ignores…",
+      "type": "integer"
+    },
+    "eventId": {
+      "description": "Event identifier.",
+      "type": "string"
+    },
+    "eventLabelVersion": {
+      "description": "Version number of the event label feature supported by the API client. Version 0 assumes no event label support and pro…",
+      "type": "integer"
+    },
+    "maxAttendees": {
+      "description": "The maximum number of attendees to include in the response. If there are more than the specified number of attendees, o…",
+      "type": "integer"
+    },
+    "sendNotifications": {
+      "description": "Deprecated. Please use sendUpdates instead.  Whether to send notifications about the event update (for example, descrip…",
+      "type": "boolean"
+    },
+    "sendUpdates": {
+      "description": "Guests who should receive notifications about the event update (for example, title changes, etc.).",
+      "enum": [
+        "all",
+        "externalOnly",
+        "none"
+      ],
+      "type": "string"
+    },
+    "supportsAttachments": {
+      "description": "Whether API client performing operation supports event attachments. Optional. The default is False.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "calendarId",
+    "eventId"
+  ],
+  "title": "Patch a Calendar event request",
+  "type": "object"
+}

@@ -1,0 +1,22 @@
+{
+  "$id": "gmail.users.messages.send.request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "raw": {
+      "description": "Base64url-encoded RFC 2822 message.",
+      "type": "string"
+    },
+    "threadId": {
+      "description": "Thread to attach the reply to.",
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId"
+  ],
+  "title": "Send Gmail message request",
+  "type": "object"
+}

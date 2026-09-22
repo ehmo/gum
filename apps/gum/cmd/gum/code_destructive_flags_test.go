@@ -86,7 +86,7 @@ func TestCodeCmdDestructiveArgsSatisfyAdapterGate(t *testing.T) {
 	cmd := newCodeCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
-	cmd.SetArgs([]string{"gum_print(1)", "--allow-destructive", "--destructive-budget", "1"})
+	cmd.SetArgs([]string{"gum_print(1)", "--allow-destructive", "--yes", "--destructive-budget", "1"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}

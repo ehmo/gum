@@ -28,6 +28,8 @@ gum profile test <profile-path> [flags]
 | `--golden` | `string` |  | Path to golden output; if set, compare byte-for-byte |
 | `--input` | `string` |  | Path to input JSON (single-fixture mode) |
 | `--name` | `string` |  | Definition to test when the file declares several [output_profiles."<name>"] tables |
+| `--op` | `string` |  | op_id written to the TOON op: header (single-fixture mode) |
+| `--variant` | `string` |  | variant_id written to the TOON variant: header (single-fixture mode) |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
 | `--profile` | `string` | default | Profile name to read/write config under |
