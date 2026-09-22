@@ -165,7 +165,7 @@ response body: the ledger records the cached body in `raw_tokens` against
 git clone https://github.com/ehmo/gum.git
 cd gum && git checkout v2.2.0
 cd apps/gum
-GOTOOLCHAIN=go1.26.8 CGO_ENABLED=0 GOOS=<os> GOARCH=<arch> go build -trimpath \
+GOTOOLCHAIN=go1.26.7 CGO_ENABLED=0 GOOS=<os> GOARCH=<arch> go build -trimpath \
   -ldflags='-s -w -X main.version=2.2.0' ./cmd/gum
 sha256sum gum
 ```
@@ -173,3 +173,46 @@ sha256sum gum
 Build from a full clone, not from a linked `git worktree`. Go embeds the commit
 revision in the binary, and it silently skips that stamp in a linked worktree,
 which changes the hash.
+
+Write the rebuilt binary outside the clone. Go stamps `vcs.modified=true` when
+the working tree holds any untracked file, so a `-o` path inside the checkout
+changes the hash of every build after the first.
+
+## Verification
+
+Release run
+[35701601323](https://github.com/ehmo/gum/actions/runs/35701601323), tag
+`v2.2.0` at public commit `bf6de6c242fbb5c84ac4a1f2ead1fd460599061b`. All seven
+jobs passed: validate semver tag, docs deployed from tag commit, pre-release
+tests, govulncheck, goreleaser, reproducible-build canary, verify release
+provenance against release artifacts. The goreleaser job resolved `1.26.x` to
+`go1.26.7`.
+
+Checked independently of the pipeline, against the published artifacts:
+
+- `shasum -a 256 -c checksums.txt` reported OK for all four archives.
+- The provenance attestation matched: identity and archive hashes for `v2.2.0`
+  at commit `bf6de6c242fbb5c84ac4a1f2ead1fd460599061b`.
+- A clean `git clone --depth 1 --branch v2.2.0` rebuilt all four binaries under
+  `GOTOOLCHAIN=go1.26.7` to the hashes below, which equal
+  `release-binaries.sha256`. The binaries extracted from the four published
+  archives hash identically.
+
+| Platform | Binary sha256 |
+| --- | --- |
+| `darwin/amd64` | `6184dbfe5a2c88159e12cc02ba0b6ed8a876f5e4490f136cda60d0baea2eb444` |
+| `darwin/arm64` | `030cdf57ad020ccdae7e7da577463e70ceee0e1093a6a4d431ab4db6b07da257` |
+| `linux/amd64` | `b41e647b4139c03e4f47281ae6227a1d213db233c01d93a3510a274fde9b6df5` |
+| `linux/arm64` | `4869b279d6836304e3ead04143f17eda474cc7ee55b30efc3e483d9db30a557d` |
+
+| Archive | sha256 |
+| --- | --- |
+| `gum_2.2.0_darwin_amd64.tar.gz` | `683a5f4005a84441795dd7a368367b3f31a2846b6db9a0c9b749aaa2e627439b` |
+| `gum_2.2.0_darwin_arm64.tar.gz` | `e82532be854b609a9968d2f5f1e3d91a0a0fef39945634fd655af86a972c578f` |
+| `gum_2.2.0_linux_amd64.tar.gz` | `76b2e176967b68f58d57a3d6177b53ab94dfe0a1b7df5e24313a5e3df6f21251` |
+| `gum_2.2.0_linux_arm64.tar.gz` | `7f5847adf4009878ab140f284f394762e7be93fdfd71b984ba06bf6c9206499c` |
+
+The Homebrew tap carries the same four digests at `ehmo/homebrew-tap` commit
+`77a75e0`. `brew audit --strict --online --os=all --arch=all ehmo/tap/gum` and
+`brew test ehmo/tap/gum` both passed, the tap-drift check passed, and the
+installed binary reports `2.2.0` with `gum doctor: all checks passed`.
