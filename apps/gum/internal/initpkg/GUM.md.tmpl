@@ -42,7 +42,7 @@ Every convenience tool is a sugar wrapper over a single catalog variant; use
 ## Risk-gate contract
 
 The risk class is on the **variant**, not the caller. If you call
-`gum.read("docs.documents.update", ...)`, the dispatcher rejects with
+`gum.read("docs.documents.batchUpdate", ...)`, the dispatcher rejects with
 `RISK_TOOL_MISMATCH` before any HTTP request. Retry through `gum.write`
 or `gum.destructive` to match the resolved variant's class.
 
@@ -57,7 +57,7 @@ its entire lifetime. Switch profiles by starting a new process:
 
 ```bash
 gum --profile work mcp --stdio       # MCP server bound to 'work' profile
-gum --profile personal call docs.get ...
+gum --profile personal call docs.documents.get --risk=read documentId=<id>
 ```
 
 Per-profile state lives under:
@@ -68,19 +68,20 @@ Per-profile state lives under:
 
 ## Auth method
 
-Pick one strategy per profile:
+The catalog assigns a strategy to each variant. Set up the ones your ops need:
 
-| Strategy           | Setup command                                  | When                                              |
-|--------------------|------------------------------------------------|---------------------------------------------------|
-| `gum_oauth`        | `gum auth login`                               | Default. Browser PKCE; built-in client; keychain. |
-| `byo_oauth`        | `gum auth setup <op_id>`                       | Custom OAuth client (e.g., publisher requires it).|
-| `adc`              | `gum auth use-adc`                             | Server / CI. Reads ADC; never auto-consumed.      |
-| `service_account`  | `gum auth use-service-account key.json`        | Workspace domain-wide or service identity.        |
-| `api_key`          | `gum auth use-api-key <key>`                   | Unauthenticated / public APIs.                    |
-| `compound`         | Per-plugin: see `gum plugin setup <name>`      | Plugins with developer-token + OAuth + ...        |
+| Strategy          | Setup command                                    | When                                               |
+|-------------------|--------------------------------------------------|----------------------------------------------------|
+| `byo_oauth`       | `gum auth use-oauth-client`, then `gum login`     | Default. Every Workspace op. Your own OAuth client.|
+| `api_key`         | `gum auth use-api-key --stdin`                    | Maps, Places, Routes, Custom Search.               |
+| `service_account` | `gum auth use-service-account <key.json>`         | Ops or plugins that accept a service account key.  |
+| `adc`             | Configure ADC on the host                         | Hosts already running under ADC. No gum command.   |
+| `plugin_managed`  | Follow the plugin's setup                         | Plugin-backed ops whose auth the plugin owns.      |
 
-`gum init` never silently consumes ambient `GOOGLE_APPLICATION_CREDENTIALS`;
-opt in with `gum auth use-adc` on the profile that should accept ADC.
+The catalog picks the strategy per variant; you do not select one. `gum
+describe <op_id>` shows the strategy an op resolves to. A variant whose
+strategy is not `adc` never falls through to ambient
+`GOOGLE_APPLICATION_CREDENTIALS`.
 
 ## Token-budget guarantees
 
@@ -90,23 +91,22 @@ opt in with `gum auth use-adc` on the profile that should accept ADC.
 
 ## Configuration examples
 
+`config.toml` is a flat `key = value` file. It has no TOML tables; a `[section]`
+header fails the load with `expected key = value`.
+
 ### Read-only profile
 
 `~/.config/gum/read-only/config.toml`
 
 ```toml
 config_schema_version = 1
-
-[profile]
-description = "Read-only access — gum.read + convenience read tools only"
-
-[auth]
-strategy = "gum_oauth"
-# Run: gum --profile read-only auth login
-
-[gain]
-enabled = true
+output.default_format = "toon"
+gain.enabled = true
 ```
+
+Read-only is enforced by which tool you call, not by config: `gum.read` and the
+read convenience tools reject a write or destructive variant with
+`RISK_TOOL_MISMATCH`.
 
 ### Write-enabled profile
 
@@ -114,19 +114,9 @@ enabled = true
 
 ```toml
 config_schema_version = 1
-
-[profile]
-description = "Daily-use profile with write access"
-
-[auth]
-strategy = "gum_oauth"
-
-[gain]
-enabled = true
-
-# Plugin allow-list (only listed plugins load; comment out to allow all).
-# [[plugin]]
-# name = "flights"
+output.tee_mode = "always"
+output.tee_retention_hours = 24
+gain.enabled = true
 ```
 
 ### Code-mode profile
@@ -136,20 +126,13 @@ enabled = true
 ```toml
 config_schema_version = 1
 
-[profile]
-description = "Automation profile — allows gum.code with write side effects"
-
-[auth]
-strategy = "service_account"
-# Run: gum --profile automation auth use-service-account /path/to/key.json
-
-[code]
 # Maximum cumulative stdout/stderr bytes from gum.code (spec §6.1.2).
-output_limit_bytes = 1048576
-
-[gain]
-enabled = true
+code.output_limit_bytes = 1048576
+gain.enabled = true
 ```
+
+Credentials are per profile and live in the OS keychain, not in this file:
+`gum --profile automation auth use-service-account /path/to/key.json`.
 
 ## Useful commands
 
@@ -157,7 +140,7 @@ enabled = true
 gum mcp --stdio                       # Start the MCP server (Claude Code, Cursor, ...)
 gum call <op_id> --risk=read ...      # CLI direct dispatch
 gum describe <op_id>                  # Variant + schema details
-gum profile validate                  # Lint expression profiles
+gum profile validate <path>           # Lint an expression profile
 gum cache stats --format=json         # Inspect cache layers
 gum gain                              # Token-savings summary
 ```

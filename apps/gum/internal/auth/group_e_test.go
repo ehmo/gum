@@ -190,7 +190,7 @@ func TestAuthStrategyRequired(t *testing.T) {
 }
 
 // TestManagedOAuthScopeManifest verifies spec §7 line 1307-1317: the
-// docs/auth-managed-scopes.v1.json manifest is the single source of truth
+// internal/embedded/data/auth-managed-scopes.v1.json manifest is the single source of truth
 // for scopes eligible to use auth_strategy="gum_oauth". The manifest must
 // exist, parse, and satisfy the structural invariants documented in §7.
 func TestManagedOAuthScopeManifest(t *testing.T) {

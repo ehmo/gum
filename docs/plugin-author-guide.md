@@ -2,7 +2,7 @@
 
 This is the **author-facing** companion to `docs/plugin-contract.md` (the normative contract) and `docs/catalog-abi.md` (the runtime catalog ABI). The contract tells you *what* the host validates and rejects; this guide walks you through *how to ship* a Shape 1 MCP-subprocess plugin from scratch — manifest, ABI wire format, packaging, install workflow, and a complete worked example.
 
-In v1.3.0, Shape 1 (MCP subprocess) is the only externally authorable plugin shape. Shape 2 (gRPC subprocess) has no target release; third-party Shape 2 manifests are rejected at install time with `PLUGIN_SHAPE_UNSUPPORTED`.
+Shape 1 (MCP subprocess) is the only externally authorable plugin shape. Shape 2 (gRPC subprocess) has no target release; third-party Shape 2 manifests are rejected at install time with `PLUGIN_SHAPE_UNSUPPORTED`.
 
 ---
 
@@ -52,7 +52,7 @@ The manifest is the v1 schema enforced by `plugins.LoadManifest`. Every field be
 
 | Field | Type | Constraint | Failure code |
 |---|---|---|---|
-| `manifest_schema_version` | integer | Must be exactly `1` in v1.3.0. Must be a **sibling** of `[plugin]` in TOML manifests, never nested. | `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` |
+| `manifest_schema_version` | integer | Must be exactly `1`. Must be a top-level member of `manifest.json`, never nested inside a `plugin` object. | `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` |
 | `plugin_id` | string | Matches `^[a-z][a-z0-9-]{0,63}$`. | `PLUGIN_MANIFEST_INVALID` |
 | `name` | string | Free-form display name. | `PLUGIN_MANIFEST_INVALID` if empty |
 | `version` | string | Free-form (typically semver). | — |
@@ -69,7 +69,7 @@ The manifest is the v1 schema enforced by `plugins.LoadManifest`. Every field be
 ### Cross-references
 
 - Namespace ownership rules: `docs/plugin-contract.md` §third-party namespace ownership.
-- Reserved first-party prefixes (`gmail`, `drive`, `calendar`, and similar Google service prefixes): `docs/plugin-contract.md` §third-party namespace ownership.
+- Prefix claims are first claim wins. No reserved list of Google prefixes ships, so nothing stops a plugin from claiming `gmail` on a fresh profile (gum-g9qv).
 - Credential descriptors required when `env_allow` carries OAuth-bearing vars: `docs/plugin-contract.md` §credential descriptors.
 
 ---
@@ -225,7 +225,7 @@ reloaded fli
 
 `gum plugin remove fli` removes the install but **preserves the `namespace_owner` entry** in `plugins.lock`, so a reinstall by the same owner succeeds without re-asserting consent (spec §5.1 transfer procedure).
 
-`gum plugin validate` does not exist. Validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, executable-binding rehash, and (if defined) the canary.
+`gum plugin validate` does not exist. Validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, and executable-binding rehash. Install spawns nothing, so no canary runs there.
 
 ---
 
@@ -343,7 +343,7 @@ gum plugin run hello hello '{"name":""}'
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Install fails with `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` | Forgot to set `manifest_schema_version: 1`, or placed it inside `[plugin]` in TOML | Hoist it to the top level. |
+| Install fails with `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` | Forgot to set `manifest_schema_version: 1`, or nested it inside a `plugin` object | Hoist it to the top level. |
 | Install fails with `PLUGIN_NAMESPACE_CONFLICT` | Another plugin already owns the prefix in this profile's lock, or `namespace_owner` is missing on a third-party manifest | Either rename your plugin_id, declare the actual owner string the previous install used, or — in dev only — re-run with `--dev-allow-namespace-conflict`. |
 | Spawn fails with `PLUGIN_EXECUTABLE_UNTRUSTED` | `executable` resolves outside the install root, points to a shell interpreter (`sh`, `bash`, `python`), or the file's SHA-256 changed since install | Repackage with a real entry-point binary; rerun `gum plugin install` to record the new digest. |
 | Calls fail with `SERVICE_DOWN` and `source_error_code: <something-weird>` | Plugin emitted an unknown error code; host maps unknowns to `SERVICE_DOWN` per spec §8 line 1641 | Use only the five plugin-local codes: `RATE_LIMIT`, `AUTH_EXPIRED`, `PARSE_FAILURE`, `SERVICE_DOWN`, `INVALID_INPUT`. |
@@ -354,8 +354,8 @@ gum plugin run hello hello '{"name":""}'
 
 ## 7. Going further
 
-- **Output profiles**: ship an `output_profile` per tool to keep responses compact. See `docs/profile-dsl-reference.md` for the operator catalogue and worked examples.
-- **Canaries**: declare a `[requirements].canary` block so `cmd/gen-catalog` can run a known-good call at build time. Use relative date specifiers (`+7d`, `+2w`) to avoid stale fixtures.
+- **Output profiles**: `output_profile` is not a manifest field and install binds none, so a plugin variant shapes through the default profile. See `docs/profile-dsl-reference.md` for the operator catalogue.
+- **Canaries**: a manifest declares no canary. `gum plugin setup <name>` runs a spawn probe after storing credentials, and `gum canary --plugin=<id>` runs the same probe as a diagnostic. The spec §8.7 manifest canary block is unimplemented (gum-upd4).
 - **Quarantine + crash recovery**: spec §8.6 describes the exponential-backoff window and the `gum plugin reload` / `gum plugin unquarantine` recovery commands.
 - **Plugin-shipped profiles**: see `docs/plugin-contract.md` §profiles for the rules that govern profiles bundled inside a plugin.
 

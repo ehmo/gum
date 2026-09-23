@@ -16,7 +16,7 @@ Setup:
 
 ```shell
 gum login --service admin,adminreports,cloudidentity,groupssettings,vault
-gum read admin.users.list --args '{"customer":"my_customer","maxResults":5}'
+gum read admin.directory.users.list --args '{"customer":"my_customer","maxResults":5}'
 ```
 
 Admin and Vault writes can affect tenant-wide state. Use the narrowest scope

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/ehmo/gum/internal/output/gain"
 )
 
 // healthSnapshotTTL is the §13 line 3149 "5s sample TTL" constant. The probe
@@ -225,7 +227,15 @@ func probeCanaryRunner(now time.Time, _ string) subsystemHealth {
 // probeGainLedger probes the §9.5 gain ledger. The ledger is created lazily
 // on the first append, so an absent file is normal on a fresh install. The
 // probe reports degraded only when the parent dir cannot be resolved.
-func probeGainLedger(now time.Time, _ string) subsystemHealth {
+//
+// The ledger is per-profile: cmd/gum/root.go opens it at
+// <profile data dir>/gain-ledger.jsonl. Probing the home-relative default
+// instead reported "no entries yet" for every non-default profile and for
+// any XDG_DATA_HOME override, so profileDir wins when the caller supplies it.
+func probeGainLedger(now time.Time, profileDir string) subsystemHealth {
+	if profileDir != "" {
+		return gainLedgerHealth(now, filepath.Join(profileDir, gain.LedgerFileName))
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return subsystemHealth{
@@ -235,7 +245,12 @@ func probeGainLedger(now time.Time, _ string) subsystemHealth {
 			LastCheckAt: now,
 		}
 	}
-	ledger := filepath.Join(home, ".local", "share", "gum", "gain-ledger.jsonl")
+	return gainLedgerHealth(now, filepath.Join(home, ".local", "share", "gum", gain.LedgerFileName))
+}
+
+// gainLedgerHealth reports on one resolved ledger path. A directory at that
+// path counts as absent, not present: nothing can append to it.
+func gainLedgerHealth(now time.Time, ledger string) subsystemHealth {
 	if info, err := os.Stat(ledger); err == nil && !info.IsDir() {
 		return subsystemHealth{
 			Subsystem:   "gain_ledger",

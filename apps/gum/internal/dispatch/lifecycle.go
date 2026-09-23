@@ -699,7 +699,7 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 	// auth first makes the lookup key match the store key, and makes a cache hit
 	// correctly require proving you are that principal rather than serving a prior
 	// principal's response. The token bucket still runs only on a miss (below), so
-	// hits do not consume quota. (Divergence tracked in docs/known-divergences.md.)
+	// hits do not consume quota. (Divergence recorded in docs/architecture.md.)
 	t0 = time.Now()
 	creds, err := d.resolveAuth(ctx, inv, rv)
 	if err != nil {

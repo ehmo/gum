@@ -23,7 +23,7 @@ The author-facing walkthrough — manifest field-by-field, wire ABI with worked 
 
 In v2.0.0, Shape 1 is the only supported external authoring path. Shape 1 plugins are allowed only when their manifest declares the infrastructure they own, ships schemas/output profiles/canaries, and accepts the trust warning. Shape 2 is the long-term unofficial expansion substrate, but it is not an authoring contract until a release freezes the public plugin SDK and proto.
 
-In v2.0.0, `gum plugin install` rejects third-party Shape 2 manifests with `PLUGIN_SHAPE_UNSUPPORTED`. This includes `[plugin].shape = "grpc-subprocess"` and any `[[tools]]` record with `backend_kind = "grpc-plugin"`. The Shape 2 gate runs immediately after structural manifest parsing has identified `shape` and `backend_kind`, wins over `PLUGIN_BINDING_INVALID`, and happens before schema copy, executable staging, canary execution, or registry writes. Shape 2 binding examples in the docs are ABI fixtures only, not an external authoring surface for v2.0.0.
+In v2.0.0, `gum plugin install` rejects third-party Shape 2 manifests with `PLUGIN_SHAPE_UNSUPPORTED`. `LoadManifest` accepts `shape = "mcp-plugin"` and nothing else, so any other shape and any `grpc-plugin` binding fails there. The Shape 2 gate runs immediately after structural manifest parsing has identified `shape` and `backend_kind`, wins over `PLUGIN_BINDING_INVALID`, and happens before schema copy, executable staging, canary execution, or registry writes. Shape 2 binding examples in the docs are ABI fixtures only, not an external authoring surface for v2.0.0.
 
 ### Shape 2 notes (future authoring contract)
 
@@ -31,11 +31,28 @@ Shape 2 plugins are Go subprocesses that communicate with the host via GUM's plu
 
 ## Manifest ABI
 
+The manifest is `manifest.json`, a JSON object. `LoadManifest`
+(`internal/plugins/host.go`) reads `<dir>/manifest.json` and unmarshals it;
+there is no TOML form and no `[plugin]` table. Every field below is a
+top-level member unless stated otherwise.
+
 Every plugin manifest MUST declare:
 
-- top-level `manifest_schema_version` (sibling of `[plugin]`, not inside it)
-- `[plugin]` name, version, description, `namespace_owner`, shape, command, license, ToS status, and risk. `command` is an install-time selector; non-dev runtime execution always uses the normalized executable binding recorded in the selected profile's `plugins.lock`.
-- `[package]` source, ref, checksum
+- `manifest_schema_version`, exactly `1`, at the top level. A copy nested
+  inside a `plugin` member is refused even when it names a supported version.
+- `plugin_id`, matching `^[a-z][a-z0-9-]{0,63}$`. It is also the namespace
+  prefix the install claims.
+- `name`, `version`, `namespace_owner`, `shape` (`"mcp-plugin"`), and
+  `executable` (a relative path inside the install root).
+- `declared_capabilities`: `network`, `fs_write_dir`, `env_allow`.
+- optional `command`, an install-time selector; non-dev runtime execution
+  always uses the normalized executable binding recorded in the selected
+  profile's `plugins.lock`.
+- optional `package`: `source`, `ref`, `checksum`.
+
+License, ToS status, and risk are not manifest fields. Install derives the
+lock row's `risk` from the `package` source: a source with no pin and no
+checksum behind it is marked `dev-untrusted`.
 
 **Command normalization (normative).** Install resolves `command` once and
 records the result as `argv_normalized` in the selected profile's
@@ -57,10 +74,11 @@ manifest example `command = ["uvx", "fli", "mcp"]` becomes
 `<install_root>/venv/bin/fli mcp` and `uvx` is never spawned. The dev
 escape hatch does not apply to `pypi`.
 
-**Package sources (normative).** `[package].source` selects the resolver:
-`local` (the default when `[package]` is omitted), `bundled`,
+**Package sources (normative).** `package.source` selects the resolver:
+`local` (the default when `package` is omitted), `bundled`,
 `github_release`, `git`, or `pypi`. `checksum` is `sha256:` plus 64 hex
-digits. Manifest load validates the block: `pypi` requires
+digits. Manifest load validates the block (`validatePackageDecl` in
+`internal/plugins/source.go`): `pypi` requires
 `ref = "<name>==<exact version>"` and a checksum; `github_release`
 requires an `https` URL ending in `.tar.gz`, `.tgz`, or `.zip` and a
 checksum; `git` takes an `https` or `file` URL, optionally suffixed
@@ -82,19 +100,25 @@ MUST be a regular file inside the install root, or install fails with
 `PLUGIN_EXECUTABLE_UNTRUSTED` before any hash or registry write.
 `plugins.lock` rows record `source`, `ref`, and `checksum`; `local` and
 unpinned-`git` installs carry `risk = "dev-untrusted"`.
-- `[requirements]` rate policy, cache TTL, canary, credential/env needs (see **needs_user_creds denylist** and **credential descriptors** below)
-- one or more `[[tools]]` records with `op_id`, `variant_id`,
-  `backend_kind`, `interface_kind`, `risk_class`, `capabilities`,
-  `scopes`, `schema_ref`, `output_profile`, optional
-  `confirmation_policy`, and the binding-kind
-  selector fields required by `docs/catalog-abi.md` (`tool_name` for
-  `mcp-plugin`; `rpc_service` and `rpc_method` for bundled `grpc-plugin`
-  ABI fixtures and future Shape 2 manifests). The
-  manifest supplies selector inputs; build/install materializes the
-  resolved variant's nested `binding` object.
-- `null_elision_safe_fields` when the referenced `output_profile` uses `strip_nulls=true`
+- optional `requirements`: `needs_user_creds`, `credential_descriptors`, and
+  `auth_components` (see **needs_user_creds denylist** and **credential
+  descriptors** below).
+- `advertised_tools`, one object per exposed tool, each with `name`
+  (`^[a-z0-9][a-z0-9_.-]{0,63}$`), `description`, and `risk_class`
+  (`read`, `write`, or `destructive`), plus optional `auth_strategy` (from
+  the §7 closed enum) and `schema_ref`.
 
-Unsupported `manifest_schema_version`, missing `manifest_schema_version` on a third-party manifest, or `manifest_schema_version` placed inside `[plugin]` fails before subprocess start with `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED`.
+**Derived, never declared.** A manifest carries no `op_id`, `variant_id`,
+`backend_kind`, `interface_kind`, `adapter_key`, `capabilities`, `scopes`,
+`output_profile`, `confirmation_policy`, or `null_elision_safe_fields`.
+Install synthesizes one `plugin-catalog.json` variant row per advertised
+tool: `op_id = plug.<plugin_id>.<name>`, `variant_id = <op_id>.v1`,
+`owner_plugin = <plugin_id>`, `risk_class` copied from the tool, and a
+`binding` fixed to `adapter_key = "plugin.mcp"` with `tool_name = <name>`.
+`schema_ref` is the one selector the author supplies: install appends
+`.request` and `.response` to derive the served refs.
+
+Unsupported `manifest_schema_version`, missing `manifest_schema_version` on a third-party manifest, or `manifest_schema_version` nested inside a `plugin` member fails before subprocess start with `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED`.
 
 Missing or malformed plugin binding selector fields fail before
 subprocess start with `PLUGIN_BINDING_INVALID`. For Shape 1 MCP
@@ -109,14 +133,14 @@ value is `high_stakes_write`, valid only for `risk_class = "write"` tools.
 It makes `gum.write` and `gum call --risk=write` require user confirmation
 before dispatch while preserving MCP `destructiveHint=false`.
 
-**`needs_user_creds` denylist (normative).** The `[requirements].needs_user_creds` field lists environment variable names that the host MUST pass through to the plugin subprocess from the user's environment. To prevent plugin authors from siphoning GUM's own configuration, credentials, or operational state into a plugin's address space:
+**`needs_user_creds` denylist (normative).** The `requirements.needs_user_creds` field lists environment variable names that the host MUST pass through to the plugin subprocess from the user's environment. To prevent plugin authors from siphoning GUM's own configuration, credentials, or operational state into a plugin's address space:
 
 1. Variable names matching the case-sensitive prefix `GUM_` are PROHIBITED in `needs_user_creds`. Listing one fails build/install with `PLUGIN_ENV_PROHIBITED: needs_user_creds entry '<name>' on plugin '<plugin>' is a prohibited env var name.` (single canonical message form, shared with spec.md §8.1; applies to both the `GUM_` prefix rule and the exact-name denylist).
 2. The denylist is enforced from a single curated in-binary source of truth shared by `cmd/gen-catalog`, `gum plugin install`, and runtime env scrubbing. It may be embedded via `go:embed` or compiled as a constant slice, but behavior must be identical in all three paths. The list contains, at minimum: the `GUM_` prefix rule, exact names `GOOGLE_APPLICATION_CREDENTIALS` (use catalog-managed ADC instead), `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and any env var beginning with `_GUM`. Future additions require a normative spec patch.
 3. The validation runs at both build time (catalog-bundled plugins) and install time (runtime `gum plugin install`). Bypassing it via runtime env injection by the host is PROHIBITED; the dispatch layer MUST scrub the plugin subprocess environment of any denylisted variable regardless of manifest declarations.
 4. `TestPluginEnvProhibited` (in `internal/plugins/env_prohibited_test.go`) MUST verify rejection on a fixture manifest that lists `GUM_PROFILE` in `needs_user_creds`, asserting `PLUGIN_ENV_PROHIBITED` is returned and the subprocess is never started.
 
-**Credential descriptors (normative).** `needs_user_creds` is a raw env allowlist for process launch; it is not safe UX copy. Any manifest with non-empty `needs_user_creds` MUST also declare `[requirements].credential_descriptors`, one descriptor per env var, with fields `alias`, `env`, `kind`, `display_name`, and `setup_hint` as specified in `spec.md` §8.2. Inventory resources, `AUTH_REQUIRED` messages, and setup prompts use aliases/display names/hints only. Missing, duplicate, or extra descriptor entries fail build/install with `PLUGIN_CREDENTIAL_DESCRIPTOR_INVALID`.
+**Credential descriptors (normative).** `needs_user_creds` is a raw env allowlist for process launch; it is not safe UX copy. Any manifest with non-empty `needs_user_creds` MUST also declare `requirements.credential_descriptors`, one descriptor per env var, with fields `alias`, `env`, `kind`, `display_name`, and `setup_hint` as specified in `spec.md` §8.2. Inventory resources, `AUTH_REQUIRED` messages, and setup prompts use aliases/display names/hints only. Missing, duplicate, or extra descriptor entries fail build/install with `PLUGIN_CREDENTIAL_DESCRIPTOR_INVALID`.
 
 Plugins that require product setup beyond a secret value (for example a Google
 Ads developer token, customer ID, manager login customer ID, billing-enabled
@@ -125,7 +149,7 @@ the `auth_strategy` / `auth_components[]` taxonomy from `spec.md` §7. Secret
 components are collected by `gum plugin setup <name>` and stored in the OS
 keychain. External components are displayed as checklist items that GUM cannot
 complete, one line per component, before setup prompts for any secret. The
-field is `[requirements].auth_components`; each entry carries `kind`,
+field is `requirements.auth_components`; each entry carries `kind`,
 `optional`, `secret`, `external`, and `setup_hint`. A `kind` outside the
 `spec.md` §7 closed enum, and an empty `kind`, fail build/install with
 `AUTH_COMPONENT_UNKNOWN`; `x-` prefixed kinds are informational and accepted.
@@ -165,7 +189,7 @@ opaque 401. Each spawn that does forward a token appends one
 `plugin_token_forwarded` entry to the profile audit log with the plugin id, the
 credential subject fingerprint, and the forwarded scopes.
 
-If an output profile strips null or empty values, the manifest's tool record must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation in v0.1.0. A registry variant row becomes a dispatchable catalog op at process start, when the session merge described in `spec.md` §4.2 reads `plugin-catalog.json`, but the merged variant carries no `output_profile`. Shaping falls back to the default profile, so there is no profile binding to check at install time. A plugin that needs a named profile must wait for a release that binds one, and `PROFILE_STRIP_NULLS_UNSAFE` stays a build-time gate over the generated catalog.
+If an output profile strips null or empty values, the catalog variant that binds the profile must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation in v0.1.0. A registry variant row becomes a dispatchable catalog op at process start, when the session merge described in `spec.md` §4.2 reads `plugin-catalog.json`, but the merged variant carries no `output_profile`. Shaping falls back to the default profile, so there is no profile binding to check at install time. A plugin that needs a named profile must wait for a release that binds one, and `PROFILE_STRIP_NULLS_UNSAFE` stays a build-time gate over the generated catalog.
 
 ## Schema Refs
 
@@ -216,7 +240,7 @@ MCP clients enumerate plugins via:
 
 CLI users use `gum plugin list`. Search may surface plugin operations, but search phrasing is not the inventory contract.
 
-Plugin inventory status is a closed enum: `active`, `installed_pending_restart`, `needs_configuration`, or `quarantined`. In v2.0.0, a plugin installed while an MCP server is already running is inventory-only in that session with status `installed_pending_restart`; its operations are not searchable, operation-completable, describable as active, usable from code mode, or invokable until the MCP server restarts and marks it activated. A credentialed plugin installed without required credentials is `needs_configuration`: install validation succeeded, live canary was skipped, and the user must provide the declared credentials and run `gum canary --plugin=<name> --live` before activation. The restart affects operation reachability through the existing Tier A/meta-tool surface only; plugin variants never add individual MCP tools in v2.0.0. Standalone CLI commands see install-valid configured plugins on their next process start. If a plugin is both quarantined and another inactive state, `quarantined` wins in every MCP and CLI surface.
+Plugin inventory status is a closed enum: `active`, `installed_pending_restart`, `needs_configuration`, or `quarantined`. In v2.0.0, a plugin installed while an MCP server is already running is inventory-only in that session with status `installed_pending_restart`; its operations are not searchable, operation-completable, describable as active, usable from code mode, or invokable until the MCP server restarts and marks it activated. A credentialed plugin installed without required credentials is `needs_configuration`: install validation succeeded, live canary was skipped, and the user must supply the declared credentials with `gum plugin setup <name>` before activation. The restart affects operation reachability through the existing Tier A/meta-tool surface only; plugin variants never add individual MCP tools in v2.0.0. Standalone CLI commands see install-valid configured plugins on their next process start. If a plugin is both quarantined and another inactive state, `quarantined` wins in every MCP and CLI surface.
 
 `gum://plugin/{name}` metadata is assembled from the selected profile's `plugin-catalog.json` plus `plugin-state.json`; the same profile's `plugins.lock` is consulted for package source/ref/checksum fields and the runtime executable binding (`executable_path`, `executable_sha256`, `argv_normalized`, `install_root`). Lock lookups are keyed by `(profile, plugin_name)` and MUST NOT cross profile boundaries. If those sources disagree, runtime status from `plugin-state.json` wins for quarantine/retry state, variant records from `plugin-catalog.json` win for dispatch metadata, and lockfile package fields are surfaced with `metadata_warning: "lock_catalog_mismatch"`. The resource shape is fixed in `spec.md` §13 and includes safe credential descriptors for `needs_configuration`; raw env var names must never appear in this resource. Users configure missing plugin credentials through `gum plugin setup <name>`, which prompts using descriptor display names/setup hints, stores secrets in the OS keychain for the active profile, and runs a live canary before clearing `needs_configuration`.
 
@@ -224,7 +248,12 @@ For non-dev profiles, the launched executable must be inside the host-managed in
 
 ## Reserved Namespaces
 
-Plugins may not claim Google-owned prefixes (`gmail`, `drive`, `calendar`, etc.) unless they are bundled first-party plugins reviewed with the host. The check runs at build time and install time. A conflict fails with `PLUGIN_NAMESPACE_CONFLICT`.
+Namespace ownership is first claim wins. `ValidateNamespaceOwnership`
+(`internal/plugins/namespace.go`) admits any op_id prefix that no other
+`namespace_owner` holds in the selected profile's `plugins.lock`, and fails a
+prefix already held by a different owner with `PLUGIN_NAMESPACE_CONFLICT`. No
+reserved list of Google prefixes ships in any build, so on a fresh profile a
+third-party plugin can claim `gmail` (gum-g9qv).
 
 Third-party plugins must also declare `namespace_owner` in the manifest. The
 owner is a reverse-DNS or package-registry publisher identity displayed at
@@ -234,13 +263,40 @@ development may bypass only with `--dev-allow-namespace-conflict`.
 
 ## Canaries
 
-Every plugin declares a canary. Relative date specifiers are preferred. Live canary failures soft-quarantine the plugin rather than blocking the registry write, but failed-canary plugins are not searchable, invokable, or auto-started until a later canary pass or explicit trusted unquarantine. Missing required user credentials skip the live canary and record `needs_configuration` instead of quarantine; after credentials are present, `gum canary --plugin=<name> --live` is the only path that clears that state.
+A manifest declares no canary. The shipped canary is a spawn probe: start the
+subprocess through the plugin host, complete the MCP handshake, then stop it.
+Spec §8.7's manifest `canary` string, its relative date specifiers, and its
+build-time gates (`CANARY_DATE_TOO_SOON`, `CANARY_DUPLICATE_ARG`,
+`CANARY_RELATIVE_DATE_OUT_OF_RANGE`, `canary_ingested_date`) are unimplemented;
+none of those identifiers appears in any Go file (gum-upd4).
 
-Use `gum canary --plugin=<name> --live --canary-args='key=value ...'` to rerun or override canary parameters.
+Canary failures soft-quarantine the plugin rather than blocking the registry
+write. A quarantined plugin is not searchable, invokable, or auto-started until
+`gum plugin reload <name>` retries the spawn or `gum plugin unquarantine
+<name>` clears the state without a restart.
+
+Missing required user credentials skip the canary at install and record
+`needs_configuration` instead of quarantine. `gum plugin setup <name>` is the
+only path that clears it: it prompts for each declared credential, stores the
+secrets in the OS keychain, runs the spawn probe, and then writes `active` on
+success or `quarantined` with `CANARY_FAILED` on failure
+(`internal/plugins/setup.go`).
+
+`gum canary --plugin=<id> [--live]` is a diagnostic. It spawns the plugin once,
+prints a JSON envelope, and writes no plugin state, so it never clears
+`needs_configuration` and never advances the §8.6 backoff ladder. `--live` sets
+the envelope's `live` field and changes nothing else. There is no
+`--canary-args` flag.
 
 ## Output Profiles and Tests
 
-Each plugin tool must declare `output_profile` unless the variant explicitly declares `raw_result_allowed=true` with a token-budget exception. Plugin profile files are validated with `gum profile validate`; fixture-backed profiles are tested with `gum profile test`. Lossy plugin profiles must keep `recovery` enabled and must declare `null_elision_safe_fields` when `strip_nulls=true`.
+`output_profile` is not a manifest field, and install binds none: a merged
+plugin variant carries no profile, so shaping falls back to the default.
+Profile files that ship with a plugin are validated with `gum profile
+validate`; fixture-backed profiles are tested with `gum profile test`. The
+rules that a lossy profile keeps `recovery` enabled and declares
+`null_elision_safe_fields` when `strip_nulls=true` are enforced by
+`cmd/gen-catalog` over the generated catalog, not over a plugin manifest.
 
 ## Trust Posture
 

@@ -20,7 +20,7 @@ type Strategy int
 const (
 	// StrategyGUMOAuth corresponds to catalog.AuthStrategyGUMOAuth ("gum_oauth").
 	// Implemented via NewGumOAuth() (PKCE + loopback + CSRF state); the
-	// docs/auth-managed-scopes.v1.json manifest gates start-up so the
+	// internal/embedded/data/auth-managed-scopes.v1.json manifest gates start-up so the
 	// strategy is effectively disabled until a scope reaches the
 	// (active, verified, ready, passing) state.
 	StrategyGUMOAuth Strategy = iota
@@ -276,7 +276,7 @@ func Acquire(ctx context.Context, strat Strategy, scopes []string) (*Credentials
 		return nil, &AuthError{
 			Code:             "AUTH_ACQUIRE_REQUIRES_INSTANCE",
 			Strategy:         strat.String(),
-			HumanRemediation: "use NewGumOAuth() and call .Login() / .Resolve() directly; gum_oauth is gated by the managed-scopes manifest (docs/auth-managed-scopes.v1.json)",
+			HumanRemediation: "use NewGumOAuth() and call .Login() / .Resolve() directly; gum_oauth is gated by the managed-scopes manifest (internal/embedded/data/auth-managed-scopes.v1.json)",
 		}
 	case StrategyNone, StrategyCompound, StrategyPluginManaged:
 		return nil, &AuthError{

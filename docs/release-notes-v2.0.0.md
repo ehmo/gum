@@ -23,7 +23,7 @@ fixes now reject input that earlier versions accepted.
 - `tee_mode="failures"` writes an artifact, the gain ledger records traffic, and
   a cache hit gets the same recovery artifact as a cold call. All three were
   dead paths.
-- Five security fixes, including a symlinked confirmation signing key, a
+- Ten security fixes, including a symlinked confirmation signing key, a
   risk-tier bypass that let `gum.read` execute a destructive variant, and a
   shared auth-subject fingerprint across every workload on GCE.
 

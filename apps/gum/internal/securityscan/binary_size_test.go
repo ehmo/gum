@@ -31,7 +31,7 @@ func TestBinarySize(t *testing.T) {
 	}
 	if info.Size() > MaxBinarySizeBytes {
 		t.Fatalf("linux/amd64 binary size %s exceeds cap %s (spec §15)\n"+
-			"mitigation: zstd-compress the embedded catalog snapshot (`gen/catalog.bin`)",
+			"mitigation: compress the embedded catalog snapshot (`internal/embedded/catalog.json`)",
 			formatBytes(info.Size()), formatBytes(MaxBinarySizeBytes))
 	}
 	t.Logf("linux/amd64 binary size: %s / %s cap", formatBytes(info.Size()), formatBytes(MaxBinarySizeBytes))

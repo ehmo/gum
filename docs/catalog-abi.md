@@ -43,9 +43,12 @@ Additive fields are allowed when older binaries can ignore them without changing
   variant that declares none falls back to the single marker
   `see_setup_command`. Variants using `auth_strategy="gum_oauth"` may reference
   only scopes listed as active, verified, project-ready, and live-canary-passing
-  in `apps/gum/internal/embedded/data/auth-managed-scopes.v1.json`; otherwise
-  generation fails with `GUM_OAUTH_SCOPE_NOT_MANAGED` or
-  `GUM_OAUTH_MANAGED_CLIENT_NOT_READY`.
+  in `apps/gum/internal/embedded/data/auth-managed-scopes.v1.json`. The CI gate
+  `TestGumOAuthScopeNotManaged` scans the embedded catalog and fails the build
+  when a `gum_oauth` variant names a scope the manifest does not mark
+  managed-ready. The shipped catalog declares no `gum_oauth` variant, so the
+  gate passes with nothing to check. At runtime, resolving `gum_oauth` while no
+  scope is managed-ready returns `GUM_OAUTH_MANAGED_CLIENT_NOT_READY`.
 - `null_elision_safe_fields` names fields where an expression profile may erase null, empty-string, empty-object, or empty-array values. The optional `"*"` value means whole-response elision has been curator-reviewed.
 
 ## Variant Lifecycle
@@ -206,7 +209,7 @@ The future `service_root_template` validation contract is: the template MUST con
 4. Adds at least one fixture-backed executor contract test (`TestBackendKind<Name>`).
 5. Updates `spec.md` §5.1 variant shape examples if the new kind requires new manifest fields.
 
-**Unknown `backend_kind` at build time**: `cmd/gen-catalog` MUST reject a manifest entry whose `backend_kind` is not in this table and is not prefixed `x-`, with error `UNKNOWN_BACKEND_KIND: '<value>' is not a known backend_kind; use 'x-<name>' for experimental kinds with execution_support = "schema_only"`.
+**Unknown `backend_kind` at build time**: `cmd/gen-catalog` MUST reject a manifest entry whose `backend_kind` is not in this table and is not prefixed `x-`, with `UNKNOWN_BACKEND_KIND` (the `catalog.ErrUnknownBackendKind` sentinel, wrapped with the offending `op_id` and `variant_id`). Experimental kinds use `x-<name>` with `execution_support = "schema_only"`.
 
 **Unknown `backend_kind`**: `Catalog.Validate` rejects an unrecognized `backend_kind` (one not in the enum above and not prefixed `x-`) with `UNKNOWN_BACKEND_KIND`, and `cmd/gen-catalog` is its only non-test caller, so the rejection happens at catalog build. There is no runtime loader arm: the main catalog is compiled in with `//go:embed catalog.json` and has no override path, so a binary never loads a catalog it did not build (spec §5.8). An `x-*` backend_kind variant with `execution_support = "schema_only"` is loadable and describable but not executable; an invocation attempt returns `UNSUPPORTED_CAPABILITY` with `unsupported_capabilities`.
 
@@ -242,7 +245,7 @@ Common binding fields:
 
 | Field | Type | Required | Semantics |
 |---|---|---:|---|
-| `binding_schema_version` | integer | yes | Starts at 1 per backend binding kind. Unsupported future versions fail with `BINDING_SCHEMA_UNSUPPORTED`. |
+| `binding_schema_version` | integer | yes | Starts at 1 per backend binding kind. Unsupported future versions fail `Catalog.Validate` with `BINDING_SCHEMA_UNSUPPORTED`. |
 | `adapter_key` | string | yes | Stable registry key implemented by `internal/adapters/*`; adding a new key requires adapter code and a same-PR test. |
 | `operation_key` | string | yes | Adapter-local operation identifier; stable across catalog rebuilds. |
 | `request_ref` | string | yes | JSON Schema ref for normalized input args; same safe grammar and collision rules as `schema_ref`. |
@@ -307,7 +310,7 @@ Common binding fields:
 ```jsonc
 {
   "binding_schema_version": 1,
-  "adapter_key": "plugin.shape1-mcp",
+  "adapter_key": "plugin.mcp",
   "operation_key": "flights_search",
   "request_ref": "flights.search.request",
   "response_ref": "flights.search.response",
@@ -344,7 +347,7 @@ When a change to an existing backend binding kind's field semantics is incompati
 3. Update `docs/catalog-abi.md` (this file) with a changelog entry in the affected backend kind's row (e.g., "v2: added `routing_timeout_ms` field").
 4. The "who decides" rule: additive fields that old binaries safely ignore do NOT require a version bump; the curator MAY add them at any version. Semantic changes to existing fields (renamed, re-typed, or changed semantics) ALWAYS require a bump. When in doubt, bump — the compatibility window is cheap and the downgrade path (unknown version → `BINDING_SCHEMA_UNSUPPORTED`) is fail-closed.
 
-5. **Patch-version prohibition (normative).** `binding_schema_version` is an **integer**, not a semver triple. Patch-level changes (the third semver component) are not representable in this field and are forbidden as a migration vehicle: a curator MUST NOT attempt to encode a backward-compatible additive-field change as a "v1.0.1 patch bump" by inserting a decimal point or a string suffix. Either the change is additive and ignorable by old binaries (rule 4 above; no version bump), or it is semantic and requires a major-version bump to `binding_schema_version + 1` (this section). The build rejects non-integer `binding_schema_version` values with `BINDING_SCHEMA_UNSUPPORTED`.
+5. **Patch-version prohibition (normative).** `binding_schema_version` is an **integer**, not a semver triple. Patch-level changes (the third semver component) are not representable in this field and are forbidden as a migration vehicle: a curator MUST NOT attempt to encode a backward-compatible additive-field change as a "v1.0.1 patch bump" by inserting a decimal point or a string suffix. Either the change is additive and ignorable by old binaries (rule 4 above; no version bump), or it is semantic and requires a major-version bump to `binding_schema_version + 1` (this section). A non-integer `binding_schema_version` fails JSON decoding of `catalog.Binding` before validation runs, so it never reaches the version check; a decoded integer above the supported version fails `Catalog.Validate` with `BINDING_SCHEMA_UNSUPPORTED`.
 
 Existing `TestBackendBinding<Name>` rows in `docs/test-matrix.md` MUST be updated to cover both the old and new binding schema version in the same PR (spec.md §5.4.1 step 4 references this procedure).
 

@@ -9,7 +9,7 @@ import (
 )
 
 // managedScopesManifest is the parsed shape of
-// docs/auth-managed-scopes.v1.json (embedded as
+// internal/embedded/data/auth-managed-scopes.v1.json (embedded as
 // embedded.AuthManagedScopesJSON). Only the fields the gate consults are
 // modeled.
 type managedScopesManifest struct {
@@ -116,7 +116,7 @@ func canStartGumOAuth(m *managedScopesManifest, scopes []string) error {
 			Strategy:          "gum_oauth",
 			MissingComponents: []string{"active_scope_required"},
 			SetupCommand:      "gum auth use-oauth-client",
-			HumanRemediation:  "gum_oauth needs at least one scope; the managed scope manifest currently has no active scopes (see docs/auth-managed-scopes.v1.json).",
+			HumanRemediation:  "gum_oauth needs at least one scope; the managed scope manifest currently has no active scopes (see internal/embedded/data/auth-managed-scopes.v1.json).",
 			UserMessage:       "No managed OAuth scopes are active yet. Use byo_oauth or adc for v0.1.0.",
 		}
 	}

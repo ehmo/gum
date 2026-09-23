@@ -53,8 +53,8 @@ func connectInitializeClient(t *testing.T) (*sdkmcp.ClientSession, func()) {
 // TestMCPInitializeCapabilities asserts the spec §13.2 capability matrix at
 // the wire level: every server-owned capability marked **Implemented** is
 // present, every **Deferred** capability is absent. The advertised set is
-// what the v0.1.0 contract actually delivers — prompts/completion/logging
-// remain deferred per docs/known-divergences.md until v0.2.0/v0.3.0 lands.
+// what the v0.1.0 contract actually delivers: prompts and completions are
+// advertised, logging and tasks are not (deferred to v0.3.0).
 //
 // This test is the SDK-upgrade canary: bumping go-sdk to a version that
 // silently flips a default capability on (or off) breaks here.
@@ -76,7 +76,7 @@ func TestMCPInitializeCapabilities(t *testing.T) {
 	if caps.Tools == nil {
 		t.Errorf("Tools capability absent; want advertised")
 	} else if caps.Tools.ListChanged {
-		t.Errorf("Tools.ListChanged = true; want false in v0.1.0 (spec §13.2 / known-divergences)")
+		t.Errorf("Tools.ListChanged = true; want false in v0.1.0 (spec §13.2)")
 	}
 
 	// Resources: advertised, ListChanged=false, Subscribe=false.

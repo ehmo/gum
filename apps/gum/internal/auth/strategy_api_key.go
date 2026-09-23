@@ -10,9 +10,9 @@ import (
 )
 
 // EnvAPIKeyVar is the env variable the v0.1.0 api_key resolver reads. Spec
-// §7 line 1284 mandates keychain storage; the keychain path is the default,
-// the env var stays as a CI/automation fallback. See docs/known-divergences.md
-// and bd memo gum-auth-strategy-v3 for the migration history.
+// §7 mandates keychain storage for secret components; the keychain path is
+// the default and the env var stays as a CI/automation fallback. See bd memo
+// gum-auth-strategy-v3 for the migration history.
 const EnvAPIKeyVar = "GUM_API_KEY"
 
 // DefaultAPIKeyProfile is the profile name used when the caller does not

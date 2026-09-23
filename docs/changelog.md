@@ -16,7 +16,7 @@ fixture-backed token-savings measurements.
 | `v2.2.0` | 2026-09-22 | [Outbound HTTP and ETag revalidation, managed-scope re-consent over MCP elicitation, capability atoms on every shipped variant, macOS signing secrets reach the release pipeline.](release-notes-v2.2.0.md) |
 | `v2.1.0` | 2026-09-21 | [Strict-client tools/list fix, remote plugin package sources, §9.0 TOON wire documents, plugin variants in the session catalog, profile-account binding.](release-notes-v2.1.0.md) |
 | `v2.0.1` | 2026-09-20 | [No code change: the release tree now passes its own `gofmt` gate, which the v2.0.0 tree did not.](release-notes-v2.0.1.md) |
-| `v2.0.0` | 2026-09-20 | [Specification conformance across dispatch, MCP, shaping, plugins, and auth, with five security fixes.](release-notes-v2.0.0.md) |
+| `v2.0.0` | 2026-09-20 | [Specification conformance across dispatch, MCP, shaping, plugins, and auth, with ten security fixes.](release-notes-v2.0.0.md) |
 | `v1.5.0` | 2026-09-18 | [Keyword Planner location and language defaults, and a merged-keyword input map.](release-notes-v1.5.0.md) |
 | `v1.4.0` | 2026-09-18 | [Default Google Ads account, Keyword Planner location guidance, and gRPC security update.](release-notes-v1.4.0.md) |
 | `v1.3.0` | 2026-09-07 | [Data Manager event ingestion, diagnostics, and upload safety fixes.](release-notes-v1.3.0.md) |

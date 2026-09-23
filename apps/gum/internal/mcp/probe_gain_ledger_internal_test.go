@@ -60,3 +60,31 @@ func TestProbeGainLedgerDirInsteadOfFileTreatedAsEmpty(t *testing.T) {
 		t.Errorf("got Status=%q Detail=%q; want healthy/'no entries yet'", res.Status, res.Detail)
 	}
 }
+
+// TestProbeGainLedgerUsesProfileDir pins the per-profile branch. root.go
+// opens the ledger at <profile data dir>/gain-ledger.jsonl, so a probe that
+// only stats ~/.local/share/gum reported "no entries yet" for every profile
+// other than default and for every XDG_DATA_HOME override.
+func TestProbeGainLedgerUsesProfileDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	profileDir := filepath.Join(home, ".local", "share", "gum", "work")
+	if err := os.MkdirAll(profileDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ledger := filepath.Join(profileDir, "gain-ledger.jsonl")
+	if err := os.WriteFile(ledger, []byte(`{}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	res := probeGainLedger(time.Unix(1700000000, 0).UTC(), profileDir)
+	if res.Status != "healthy" || res.Detail != "ledger present" {
+		t.Errorf("got Status=%q Detail=%q; want healthy/'ledger present'", res.Status, res.Detail)
+	}
+
+	// Control: the home-relative default holds no ledger, so the old
+	// implementation would have said "no entries yet" for the same profile.
+	if res := probeGainLedger(time.Unix(1700000000, 0).UTC(), ""); res.Detail != "no entries yet" {
+		t.Errorf("control Detail=%q; want 'no entries yet'", res.Detail)
+	}
+}

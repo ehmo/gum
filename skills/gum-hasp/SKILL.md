@@ -36,9 +36,8 @@ Put other secrets in HASP, then run gum under a short grant:
 
 ```bash
 hasp secret add
-hasp app connect gum-work --cmd 'gum doctor' --install=never
 hasp run --project-root . \
-  --target gum-work \
+  --env GUM_GOOGLE_ADS_DEVELOPER_TOKEN=@GOOGLE_ADS_DEVELOPER_TOKEN \
   --grant-project session \
   --grant-secret session \
   -- gum doctor --format=json

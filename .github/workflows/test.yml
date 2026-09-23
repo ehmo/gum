@@ -119,7 +119,7 @@ jobs:
           # Single toolchain: per-package coverage can drift fractionally
           # between Go minor versions, so the retention baselines in
           # internal/coverage.Ratchets are pinned to the version they were
-          # measured on (matches go.mod's `go 1.26.x`).
+          # measured on (matches go.mod's `go 1.26.0`).
           go-version: '1.26.x'
           cache-dependency-path: apps/gum/go.sum
       - name: per-package coverage retention gate

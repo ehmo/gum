@@ -51,7 +51,7 @@ func TestBundledManifestsAreValid(t *testing.T) {
 				t.Errorf("plugin_id = %q; want %q (must match directory name so install paths resolve consistently)", m.PluginID, c.pluginID)
 			}
 			if m.Shape != "mcp-plugin" {
-				t.Errorf("shape = %q; want mcp-plugin (Shape 1 is the only supported plugin shape in v0.1.0)", m.Shape)
+				t.Errorf("shape = %q; want mcp-plugin (Shape 1 is the only shape LoadManifest accepts, host.go:159)", m.Shape)
 			}
 			if m.Executable == "" {
 				t.Error("executable is empty; LoadManifest should have rejected this but defense-in-depth")

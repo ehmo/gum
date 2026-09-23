@@ -5,7 +5,7 @@
 #   (spawns nested `go test` invocations; slow). Acceptance for gum-b22o.1.
 # `make build` produces a local `gum` binary in the module root.
 
-.PHONY: test test-matrix coverage-floor build lint fmt-check stubs
+.PHONY: test test-matrix coverage-floor build lint fmt fmt-check stubs
 
 test:
 	go test ./...

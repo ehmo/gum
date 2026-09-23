@@ -18,7 +18,7 @@ import (
 
 // TestManagedOAuthLiveCanaryRequired pins spec §7 lines 1212-1224: gum_oauth
 // MUST refuse to start unless the requested scopes have been promoted to
-// (active, verified, ready, passing) in docs/auth-managed-scopes.v1.json.
+// (active, verified, ready, passing) in internal/embedded/data/auth-managed-scopes.v1.json.
 // The shipped manifest has all scopes in the planned/pending state, so a
 // fresh Login or Resolve must fail with GUM_OAUTH_MANAGED_CLIENT_NOT_READY
 // and the missing scopes echoed in MissingComponents.

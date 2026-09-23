@@ -12,11 +12,12 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-// EnvServiceAccountKeyVar is the env variable the v0.1.0 service_account
-// resolver reads for the JSON key file path. Spec §7 line 1284 mandates
-// keychain storage; until gum-0wv lands, the env var is the documented
-// divergence (see docs/known-divergences.md). Distinct from
-// GOOGLE_APPLICATION_CREDENTIALS so a single host machine can run both
+// EnvServiceAccountKeyVar is the env variable the service_account resolver
+// reads for the JSON key file path. It is the only storage this strategy has:
+// `gum auth use-service-account <key.json>` validates the file and prints the
+// export line rather than writing a keychain entry, and the keychain backend
+// (gum-0wv) covers refresh tokens and API keys, not the SA key path. Distinct
+// from GOOGLE_APPLICATION_CREDENTIALS so a single host machine can run both
 // ADC-backed and SA-backed gum profiles without env crosstalk.
 const EnvServiceAccountKeyVar = "GUM_SERVICE_ACCOUNT_KEY"
 

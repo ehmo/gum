@@ -1,6 +1,6 @@
 # Google Auth Guides
 
-gum v1 requires your own Google credentials. The default path is a Google
+gum requires your own Google credentials. The default path is a Google
 Desktop OAuth client that you create in your Google Cloud project.
 
 ## Universal BYO OAuth Setup
@@ -50,9 +50,10 @@ catalog entry shows the auth strategy, scopes, risk class, and example args.
 
 ## Scope Reference
 
-These are the OAuth scopes present in the embedded v1 catalog for BYO OAuth
-variants. Consent-screen scope names in Google Cloud must match the scopes you
-request with `gum login`.
+These are the scopes `gum login` requests for the BYO OAuth variants in the
+embedded catalog. Consent-screen scope names in Google Cloud must match the
+scopes you request with `gum login`. One catalog scope is missing on purpose:
+see the `gmail.metadata` note below the table.
 
 | Service | Scopes |
 | --- | --- |
@@ -82,6 +83,7 @@ request with `gum login`.
 | youtube | `youtube`, `youtube.readonly` |
 
 `gum login` accepts short scope names such as `gmail.readonly` and expands them
-to full Google OAuth URLs. `gmail.metadata` is intentionally omitted from the
-recommended login set when broader Gmail read scopes are present because it
-blocks full message reads.
+to full Google OAuth URLs. `gmail.metadata` is declared by the Gmail variants in
+the embedded catalog, but it is omitted from the table and from the recommended
+login set when broader Gmail read scopes are present, because it blocks full
+message reads. `PruneLoginScopes` drops it at login time.

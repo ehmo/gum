@@ -12,7 +12,7 @@ Setup:
 
 ```shell
 gum login --service people
-gum read people.people.connections.list --args '{"resourceName":"people/me","personFields":"names,emailAddresses","pageSize":5}'
+gum read people.connections.list --args '{"personFields":"names,emailAddresses","pageSize":5}'
 ```
 
 Some `people/me` requests can also require the basic profile scope in Google

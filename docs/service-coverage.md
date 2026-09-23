@@ -38,7 +38,7 @@ Detailed setup lives in [auth guides](auth-guides/), including the separate
 
 ## Why service pages matter
 
-gog exposes many product-specific commands. gum uses fewer commands because the
-catalog is the product surface. The generated service pages close that lookup
+`gcloud` exposes many product-specific commands. gum uses fewer commands
+because the catalog is the product surface. The generated service pages close that lookup
 gap: each page lists operation IDs, risk class, auth strategy, and the command
 shape to use for the first call.

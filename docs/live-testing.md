@@ -51,12 +51,13 @@ for the checks performed and the limits of that evidence.
 
 ## Flights plugin smoke test
 
-The Flights live test skips itself unless the `fli` subprocess is available on
-`PATH` or `GUM_FLIGHTS_MCP_BIN` points at it.
+The Flights live test skips itself unless `GUM_LIVE_FLIGHTS=1` and a `fli`-backed
+`flights-mcp` executable is on `PATH` or named by `GUM_FLIGHTS_MCP_BIN`.
 
 ```bash
 cd apps/gum
-GUM_LIVE_FLIGHTS=1 GUM_FLIGHTS_MCP_BIN=/path/to/fli go test ./cmd/gum -run TestFlights
+GUM_LIVE_FLIGHTS=1 GUM_FLIGHTS_MCP_BIN=/path/to/flights-mcp \
+  go test ./cmd/gum -run TestLiveFlightsSearchViaFli
 ```
 
 This test exercises the plugin bridge. The offline release gate does not depend

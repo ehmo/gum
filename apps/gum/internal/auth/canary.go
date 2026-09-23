@@ -20,7 +20,7 @@ const (
 	CanaryStateStale   CanaryState = "stale"
 )
 
-// CanaryEntry mirrors the shape of a scope row in docs/auth-managed-scopes.v1.json.
+// CanaryEntry mirrors the shape of a scope row in internal/embedded/data/auth-managed-scopes.v1.json.
 // Only the fields the canary cares about are modeled; other fields are preserved
 // verbatim through the read-modify-write cycle.
 type CanaryEntry struct {
