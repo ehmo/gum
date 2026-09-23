@@ -1,10 +1,12 @@
 package cache_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ehmo/gum/internal/cache"
 )
@@ -47,5 +49,30 @@ func TestBBoltOpenMkdirAllFailureWraps(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "create cache dir") {
 		t.Errorf("err=%v; want 'create cache dir' wrap", err)
+	}
+}
+
+// TestBBoltOpenHeldLockReturnsErrCacheLocked pins the timeout branch. A second
+// process opening the same file must get ErrCacheLocked, not ErrCacheCorrupt:
+// callers key "run without the cache" off the first and "delete the file" off
+// the second, so mapping a held lock onto corruption would destroy live data.
+func TestBBoltOpenHeldLockReturnsErrCacheLocked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.db")
+
+	holder, err := cache.Open(cache.BBoltConfig{Path: path})
+	if err != nil {
+		t.Fatalf("Open holder: %v", err)
+	}
+	t.Cleanup(func() { _ = holder.Close() })
+
+	_, err = cache.Open(cache.BBoltConfig{Path: path, OpenTimeout: 50 * time.Millisecond})
+	if !errors.Is(err, cache.ErrCacheLocked) {
+		t.Fatalf("Open while locked = %v; want ErrCacheLocked", err)
+	}
+	if errors.Is(err, cache.ErrCacheCorrupt) {
+		t.Error("a held lock must not report as corruption")
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("error %q does not name the path %q", err, path)
 	}
 }

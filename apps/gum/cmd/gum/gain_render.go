@@ -73,23 +73,23 @@ func renderGainText(w io.Writer, r gain.Report) error {
 	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
 	switch {
 	case r.Sessions != nil:
-		fmt.Fprintln(tw, "SESSION\tCALLS\tBASELINE\tACTUAL\tSAVINGS%\tOP_FAMILIES")
+		_, _ = fmt.Fprintln(tw, "SESSION\tCALLS\tBASELINE\tACTUAL\tSAVINGS%\tOP_FAMILIES")
 		for _, row := range *r.Sessions {
-			fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\t%s\n",
+			_, _ = fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\t%s\n",
 				row.Session, row.Calls, row.BaselineTokens, row.ActualTokens,
 				gainPct(row.SavingsPct), strings.Join(row.OpFamilies, ","))
 		}
 	case r.Operations != nil:
-		fmt.Fprintln(tw, "OP_ID\tOP_FAMILY\tCALLS\tBASELINE\tACTUAL\tCACHE\tFIELD_MASK")
+		_, _ = fmt.Fprintln(tw, "OP_ID\tOP_FAMILY\tCALLS\tBASELINE\tACTUAL\tCACHE\tFIELD_MASK")
 		for _, row := range *r.Operations {
-			fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%d\t%s\t%s\n",
 				row.OpID, row.OpFamily, row.Calls, row.BaselineTokens,
 				row.ActualTokens, row.CacheStatus, row.FieldMaskStatus)
 		}
 	case r.History != nil:
-		fmt.Fprintln(tw, "SESSION\tOP_FAMILY\tBASELINE\tACTUAL\tSAVINGS%")
+		_, _ = fmt.Fprintln(tw, "SESSION\tOP_FAMILY\tBASELINE\tACTUAL\tSAVINGS%")
 		for _, row := range *r.History {
-			fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\n",
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%s\n",
 				row.Session, row.OpFamily, row.BaselineTokens, row.ActualTokens,
 				gainPct(row.SavingsPct))
 		}
@@ -157,10 +157,10 @@ func renderGainCSV(w io.Writer, r gain.Report) error {
 func renderStatsByOpText(w io.Writer, byOp map[string]gain.Stats) error {
 	var sb strings.Builder
 	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "OP_ID\tCALLS\tBASELINE\tSAVED\tSAVINGS%\tMEAN\tP50\tP95\tP99")
+	_, _ = fmt.Fprintln(tw, "OP_ID\tCALLS\tBASELINE\tSAVED\tSAVINGS%\tMEAN\tP50\tP95\tP99")
 	for _, opID := range sortedOpIDs(byOp) {
 		s := byOp[opID]
-		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%.1f\t%.1f\t%d\t%d\t%d\n",
+		_, _ = fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%.1f\t%.1f\t%d\t%d\t%d\n",
 			opID, s.TotalCalls, s.TotalTokensIn, s.TotalTokensSaved,
 			s.AggregateSavingsPct*100, s.MeanSavingsPerCall, s.P50, s.P95, s.P99)
 	}

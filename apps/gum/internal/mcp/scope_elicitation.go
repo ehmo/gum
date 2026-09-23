@@ -98,7 +98,7 @@ func clientSupportsFormElicitation(req *sdkmcp.CallToolRequest) bool {
 	if caps == nil || caps.Elicitation == nil {
 		return false
 	}
-	return !(caps.Elicitation.Form == nil && caps.Elicitation.URL != nil)
+	return caps.Elicitation.Form != nil || caps.Elicitation.URL == nil
 }
 
 // scopeUpgradeReplyFor returns the elicitation reply this request carries for

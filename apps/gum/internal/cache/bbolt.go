@@ -15,6 +15,7 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 )
 
 // hotLastAccessRefreshSeconds is how stale a hot entry's last-access stamp may
@@ -125,7 +126,7 @@ func Open(cfg BBoltConfig) (*BBoltCache, error) {
 	if err != nil {
 		// A held lock is not corruption: the recovery is to wait or to skip
 		// the cache, not to delete the file, so it gets its own sentinel.
-		if errors.Is(err, bolt.ErrTimeout) {
+		if errors.Is(err, bolterrors.ErrTimeout) {
 			return nil, fmt.Errorf("%w: %s", ErrCacheLocked, cfg.Path)
 		}
 		return nil, fmt.Errorf("%w: %v", ErrCacheCorrupt, err)

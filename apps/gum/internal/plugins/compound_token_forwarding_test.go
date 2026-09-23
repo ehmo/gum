@@ -29,11 +29,6 @@ func (f *fakeTokenResolver) ResolveGoogleToken(context.Context) (GoogleToken, er
 	return f.token, f.err
 }
 
-// recordingAudit collects the entries the host appends.
-type recordingAudit struct{ entries []map[string]any }
-
-func (r *recordingAudit) Append(entry map[string]any) { r.entries = append(r.entries, entry) }
-
 func requireCleanCompoundEnv(t *testing.T) {
 	t.Helper()
 	for _, name := range reservedCompoundEnvNames {

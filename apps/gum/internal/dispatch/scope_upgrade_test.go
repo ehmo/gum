@@ -449,7 +449,7 @@ func TestScopeUpgradeConcurrentAllowlist(t *testing.T) {
 	go func() {
 		defer close(done)
 		for i := 0; i < 200; i++ {
-			d.evaluatePolicy(context.Background(), &Invocation{OpID: upgradeOpID})
+			_ = d.evaluatePolicy(context.Background(), &Invocation{OpID: upgradeOpID})
 		}
 	}()
 	if outcome := d.ApplyScopeUpgrade(context.Background(), req, acceptedReply(req)); outcome == nil {
