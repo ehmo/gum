@@ -80,10 +80,16 @@ and server-side developer-token credential.
   the query or selected fields if a response exceeds gum's size limit.
 - The new operations were verified with local HTTP fixtures and dispatcher
   tests. Live Google Ads calls were not exercised for this release.
-- macOS release binaries are not notarized. Check with
-  `spctl --assess --type execute --verbose gum`. If Gatekeeper rejects the
-  binary, clear its quarantine attribute with
-  `xattr -d com.apple.quarantine gum`. The tap formula does this on install.
+- macOS binaries carry the Go linker's ad-hoc signature, not a Developer ID
+  signature, and are not notarized. Checked on this release's `darwin/arm64`
+  artifact: `codesign -v` exits 0, which meets the Apple Silicon requirement
+  that every executable carry a signature. `curl` sets no
+  `com.apple.quarantine` attribute, so neither `install.sh` nor a Homebrew
+  download reaches Gatekeeper, and a quarantined copy still runs from a shell
+  (checked under Darwin 25.6.0). `spctl --assess --type execute` reports
+  `rejected`, and no install path gum publishes consults that verdict. An
+  earlier version of this note told readers to clear quarantine by hand. That
+  advice was wrong.
 - The tap formula is updated after release assets publish, so it can trail
   the tag briefly.
 

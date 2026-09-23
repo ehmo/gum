@@ -253,10 +253,16 @@ failures that their own output reported. They now exit non-zero. A script with
 - `field_mask_mode="dual_fetch"` is refused rather than implemented.
 - The §10.2 HTTP and ETag cache backend has no production reader or writer.
   `http.db` and `http-wal.db` are created and never used.
-- macOS binaries are not notarized. The Homebrew formula clears quarantine
-  during installation. For standalone installs, inspect with
-  `spctl --assess --type execute --verbose gum` and use
-  `xattr -d com.apple.quarantine gum` if Gatekeeper rejects the binary.
+- macOS binaries carry the Go linker's ad-hoc signature, not a Developer ID
+  signature, and are not notarized. Checked on this release's `darwin/arm64`
+  artifact: `codesign -v` exits 0, which meets the Apple Silicon requirement
+  that every executable carry a signature. `curl` sets no
+  `com.apple.quarantine` attribute, so neither `install.sh` nor a Homebrew
+  download reaches Gatekeeper, and a quarantined copy still runs from a shell
+  (checked under Darwin 25.6.0). `spctl --assess --type execute` reports
+  `rejected`, and no install path gum publishes consults that verdict. An
+  earlier version of this note told readers to clear quarantine by hand. That
+  advice was wrong.
 
 ## Token savings
 

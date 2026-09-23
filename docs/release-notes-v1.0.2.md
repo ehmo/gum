@@ -86,10 +86,16 @@ reports 0 known vulnerabilities against it.
 
 ## Known limitations
 
-- macOS release binaries are not notarized: the signing secrets are not
-  provisioned, so goreleaser skips the notarize step. Check with
-  `spctl --assess --type execute --verbose gum`. If it rejects the binary,
-  clear the quarantine attribute: `xattr -d com.apple.quarantine gum`.
+- macOS binaries carry the Go linker's ad-hoc signature, not a Developer ID
+  signature, and are not notarized. Checked on this release's `darwin/arm64`
+  artifact: `codesign -v` exits 0, which meets the Apple Silicon requirement
+  that every executable carry a signature. `curl` sets no
+  `com.apple.quarantine` attribute, so neither `install.sh` nor a Homebrew
+  download reaches Gatekeeper, and a quarantined copy still runs from a shell
+  (checked under Darwin 25.6.0). `spctl --assess --type execute` reports
+  `rejected`, and no install path gum publishes consults that verdict. An
+  earlier version of this note told readers to clear quarantine by hand. That
+  advice was wrong.
 - There is no Homebrew cask. Install with `install.sh` or from the release
   archives.
 
