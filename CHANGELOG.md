@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Prompt-injection layer 1 is built. The first text content block of a
+  dispatched op response is wrapped in `<external_data trusted="false">`
+  markers at the MCP presentation boundary, past the expression pipeline,
+  the output profiles, the field masks, the TOON encoder, the outputSchema
+  check and the gain ledger, all six of which measure the bytes of the
+  shaped body. An `external_data` tag inside the payload is replaced with
+  `[redacted]` first, in any case and with any attributes, so a calendar
+  event titled `</external_data>` cannot end the fence. The shaping notice,
+  the recovery `resource_link` and `structuredContent` stay outside the
+  fence; CLI output is a byte stream for a shell pipeline and stays
+  unfenced.
+- Prompt-injection layer 2 is built, over the error envelope. Upstream
+  error text is attacker-influenced and is not the answer the caller asked
+  for: a Google 400 echoes the argument that failed validation, so
+  third-party calendar titles and file names reached the model inside
+  `message`. `sanitize.Scrub` replaces role markers, instruction-override
+  phrasings and role-reassignment phrasings with `[redacted]`, and
+  `ScrubJSON` walks nested detail values. Success bodies are not scrubbed:
+  deleting a phrase from the mail or document the caller asked to read
+  would corrupt the answer rather than defend it.
+- Catalog and plugin descriptions pass the sanitizer. The build-time gate
+  runs the rules over every op in the generated catalog from
+  `validateGeneratedCatalog`, the one choke point all fourteen generator
+  paths reach before writing a snapshot. `plugins.LoadManifest` runs them
+  over every `advertised_tools[].description`, so a manifest edited in
+  place after install is rejected at the next spawn. Before this, every
+  service family except Gmail and Calendar reached `catalog.json`
+  unchecked.
+- Six further hardening rules are enforced: NFKD normalization,
+  pseudo-instruction tags, injection directives, a credential-beside-a-path
+  check, base64 payload detection and a codepoint cap. A joined-field
+  re-scan covers rules 2, 6, 9 and 10, because a title ending "designed
+  for" and a summary opening "AI agents" join into a hint that neither
+  field carries alone.
+- `risk_override_reason` is validated. A reason carrying a control code, a
+  zero-width character, a bidirectional control character, or `<` or `>`
+  fails with `RISK_OVERRIDE_REASON_INVALID`, and the sanitizer then runs on
+  the validated value. Neither check existed, and the field reached
+  `catalog.json` and the audit log unvalidated.
+- A plugin cannot claim a Google first-party prefix. A test now pins that
+  plugin op ids and variant ids stay under `plug.`, that a dotted
+  `plugin_id` is rejected, and that the embedded catalog ships no op under
+  `plug.`. The spec and three guides had pointed at a reserved-namespace
+  file that never existed.
+
+### Added
+
+- Every failed dispatch is appended to `audit.jsonl` with its
+  `error_code`. Only successes were logged, and the error path reached the
+  audit sink from one place that fired only under `--unsanitized`, so a
+  rejected destructive call, an `AUTH_REQUIRED` and an upstream 403 all
+  left the log silent. `error_code` is optional and absent on success, so
+  the entry shape stays at `v: 1`.
+- `OVERRIDE_DISABLES_LOSSY_STAGE`. An override that weakens the profile it
+  displaces on any of the six loss-driving fields now warns.
+  `gum profile validate` and the CLI runtime loader write to stderr; the
+  MCP dispatch path logs, because the stdio transport owns stdout. An
+  omitted `recovery` counts as a removal, since resolution swaps the
+  profile whole rather than merging field by field. `field_mask_mode` is
+  the exception: empty means upstream, so omitting it keeps the mask.
+  `--no-warn-lossy` suppresses the warning; `--no-warn-recovery` is an
+  alias kept for one release cycle. A long-lived `gum mcp --stdio` session
+  prints each distinct warning once.
+- `gum call --unsanitized` returns the raw error body. It warns on stderr,
+  requires `--yes-unsanitized` when stdin is not a TTY, and logs
+  `sanitizer_bypassed: true`. `internal/mcp` never sets it.
+- `shaping_bypassed: true` on `--raw`, which the spec promised and nothing
+  wrote.
+
+### Changed
+
+- A roots-less MCP client no longer falls back to a project root. Project-
+  local profile lookup is off without roots, and resolution falls back to
+  user-global then catalog-embedded with no opt-in. The
+  `--allow-implicit-project-root` flag it documented never parsed and
+  nothing ever set the `_profile_resolution_warning` field, which is now
+  gone from the envelope schema, from `ExpressionMeta`, from its `Fields`
+  projection and from the registered MCP outputSchema. `ExpressionMeta`
+  stays open, so removing an optional property loosens no validator.
+- Catalog generation rejects any variant that declares `gum_oauth` and
+  fails the whole run, rather than degrading the variant to `byo_oauth`
+  with a warning. `GUM_OAUTH_SCOPE_NOT_MANAGED` never existed in any Go
+  file. The shipped catalog declares zero `gum_oauth` variants.
+
+### Fixed
+
+- The specification describes the build that ships. It read as a v0.x
+  roadmap, claiming absent defenses as shipped and naming target releases
+  that came and went. Around 240 comments, error strings, embedded JSON
+  descriptions and doc sentences stopped using `v0.1.0` as a synonym for
+  the current build. Comments cite spec sections instead of line numbers,
+  which drift on every edit. Two gates in `internal/lint` keep both rules
+  enforced.
+- `gum profile validate` takes one path and `--variant`. The documented
+  `--mcp-roots` fixture mode never existed, and `project_root_uri` was
+  declared and never emitted.
+
 ## [2.2.1] - 2026-09-22
 
 ### Fixed
