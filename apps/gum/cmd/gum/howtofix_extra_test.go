@@ -97,7 +97,9 @@ func TestHowToFixAllCodes(t *testing.T) {
 		{
 			name: "tee_secret_corrupt",
 			se:   &dispatch.StructuredError{ErrCode: dispatch.ErrCodeTeeSecretCorrupt},
-			want: "gum cache repair",
+			// No command repairs the tee store: gum cache carries clear,
+			// migrate and stats, so the advice is to remove the directory.
+			want: "tee/ to reset",
 		},
 		{
 			name: "project_root_required",

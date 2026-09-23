@@ -21,6 +21,11 @@ type staticPrompt struct {
 	Body        string
 }
 
+// maxPromptBodyBytes is the spec §13 cap on one rendered prompt template.
+// Both prompts are zero-argument, so the stored body IS the rendered template
+// and the cap is checkable at build time by TestPromptBodiesUnderSizeCap.
+const maxPromptBodyBytes = 6 << 10 // 6 KiB
+
 // staticPrompts is the closed prompt roster. Both templates are
 // zero-argument: they bake in deterministic instructions for the host LLM
 // rather than templating user-provided arguments. The first call to

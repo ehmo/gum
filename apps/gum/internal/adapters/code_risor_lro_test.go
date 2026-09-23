@@ -60,7 +60,7 @@ func TestLROUnsupportedInCode(t *testing.T) {
 	if se.Detail["op_id"] != "cloudidentity.groups.create" {
 		t.Fatalf("op_id detail = %v; want cloudidentity.groups.create", se.Detail["op_id"])
 	}
-	const want = "long-running operations are not callable from gum.code; use the MCP gum.call tool or CLI directly"
+	const want = "long-running operations are not callable from gum.code; run the op through the CLI or the matching gum.read / gum.write / gum.destructive tool, then poll it with gum.poll"
 	if se.Message != want {
 		t.Fatalf("Message = %q; want %q", se.Message, want)
 	}

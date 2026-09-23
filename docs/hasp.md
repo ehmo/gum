@@ -55,14 +55,13 @@ Add project secrets to HASP:
 
 ```shell
 hasp secret add
-hasp app connect gum-work --cmd 'gum doctor' --install=never
 ```
 
 Run a gum command with a short-lived grant:
 
 ```shell
 hasp run --project-root . \
-  --target gum-work \
+  --env GUM_GOOGLE_ADS_DEVELOPER_TOKEN=@GOOGLE_ADS_DEVELOPER_TOKEN \
   --grant-project session \
   --grant-secret session \
   -- gum doctor --format=json

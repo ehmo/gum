@@ -282,7 +282,7 @@ func TestConfirmationTokenSourceRehashChanges(t *testing.T) {
 // the token signing uses BLAKE3 for key derivation (the spec commits to BLAKE3 keyed
 // mode rather than HMAC-SHA256 for the new source-rehash signing path).
 //
-// The Green Team MUST add "lukechampine.com/blake3" to go.mod. This test verifies
+// lukechampine.com/blake3 v1.4.1 is in go.mod and Appendix A. This test verifies
 // the algorithmic commitment by checking that the token internal structure reflects
 // BLAKE3 output properties: deterministic 256-bit (32-byte → 64 hex char) hash.
 //

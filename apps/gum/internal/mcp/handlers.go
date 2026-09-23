@@ -311,8 +311,9 @@ func (s *Server) handleDescribeOp(ctx context.Context, req *sdkmcp.CallToolReque
 			"suggestions": []string{},
 		}), nil
 	}
-	result := buildDescribeOpResult(op, defaultMaxVariants)
-	return structuredJSONResult(result), nil
+	tuning := loadDescribeOpTuning(s.profile.String(), s.log())
+	result := buildDescribeOpResult(op, tuning.maxVariants)
+	return structuredJSONResult(truncateDescribeOpResult(result, tuning.maxChars)), nil
 }
 
 // handleRead dispatches the inner op_id with risk_class assertion=read.

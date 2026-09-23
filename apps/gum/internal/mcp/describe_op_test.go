@@ -50,9 +50,22 @@ func (describeOpDispatcher) Dispatch(_ context.Context, _ *dispatch.Invocation) 
 	panic("describeOpDispatcher.Dispatch must not be called in describe_op tests")
 }
 
-// callDescribeOp calls the gum.describe_op handler directly on a server
-// constructed with the given catalog snapshot and returns the parsed JSON body.
+// callDescribeOp calls the gum.describe_op handler on an empty config. The
+// handler reads the §9.4 meta_tools.describe_op.* admin keys, so without the
+// redirect an operator's own config.toml would decide how many variants and
+// how many characters these tests see.
 func callDescribeOp(t *testing.T, snap *catalog.Catalog, opID string) map[string]any {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	return callDescribeOpInEnvConfig(t, snap, opID)
+}
+
+// callDescribeOpInEnvConfig calls the gum.describe_op handler directly on a
+// server constructed with the given catalog snapshot and returns the parsed
+// JSON body. It leaves XDG_CONFIG_HOME alone, so a caller that wants the
+// handler to read a tuned config sets the env var and saves the profile first.
+func callDescribeOpInEnvConfig(t *testing.T, snap *catalog.Catalog, opID string) map[string]any {
 	t.Helper()
 	s := NewServerWithCatalog(describeOpDispatcher{}, snap)
 

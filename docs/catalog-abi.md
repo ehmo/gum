@@ -77,8 +77,9 @@ poll-cycle atom.
 - The runtime reads the atom through `Variant.ReturnsLRO` and
   `Op.DefaultVariantReturnsLRO`. Code mode refuses an op whose default variant
   carries it, before dispatch, with `LRO_UNSUPPORTED_IN_CODE` (`spec.md` §6.1).
-  The CLI and the MCP `gum.call` tool are unaffected: they return the operation
-  envelope and the caller polls it with `gum.poll`.
+  The CLI and the risk-class MCP tools (`gum.read`, `gum.write`,
+  `gum.destructive`) are unaffected: they return the operation envelope and the
+  caller polls it with `gum.poll`.
 - The atom is orthogonal to `execution_support`. A variant that returns an
   Operation still executes through generic dispatch, so `lro_return` alone does
   not make the variant `partial`.

@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/ehmo/gum/internal/catalog"
+	"github.com/ehmo/gum/internal/output/profile"
 )
 
 const defaultMaxVariants = 5
@@ -152,5 +153,111 @@ func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
 			r.RiskOverrideReason = defVar.RiskOverrideReason
 		}
 	}
+	return r
+}
+
+// describeOpMaxVariantsKey and describeOpMaxCharsKey are the spec §9.4 admin
+// tuning keys for gum.describe_op. Both are read once per request from the
+// active profile's config.toml.
+const (
+	describeOpMaxVariantsKey = "meta_tools.describe_op.max_variants"
+	describeOpMaxCharsKey    = "meta_tools.describe_op.max_chars"
+)
+
+// defaultDescribeOpMaxChars is the §9.4 truncate_strings.default_chars for
+// gum.describe_op. The stage ran nowhere before: §9.4 documented both the
+// default and the admin key while handleDescribeOp returned the untruncated
+// struct, so a 4 KB op summary reached the caller in full.
+const defaultDescribeOpMaxChars = 400
+
+// describeOpMaxCharsMin and describeOpMaxCharsMax are the §9.4 clamp range for
+// meta_tools.describe_op.max_chars.
+const (
+	describeOpMaxCharsMin = 100
+	describeOpMaxCharsMax = 2000
+)
+
+// describeOpMaxVariantsMin and describeOpMaxVariantsMax are the §9.4 clamp
+// range for meta_tools.describe_op.max_variants.
+const (
+	describeOpMaxVariantsMin = 1
+	describeOpMaxVariantsMax = 50
+)
+
+// truncateDescribeOpResult applies the §9.4 truncate_strings stage to a built
+// result. gum.describe_op returns an irregular JSON struct rather than a record
+// array, so the profile engine cannot shape it; this walks the fields instead
+// and uses the same profile.TruncateString rule, which counts the ellipsis
+// inside the limit.
+//
+// The limit applies to every string value, which is what a profile's
+// default_chars means. It never reaches an identifier or an enum: the clamp
+// floor is 100 runes and the longest op_id in the catalog is under 60. A
+// hand-picked list of prose-only fields would be a second truncation rule that
+// §9.4 does not describe.
+//
+// Every slice written here is cloned first. buildDescribeOpResult aliases the
+// catalog's own Scopes slices into the result, so truncating in place would
+// rewrite the loaded catalog for every later request.
+func truncateDescribeOpResult(r describeOpResult, limit int) describeOpResult {
+	if limit <= 0 {
+		return r
+	}
+
+	clamp := func(s string) string {
+		out, _ := profile.TruncateString(s, limit)
+		return out
+	}
+	clampAll := func(in []string) []string {
+		if in == nil {
+			return nil
+		}
+		out := slices.Clone(in)
+		for i, s := range out {
+			out[i] = clamp(s)
+		}
+		return out
+	}
+
+	r.OpID = clamp(r.OpID)
+	r.Title = clamp(r.Title)
+	r.Summary = clamp(r.Summary)
+	r.DefaultVariantID = clamp(r.DefaultVariantID)
+	r.RiskClass = clamp(r.RiskClass)
+	r.OutputProfile = clamp(r.OutputProfile)
+	r.ExecutionSupport = clamp(r.ExecutionSupport)
+	r.RiskOverrideReason = clamp(r.RiskOverrideReason)
+	r.Scopes = clampAll(r.Scopes)
+	r.CapabilityClassWarnings = clampAll(r.CapabilityClassWarnings)
+
+	if r.UnsupportedCapabilities != nil {
+		clamped := clampAll(*r.UnsupportedCapabilities)
+		if clamped == nil {
+			// §13 needs the field present and typed as an array on every
+			// non-full branch, so an empty list must not become null.
+			clamped = []string{}
+		}
+		r.UnsupportedCapabilities = &clamped
+	}
+
+	if r.SchemaRefs != nil {
+		refs := make(map[string]string, len(r.SchemaRefs))
+		for k, v := range r.SchemaRefs {
+			refs[k] = clamp(v)
+		}
+		r.SchemaRefs = refs
+	}
+
+	variants := slices.Clone(r.Variants)
+	for i := range variants {
+		variants[i].VariantID = clamp(variants[i].VariantID)
+		variants[i].Stability = clamp(variants[i].Stability)
+		variants[i].InterfaceKind = clamp(variants[i].InterfaceKind)
+		variants[i].RiskClass = clamp(variants[i].RiskClass)
+		variants[i].ExecutionSupport = clamp(variants[i].ExecutionSupport)
+		variants[i].Scopes = clampAll(variants[i].Scopes)
+	}
+	r.Variants = variants
+
 	return r
 }

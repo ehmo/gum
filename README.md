@@ -220,9 +220,9 @@ Run gum work through a HASP grant when a task needs both Google API access and
 non-Google secrets:
 
 ```shell
-hasp app connect gum-work --cmd 'gum doctor' --install=never
+hasp secret add
 hasp run --project-root . \
-  --target gum-work \
+  --env GUM_GOOGLE_ADS_DEVELOPER_TOKEN=@GOOGLE_ADS_DEVELOPER_TOKEN \
   --grant-project session \
   --grant-secret session \
   -- gum doctor

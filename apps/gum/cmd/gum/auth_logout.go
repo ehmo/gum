@@ -19,7 +19,8 @@ func newTopLevelLogoutCmd() *cobra.Command {
 }
 
 // newLogoutCmd builds the logout command body. It is a constructor (mirroring
-// newLoginCmd) so the same body can back a future `gum auth logout` alias.
+// newLoginCmd) so the same body can back an alias under `gum auth`. The
+// `gum auth logout` alias is not built.
 func newLogoutCmd(use, short string) *cobra.Command {
 	var forgetClient bool
 	cmd := &cobra.Command{

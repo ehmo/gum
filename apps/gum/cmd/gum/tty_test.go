@@ -8,7 +8,7 @@ import (
 
 // TestResolveOutputFormatExplicitFlagWins pins the highest-priority
 // branch: when --format is set, the value is used verbatim regardless of
-// the writer type. This keeps `gum status --format=json | jq` reliable
+// the writer type. This keeps `gum search --format=json | jq` reliable
 // even on a TTY.
 func TestResolveOutputFormatExplicitFlagWins(t *testing.T) {
 	for _, name := range []string{"json", "table", "toon", "raw", "anything"} {

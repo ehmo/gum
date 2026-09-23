@@ -94,7 +94,8 @@ func TestMergePluginVariantsActiveOp(t *testing.T) {
 		t.Fatalf("binding=%+v; want plugin.mcp/do_thing", v.Binding)
 	}
 	// The merged op must survive the same validation the generated catalog
-	// does, or `gum catalog validate` would reject a profile with a plugin.
+	// does. cmd/gen-catalog/profile_gate.go runs Catalog.Validate on every
+	// snapshot it emits, so a merged op that fails here breaks generation.
 	if err := got.Validate(); err != nil {
 		t.Errorf("merged snapshot fails Validate: %v", err)
 	}

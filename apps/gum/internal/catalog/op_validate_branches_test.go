@@ -48,10 +48,11 @@ func TestCatalogValidateRejectsEmptyGeneratorVersion(t *testing.T) {
 // catalog to violate exactly one required-field invariant; Op.Validate
 // MUST surface a wrapped ErrMissingRequiredField for every one.
 //
-// These arms exist because Op.Validate is the catalog-load gatekeeper
-// (build-time `gum gen-catalog` and runtime catalog-snapshot reload
-// both run it); a missing required field that slips through here would
-// blow up downstream dispatch with confusing nil-deref / "" lookups.
+// These arms exist because Op.Validate is the catalog-load gatekeeper.
+// The one non-test caller is the build-time generator: Catalog.Validate
+// fans out to Op.Validate from cmd/gen-catalog/profile_gate.go. A missing
+// required field that slips through here reaches the embedded catalog and
+// blows up downstream dispatch with confusing nil-deref / "" lookups.
 func TestOpValidateMissingRequiredFieldBranches(t *testing.T) {
 	cases := []struct {
 		name   string

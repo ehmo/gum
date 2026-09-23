@@ -170,3 +170,39 @@ func loggerOrDefault(l *slog.Logger) *slog.Logger {
 	}
 	return slog.Default()
 }
+
+// describeOpTuning captures the admin tuning knobs for gum.describe_op
+// (spec §9.4): the variants[] collapse threshold and the string truncation
+// limit. Both carry a spec default and a clamp range applied at request time.
+type describeOpTuning struct {
+	maxVariants int
+	maxChars    int
+}
+
+// loadDescribeOpTuning reads the two §9.4 gum.describe_op admin keys from the
+// active profile's config.toml and clamps each to its documented range.
+// Missing, unparseable, or unloadable config falls back to the spec defaults.
+//
+// Clamp ranges:
+//   - meta_tools.describe_op.max_variants  default 5,   range 1-50
+//   - meta_tools.describe_op.max_chars     default 400, range 100-2000
+func loadDescribeOpTuning(activeProfile string, log *slog.Logger) describeOpTuning {
+	log = loggerOrDefault(log)
+	t := describeOpTuning{maxVariants: defaultMaxVariants, maxChars: defaultDescribeOpMaxChars}
+
+	c, _, err := config.Load(activeProfile)
+	if err != nil || c == nil {
+		return t
+	}
+
+	if v, ok := c.Get(describeOpMaxVariantsKey); ok {
+		t.maxVariants = clampInt(describeOpMaxVariantsKey, v, t.maxVariants,
+			describeOpMaxVariantsMin, describeOpMaxVariantsMax, log)
+	}
+	if v, ok := c.Get(describeOpMaxCharsKey); ok {
+		t.maxChars = clampInt(describeOpMaxCharsKey, v, t.maxChars,
+			describeOpMaxCharsMin, describeOpMaxCharsMax, log)
+	}
+
+	return t
+}

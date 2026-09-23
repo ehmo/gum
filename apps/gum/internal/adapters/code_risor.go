@@ -333,15 +333,16 @@ func buildCallFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite
 // wording names the two surfaces that do support an LRO, so the script author
 // knows where to move the call.
 const lroRefusalMessage = "long-running operations are not callable from gum.code; " +
-	"use the MCP gum.call tool or CLI directly"
+	"run the op through the CLI or the matching gum.read / gum.write / " +
+	"gum.destructive tool, then poll it with gum.poll"
 
 // refuseLRO is the §6.1 pre-dispatch gate shared by the code-mode host
 // functions: an op whose default variant is classified `lro_return` is not
 // callable from gum.code.
 //
 // The gate lives here rather than in the kernel because the restriction is a
-// property of code mode; the same op called through the MCP gum.call tool or
-// the CLI still runs. A dispatcher that does not answer LROClassifier leaves
+// property of code mode; the same op called through the CLI or its risk-class
+// MCP tool still runs. A dispatcher that does not answer LROClassifier leaves
 // the gate open, which keeps mock dispatchers working and matches how
 // gum_parallel treats a missing ServiceFamilyResolver.
 //

@@ -13,8 +13,8 @@
       "version": "1.0.0",
       "summary": "Use HASP with gum when a workflow needs local repo, test, or deploy secrets.",
       "min_gum": "1.0.0",
-      "sha256": "65ca4e7be63221d56c57a3d56af79aeec4d3a69c7c70cd86227110b3212cd42c",
-      "bytes": 1264
+      "sha256": "6dca7661301ec305ed51fe1ff15f26c0222a2f198df8263cf0ea5b669738266d",
+      "bytes": 1250
     },
     {
       "name": "mcp",

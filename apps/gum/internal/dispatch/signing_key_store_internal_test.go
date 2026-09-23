@@ -54,7 +54,8 @@ func TestSigningKeyPathWithoutAHome(t *testing.T) {
 
 // TestLoadOrCreateSigningKeyRoundTrips covers the create-then-read path: the
 // first call writes a 0600 key file and the second reads the same bytes back,
-// which is what makes cross-process `gum confirm` work at all.
+// which is what makes a cross-process `gum destructive --token` confirmation
+// work at all.
 func TestLoadOrCreateSigningKeyRoundTrips(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)

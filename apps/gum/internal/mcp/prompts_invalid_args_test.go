@@ -137,3 +137,51 @@ func TestPromptsGetInvalidArgs(t *testing.T) {
 		}
 	})
 }
+
+// TestPromptBodiesUnderSizeCap enforces the spec §13 cap of 6 KiB per rendered
+// template. The cap was normative and unenforced: §13 stated it for both
+// prompts while nothing measured either body.
+//
+// Both prompts are zero-argument (TestPromptZeroArgumentContract pins that), so
+// the stored body is the rendered template. A prompt that grew arguments would
+// need this measured after rendering instead.
+func TestPromptBodiesUnderSizeCap(t *testing.T) {
+	if len(staticPrompts) == 0 {
+		t.Fatal("staticPrompts is empty; the roster is closed at two entries")
+	}
+
+	for _, p := range staticPrompts {
+		if promptBodyOverCap(p) {
+			t.Errorf("prompt %s body is %d bytes; §13 caps the rendered template at %d",
+				p.Name, len(p.Body), maxPromptBodyBytes)
+		}
+	}
+}
+
+// promptBodyOverCap reports whether one prompt body exceeds the §13 cap.
+func promptBodyOverCap(p staticPrompt) bool {
+	return len(p.Body) > maxPromptBodyBytes
+}
+
+// TestPromptBodySizeCapDetectsAnOversizedBody pins the predicate at its edge.
+// The walk above passes on a clean roster whatever the comparison says, which
+// is how an unenforced cap looks from the outside.
+func TestPromptBodySizeCapDetectsAnOversizedBody(t *testing.T) {
+	cases := []struct {
+		name string
+		size int
+		want bool
+	}{
+		{"at the cap", maxPromptBodyBytes, false},
+		{"one byte over", maxPromptBodyBytes + 1, true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := staticPrompt{Name: "gum.test", Body: strings.Repeat("x", tc.size)}
+			if got := promptBodyOverCap(p); got != tc.want {
+				t.Errorf("promptBodyOverCap(%d bytes) = %v; want %v", tc.size, got, tc.want)
+			}
+		})
+	}
+}

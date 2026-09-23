@@ -29,7 +29,7 @@ func TestGetNilReceiverReturnsEmptyFalse(t *testing.T) {
 
 // TestPathEmptyProfileDefaultsToDefault pins the
 // `profile == "" → profile = "default"` arm. config.Path is called
-// from every Load/Save and from `gum config path`; an empty profile
+// from every Load/Save; an empty profile
 // MUST normalize to "default" so a forgotten --profile flag doesn't
 // land config.toml in a malformed "<base>/gum//config.toml" hole.
 func TestPathEmptyProfileDefaultsToDefault(t *testing.T) {

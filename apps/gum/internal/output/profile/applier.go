@@ -986,7 +986,7 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 				} else if l, ok := spec.Fields[key]; ok {
 					limit = l
 				}
-				clamped, cut := truncateString(sv, limit)
+				clamped, cut := TruncateString(sv, limit)
 				result[key] = clamped
 				if cut {
 					// docs/profile-dsl-reference.md §2.8: a truncated value
@@ -1009,7 +1009,7 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 			case string:
 				// An array element has no field name, so it gets no sibling
 				// flag; the ellipsis is the only signal available here.
-				result[i], _ = truncateString(sv, spec.DefaultChars)
+				result[i], _ = TruncateString(sv, spec.DefaultChars)
 			default:
 				result[i] = applyTruncateStrings(elem, spec, fieldPath)
 			}
@@ -1023,13 +1023,18 @@ func applyTruncateStrings(v any, spec *TruncateStringsSpec, fieldPath string) an
 // truncatedSuffix names the sibling key that marks a clamped string.
 const truncatedSuffix = "_truncated"
 
-// truncateString clamps s to limit runes, counting the "…" it appends, and
+// TruncateString clamps s to limit runes, counting the "…" it appends, and
 // reports whether it clamped. A limit of 0 or less is a no-op.
+//
+// It is exported because gum.describe_op carries the §9.4 truncate_strings
+// stage without running the profile engine: its payload is an irregular JSON
+// struct, not a record array. A second copy of the rule in internal/mcp would
+// drift from this one.
 //
 // The ellipsis is inside the limit because the limit describes what the
 // consumer receives: a profile asking for 180 characters used to get 181, which
 // broke any downstream that sized a column or a budget from the same number.
-func truncateString(s string, limit int) (string, bool) {
+func TruncateString(s string, limit int) (string, bool) {
 	if limit <= 0 {
 		return s, false
 	}

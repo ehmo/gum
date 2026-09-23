@@ -77,6 +77,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sanitizer_bypassed: true`. `internal/mcp` never sets it.
 - `shaping_bypassed: true` on `--raw`, which the spec promised and nothing
   wrote.
+- The RFC 8785 reference test corpus is vendored at
+  `internal/output/jcs/testdata/upstream`, copied from
+  `github.com/cyberphone/json-canonicalization` under Apache-2.0. Its six
+  input/output pairs run byte for byte, and the test fails if the directory
+  holds anything other than six pairs, so a corpus that lost files cannot
+  pass by testing nothing. A second test regenerates the first 10000 lines
+  of that project's 100-million-value number corpus, checks the stream
+  against the SHA-256 its README publishes, and compares every value against
+  gum's formatter. Upstream's own formatter switches `strconv` between `'f'`
+  and `'e'` at the 1e-6 and 1e21 thresholds where gum walks the five rules,
+  so the comparison is differential rather than circular.
+- The §13 prompt-body size cap is enforced. `TestPromptBodiesUnderSizeCap`
+  measures every registered prompt body against the 6 KiB limit the spec
+  states, and a paired case proves the check fails an oversized body. The
+  cap was documented and never measured.
+- MCP tool registration is contained to one package.
+  `TestNoToolRegistrationOutsideMCPPackage` fails on a `Tool` literal or an
+  `AddTool` call in any non-test file outside `internal/mcp`. The
+  `outputSchema` scan it protects reads only `internal/mcp`, so a tool
+  built anywhere else would have been registered, served and never
+  scanned.
+- No runtime message or live document sends a reader to an MCP tool that
+  does not exist. `TestNoProseCitesAnUnregisteredTool` reads the live
+  `tools/list` roster and scans Go sources plus every live Markdown page
+  for a `gum.<name> tool` citation. Point-in-time research notes and
+  append-only history are skipped: a shipped release note records the dead
+  name a fix removed, and rewriting it would falsify the record.
+- No document sends a reader to a `gum` subcommand that does not exist.
+  `TestNoDocCitesAnUnknownCommand` walks the live command tree and scans
+  every Markdown page plus `README.md` and `CONTRIBUTING.md` for a `gum
+  <sub>` citation, and a paired table arms the scanner on each
+  recognised and near-miss form.
+- The five JSON transcripts under `docs/agent-contracts/` are gated.
+  `TestSkillsFixturesMatchLiveOutput` and
+  `TestAgentsInstallFixtureMatchesLiveOutput` rerun `gum skills list`,
+  `gum skills show <name>` and the `gum agents install --dry-run` plan
+  and compare byte for byte, normalizing only the absolute `HOME`
+  prefix, and a failure prints the command that regenerates the file.
+  `TestAgentContractDiffCatchesEachDrift` covers eight drift shapes
+  including a lost trailing newline. The files ship in the public
+  release manifest and had no generator, no gate and no page saying
+  where they come from; `docs/agent-setup.md` now maps each one to its
+  command.
+- `docs/mcp.md` documents the five meta-tool tuning keys with their
+  defaults, ranges and clamping behavior, and `docs/agent-setup.md`
+  carries the transcript provenance table.
 
 ### Changed
 
@@ -92,9 +138,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fails the whole run, rather than degrading the variant to `byo_oauth`
   with a warning. `GUM_OAUTH_SCOPE_NOT_MANAGED` never existed in any Go
   file. The shipped catalog declares zero `gum_oauth` variants.
+- `gum.describe_op` truncates its own string fields. The §9.4
+  `truncate_strings` stage now runs over the result at the documented
+  400-character default, so an op with a 900-character summary no longer
+  returns the whole summary. The stage copies the result and leaves the
+  embedded catalog untouched.
 
 ### Fixed
 
+- The LRO refusal names a tool that exists. `LRO_UNSUPPORTED_IN_CODE` told
+  the caller to "use the MCP gum.call tool", which the server has never
+  registered; the risk-tiered `gum.read` / `gum.write` / `gum.destructive`
+  trio replaced it. The message now points at the CLI or the matching
+  risk-class tool and at `gum.poll`. Specification §6.1, the §11 error-code
+  paragraph and `docs/catalog-abi.md` carried the same dead name.
+- Documentation cites paths and gates that exist. `internal/init/GUM.md.tmpl`
+  is `internal/initpkg/GUM.md.tmpl`; the stub-expiry procedure read the
+  release version from a nonexistent `internal/version` package and is now
+  marked unimplemented, because no capability atom carries a stub and
+  `cmd/gen-catalog` emits no `CAPABILITY_STUB_EXPIRED`; the auth-strategy
+  extension checklist pointed at `internal/cli/auth` instead of the
+  `gum auth` tree in `cmd/gum/auth.go`; the `PLUGIN_NAMESPACE_CONFLICT` row
+  claimed a reserved first-party prefix check that §5.1.3 replaced with the
+  structural `plug.` split; and `CONTRIBUTING.md` sent contributors to a
+  `cmd/gen-catalog/reserved_namespaces.go` registry that never existed.
 - The specification describes the build that ships. It read as a v0.x
   roadmap, claiming absent defenses as shipped and naming target releases
   that came and went. Around 240 comments, error strings, embedded JSON
@@ -105,6 +172,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gum profile validate` takes one path and `--variant`. The documented
   `--mcp-roots` fixture mode never existed, and `project_root_uri` was
   declared and never emitted.
+- Numbers in `args_canonical` follow RFC 8785 §3.2.2.3. `canonicalNumber`
+  formatted every non-integer with strconv's `'g'` verb, which is not the
+  ECMAScript `Number::toString` algorithm the RFC adopts. It disagreed on
+  three classes of value: it moved to an exponent at 1e7, where ES6 still
+  writes `10000000`; it padded the exponent to two digits, writing `1e-07`
+  where ES6 writes `1e-7`; and it wrote `1e-06` where ES6 writes `0.000001`.
+  A hash computed by any other RFC 8785 implementation therefore never
+  matched gum's for those values. `es6Number` now walks the five rules off
+  `strconv.FormatFloat(f, 'e', -1, 64)`, which carries both the shortest
+  digit string and the decimal-point position the rules need. The exact-digit
+  `int64`/`uint64` fast path is kept and now documented as a deliberate
+  departure above 2^53.
+- Control characters in `args_canonical` follow RFC 8785 §3.2.2.2. Every code
+  point below U+0020 was written `\uXXXX`, and the function's own doc comment
+  asserted the RFC demanded it. It requires `\b`, `\t`, `\n`, `\f` and `\r`
+  for U+0008, U+0009, U+000A, U+000C and U+000D, and hex for the rest,
+  U+000B included, since JSON defines no `\v`. Three of the six reference
+  vectors caught it.
+- Appendix A holds go.mod to the spec. It promised "CI fails the build on
+  drift from these floors" with nothing reading it. `spf13/viper`,
+  `refraction-networking/utls` and `cyberphone/json-canonicalization` were
+  pinned at exact versions while none appeared in go.mod or in any import,
+  and `lukechampine.com/blake3`, which signs every confirmation token, had
+  no row at all. A gate in `internal/lint` now checks both machine-readable
+  cell shapes and leaves the prose floors alone.
+- The two §9.4 `meta_tools.describe_op.*` knobs are read. `max_variants`
+  and `max_chars` were documented with defaults and ranges while the
+  handler ignored both: it passed the compile-time variant threshold and
+  never truncated at all. Both now load from the active expression profile
+  and clamp to the documented ranges, and an unparseable value falls back
+  to the default.
+- Specification §13 describes the gates that exist. It prescribed a
+  five-directory AST scan over `mcp.AddTool` and `mcp.NewTool` calls, a
+  `// gum:registration-helper` marker convention, a repository-wide marker
+  sweep and two error codes. None of that existed: the real scan reads one
+  package and matches `*sdkmcp.Tool` literals, and `mcp.NewTool`,
+  `mcp.Output` and the marker appear nowhere in the tree. Further
+  corrections replaced cited names the tree does not have, among them
+  `internal/adapters/rest/`, `TestOutputSchemaDefs`,
+  `internal/mcp/meta_tools.go` and an `internal/prompts/*.md` embed that is
+  a Go raw string literal.
+- Prose cites commands the binary has. `TEE_SECRET_CORRUPT` told the
+  user to run `gum cache repair`, which has never existed: `gum cache`
+  carries `clear`, `migrate` and `stats`, so the one repair path is
+  removing the tee directory, which the message now says. Seven further
+  citations were corrected, among them `gum config <key>=<value>`
+  without the `set` verb in `internal/dispatch/policy.go` and five
+  specification passages, and a comment promising a `gum auth logout`
+  alias that no tree registers.
+- ADC is described as it resolves. The specification named a per-profile
+  `gum auth use-adc` mode that no command tree carries; resolution reads
+  `GOOGLE_APPLICATION_CREDENTIALS`, then the gcloud cache, then the GCE
+  metadata server, and no shipped variant declares `auth_strategy: adc`.
+  `gum auth status` reports which sources are present without a network
+  call and `gum auth probe --strategy adc` exercises the chain.
+- `AUTH_KEYCHAIN_UNAVAILABLE` carries the envelope it emits. The
+  specification promised `backend`, `detail` and `setup_command`
+  members; the error is the ordinary §7 shape without them.
+- The `hasp run` example in `README.md` and `docs/hasp.md` can run.
+  `hasp run --target gum-work` resolves a manifest target, not the app
+  profile `hasp app connect` saves, so the documented sequence failed.
+  Both pages now use `--project-root .` with `--env
+  GUM_GOOGLE_ADS_DEVELOPER_TOKEN=@GOOGLE_ADS_DEVELOPER_TOKEN` and
+  session grants, matching the fix the bundled skill already had.
+- Two published transcripts matched no command output.
+  `docs/agent-contracts/cli-skills-hasp.json` and `cli-skills-list.json`
+  carried the pre-fix hasp skill body with a stale `sha256` and byte
+  count. Both are regenerated from the live commands.
+- Remote usage-telemetry export is marked not built. §12.3 carried
+  normative requirements for an `https://`-only endpoint check at
+  startup and a 2-second push timeout, and §15 listed nothing. No code
+  reads `GUM_USAGE_SOCKET`, `GUM_USAGE_ENDPOINT` or
+  `GUM_USAGE_AUTH_HEADER`; the three names exist only in the two plugin
+  denylists, so a plugin never inherits them. The wire format and
+  transport rules stay normative for the export that lands.
+- Six error codes that appear nowhere in the tree say so.
+  `PLUGIN_RISK_CLASS_MISSING` is really `ErrUnknownRiskClass` at build
+  and `ErrPluginRowMalformed` at the session-start merge;
+  `PLUGIN_RISK_CLASS_MISMATCH` has no input to read, because no manifest
+  and no variant record carries a `readonly` field;
+  `CATALOG_SCHEMA_REF_INVALID` cannot fire because a first-party ref is
+  derived from the op_id and checked by `validateServedRef` with a
+  plain-text error; `SERVICE_ROOT_TEMPLATE_INVALID` is unreachable while
+  `SERVICE_ROOT_TEMPLATE_DEFERRED` rejects every nonempty template
+  first; `PLUGIN_SANDBOX_UNSUPPORTED` is `ErrUnsupportedSandbox` on any
+  `GOOS` other than darwin or linux.
+- The timezone-sensitive exclusion in §10.0 Rule 4 is marked not built.
+  `TIMEZONE_SENSITIVE_CONFLICT` emits no warning, no Go file reads
+  `timezone_sensitive`, no generated variant declares it, and no
+  discovery doc carries `x-gum-timezone-sensitive`. With
+  `cache.normalize_datetimes=true` the dispatcher rewrites every
+  argument string that parses as RFC 3339, Calendar wall-clock values
+  included, which is why the rule stays opt-in.
 
 ## [2.2.1] - 2026-09-22
 

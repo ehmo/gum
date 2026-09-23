@@ -35,6 +35,28 @@ gum.search_apis -> gum.describe_op -> gum.read / gum.write / gum.destructive
 The CLI mirrors the same model with `gum search`, `gum describe`, `gum read`,
 `gum write`, and `gum destructive`.
 
+## Meta-tool tuning
+
+`gum.search_apis` and `gum.describe_op` shape their own output. Five
+per-profile config keys move the limits:
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `meta_tools.search_apis.k` | 5 | Result count when the caller sends no `k`. Range 1-20. |
+| `meta_tools.search_apis.truncate_strings.default_chars` | 120 | Character limit on summary-class fields in a result row. Range 60-400. |
+| `meta_tools.search_apis.collapse_arrays.max_items` | binds `k` | Collapse threshold for the results array. Range 1-50. |
+| `meta_tools.describe_op.max_variants` | 5 | Collapse threshold for the `variants[]` array. Range 1-50. |
+| `meta_tools.describe_op.max_chars` | 400 | Character limit on `gum.describe_op` string fields. Range 100-2000. |
+
+```bash
+gum config set meta_tools.describe_op.max_chars=1200
+```
+
+A value outside its range is clamped and logged; an unparseable value falls
+back to the default. These keys do not rebind an
+[expression profile](expression-profile-dsl.md) and do not change the
+registered tool schemas.
+
 ## Safety boundary
 
 MCP clients do not receive raw Google tokens. They call the local gum server,

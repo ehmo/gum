@@ -108,11 +108,18 @@ func TestJCSCanonicalStringEscaping(t *testing.T) {
 	}{
 		{"double-quote", "say \"hi\"", "{\"v\":\"say \\\"hi\\\"\"}"},
 		{"backslash", "a\\b", "{\"v\":\"a\\\\b\"}"},
-		{"newline", "\n", "{\"v\":\"\\u000a\"}"},
-		{"tab", "\t", "{\"v\":\"\\u0009\"}"},
+		// The five short escapes RFC 8785 §3.2.2.2 mandates. These four cases
+		// pinned the \uXXXX form until the upstream corpus contradicted it
+		// (bead gum-gq9q); the fifth, form feed, was never covered.
+		{"newline", "\n", "{\"v\":\"\\n\"}"},
+		{"tab", "\t", "{\"v\":\"\\t\"}"},
+		// Control characters with no short escape keep the hex form. U+000B is
+		// the trap: ECMAScript source spells it \v, JSON has no such escape.
 		{"nul", "\x00", "{\"v\":\"\\u0000\"}"},
-		{"cr", "\r", "{\"v\":\"\\u000d\"}"},
-		{"backspace", "\x08", "{\"v\":\"\\u0008\"}"},
+		{"vertical-tab", "\x0b", "{\"v\":\"\\u000b\"}"},
+		{"cr", "\r", "{\"v\":\"\\r\"}"},
+		{"backspace", "\x08", "{\"v\":\"\\b\"}"},
+		{"form-feed", "\x0c", "{\"v\":\"\\f\"}"},
 		{"unit-sep", "\x1f", "{\"v\":\"\\u001f\"}"},
 		{"space", " ", "{\"v\":\" \"}"},
 		{"utf8-latin", "café", "{\"v\":\"café\"}"},

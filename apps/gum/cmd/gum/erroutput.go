@@ -148,7 +148,7 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 	case dispatch.ErrCodeResultArtifactExpired:
 		return "Cached artifact expired. Re-issue the originating call; do not retry against the stale handle."
 	case dispatch.ErrCodeTeeSecretCorrupt:
-		return "Tee secret is corrupt. Run `gum cache repair` or remove ~/.local/share/gum/<profile>/tee/ to reset."
+		return "Tee secret is corrupt. Remove ~/.local/share/gum/<profile>/tee/ to reset; no command repairs the tee store."
 	case dispatch.ErrCodeProjectRootRequired:
 		return "Operation needs a project root. Cd into a project directory or pass --project-root=<path>."
 	case dispatch.ErrCodeGainDisabled:

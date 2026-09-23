@@ -39,7 +39,7 @@ type ProfilePolicy struct {
 	// StrictValidation, when true, disables the UnknownReadParamsAllowlist
 	// escape hatch — every unknown key on every op_id is rejected with
 	// INVALID_ARGS regardless of risk class or backend. Equivalent to
-	// `gum config validation.strict=true` for the active profile.
+	// `gum config set validation.strict=true` for the active profile.
 	StrictValidation bool
 }
 
