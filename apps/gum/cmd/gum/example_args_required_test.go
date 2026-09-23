@@ -280,3 +280,112 @@ func sortedKeys(m map[string]any) []string {
 	}
 	return out
 }
+
+// TestKeywordPlannerExampleArgsCarryTargeting pins gum-ksx1. The three Keyword
+// Planner ops treat geoTargetConstants and language as optional, so the
+// required-field synthesizer left both out and the canonical example a caller
+// pastes asked for worldwide, all-language figures. Measured on 2.2.0 for
+// "horse breeds": 135,000 worldwide against 60,500 for the US. A curated
+// example_args overlay supplies both; this guards it against a regen.
+func TestKeywordPlannerExampleArgsCarryTargeting(t *testing.T) {
+	opIDs := []string{
+		"googleads.keywordPlanIdeas.generateKeywordIdeas",
+		"googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
+		"googleads.keywordPlanIdeas.generateKeywordForecastMetrics",
+	}
+	snap := loadCatalog()
+	if snap == nil || len(snap.Ops) == 0 {
+		t.Fatal("embedded catalog did not load")
+	}
+	byID := map[string]*catalog.Op{}
+	for i := range snap.Ops {
+		byID[snap.Ops[i].OpID] = &snap.Ops[i]
+	}
+	for _, opID := range opIDs {
+		op, ok := byID[opID]
+		if !ok {
+			t.Fatalf("op %s not in the embedded catalog", opID)
+		}
+		example := synthesizeExampleArgs(op)
+
+		geo, ok := example["geoTargetConstants"].([]any)
+		if !ok || len(geo) == 0 {
+			t.Errorf("op %s: example_args geoTargetConstants is not a non-empty array: %v",
+				opID, example["geoTargetConstants"])
+		}
+		if lang, _ := example["language"].(string); lang == "" {
+			t.Errorf("op %s: example_args language is not a non-empty string: %v",
+				opID, example["language"])
+		}
+	}
+}
+
+// TestKeywordPlannerTargetingDescribesConsequence is the other half of
+// gum-ksx1. The field description is the only geo guidance an MCP caller sees,
+// and "Omit for all locations." read as a neutral option. Each description must
+// name what omission does and where the per-profile default lives.
+func TestKeywordPlannerTargetingDescribesConsequence(t *testing.T) {
+	want := map[string][]string{
+		"geoTargetConstants": {"cover every location", "googleads.geo_target_constants"},
+		"language":           {"cover every language", "googleads.language"},
+	}
+	snap := loadCatalog()
+	if snap == nil || len(snap.Ops) == 0 {
+		t.Fatal("embedded catalog did not load")
+	}
+	checked := 0
+	for i := range snap.Ops {
+		op := &snap.Ops[i]
+		if !strings.HasPrefix(op.OpID, "googleads.keywordPlanIdeas.") {
+			continue
+		}
+		for j := range op.RequestFields {
+			f := &op.RequestFields[j]
+			phrases, ok := want[f.Name]
+			if !ok {
+				continue
+			}
+			for _, phrase := range phrases {
+				if !strings.Contains(f.Description, phrase) {
+					t.Errorf("op %s field %s: description does not contain %q: %s",
+						op.OpID, f.Name, phrase, f.Description)
+				}
+			}
+			checked++
+		}
+	}
+	if checked != 6 {
+		t.Errorf("checked %d targeting fields across the keywordPlanIdeas ops, want 6", checked)
+	}
+}
+
+// TestExampleArgsOverlayWins covers the synthesizer seam gum-ksx1 added: a
+// curated op.example_args is applied after the three derived passes, so it can
+// add an optional field and correct a placeholder the passes chose.
+func TestExampleArgsOverlayWins(t *testing.T) {
+	op := &catalog.Op{
+		OpID: "test.overlay",
+		RequestFields: []catalog.RequestField{
+			{Name: "query", Location: catalog.RequestFieldArg, Type: "string", Required: true},
+			{Name: "region", Location: catalog.RequestFieldArg, Type: "string"},
+		},
+		ExampleArgs: map[string]any{"query": "horse breeds", "region": "2840"},
+	}
+	got := synthesizeExampleArgs(op)
+	if got["query"] != "horse breeds" {
+		t.Errorf("overlay did not replace the synthesized required field: %v", got["query"])
+	}
+	if got["region"] != "2840" {
+		t.Errorf("overlay did not add the optional field: %v", got["region"])
+	}
+
+	// An op without an overlay keeps the synthesized placeholder.
+	op.ExampleArgs = nil
+	got = synthesizeExampleArgs(op)
+	if got["query"] != "<query>" {
+		t.Errorf("without an overlay, query should stay a placeholder: %v", got["query"])
+	}
+	if _, ok := got["region"]; ok {
+		t.Errorf("without an overlay, the optional field should stay out: %v", sortedKeys(got))
+	}
+}

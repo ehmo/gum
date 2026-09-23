@@ -1,6 +1,6 @@
 {
   "catalog_schema_version": 1,
-  "generated_at": "2026-09-23T00:54:13Z",
+  "generated_at": "2026-09-23T01:48:17Z",
   "generator_version": "gum/cmd/gen-catalog@phase3",
   "ops": [
     {
@@ -14709,13 +14709,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
+          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit and the figures cover every location, with nothing in the response marking them as worldwide; they cannot be rescaled to one country afterwards. Set googleads.geo_target_constants for a per-profile default."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit and the figures cover every language, with nothing in the response marking them as such. Set googleads.language for a per-profile default."
         },
         {
           "name": "keywordPlanNetwork",
@@ -14742,7 +14742,16 @@
           "default": "false",
           "description": "Include adult keywords in the results."
         }
-      ]
+      ],
+      "example_args": {
+        "geoTargetConstants": [
+          "2840"
+        ],
+        "keywords": [
+          "\u003ckeywords\u003e"
+        ],
+        "language": "1000"
+      }
     },
     {
       "op_id": "googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics",
@@ -14811,13 +14820,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
+          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit and the figures cover every location, with nothing in the response marking them as worldwide; they cannot be rescaled to one country afterwards. Set googleads.geo_target_constants for a per-profile default."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit and the figures cover every language, with nothing in the response marking them as such. Set googleads.language for a per-profile default."
         },
         {
           "name": "keywordPlanNetwork",
@@ -14830,7 +14839,13 @@
           "default": "GOOGLE_SEARCH",
           "description": "Search network to estimate against."
         }
-      ]
+      ],
+      "example_args": {
+        "geoTargetConstants": [
+          "2840"
+        ],
+        "language": "1000"
+      }
     },
     {
       "op_id": "googleads.keywordPlanIdeas.generateKeywordForecastMetrics",
@@ -14898,13 +14913,13 @@
           "location": "arg",
           "type": "array",
           "item_type": "string",
-          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations."
+          "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit and the figures cover every location, with nothing in the response marking them as worldwide; they cannot be rescaled to one country afterwards. Set googleads.geo_target_constants for a per-profile default."
         },
         {
           "name": "language",
           "location": "arg",
           "type": "string",
-          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages."
+          "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit and the figures cover every language, with nothing in the response marking them as such. Set googleads.language for a per-profile default."
         },
         {
           "name": "keywordPlanNetwork",
@@ -14951,7 +14966,13 @@
           "format": "date",
           "description": "Forecast window end (YYYY-MM-DD). Defaults to 30 days out."
         }
-      ]
+      ],
+      "example_args": {
+        "geoTargetConstants": [
+          "2840"
+        ],
+        "language": "1000"
+      }
     },
     {
       "op_id": "googleads.googleAds.search",

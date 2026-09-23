@@ -498,6 +498,9 @@ func newDescribeCmd() *cobra.Command {
 //     example is what callers paste (gum-uvw3).
 //  3. URL-template placeholders in the default variant's binding.http.path
 //     (e.g. "/gmail/v1/users/{userId}/messages" → "userId").
+//  4. op.example_args, the curator's overlay, applied last so it wins. The
+//     three sources above cover required fields; this one carries the optional
+//     fields whose omission changes what the call asks (gum-ksx1).
 //
 // Values are placeholders, not concrete defaults: a single string parameter
 // named "user_id" becomes "<user_id>", a name that smells like a page size
@@ -537,6 +540,13 @@ func synthesizeExampleArgs(op *catalog.Op) map[string]any {
 			}
 			out[name] = exampleValueFor(name)
 		}
+	}
+	// Curated overlay, applied last so a curator can correct a placeholder the
+	// passes above chose. It adds optional fields too, which is the whole point:
+	// the required-field passes cannot know that omitting Keyword Planner geo
+	// returns worldwide figures the response does not mark.
+	for name, value := range op.ExampleArgs {
+		out[name] = value
 	}
 	return out
 }

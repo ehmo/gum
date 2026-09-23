@@ -387,6 +387,14 @@ type Op struct {
 	// Google Discovery document (or hand-authored for manual ops). Optional and
 	// additive: ops without it fall back to the opaque body:=json grammar.
 	RequestFields []RequestField `json:"request_fields,omitempty"`
+	// ExampleArgs overlays the args map `gum describe` synthesizes for this op.
+	// The synthesizer covers required fields only, so an optional field whose
+	// omission changes what the answer means has to be curated here. Keyword
+	// Planner geo and language are the case that forced it: omit either and the
+	// figures cover every location or every language, and nothing in the
+	// response says so. Additive and optional: ops without it keep the
+	// synthesized example unchanged, so older binaries ignore it safely.
+	ExampleArgs map[string]any `json:"example_args,omitempty"`
 }
 
 // RequestFieldLocation is where a request field is carried in the HTTP call.

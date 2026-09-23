@@ -38,11 +38,11 @@ func BuildGoogleAdsOps() []catalog.Op {
 	// US and to English.
 	geo := catalog.RequestField{
 		Name: "geoTargetConstants", Location: catalog.RequestFieldArg, Type: "array", ItemType: "string",
-		Description: "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations.",
+		Description: "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit and the figures cover every location, with nothing in the response marking them as worldwide; they cannot be rescaled to one country afterwards. Set googleads.geo_target_constants for a per-profile default.",
 	}
 	language := catalog.RequestField{
 		Name: "language", Location: catalog.RequestFieldArg, Type: "string",
-		Description: "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages.",
+		Description: "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit and the figures cover every language, with nothing in the response marking them as such. Set googleads.language for a per-profile default.",
 	}
 	network := catalog.RequestField{
 		Name: "keywordPlanNetwork", Location: catalog.RequestFieldArg, Type: "string",
@@ -197,7 +197,28 @@ func BuildGoogleAdsOps() []catalog.Op {
 		},
 	)
 
+	// The synthesized describe example covers required fields only, so for these
+	// three it showed customerId and keywords and left the targeting out. A
+	// caller who pasted it got worldwide, all-language figures (gum-ksx1).
+	// Curate the pair onto all three. 2840 and 1000 are the US and English ids
+	// used in the worked example in docs/auth-guides/google-ads.md.
+	ideas.ExampleArgs = keywordPlannerExample()
+	// ideas takes keywords and/or url, so neither is Required and the
+	// synthesizer leaves both out. An example with no seed does not run.
+	ideas.ExampleArgs["keywords"] = []any{"<keywords>"}
+	historical.ExampleArgs = keywordPlannerExample()
+	forecast.ExampleArgs = keywordPlannerExample()
+
 	return []catalog.Op{ideas, historical, forecast, search, mutate, uploads}
+}
+
+// keywordPlannerExample returns a fresh targeting overlay for the describe
+// example. Each op gets its own map so nothing downstream can alias them.
+func keywordPlannerExample() map[string]any {
+	return map[string]any{
+		"geoTargetConstants": []any{"2840"},
+		"language":           "1000",
+	}
 }
 
 // makeGoogleAdsOp builds a read-only Google Ads Keyword Planner op bound to the

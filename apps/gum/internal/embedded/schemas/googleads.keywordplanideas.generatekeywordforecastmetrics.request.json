@@ -17,7 +17,7 @@
       "type": "string"
     },
     "geoTargetConstants": {
-      "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit for all locations.",
+      "description": "Geo targets as resource names or bare ids (e.g. geoTargetConstants/2840 or 2840 for the US). Repeatable. Omit and the figures cover every location, with nothing in the response marking them as worldwide; they cannot be rescaled to one country afterwards. Set googleads.geo_target_constants for a per-profile default.",
       "items": {
         "type": "string"
       },
@@ -40,7 +40,7 @@
       "type": "array"
     },
     "language": {
-      "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit for all languages.",
+      "description": "Language as a resource name or bare id (languageConstants/1000 or 1000 for English). Omit and the figures cover every language, with nothing in the response marking them as such. Set googleads.language for a per-profile default.",
       "type": "string"
     },
     "loginCustomerId": {
