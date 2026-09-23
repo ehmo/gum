@@ -398,8 +398,10 @@ jobs:
           set -euo pipefail
           mkdir verify && cd verify
           tag="${GITHUB_REF_NAME}"
-          # Release is created as draft by goreleaser; download via the API
-          # so we don't depend on it being published yet.
+          # goreleaser sets draft: false, so the release is already public
+          # here. Download via the API anyway: that path works whether or not
+          # the release is a draft, so flipping the goreleaser setting cannot
+          # break this job.
           release_id="$(
             gh api "repos/${GITHUB_REPOSITORY}/releases" \
               --jq "map(select(.tag_name == \"$tag\"))[0].id // empty"
