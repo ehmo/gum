@@ -11,7 +11,7 @@
 #
 # Pinned version:
 #   curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | \
-#     GUM_VERSION=v1.0.0 bash
+#     GUM_VERSION=vX.Y.Z bash
 #
 # Custom prefix:
 #   curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | \

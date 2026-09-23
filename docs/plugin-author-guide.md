@@ -225,7 +225,7 @@ reloaded fli
 
 `gum plugin remove fli` removes the install but **preserves the `namespace_owner` entry** in `plugins.lock`, so a reinstall by the same owner succeeds without re-asserting consent (spec §5.1 transfer procedure).
 
-`gum plugin validate` is not available in v1.3.0. Validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, executable-binding rehash, and (if defined) the canary.
+`gum plugin validate` does not exist. Validate by running `gum plugin install ./my-plugin` against a scratch profile (`--profile=dev` + `XDG_DATA_HOME=/tmp/...`); the install path runs the full v1 manifest validator, namespace check, executable-binding rehash, and (if defined) the canary.
 
 ---
 

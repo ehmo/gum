@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | bash
 Pin a version with `GUM_VERSION`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | GUM_VERSION=v1.3.0 bash
+curl -fsSL https://raw.githubusercontent.com/ehmo/gum/main/install.sh | GUM_VERSION=vX.Y.Z bash
 ```
 
 ## Homebrew

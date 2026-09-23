@@ -12,16 +12,21 @@ printf '%s' '<client_secret>' | gum auth use-oauth-client \
 gum auth login --scope https://www.googleapis.com/auth/documents.readonly
 ```
 
-Required scopes for the v0.1.0 Docs roster:
+Required scopes for the Docs ops:
 
-| Op                       | Scope                                                |
-|--------------------------|------------------------------------------------------|
-| `docs.documents.get`     | `https://www.googleapis.com/auth/documents.readonly` |
-| `docs.documents.create`  | `https://www.googleapis.com/auth/documents`          |
+| Op                           | Scope                                                |
+|------------------------------|------------------------------------------------------|
+| `docs.documents.get`         | `https://www.googleapis.com/auth/documents.readonly` |
+| `docs.documents.create`      | `https://www.googleapis.com/auth/documents`          |
+| `docs.documents.batchUpdate` | `https://www.googleapis.com/auth/documents`          |
 
-Body edits beyond `create` (text inserts, formatting, replaceAll) require
-`docs.documents.batchUpdate`, which is not in the v0.1.0 typed roster — call
-it through `gum http post` until the canonical binding lands.
+Body edits beyond `create` (text inserts, formatting, replaceAll) go through
+`docs.documents.batchUpdate`, which takes a `requests` array:
+
+```
+gum write docs.documents.batchUpdate documentId=<doc_id> \
+   requests='[{"insertText":{"location":{"index":1},"text":"hello"}}]'
+```
 
 ## First op: read a document
 

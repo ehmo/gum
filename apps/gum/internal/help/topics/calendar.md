@@ -12,12 +12,13 @@ printf '%s' '<client_secret>' | gum auth use-oauth-client \
 gum auth login --scope https://www.googleapis.com/auth/calendar.readonly
 ```
 
-Required scopes for the v0.1.0 Calendar roster:
+Required scopes for the Calendar read ops used below:
 
 | Op                                  | Scope                                                |
 |-------------------------------------|------------------------------------------------------|
 | `calendar.calendarList.list`        | `https://www.googleapis.com/auth/calendar.readonly`  |
 | `calendar.events.list`              | `https://www.googleapis.com/auth/calendar.readonly`  |
+| `calendar.events.get`               | `https://www.googleapis.com/auth/calendar.readonly`  |
 
 The narrower `calendar.events.readonly` scope is sufficient for `events.list`
 alone; use the broader `calendar.readonly` when both ops are in play.
@@ -52,9 +53,9 @@ gum read calendar.events.list calendarId=primary q="standup" \
    timeMin="$(date -u +%Y-%m-%dT00:00:00Z)" singleEvents=true
 ```
 
-**Read a specific event** (not in v0.1.0 roster — falls through to raw-HTTP)
+**Read a specific event**
 ```
-gum http get calendar/v3/calendars/primary/events/<event_id>
+gum read calendar.events.get calendarId=primary eventId=<event_id>
 ```
 
 ## Output shapes you'll see

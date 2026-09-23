@@ -10,7 +10,7 @@ software.
 
 Default posture:
 
-- Public v1 builds use credentials registered by the operator: a Google Desktop
+- Public builds use credentials registered by the operator: a Google Desktop
   OAuth client, API key, service account, or ADC credential.
 - Risky operations go through the shared dispatch policy gate.
 - Write and destructive calls require explicit operator flags and confirmation

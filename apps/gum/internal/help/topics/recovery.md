@@ -52,10 +52,10 @@ notices them on disk.
 
 `resources/read` on `gum://results/{hash}` performs a directory scan of
 the active profile's `tee/` tree, bounded by the retention window. A
-sidecar index (BoltDB hash→path) is deferred to v0.3.0 when dynamic
-resource subscription lands.
+sidecar index (BoltDB hash→path) has no target release; it waits on
+dynamic resource subscription.
 
-For v0.1.0 this means lookups take O(N) where N is the number of artifacts
+Lookups therefore take O(N) where N is the number of artifacts
 in the last 24 hours per op. In practice, N is small enough (single-digit
 thousands worst case) that the scan completes within the MCP-spec 100 ms
 P95 budget.

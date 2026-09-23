@@ -232,7 +232,6 @@ gum describe youtube.transcripts.get
 
 ```bash
 gum plugin list
-gum plugin list
 ```
 
 3. Complete the plugin's own credential or prerequisite setup.
@@ -265,5 +264,5 @@ operation returns data from its upstream source.
   Secret Service collection whose unlock prompt has nobody to answer it, such
   as a headless host, an SSH session, a container, or CI. Unlock the login
   keyring, or use a credential path that does not need one:
-  `gum auth use-adc` or `gum auth use-service-account <key.json>`. See
+  `gum auth use-service-account <key.json>`, or host ADC. See
   [Keychain call bounds](paths.md#keychain-call-bounds).

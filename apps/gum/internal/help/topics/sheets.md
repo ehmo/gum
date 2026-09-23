@@ -12,16 +12,18 @@ printf '%s' '<client_secret>' | gum auth use-oauth-client \
 gum auth login --scope https://www.googleapis.com/auth/spreadsheets.readonly
 ```
 
-Required scopes for the v0.1.0 Sheets roster:
+Required scopes for the Sheets values ops:
 
-| Op                                   | Scope                                                |
-|--------------------------------------|------------------------------------------------------|
-| `sheets.spreadsheets.values.get`     | `https://www.googleapis.com/auth/spreadsheets.readonly` |
-| `sheets.spreadsheets.values.update`  | `https://www.googleapis.com/auth/spreadsheets`       |
+| Op                                      | Scope                                                |
+|-----------------------------------------|------------------------------------------------------|
+| `sheets.spreadsheets.values.get`        | `https://www.googleapis.com/auth/spreadsheets.readonly` |
+| `sheets.spreadsheets.values.batchGet`   | `https://www.googleapis.com/auth/spreadsheets.readonly` |
+| `sheets.spreadsheets.values.update`     | `https://www.googleapis.com/auth/spreadsheets`       |
+| `sheets.spreadsheets.values.append`     | `https://www.googleapis.com/auth/spreadsheets`       |
+| `sheets.spreadsheets.values.batchUpdate`| `https://www.googleapis.com/auth/spreadsheets`       |
+| `sheets.spreadsheets.values.clear`      | `https://www.googleapis.com/auth/spreadsheets`       |
 
-`spreadsheets.values.batchGet`/`batchUpdate` are not in the v0.1.0 typed
-roster; call them through `gum http get|post` until the canonical bindings
-land.
+`gum search sheets` lists the whole indexed Sheets surface.
 
 ## First op: read a range
 
@@ -66,10 +68,11 @@ gum write sheets.spreadsheets.values.update \
 as a date — the same way a human typing into the UI would. Use `RAW` to insert
 strings verbatim with no parsing.
 
-**Append rows** (not in v0.1.0 roster)
+**Append rows** (write — adds after the last populated row)
 ```
-gum http post sheets/v4/spreadsheets/<id>/values/Sheet1!A:B:append?valueInputOption=USER_ENTERED \
-   --body '{"values": [["bravo", 17]]}'
+gum write sheets.spreadsheets.values.append \
+   spreadsheetId=<id> range="Sheet1!A:B" valueInputOption=USER_ENTERED \
+   values='[["bravo", 17]]'
 ```
 
 ## Output shapes you'll see

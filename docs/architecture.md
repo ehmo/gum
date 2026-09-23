@@ -74,7 +74,7 @@ This doc is the 1-page mental model. The normative contracts it summarizes are
 imports imports it back. Its direct imports are `internal/cache`,
 `internal/catalog`, `internal/fsatomic`, `internal/output/jcs`,
 `internal/output/profile`, and `internal/output/tee`; it imports nothing
-from `internal/auth`, `internal/profile`, `internal/usage`, or
+from `internal/auth`, `internal/profile`, or
 `internal/pluginenv`, and nothing from `internal/cli`, `internal/mcp`, or
 `internal/adapters`. Behaviour it does not own arrives through constructor
 injection on `DispatcherConfig`, which is why `internal/auth` may import

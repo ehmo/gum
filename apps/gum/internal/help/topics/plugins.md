@@ -14,10 +14,11 @@ backends exist.
 
 - **Shape 1 (MCP plugin)** — subprocess that speaks JSON-RPC over stdio.
   GUM acts as a gateway, forwarding `tools/call` and `resources/read` from
-  the host client to the plugin's MCP server. This is the v0.1.0 supported
-  shape.
-- **Shape 2 (in-process Risor module)** — declarative scripts executed in
-  the embedded sandbox. Deferred to v0.2.0.
+  the host client to the plugin's MCP server. This is the only supported
+  external authoring path. The manifest declares `shape = "mcp-plugin"`.
+- **Shape 2 (gRPC subprocess)** — a future authoring model with no target
+  release. `gum plugin install` rejects a third-party Shape 2 manifest with
+  `PLUGIN_SHAPE_UNSUPPORTED`. See `docs/plugin-contract.md`.
 
 ## Install protocol
 

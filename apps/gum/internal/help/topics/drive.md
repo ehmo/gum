@@ -12,7 +12,7 @@ printf '%s' '<client_secret>' | gum auth use-oauth-client \
 gum auth login --scope https://www.googleapis.com/auth/drive.readonly
 ```
 
-Required scopes for the v0.1.0 Drive roster:
+Required scopes for the Drive ops used below:
 
 | Op                                  | Scope                                                |
 |-------------------------------------|------------------------------------------------------|

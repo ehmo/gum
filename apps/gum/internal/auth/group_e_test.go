@@ -125,29 +125,39 @@ func TestAuthErrorNextAction(t *testing.T) {
 	})
 }
 
-// TestAuthNoAmbientADCWithoutOptIn verifies spec §7 line 1270-1273: ambient
-// GOOGLE_APPLICATION_CREDENTIALS is NOT silently used for interactive desktop
-// profiles unless the user has run `gum auth use-adc`.
-//
-// The current v0.1 CompositeResolver always routes adc-strategy variants to
-// the ADC resolver, so the opt-in gate must live above it. This test pins
-// the contract: when no ADC opt-in flag is configured, calling a non-adc
-// variant (byo_oauth) with no BYO resolver and ADC configured must NOT
-// silently fall through to the ADC token. Today the resolver intentionally
-// falls through as a "v0.1.0 convenience" (composite.go line 66); when the
-// opt-in gate lands, this test asserts the gate is honored.
+// emptyKeyring is a KeyringBackend holding no secrets, so a byo_oauth resolve
+// takes the "operator registered no OAuth client" branch without touching the
+// host keychain.
+type emptyKeyring struct{}
+
+func (emptyKeyring) Get(string) (string, error) { return "", nil }
+func (emptyKeyring) Set(string, string) error   { return nil }
+func (emptyKeyring) Delete(string) error        { return nil }
+
+// TestAuthNoAmbientADCWithoutOptIn verifies spec §7: ambient
+// GOOGLE_APPLICATION_CREDENTIALS is never used for a variant whose
+// auth_strategy is not adc. ADC is selected by the catalog, not by an
+// operator command, so a byo_oauth variant with no registered OAuth client
+// must fail with BYO_OAUTH_CLIENT_NOT_CONFIGURED rather than quietly mint an
+// ADC token from the ambient environment.
 func TestAuthNoAmbientADCWithoutOptIn(t *testing.T) {
-	// Document current behavior so a future opt-in implementation can flip
-	// the assertion: byo_oauth with no BYO and ADC present currently calls
-	// the ADC resolver. The test below is the canary that this convenience
-	// shortcut exists and is intentional.
 	called := false
-	r := &CompositeResolver{ADC: &fakeADCResolver{onResolve: func() { called = true }}}
-	_, _ = r.ResolveAuth(context.Background(), &dispatch.Invocation{}, &dispatch.ResolvedVariant{
+	r := &CompositeResolver{
+		ADC:     &fakeADCResolver{onResolve: func() { called = true }},
+		Keyring: emptyKeyring{},
+	}
+	creds, err := r.ResolveAuth(context.Background(), &dispatch.Invocation{}, &dispatch.ResolvedVariant{
 		Variant: &catalog.Variant{AuthStrategy: catalog.AuthStrategyBYOOAuth},
 	})
-	if !called {
-		t.Skip("byo_oauth no longer silently falls through to ADC — opt-in gate has landed; flip this assertion")
+	if called {
+		t.Fatal("byo_oauth fell through to the ADC resolver; ambient ADC must not satisfy a non-adc strategy")
+	}
+	if creds != nil {
+		t.Fatalf("want no credentials, got %+v", creds)
+	}
+	var ae *AuthError
+	if !errors.As(err, &ae) || ae.Code != "BYO_OAUTH_CLIENT_NOT_CONFIGURED" {
+		t.Fatalf("want BYO_OAUTH_CLIENT_NOT_CONFIGURED, got %v", err)
 	}
 }
 

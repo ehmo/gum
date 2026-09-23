@@ -35,7 +35,7 @@ truncate_strings = { default_chars = 500, fields = { snippet = 180 } }
 on_empty = "No matching messages."
 ```
 
-Project-local files live at `.gum/profiles/<profile-name>.toml`. User-global files live at `~/.config/gum/profiles/<profile-name>.toml`. Embedded catalog profiles are generated into `gen/catalog.json` / `catalog.bin`.
+Project-local files live at `.gum/profiles/<profile-name>.toml`. User-global files live at `~/.config/gum/profiles/<profile-name>.toml`. Embedded catalog profiles are generated into `internal/embedded/catalog.json` / `catalog.bin`.
 
 One file MAY define several profiles, so the loader does not stop at the file named after the profile: it reads `<profile-name>.toml` first, then every other `*.toml` in the same directory in name order, and takes the first `[output_profiles."<name>"]` table that matches. A malformed file in the search path fails the load rather than being skipped.
 
