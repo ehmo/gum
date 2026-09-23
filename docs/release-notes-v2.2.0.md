@@ -123,11 +123,13 @@ gum doctor
 - 217 of 228 catalog variants still declare no `default_fields`, so the §770
   requirement that every variant carry them is still unmet outside the 11
   curated read operations.
-- macOS binaries are not notarized. The pipeline is wired and waits on a
-  Developer ID certificate and an App Store Connect notary key. The Homebrew
-  formula clears quarantine during installation. For standalone installs,
-  inspect with `spctl --assess --type execute --verbose gum` and use
-  `xattr -d com.apple.quarantine gum` if Gatekeeper rejects the binary.
+- macOS binaries carry the Go linker's ad-hoc signature, not a Developer ID
+  signature, and are not notarized. Measured on this release's `darwin/arm64`
+  artifact under Darwin 25.6.0: `codesign -v` exits 0, `curl` sets no
+  `com.apple.quarantine` attribute, and a copy with quarantine forced on still
+  runs from a shell. `spctl --assess --type execute` reports `rejected`, and
+  no install path gum publishes consults that verdict. Notarization matters
+  for a cask, a `.pkg`, or an app bundle, none of which gum ships.
 - The ETag store has no TTL and no eviction. It grows until
   `gum cache clear` runs. Check its size with `gum cache stats`.
 - A second gum process on the same profile cannot open the ETag store while

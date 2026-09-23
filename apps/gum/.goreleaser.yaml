@@ -75,25 +75,3 @@ source:
 # Homebrew is published through ehmo/homebrew-tap's Formula/gum.rb.
 # Do not enable a cask until macOS Developer ID signing and notarization are
 # active. Unsigned cask binaries can inherit quarantine and hang on first launch.
-
-# macOS notarization (Apple Gatekeeper). Activates only when the operator has
-# provisioned all five secrets: MACOS_SIGN_P12, MACOS_SIGN_PASSWORD,
-# MACOS_NOTARY_ISSUER_ID, MACOS_NOTARY_KEY_ID, MACOS_NOTARY_KEY. The release
-# workflow passes every one into the goreleaser step; an unset repository
-# secret expands to the empty string, which leaves the enabled gate false, so
-# goreleaser skips the block and snapshot and unsigned releases still succeed.
-# MACOS_SIGN_P12 is the base64-encoded Developer ID Application certificate.
-notarize:
-  macos:
-    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
-      ids:
-        - gum
-      sign:
-        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
-        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
-      notarize:
-        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
-        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
-        key: "{{ .Env.MACOS_NOTARY_KEY }}"
-        wait: true
-        timeout: 20m
