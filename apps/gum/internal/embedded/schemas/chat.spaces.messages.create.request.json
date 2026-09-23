@@ -29,7 +29,7 @@
       "type": "string"
     },
     "requestId": {
-      "description": "Optional. A unique request ID for this message. Specifying an existing request ID returns the message created with that…",
+      "description": "Optional. A unique ID for this request. A random UUID is recommended. Specifying a request ID makes the request idempot…",
       "type": "string"
     },
     "threadKey": {
