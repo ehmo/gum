@@ -1,7 +1,7 @@
 package main_test
 
 // TestPluginSetupCredentialFlow and TestPluginCredentialNoRawEnvLeak are the
-// acceptance tests for gum-y4e: `gum plugin setup <name>` (spec §7/§8.2/§1606).
+// acceptance tests for gum-y4e: `gum plugin setup <name>` (spec §7 and §8.2).
 //
 // Design notes:
 // - No real subprocess is spawned; the canary is stubbed via PluginSetupOptions.RunCanary.
@@ -238,7 +238,7 @@ func TestPluginSetupCredentialFlow(t *testing.T) {
 	// CRITICAL: raw env var name and secret must not appear in any user-visible output.
 	allOutput := outBuf.String() + result
 	if strings.Contains(allOutput, rawEnv) {
-		t.Errorf("user-visible output contains raw env var %q (spec §1414 violation):\n%s", rawEnv, allOutput)
+		t.Errorf("user-visible output contains raw env var %q (spec §7 violation):\n%s", rawEnv, allOutput)
 	}
 	if strings.Contains(allOutput, secretValue) {
 		t.Errorf("user-visible output contains secret value %q:\n%s", secretValue, allOutput)
@@ -248,7 +248,7 @@ func TestPluginSetupCredentialFlow(t *testing.T) {
 // TestPluginCredentialNoRawEnvLeak asserts that the env var name
 // "PLUG_VERY_SECRET_ENV" never appears in stdout, stderr, or any returned
 // error message across every user-visible failure path the setup command
-// can produce. This is the spec §1414/§1606 normative requirement.
+// can produce. This is the spec §7 normative requirement.
 func TestPluginCredentialNoRawEnvLeak(t *testing.T) {
 	defer goleak.VerifyNone(t)
 

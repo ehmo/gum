@@ -7,7 +7,7 @@ import (
 	"github.com/ehmo/gum/internal/catalog"
 )
 
-// TestOpValidateExecutionSupportBinding pins the spec §925 binding between a
+// TestOpValidateExecutionSupportBinding pins the spec §5.8 binding between a
 // variant's `execution_support` and its `unsupported_capabilities`. Before
 // gum-j6xl the catalog ABI declared no `unsupported_capabilities` field at
 // all, and `gum.describe_op` substituted the whole `capabilities[]` list for
@@ -97,7 +97,7 @@ func TestOpValidateExecutionSupportBinding(t *testing.T) {
 
 // TestOpValidateAcceptsDeclaredExecutionSupport holds the other side: the
 // three legal non-full shapes must load. A validator that rejected them would
-// make the §918 states undeclarable, which is the gum-j6xl bug inverted.
+// make the §5.8 states undeclarable, which is the gum-j6xl bug inverted.
 func TestOpValidateAcceptsDeclaredExecutionSupport(t *testing.T) {
 	cases := []struct {
 		name   string

@@ -3,10 +3,10 @@ package auth
 // gum_oauth.go implements the spec §7 managed OAuth strategy:
 // installed-app PKCE + loopback redirect + CSRF state. The client_id comes
 // from the embedded managed-scopes manifest (no embedded client_secret —
-// spec §7 line 1220). Refresh tokens are persisted via CredentialVault and
+// spec §7). Refresh tokens are persisted via CredentialVault and
 // scoped per spec §10.0.1.
 //
-// v0.1.0 ships with the protocol code wired but gated by the manifest's
+// The protocol code is wired but gated by the manifest's
 // active_scope_rule: until at least one scope reaches
 // (active, verified, ready, passing), Resolve and Login return
 // GUM_OAUTH_MANAGED_CLIENT_NOT_READY. Tests override the manifest +
@@ -386,7 +386,7 @@ func (g *GumOAuth) postToken(ctx context.Context, body url.Values) (*gumOAuthTok
 
 // scopeExpansionPrompt maps the manifest's scope_expansion_mode to the
 // authorization endpoint's prompt parameter. full_reconsent → consent, the
-// only mode v0.1 supports.
+// only mode gum supports.
 func scopeExpansionPrompt(m *managedScopesManifest) string {
 	switch m.ClientPolicy.ScopeExpansionMode {
 	case "incremental":

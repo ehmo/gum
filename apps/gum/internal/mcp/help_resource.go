@@ -28,7 +28,7 @@ const (
 // The SDK's own mcp.CodeResourceNotFound alias is deprecated in favour of
 // jsonrpc.CodeInvalidParams, which is what this tracks.
 //
-// Spec §13 line 1427 specifies -32004, which gum cannot emit: the SDK reserves
+// Spec §13 specifies -32004, which gum cannot emit: the SDK reserves
 // -32004 for jsonrpc2.ErrServerClosing and turns any -32004 handler reply into
 // a connection close on the client. The application-level envelope still
 // carries "error_code": "RESOURCE_NOT_FOUND", so §13's "assert both the
@@ -47,7 +47,7 @@ type helpTopicRow struct {
 }
 
 // helpTopicsManifest is the embedded seed-set wrapper. schema_version is
-// reserved for future ABI gates and ignored at v0.1.0.
+// reserved for a future ABI gate and ignored.
 type helpTopicsManifest struct {
 	SchemaVersion int            `json:"schema_version"`
 	Topics        []helpTopicRow `json:"topics"`
@@ -108,7 +108,7 @@ func (s *Server) handleHelpTopicsList(_ context.Context, req *sdkmcp.ReadResourc
 // handleHelpTopicRead is the resources/read handler for the parameterised
 // gum://help/{topic} URI. Active topics return their embedded markdown body;
 // deprecated topics return the §7 JSON-valued redirect shape; unknown topics
-// produce the canonical RESOURCE_NOT_FOUND envelope (spec §13 line 1425).
+// produce the canonical RESOURCE_NOT_FOUND envelope (spec §13).
 func (s *Server) handleHelpTopicRead(_ context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
 	uri := req.Params.URI
 	name, ok := parseHelpTopicURI(uri)
@@ -124,7 +124,7 @@ func (s *Server) handleHelpTopicRead(_ context.Context, req *sdkmcp.ReadResource
 		return nil, resourceNotFoundError(uri, name)
 	}
 	if row.Status == "deprecated" {
-		// jcs.Marshal, not json.Marshal: spec §13 line 1562 requires a
+		// jcs.Marshal, not json.Marshal: spec §13 requires a
 		// JCS-canonical body and encoding/json HTML-escapes '&', '<' and '>',
 		// which RFC 8785 forbids. The error is discarded for the same reason
 		// json.Marshal's was: the payload is two strings, so neither encoder
@@ -235,7 +235,7 @@ func csvField(s string) string {
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
-// resourceNotFoundError builds the spec §13 line 1425 RESOURCE_NOT_FOUND
+// resourceNotFoundError builds the spec §13 RESOURCE_NOT_FOUND
 // envelope wrapped in JSON-RPC (-32004). The envelope is the same for both
 // gum://help/topics-list failure and gum://help/<unknown> not-found.
 func resourceNotFoundError(uri, topic string) *jsonrpc.Error {

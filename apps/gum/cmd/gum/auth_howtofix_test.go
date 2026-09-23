@@ -7,7 +7,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestHowToFixAuthUsesSetupCommand pins spec §7 lines 1378-1381: a non-gum_oauth
+// TestHowToFixAuthUsesSetupCommand pins spec §7: a non-gum_oauth
 // auth failure must not be answered with a hint that browser OAuth alone fixes
 // it. When the envelope names a setup_command, that command is the hint.
 func TestHowToFixAuthUsesSetupCommand(t *testing.T) {
@@ -28,7 +28,7 @@ func TestHowToFixAuthUsesSetupCommand(t *testing.T) {
 	}
 }
 
-// TestHowToFixAuthNeverMentionsGcloud pins spec §1239: "There is no gcloud
+// TestHowToFixAuthNeverMentionsGcloud pins spec §7: "There is no gcloud
 // dependency". gum runs its own loopback redirect, so pointing the user at
 // gcloud sends them to a tool gum does not use.
 func TestHowToFixAuthNeverMentionsGcloud(t *testing.T) {

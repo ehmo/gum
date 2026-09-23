@@ -8,7 +8,7 @@ import (
 )
 
 // gum.read/write/destructive advertise a closed format enum of
-// toon|csv|json|markdown (spec §311). csv and markdown are §13
+// toon|csv|json|markdown (spec §4.1). csv and markdown are §13
 // SingleObjectResult shapes whose data is the encoded text, not the shaped
 // tree: a client that asked for csv and got a JSON object under
 // `"format":"toon"` had no way to tell the difference from a server bug.
@@ -74,7 +74,7 @@ func TestMarkdownResultCarriesMarkdownText(t *testing.T) {
 	}
 	data, ok := env["data"].(string)
 	if !ok {
-		t.Fatalf("data is %T, want the markdown text as a string (spec §2709)", env["data"])
+		t.Fatalf("data is %T, want the markdown text as a string (spec §13)", env["data"])
 	}
 	if data != body {
 		t.Errorf("data = %q, want the markdown body verbatim", data)

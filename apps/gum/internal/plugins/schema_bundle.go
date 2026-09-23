@@ -48,7 +48,7 @@ const (
 	responseRefSuffix = ".response"
 )
 
-// safeServedRefPattern is the §8.2 line 1601 grammar: lowercase ASCII alnum
+// safeServedRefPattern is the §8.2 grammar: lowercase ASCII alnum
 // first char, then up to 127 lowercase alnum / dot / underscore / hyphen. The
 // 128-character bound keeps every ref well inside POSIX NAME_MAX (255), so
 // the on-disk `<ref>.<sha256>.json` name never exceeds 198 bytes.

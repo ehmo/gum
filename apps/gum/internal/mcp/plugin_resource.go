@@ -1,13 +1,13 @@
-// Spec §13 line 3158-3166: full gum://plugin/{name} record assembly from the
+// Spec §13: full gum://plugin/{name} record assembly from the
 // three §8.7 registry files. The MCP resource handler (resource_templates.go)
 // and `gum plugin info` (cmd/gum/plugin_info.go) both read the record through
-// LoadPluginInfo here, which is what makes spec line 2520's "same object"
+// LoadPluginInfo here, which is what makes spec §12's "same object"
 // requirement structural rather than a convention two call sites must keep.
 // Keeping the assembly in its own file keeps the precedence rule auditable in
-// one place when v0.2+ extends the field set (e.g., last_error_code wiring
-// once §8.6 quarantine state is emitted by the runtime).
+// one place if the field set grows (e.g., last_error_code wiring once §8.6
+// quarantine state is emitted by the runtime).
 //
-// Source precedence (spec §13 line 3158):
+// Source precedence (spec §13):
 //   - runtime status (status, reason, quarantined_at, last_error_code,
 //     installed_at, activated_at) → plugin-state.json wins
 //   - variant_ids and variant_count                → plugin-catalog.json wins
@@ -32,15 +32,15 @@ import (
 	"sort"
 )
 
-// PluginInfo is the §13 line 3161 wire shape, named for the `PluginInfo` root
-// spec §12 line 2520 gives `gum plugin info <name> --format=json`. Status-
+// PluginInfo is the §13 wire shape, named for the `PluginInfo` root
+// spec §12 gives `gum plugin info <name> --format=json`. Status-
 // specific fields are populated by the assembler based on
 // resolvePluginStatus. JSON tags use omitempty so optional fields (executable,
 // activated_at, reason, credential_descriptors, quarantined_at,
 // last_error_code, metadata_warning) stay absent when not applicable.
 //
 // It is exported because the CLI must emit the same object as the MCP
-// resource: spec line 2520 says "Same object carried inside the
+// resource: spec §12 says "Same object carried inside the
 // gum://plugin/{name} JSON resource payload", so both entry points share
 // LoadPluginInfo rather than assembling twice.
 type PluginInfo struct {
@@ -72,12 +72,11 @@ func (s *Server) loadPluginResourceRecord(name string) (*PluginInfo, bool) {
 	return LoadPluginInfo(s.profilePluginDir(), name)
 }
 
-// LoadPluginInfo assembles the §13 line 3161 record for a single plugin from
+// LoadPluginInfo assembles the §13 record for a single plugin from
 // the three §8.7 files under profileDir, or returns (nil, false) when no row
 // exists in either plugins.lock or plugin-state.json for that name.
 // Catalog-only entries are intentionally not surfaced as plugins because
-// v0.1.0 installs always write a lock or state row alongside the catalog
-// variant.
+// installs always write a lock or state row alongside the catalog variant.
 func LoadPluginInfo(profileDir, name string) (*PluginInfo, bool) {
 	if profileDir == "" || name == "" {
 		return nil, false
@@ -109,7 +108,7 @@ func LoadPluginInfo(profileDir, name string) (*PluginInfo, bool) {
 		InstalledAt:       stringFromRow(stateRow, "installed_at"),
 	}
 	if rec.Package == nil {
-		// Empty object preserves the §13 line 3161 "package contains source,
+		// Empty object preserves the §13 "package contains source,
 		// ref, checksum" shape even when the lockfile is missing the fields;
 		// downstream clients should branch on the inner keys, not the
 		// envelope's presence.
@@ -196,7 +195,7 @@ func findPluginRow(top map[string]any, name string) map[string]any {
 
 // collectPluginVariantIDs walks plugin-catalog.json variants[] and returns
 // the variant_ids whose owner_plugin matches name, sorted lexicographically.
-// Per spec §13 line 3161 the list is profile-inventory (not active-only).
+// Per spec §13 the list is profile-inventory (not active-only).
 func collectPluginVariantIDs(top map[string]any, name string) []string {
 	if top == nil {
 		return nil
@@ -230,7 +229,7 @@ func mapFromRow(row map[string]any, key string) map[string]any {
 }
 
 // credentialDescriptors returns the sanitised descriptor list for a
-// needs_configuration plugin. Spec §13 line 3165 forbids raw env names in
+// needs_configuration plugin. Spec §13 forbids raw env names in
 // this resource, so this helper passes through only the four whitelisted
 // fields per descriptor (alias, kind, display_name, setup_hint).
 func credentialDescriptors(stateRow map[string]any) []any {

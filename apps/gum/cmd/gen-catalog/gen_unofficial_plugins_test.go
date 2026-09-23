@@ -113,7 +113,7 @@ func TestUnofficialPluginsOpsValidate(t *testing.T) {
 
 // TestUnofficialPluginsBindingPluginShape — the mcp-plugin executor at install
 // time validates that binding.tool_name is set for backend_kind=mcp-plugin
-// (spec §8.2 line 1593). Failing this gate at gen-catalog time means the
+// (spec §8.2). Failing this gate at gen-catalog time means the
 // install would later refuse the variant. Pin it here so manifest drift is
 // caught build-side rather than user-side.
 func TestUnofficialPluginsBindingPluginShape(t *testing.T) {

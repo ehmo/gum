@@ -1,6 +1,6 @@
 // Package risor wraps the in-process Risor v2 runtime for gum.code (spec.md §6.3).
 //
-// Only Risor is supported in v0.1.0. Builtins: gum_call, gum_search,
+// Only Risor is supported. Builtins: gum_call, gum_search,
 // gum_confirm_destructive, gum_print.
 package risor
 

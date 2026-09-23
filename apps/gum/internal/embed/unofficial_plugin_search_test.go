@@ -17,9 +17,9 @@ import (
 // bead's acceptance: "ops appear in search results".
 //
 // The four plugins (Scholar, Patents, YouTube Transcripts, Trends) are
-// catalog-only stubs in v0.1.0 — the subprocess binaries ship in v0.2.0.
-// Until then, gum.search_apis is the discovery surface that lets callers
-// know the ops exist and which adapter_key will dispatch them.
+// catalog-only stubs: no subprocess binary is built for them. gum.search_apis
+// is the discovery surface that lets callers know the ops exist and which
+// adapter_key would dispatch them.
 func TestUnofficialPluginOpsAppearInSearch(t *testing.T) {
 	var cat catalog.Catalog
 	if err := json.Unmarshal(embedded.CatalogJSON, &cat); err != nil {

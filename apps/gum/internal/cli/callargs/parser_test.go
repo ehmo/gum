@@ -142,7 +142,7 @@ func TestCLIArgGrammar(t *testing.T) {
 	})
 
 	t.Run("--fields vs fields= host-control separation", func(t *testing.T) {
-		// Spec §12.0 line 2422: the parser must NOT consume --fields; it is a
+		// Spec §12.0: the parser must NOT consume --fields; it is a
 		// host-control flag handled by cobra. fields= however is an operation
 		// arg literally named "fields".
 		r, err := ParseArgs([]string{`fields=messages(id)`}, Options{})

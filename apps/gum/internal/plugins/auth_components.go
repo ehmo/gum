@@ -19,7 +19,7 @@ import (
 
 // ValidateAuthComponents rejects a manifest whose declared prerequisite
 // kinds are not on the §7 closed enum. `x-` prefixed kinds are accepted as
-// informational per spec §1415. The returned error wraps
+// informational per spec §8.2. The returned error wraps
 // catalog.ErrUnknownAuthComponent so the CLI renders AUTH_COMPONENT_UNKNOWN.
 func ValidateAuthComponents(pluginID string, components []catalog.AuthComponent) error {
 	for _, comp := range components {
@@ -45,7 +45,7 @@ func ExternalAuthComponents(components []catalog.AuthComponent) []catalog.AuthCo
 // writeExternalChecklist prints the external prerequisites as unchecked
 // checklist items. The output names the component kind and its setup hint;
 // neither carries a secret value or a raw env var name, which is what keeps
-// this safe to print under spec §1414.
+// this safe to print under spec §7.
 //
 // Nothing is written when the plugin declares no external component, so a
 // plugin that needs only secrets keeps its current setup output.

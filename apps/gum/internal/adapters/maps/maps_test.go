@@ -13,7 +13,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestBackendKindMapsSDK pins spec §14 line 3335: the maps-sdk backend kind
+// TestBackendKindMapsSDK pins spec §14: the maps-sdk backend kind
 // is dispatchable via internal/adapters/maps using
 // googlemaps.github.io/maps. We stand up an httptest server that returns
 // a canned Directions JSON payload, point the SDK at it via

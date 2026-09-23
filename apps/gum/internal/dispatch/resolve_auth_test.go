@@ -46,8 +46,8 @@ func TestResolveAuthPopulatesCredentials(t *testing.T) {
 }
 
 // TestResolveAuthWrapsErrorAsAuthRequired verifies that a plain error from the
-// auth.Resolver surfaces as a structured AUTH_REQUIRED error (spec §1421 stable
-// runtime error codes; spec §233 step 5).
+// auth.Resolver surfaces as a structured AUTH_REQUIRED error (spec §7 stable
+// runtime error codes; spec §3.1 step 5 step 5).
 // Acceptance: resolver errors surface as AUTH_REQUIRED.
 func TestResolveAuthWrapsErrorAsAuthRequired(t *testing.T) {
 	r := &mockAuthResolver{err: errors.New("token endpoint 500")}
@@ -64,7 +64,7 @@ func TestResolveAuthWrapsErrorAsAuthRequired(t *testing.T) {
 // TestResolveAuthPreservesStructuredError verifies that when the resolver
 // already returns a structured error (e.g. SCOPE_MISSING from a scope-gate
 // failure), it is not re-wrapped — the structured code reaches the caller
-// unchanged so dispatch can surface the correct spec §1421 code.
+// unchanged so dispatch can surface the correct spec §7 code.
 func TestResolveAuthPreservesStructuredError(t *testing.T) {
 	scope := NewStructuredError(ErrCodeScopeMissing, "needs https://example/scope")
 	r := &mockAuthResolver{err: scope}

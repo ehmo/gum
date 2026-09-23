@@ -60,8 +60,8 @@ with any line-oriented tool.
 ## Retention
 
 The ledger rotates once it passes 100 MB. Time-windowed reporting is controlled at read
-time with `--since` and `--until`; v0.1.x does not expose a profile-specific
-retention knob.
+time with `--since` and `--until`. There is no profile-specific retention
+knob.
 
 ## Errors
 

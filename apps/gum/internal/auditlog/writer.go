@@ -701,17 +701,20 @@ var auditEntryKeyOrder = []string{
 	"sanitizer_bypassed",
 	"dual_fetch",
 	"panic",
+	"error_code",
 }
 
 // optionalOmitWhenFalse lists the keys that the spec §11 "compact" rule
 // removes when false or null. `risk_override` is always emitted; the rest
-// drop when their value is the zero value of bool.
+// drop when their value is the zero value of bool. `error_code` is a string
+// that only a failed dispatch sets, so it drops on null alone.
 var optionalOmitWhenFalse = map[string]bool{
 	"shaping_bypassed":     true,
 	"sanitizer_bypassed":   true,
 	"dual_fetch":           true,
 	"risk_override_reason": true,
 	"panic":                true,
+	"error_code":           true,
 }
 
 // omitOptional reports whether the spec §11 compact rule drops key k. That

@@ -24,7 +24,7 @@ type ReleaseSavings struct {
 
 	// GumToolsListTokens is tok(gumToolsListJSON) the caller supplied,
 	// representing GUM's 9-meta + 18-convenience tools/list reply
-	// (spec §2 line 129; tier-A budget gate).
+	// (spec §2; tier-A budget gate).
 	GumToolsListTokens int
 
 	// NaiveResponseTokensSum is the sum across fixtures of the raw

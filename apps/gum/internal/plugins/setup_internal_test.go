@@ -48,7 +48,7 @@ func (f *fakeKeyring) Delete(key string) error {
 // TestSetupUserError locks the user-facing message shape: both with and
 // without a suggestion the prefix must be "plugin setup:" and the
 // optional suggestion is wrapped in parentheses. No raw env names or
-// internal error details ever appear here (spec §1414).
+// internal error details ever appear here (spec §7).
 func TestSetupUserError(t *testing.T) {
 	t.Run("with_suggestion", func(t *testing.T) {
 		err := setupUserError("missing", "run install")
@@ -435,7 +435,7 @@ func TestSetupCredentialsCanaryFailureQuarantines(t *testing.T) {
 	}
 }
 
-// TestSetupCredentialsManifestValidationFailure pins the §1606 guard: a
+// TestSetupCredentialsManifestValidationFailure pins the §7 guard: a
 // manifest with descriptors that violate ValidateCredentialDescriptors
 // (e.g. an alias not matching the regex) must return the safe summary
 // without leaking the manifest's raw error.

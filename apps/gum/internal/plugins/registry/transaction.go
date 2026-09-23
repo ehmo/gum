@@ -20,14 +20,14 @@ import (
 const DefaultLockTimeout = 30 * time.Second
 
 // pluginByName is the minimal projection of a plugins[] entry the transaction
-// protocol needs to enforce array-sort-by-name (spec §8.7 line 1772). We keep
+// protocol needs to enforce array-sort-by-name (spec §8.7). We keep
 // the entry as json.RawMessage to avoid re-serialising fields we don't model.
 type pluginByName struct {
 	Name string `json:"name"`
 }
 
 // variantByID is the same minimal projection for a plugin-catalog.json
-// variants[] entry, which spec §8.7 line 1884 sorts by variant_id.
+// variants[] entry, which spec §8.7 sorts by variant_id.
 type variantByID struct {
 	VariantID string `json:"variant_id"`
 }
@@ -486,7 +486,7 @@ func (r *Registry) warnFsyncUnsupported(err error) {
 
 // isFsyncUnsupported reports whether err is the EINVAL/ENOTSUP signature
 // emitted by NFS / FUSE / overlay filesystems that don't honour fsync on
-// directories. Spec §8.7 line 1782 "Filesystem fsync fallback".
+// directories. Spec §8.7 "Filesystem fsync fallback".
 func isFsyncUnsupported(err error) bool {
 	return errors.Is(err, fs.ErrInvalid) ||
 		errors.Is(err, errENOTSUP) ||
@@ -494,7 +494,7 @@ func isFsyncUnsupported(err error) bool {
 }
 
 // sortByName sorts a plugins[] slice (as decoded by json.Unmarshal into
-// []any) ascending by the "name" field. Spec §8.7 line 1772: arrays sorted by
+// []any) ascending by the "name" field. Spec §8.7: arrays sorted by
 // plugin name before JCS hashing.
 func sortByName(plugins []any) {
 	sort.SliceStable(plugins, func(i, j int) bool {
@@ -517,7 +517,7 @@ func nameOf(p any) string {
 }
 
 // sortByVariantID sorts a plugin-catalog.json variants[] slice ascending by
-// "variant_id". Spec §8.7 line 1884: variants sorted by variant_id before JCS
+// "variant_id". Spec §8.7: variants sorted by variant_id before JCS
 // hashing, so two profiles that installed the same plugins in a different
 // order produce byte-identical catalogs.
 func sortByVariantID(variants []any) {

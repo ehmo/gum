@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newCacheCmd implements `gum cache stats|clear`. Phase 9 surfaces a minimal
-// placeholder payload; live wiring lands when the dispatcher exposes cache
-// stats publicly (v0.2.0).
+// newCacheCmd implements `gum cache stats|clear`. The semantic cache lives
+// inside the dispatcher process, so a fresh CLI process has no counters to
+// report: stats reads what is on disk and zeroes the rest.
 func newCacheCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cache",
@@ -93,7 +93,7 @@ func newCacheStatsCmd() *cobra.Command {
 		Use:   "stats",
 		Short: "Print dispatcher cache stats",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// One schema regardless of --format: the spec §3003 envelope
+			// One schema regardless of --format: the spec §13 envelope
 			// (review gum-oqer). Previously the bare invocation emitted a
 			// different {version,hits,misses,...} placeholder than
 			// --format=json, silently changing shape on scripts that added
@@ -136,9 +136,10 @@ func measureHTTPCacheDir(dir string) cache.HTTPUsage {
 	return usage
 }
 
-// cacheStatsJSONEnvelope returns a CacheStatsResult envelope matching spec §3003.
-// The semantic and prompt counters are zero because live wiring lands in
-// v0.2.0; the caller fills the §10.2 http entry and byte counts from disk.
+// cacheStatsJSONEnvelope returns a CacheStatsResult envelope matching spec §13.
+// The semantic and prompt counters are zero because both live inside a
+// dispatcher process and this one holds neither; the caller fills the §10.2
+// http entry and byte counts from disk.
 func cacheStatsJSONEnvelope() map[string]any {
 	return map[string]any{
 		"semantic": map[string]any{

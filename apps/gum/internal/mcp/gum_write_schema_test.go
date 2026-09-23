@@ -192,7 +192,7 @@ func TestGumWriteSchemaFormatEnum(t *testing.T) {
 		}
 	}
 
-	// Required values per spec.md §13 / §3205.
+	// Required values per spec.md §13.
 	wantEnum := []string{"toon", "csv", "json", "markdown"}
 	for _, want := range wantEnum {
 		if !enumSet[want] {

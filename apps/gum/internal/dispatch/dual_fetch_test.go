@@ -48,8 +48,9 @@ func TestDualFetchKeyAbsentWithoutMode(t *testing.T) {
 
 // TestDualFetchGateRejectsNonIdempotentVariant keeps the eligibility gate
 // covered: a read variant WITHOUT annotations.idempotent=true is rejected for
-// its own reason, before the not-implemented refusal would apply. The audit
-// sink must stay empty because the executor is never reached.
+// its own reason, before the not-implemented refusal would apply. The executor
+// is never reached, so the one audit row is the §11 failure row, not a success
+// row and not a dual_fetch row.
 func TestDualFetchGateRejectsNonIdempotentVariant(t *testing.T) {
 	c := loadKernelCatalog(t)
 	// Leave kernel fixture as-is: gum.code variant has no Annotations →
@@ -75,7 +76,13 @@ func TestDualFetchGateRejectsNonIdempotentVariant(t *testing.T) {
 	if !strings.Contains(err.Error(), "idempotent") {
 		t.Errorf("err = %v; want the gate reason to name idempotent", err)
 	}
-	if len(sink.entries) != 0 {
-		t.Errorf("audit entries=%d after gate rejection; want 0 (gate fires before executor success audit)", len(sink.entries))
+	if len(sink.entries) != 1 {
+		t.Fatalf("audit entries=%d after gate rejection; want 1 (the §11 failure row)", len(sink.entries))
+	}
+	if got, _ := sink.entries[0]["error_code"].(string); got != string(dispatch.ErrCodeInvalidArgs) {
+		t.Errorf("error_code = %q; want %q", got, dispatch.ErrCodeInvalidArgs)
+	}
+	if _, present := sink.entries[0]["dual_fetch"]; present {
+		t.Errorf("gate-rejection row carries dual_fetch; entry=%v", sink.entries[0])
 	}
 }

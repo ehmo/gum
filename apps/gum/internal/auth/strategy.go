@@ -13,8 +13,8 @@ import (
 )
 
 // Strategy is the closed enum of auth strategies. Integer values map 1:1 to the
-// catalog.AuthStrategy string constants. Only byo_oauth (1) and adc (2) are implemented
-// in v0.1.0; all others return AUTH_STRATEGY_NOT_IMPLEMENTED without panicking.
+// catalog.AuthStrategy string constants. Only byo_oauth (1) and adc (2) are
+// implemented; all others return AUTH_STRATEGY_NOT_IMPLEMENTED without panicking.
 type Strategy int
 
 const (
@@ -49,13 +49,13 @@ var (
 
 	// ErrAuthStrategyNotImplemented is returned by Acquire when the strategy
 	// is known but not yet wired (i.e. everything except byo_oauth and adc).
-	ErrAuthStrategyNotImplemented = errors.New("auth: strategy not implemented in v0.1.0")
+	ErrAuthStrategyNotImplemented = errors.New("auth: strategy not implemented")
 )
 
 // AuthError is a structured auth failure with machine-readable Code and a
 // human-readable remediation hint shown to the user. The optional envelope
 // fields (MissingComponents, SetupCommand, OpID, RequiredScopes, HaveScopes,
-// UserMessage, Retryable) carry the spec §7 lines 1289-1305 / 1378-1389
+// UserMessage, Retryable) carry the spec §7
 // compound + scope-missing payload that MUST accompany any non-gum_oauth
 // auth failure so the host can guide the user to the right setup command.
 type AuthError struct {
@@ -75,14 +75,14 @@ type AuthError struct {
 	// OpID is the catalog op identifier the request targeted, when known.
 	OpID string
 	// RequiredScopes / HaveScopes carry the SCOPE_MISSING payload for
-	// gum_oauth and byo_oauth strategies (spec §7 line 1380-1389).
+	// gum_oauth and byo_oauth strategies (spec §7).
 	RequiredScopes []string
 	HaveScopes     []string
 	// UserMessage is a one-sentence, user-facing summary. When empty the
 	// host falls back to HumanRemediation.
 	UserMessage string
 	// Retryable signals whether the LLM should retry the same call once
-	// the user finishes the setup_command (spec §7 line 1388). Defaults to
+	// the user finishes the setup_command (spec §7). Defaults to
 	// false; compound and scope-missing failures should set this true once
 	// the missing components are resolved.
 	Retryable bool
@@ -100,7 +100,7 @@ func (e *AuthError) Error() string {
 	return fmt.Sprintf("auth [%s/%s]: %s", e.Strategy, e.Code, e.HumanRemediation)
 }
 
-// MarshalJSON emits the canonical spec §7 (lines 1378-1389) envelope shape
+// MarshalJSON emits the canonical spec §7 envelope shape
 // so MCP stdio mode and the CLI can forward the structured error to the
 // caller without translation. Empty optional fields are omitted.
 func (e *AuthError) MarshalJSON() ([]byte, error) {
@@ -264,13 +264,13 @@ func Acquire(ctx context.Context, strat Strategy, scopes []string) (*Credentials
 		return nil, &AuthError{
 			Code:             "AUTH_ACQUIRE_REQUIRES_INSTANCE",
 			Strategy:         strat.String(),
-			HumanRemediation: "use NewAPIKeyResolver() and call .Resolve() directly; api_key reads GUM_API_KEY in v0.1.0",
+			HumanRemediation: "use NewAPIKeyResolver() and call .Resolve() directly; api_key reads the OS keychain, then GUM_API_KEY",
 		}
 	case StrategyServiceAccountKey:
 		return nil, &AuthError{
 			Code:             "AUTH_ACQUIRE_REQUIRES_INSTANCE",
 			Strategy:         strat.String(),
-			HumanRemediation: "use NewServiceAccountResolver(path) and call .Resolve() directly; service_account reads GUM_SERVICE_ACCOUNT_KEY for the JSON path in v0.1.0",
+			HumanRemediation: "use NewServiceAccountResolver(path) and call .Resolve() directly; service_account reads GUM_SERVICE_ACCOUNT_KEY for the JSON path",
 		}
 	case StrategyGUMOAuth:
 		return nil, &AuthError{
@@ -282,7 +282,7 @@ func Acquire(ctx context.Context, strat Strategy, scopes []string) (*Credentials
 		return nil, &AuthError{
 			Code:             "AUTH_STRATEGY_NOT_IMPLEMENTED",
 			Strategy:         strat.String(),
-			HumanRemediation: "this strategy is not implemented in v0.1.0; see spec.md §7",
+			HumanRemediation: "this strategy is not implemented; see spec.md §7",
 		}
 	default:
 		return nil, ErrUnknownStrategy

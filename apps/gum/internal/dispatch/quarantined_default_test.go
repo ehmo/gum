@@ -14,7 +14,7 @@ import (
 // catalog that was valid when generated can hold a quarantined default hours
 // later; refusing the op then takes down a healthy sibling with it.
 //
-// These tests build the catalog by hand rather than through Validate. §434
+// These tests build the catalog by hand rather than through Validate. §5.1
 // forbids a quarantined default at generation time, so the fixture is a state
 // the generator is not supposed to emit; the runtime still has to survive it,
 // because plugin-state.json can quarantine a variant after the catalog ships.

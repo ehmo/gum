@@ -34,7 +34,7 @@ type CompositeResolver struct {
 	// GumOAuth resolves auth_strategy=gum_oauth. Nil means "manifest gate
 	// will be evaluated lazily" — the composite still returns a typed
 	// error, just with GUM_OAUTH_MANAGED_CLIENT_NOT_READY when no scope is
-	// promoted (the v0.1.0 default).
+	// promoted.
 	GumOAuth Resolver
 }
 
@@ -236,7 +236,7 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 		return nil, nil
 
 	case StrategyCompound:
-		// Spec §7 lines 1289-1305 + 1378-1389: a compound-auth failure
+		// Spec §7: a compound-auth failure
 		// envelope MUST include auth_strategy, missing_components, and
 		// setup_command so the LLM/user can act on it. missing_components
 		// carries the variant's declared auth_components and falls back to
@@ -269,7 +269,7 @@ func (c *CompositeResolver) ResolveAuth(ctx context.Context, inv *dispatch.Invoc
 		return nil, &AuthError{
 			Code:             "AUTH_STRATEGY_NOT_IMPLEMENTED",
 			Strategy:         strat.String(),
-			HumanRemediation: fmt.Sprintf("strategy %q is not wired in v0.1.0", strat.String()),
+			HumanRemediation: fmt.Sprintf("strategy %q is not wired", strat.String()),
 		}
 	}
 }

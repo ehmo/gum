@@ -62,7 +62,7 @@ func TestBundledManifestsAreValid(t *testing.T) {
 				if tool.Name == c.tool {
 					found = true
 					if tool.RiskClass != "read" {
-						t.Errorf("advertised_tools[%s].risk_class = %q; want read (unofficial-API plugins are read-only in v0.1.0)", c.tool, tool.RiskClass)
+						t.Errorf("advertised_tools[%s].risk_class = %q; want read (unofficial-API plugins are read-only)", c.tool, tool.RiskClass)
 					}
 					break
 				}

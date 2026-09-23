@@ -30,7 +30,7 @@ Admin writes use the normal catalog `risk_class` values plus an Admin-specific
 | Class | Meaning | Catalog eligibility |
 | --- | --- | --- |
 | `admin_fixture_write` | Mutates only a fixture-owned user, group, or member created for tests. | Eligible after this gate and destructive confirmation. |
-| `admin_reversible_write` | Mutates a real directory object but has a bounded, audited rollback path. | Not eligible for v0.1 broad preview. |
+| `admin_reversible_write` | Mutates a real directory object but has a bounded, audited rollback path. | Not eligible for the broad preview. |
 | `admin_high_blast_write` | Can affect account access, privileges, retention, security posture, billing, domains, or many users. | Excluded. |
 
 The generator and catalog validator fail if an Admin write lacks this

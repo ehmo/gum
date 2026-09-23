@@ -184,7 +184,7 @@ func TestLogoutRevokesAtGoogle(t *testing.T) {
 
 // TestLogoutClearsGumOAuthVault pins gum-h24d: Logout purges all gum_oauth
 // CredentialVault entries tracked by the index key, even though gum_oauth is
-// manifest-gated off in v0.1.0.
+// manifest-gated off for most scopes.
 func TestLogoutClearsGumOAuthVault(t *testing.T) {
 	stubRevoke(t)
 	kb := &mockKeyring{data: map[string]string{}}

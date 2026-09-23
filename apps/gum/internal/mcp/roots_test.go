@@ -11,7 +11,7 @@ import (
 )
 
 // TestResolveProjectRootBranches pins the §9.2 selection algorithm. Each
-// branch corresponds to a normative bullet in spec lines 2050-2052.
+// branch corresponds to a normative bullet in that section.
 func TestResolveProjectRootBranches(t *testing.T) {
 	const r1 = "file:///tmp/projA"
 	const r2 = "file:///tmp/projB"
@@ -101,7 +101,7 @@ func TestResolveProjectRootBranches(t *testing.T) {
 }
 
 // TestProjectRootRequiredEnvelopeShape pins the PROJECT_ROOT_REQUIRED
-// envelope's required-field surface (spec §1421).
+// envelope's required-field surface (spec §7).
 func TestProjectRootRequiredEnvelopeShape(t *testing.T) {
 	env := projectRootRequiredEnvelope(&projectRootError{
 		Reason:          "missing_gumroot_in_multi_root_session",

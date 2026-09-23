@@ -1,7 +1,7 @@
 // semantic_ttl_catalog_test.go — the §10.3 per-op TTL table must name ops the
 // catalog actually carries.
 //
-// docs/spec.md:2379 writes the table in op-*type* prose ("gmail.profiles.get:
+// Spec §10.3 writes the table in op-*type* prose ("gmail.profiles.get:
 // 3600s"). Those labels were copied into the map as literal keys, so the lookup
 // in TTLForOp never matched and the ops silently inherited the 60s default. A
 // dead key costs nothing visible: the cache still works, it just expires an
@@ -47,7 +47,7 @@ func TestPerOpTTLKeysAreRealCatalogOps(t *testing.T) {
 }
 
 // TestPerOpTTLCoversEverySpecTier pins one live op per tier of the
-// docs/spec.md:2379 table, keyed by the op id the dispatcher passes to Set.
+// spec §10.3 table, keyed by the op id the dispatcher passes to Set.
 func TestPerOpTTLCoversEverySpecTier(t *testing.T) {
 	c := NewSemanticCache(SemanticConfig{})
 	want := map[string]time.Duration{

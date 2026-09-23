@@ -46,7 +46,6 @@ const expressionMetaSpecDef = `"ExpressionMeta": {
     "full_result_path": {"type": "string"},
     "full_result_resource": {"type": "string"},
     "project_root_uri": {"type": ["string", "null"]},
-    "_profile_resolution_warning": {"type": ["string", "null"]},
     "artifact_expires_at": {"type": ["string", "null"]},
     "intentional_zero_max_items": {"type": ["boolean", "null"]},
     "_code_output_truncated": {"type": ["boolean", "null"]}

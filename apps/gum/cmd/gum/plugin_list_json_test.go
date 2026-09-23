@@ -1,6 +1,6 @@
 package main
 
-// Spec §13 line 3234 names one test for the two halves of the pending-restart
+// Spec §13 names one test for the two halves of the pending-restart
 // rule: a plugin awaiting a restart is hidden from the gum://plugins MCP view,
 // because an LLM client cannot dispatch it, and visible to the operator on the
 // CLI, because the operator is the one who restarts it. Asserting both in one
@@ -97,7 +97,7 @@ func readPluginsResource(t *testing.T) string {
 }
 
 // pluginListJSON runs `gum plugin list --format=json` through the real root
-// command and returns the decoded §12 line 2537 root.
+// command and returns the decoded §12 root.
 func pluginListJSON(t *testing.T) map[string][]gummcp.PluginInventoryRow {
 	t.Helper()
 
@@ -149,7 +149,7 @@ func TestPluginsResourceFiltersPendingRestart(t *testing.T) {
 	}
 }
 
-// TestPluginListJSONRowsMirrorTheResourceColumns pins the §12 line 2537 claim
+// TestPluginListJSONRowsMirrorTheResourceColumns pins the §12 claim
 // that the JSON rows "mirror gum://plugins columns": same seven values, same
 // source, named instead of positional.
 func TestPluginListJSONRowsMirrorTheResourceColumns(t *testing.T) {

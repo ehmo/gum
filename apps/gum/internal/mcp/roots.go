@@ -17,7 +17,7 @@
 // The cost is one extra round trip on the first tool call of a session.
 //
 // The PROJECT_ROOT_REQUIRED error code lives in internal/dispatch/errors.go;
-// the envelope shape mirrors spec §1421 with reason / negotiated_roots /
+// the envelope shape mirrors spec §7 with reason / negotiated_roots /
 // supplied_root fields for operator-friendly diagnosis.
 //
 // SEP-2577 deprecates the roots feature as a whole at revision 2026-07-28, so
@@ -108,7 +108,7 @@ func rootsFromInputResponses(req *sdkmcp.CallToolRequest) *sdkmcp.ListRootsResul
 }
 
 // fileRoots keeps only the file:// URIs from a roots/list reply. Spec §9.2
-// allows no other scheme for project-local resolution in v0.1.0.
+// allows no other scheme for project-local resolution.
 func fileRoots(res *sdkmcp.ListRootsResult) []string { //nolint:staticcheck // SEP-2577 deprecates roots; spec §9.2 still binds project-local lookup to it
 	var roots []string
 	for _, r := range res.Roots {
@@ -199,7 +199,7 @@ func resolveProjectRoot(roots []string, metaGumRoot string) (string, *projectRoo
 	}
 }
 
-// projectRootRequiredEnvelope builds the spec §1421 PROJECT_ROOT_REQUIRED
+// projectRootRequiredEnvelope builds the spec §7 PROJECT_ROOT_REQUIRED
 // envelope from a projectRootError. Returned as a map so callers can marshal
 // it inside an MCP tool error or RPC error.data field.
 func projectRootRequiredEnvelope(e *projectRootError) map[string]any {
@@ -256,7 +256,7 @@ func rootURIToPath(uri string) string {
 }
 
 // isFileURI reports whether s starts with the file:// scheme. Spec §9.2
-// allows only file:// for project-local resolution in v0.1.0.
+// allows only file:// for project-local resolution.
 func isFileURI(s string) bool {
 	return strings.HasPrefix(s, "file://")
 }

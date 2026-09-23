@@ -90,3 +90,58 @@ func TestDispatchAuditEntryClientIDFallback(t *testing.T) {
 		t.Errorf("client_id=%q; want unknown", got)
 	}
 }
+
+// TestDispatchAuditRecordsShapingBypass pins the §12.4 promise that a --raw
+// call is logged with shaping_bypassed: true. --raw resolves to
+// Invocation.Format == "raw" in cmd/gum, so the kernel reads the same field
+// the shaping bypass itself reads; a reviewer grepping the audit log for
+// unshaped calls would otherwise find nothing.
+func TestDispatchAuditRecordsShapingBypass(t *testing.T) {
+	sink := &recordingAuditSink{}
+	disp := dispatch.NewDispatcherWithConfig(loadKernelCatalog(t), map[string]dispatch.Adapter{
+		"code.risor": adapters.NewCodeRunner(),
+	}, dispatch.DispatcherConfig{Audit: sink})
+
+	if _, err := disp.Dispatch(context.Background(), &dispatch.Invocation{
+		OpID:   "gum.code",
+		Args:   map[string]any{"language": "risor", "source": `gum_print("raw_audit")`},
+		Format: "raw",
+		Caller: dispatch.CallerCLI,
+	}); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+
+	if got := len(sink.entries); got != 1 {
+		t.Fatalf("audit entries = %d; want 1", got)
+	}
+	if got, _ := sink.entries[0]["shaping_bypassed"].(bool); !got {
+		t.Errorf("shaping_bypassed=%v; want true for Format=raw (entry=%v)", sink.entries[0]["shaping_bypassed"], sink.entries[0])
+	}
+}
+
+// TestDispatchAuditOmitsShapingBypassOnShapedCall is the negative complement:
+// a shaped call must leave the key absent, not emit false. The §11 compact
+// rule drops false optional keys, so emitting it here would be dead weight on
+// every ordinary line.
+func TestDispatchAuditOmitsShapingBypassOnShapedCall(t *testing.T) {
+	sink := &recordingAuditSink{}
+	disp := dispatch.NewDispatcherWithConfig(loadKernelCatalog(t), map[string]dispatch.Adapter{
+		"code.risor": adapters.NewCodeRunner(),
+	}, dispatch.DispatcherConfig{Audit: sink})
+
+	if _, err := disp.Dispatch(context.Background(), &dispatch.Invocation{
+		OpID:   "gum.code",
+		Args:   map[string]any{"language": "risor", "source": `gum_print("shaped_audit")`},
+		Format: "json",
+		Caller: dispatch.CallerCLI,
+	}); err != nil {
+		t.Fatalf("Dispatch: %v", err)
+	}
+
+	if got := len(sink.entries); got != 1 {
+		t.Fatalf("audit entries = %d; want 1", got)
+	}
+	if _, present := sink.entries[0]["shaping_bypassed"]; present {
+		t.Errorf("shaping_bypassed present on a shaped call: %v", sink.entries[0])
+	}
+}

@@ -19,7 +19,7 @@ import (
 var ErrExecutableUntrusted = errors.New("PLUGIN_EXECUTABLE_UNTRUSTED")
 
 // ExecutableBinding mirrors the plugins.lock entry fields the host needs to
-// authorise a spawn (spec §8.7 line 1690). The full lock row carries more
+// authorise a spawn (spec §8.7). The full lock row carries more
 // metadata (`name`, `version`, `source`, `ref`, `checksum`) which is
 // irrelevant to digest re-check and therefore omitted here.
 type ExecutableBinding struct {
@@ -30,7 +30,7 @@ type ExecutableBinding struct {
 	ArgvNormalized   []string
 }
 
-// VerifyExecutableBinding enforces the spec §8.7 line 1690 contract on every
+// VerifyExecutableBinding enforces the spec §8.7 contract on every
 // plugin spawn:
 //
 //  1. ExecutablePath MUST be absolute.
@@ -80,7 +80,7 @@ func VerifyExecutableBinding(b *ExecutableBinding) error {
 	return nil
 }
 
-// shellInterpreters is the spec §8.7 line 1690 deny-list of binaries that
+// shellInterpreters is the spec §8.7 deny-list of binaries that
 // MUST NOT appear as a plugin's executable_path outside dev profiles.
 var shellInterpreters = map[string]bool{
 	"sh":             true,

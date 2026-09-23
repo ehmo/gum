@@ -3,7 +3,7 @@
 // stores in the OS keychain, then runs the live canary.
 //
 // User-facing output uses alias/display_name/setup_hint only — raw env var
-// names MUST NOT appear in any user-visible message (spec §1414, §1606).
+// names MUST NOT appear in any user-visible message (spec §7).
 
 package plugins
 
@@ -44,7 +44,7 @@ type SetupOptions struct {
 // SetupCredentials implements the spec §7/§8.2 credential-prompt flow:
 //
 //  1. Load and validate the plugin manifest from the install root.
-//  2. Validate credential_descriptors against needs_user_creds (§1606).
+//  2. Validate credential_descriptors against needs_user_creds (§7).
 //  3. For each descriptor, prompt the user (using display_name + setup_hint)
 //     and read the secret value from opts.In.
 //  4. Store each secret in the OS keychain via opts.Keyring.
@@ -53,7 +53,7 @@ type SetupOptions struct {
 //     On canary failure: set plugin status to "quarantined" with CANARY_FAILED
 //     annotation per spec §8.6.
 //
-// All user-facing output uses alias/display_name/setup_hint only (spec §1414).
+// All user-facing output uses alias/display_name/setup_hint only (spec §7).
 // Raw env var names MUST NOT appear in any returned error or written output.
 func SetupCredentials(ctx context.Context, pluginID string, opts SetupOptions) error {
 	// Validate pluginID before it is joined into a filesystem path

@@ -18,12 +18,12 @@ import (
 // request: gum sends the stored validator as `If-None-Match` and upstream
 // either returns 304 with no body or the full new representation.
 //
-// A 304 is not a 4xx. §2024 makes it a success that short-circuits the whole
+// A 304 is not a 4xx. §9.0 makes it a success that short-circuits the whole
 // expression pipeline: stages 1-8 do not run, no field mask is applied, no tee
 // artifact is written, and no gum://results handle is minted.
 
 // cacheStatusETag304 is the §12.3 `cache_status` value for a revalidated read.
-// §2030 names one field, `served_from_cache`, but the v1 ledger splits that
+// §9.0 names one field, `served_from_cache`, but the v1 ledger splits that
 // into a string status and a boolean, so a 304 row sets both: the status
 // string here and `served_from_cache: true`, because the body the caller
 // receives came from the cache and not from the wire.
@@ -52,7 +52,7 @@ func (d *dispatcher) httpCacheKey(inv *Invocation, rv *ResolvedVariant, creds *C
 	)
 }
 
-// notModifiedResult is the §2029 body. It is a struct rather than a map so the
+// notModifiedResult is the §9.0 body. It is a struct rather than a map so the
 // two keys marshal in the order the spec prints them.
 type notModifiedResult struct {
 	Unchanged bool   `json:"unchanged"`
@@ -61,11 +61,11 @@ type notModifiedResult struct {
 
 // serveNotModified completes a dispatch upstream answered with 304.
 //
-// The returned ShapedResponse carries no Expression envelope: §2029 omits
+// The returned ShapedResponse carries no Expression envelope: §9.0 omits
 // `_expression` because no shaped output exists to describe, and exempts this
 // body from outputSchema conformance for the same reason. The caller sees the
 // validator and nothing else, whatever expression profile is now active
-// (§2031 item 4).
+// (§9.0 item 4).
 func (d *dispatcher) serveNotModified(inv *Invocation, rv *ResolvedVariant, creds *Credentials, entry cache.HTTPEntry) (*ShapedResponse, error) {
 	result := notModifiedResult{Unchanged: true, ETag: entry.ETag}
 	body, err := json.Marshal(result)
@@ -90,7 +90,7 @@ func (d *dispatcher) serveNotModified(inv *Invocation, rv *ResolvedVariant, cred
 	return shaped, nil
 }
 
-// notModifiedGainEntry builds the §2030 ledger row for a 304.
+// notModifiedGainEntry builds the §9.0 ledger row for a 304.
 //
 // The savings math in output/gain/report.go takes raw_tokens as the baseline
 // and shaped_tokens as the actual, so the cached body is what raw_tokens must

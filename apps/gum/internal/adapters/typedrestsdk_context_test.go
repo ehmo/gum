@@ -12,12 +12,12 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestExecutorContextPropagation pins spec §5.7 line 826: "Generated REST
+// TestExecutorContextPropagation pins spec §5.7: "Generated REST
 // dispatch stubs in `gen/dispatch/*.go` MUST pass the incoming
 // `context.Context` to the typed Google API call chain via `.Context(ctx)`
 // before `.Do()`."
 //
-// We cannot point at the typed Google SDK in v0.1.0 (the dependency isn't in
+// We cannot point at the typed Google SDK (the dependency isn't in
 // go.mod). Instead, we verify the equivalent contract for TypedRestSDK — the
 // shared adapter every gen/dispatch stub forwards into — using
 // http.NewRequestWithContext: cancelling the context of an in-flight call

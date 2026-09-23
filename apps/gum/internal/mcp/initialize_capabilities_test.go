@@ -53,8 +53,8 @@ func connectInitializeClient(t *testing.T) (*sdkmcp.ClientSession, func()) {
 // TestMCPInitializeCapabilities asserts the spec §13.2 capability matrix at
 // the wire level: every server-owned capability marked **Implemented** is
 // present, every **Deferred** capability is absent. The advertised set is
-// what the v0.1.0 contract actually delivers: prompts and completions are
-// advertised, logging and tasks are not (deferred to v0.3.0).
+// what the build actually delivers: prompts and completions are advertised,
+// logging and tasks are not built.
 //
 // This test is the SDK-upgrade canary: bumping go-sdk to a version that
 // silently flips a default capability on (or off) breaks here.
@@ -72,11 +72,11 @@ func TestMCPInitializeCapabilities(t *testing.T) {
 		t.Fatal("server advertised nil capabilities; want non-nil with tools+resources")
 	}
 
-	// Tools: advertised, ListChanged=false (spec §4.1 line 383).
+	// Tools: advertised, ListChanged=false (spec §4.1).
 	if caps.Tools == nil {
 		t.Errorf("Tools capability absent; want advertised")
 	} else if caps.Tools.ListChanged {
-		t.Errorf("Tools.ListChanged = true; want false in v0.1.0 (spec §13.2)")
+		t.Errorf("Tools.ListChanged = true; want false (spec §13.2)")
 	}
 
 	// Resources: advertised, ListChanged=false, Subscribe=false.
@@ -84,46 +84,46 @@ func TestMCPInitializeCapabilities(t *testing.T) {
 		t.Errorf("Resources capability absent; want advertised")
 	} else {
 		if caps.Resources.ListChanged {
-			t.Errorf("Resources.ListChanged = true; want false in v0.1.0")
+			t.Errorf("Resources.ListChanged = true; want false")
 		}
 		if caps.Resources.Subscribe {
-			t.Errorf("Resources.Subscribe = true; want false (deferred to v0.3.0)")
+			t.Errorf("Resources.Subscribe = true; want false (subscribe is not built)")
 		}
 	}
 
-	// Prompts: advertised in v0.1.0 (gum-z6w landed the two static zero-argument
+	// Prompts: advertised (gum-z6w landed the two static zero-argument
 	// templates gum.summarize_workspace_for_today + gum.audit_recent_writes).
 	// ListChanged stays false because the roster is closed at compile time.
 	if caps.Prompts == nil {
-		t.Errorf("Prompts capability absent; want advertised (v0.1.0 static roster)")
+		t.Errorf("Prompts capability absent; want advertised (static roster)")
 	} else if caps.Prompts.ListChanged {
-		t.Errorf("Prompts.ListChanged = true; want false (closed v0.1.0 roster)")
+		t.Errorf("Prompts.ListChanged = true; want false (closed roster)")
 	}
 
-	// Completions: advertised in v0.1.0 (gum-vok landed the help-topic completion
-	// source; op_id/variant_id/plugin-name/closed-enum sources extend the dispatch
-	// table in v0.2.0 without changing the capability bit).
+	// Completions: advertised (gum-vok landed the help-topic completion source;
+	// op_id/variant_id/plugin-name/closed-enum sources would extend the dispatch
+	// table without changing the capability bit).
 	if caps.Completions == nil {
-		t.Errorf("Completions capability absent; want advertised (v0.1.0 ref/resource gum://help/{topic})")
+		t.Errorf("Completions capability absent; want advertised (ref/resource gum://help/{topic})")
 	}
 
-	// Logging: NEVER advertised in v0.1.0 (spec §13.2 line 3290).
+	// Logging: never advertised (spec §13.2).
 	if caps.Logging != nil { //nolint:staticcheck // SEP-2577 deprecates logging; the assertion is that gum never advertises it
-		t.Errorf("Logging capability advertised; want nil (spec §13.2 line 3290 — deferred to v0.3.0)")
+		t.Errorf("Logging capability advertised; want nil (spec §13.2: not built)")
 	}
 
-	// Experimental / Extensions: nothing claimed in v0.1.0.
+	// Experimental / Extensions: nothing claimed.
 	if len(caps.Experimental) > 0 {
-		t.Errorf("Experimental capabilities = %v; want empty in v0.1.0", caps.Experimental)
+		t.Errorf("Experimental capabilities = %v; want empty", caps.Experimental)
 	}
 	if len(caps.Extensions) > 0 {
-		t.Errorf("Extensions = %v; want empty in v0.1.0", caps.Extensions)
+		t.Errorf("Extensions = %v; want empty", caps.Extensions)
 	}
 }
 
-// TestNoTaskCapabilityV01 asserts spec §13.2 line 3298-3303: task
+// TestNoTaskCapabilityV01 asserts spec §13.2: task
 // augmentation, tasks/get, tasks/result, tasks/list, tasks/cancel are all
-// deferred to v0.3.0 and the corresponding capability MUST NOT be advertised.
+// not built and the corresponding capability MUST NOT be advertised.
 // The MCP SDK does not yet model a typed `tasks` field on ServerCapabilities;
 // the spec specifies that experimental task negotiation MUST be absent. This
 // test guards against a future SDK upgrade that introduces a Tasks field or
@@ -136,18 +136,18 @@ func TestNoTaskCapabilityV01(t *testing.T) {
 	caps := cs.InitializeResult().Capabilities
 	for key := range caps.Experimental {
 		if containsFold(key, "task") {
-			t.Errorf("Experimental[%q] advertised; tasks deferred to v0.3.0 (spec §13.2)", key)
+			t.Errorf("Experimental[%q] advertised; tasks are not built (spec §13.2)", key)
 		}
 	}
 	for key := range caps.Extensions {
 		if containsFold(key, "task") {
-			t.Errorf("Extensions[%q] advertised; tasks deferred to v0.3.0 (spec §13.2)", key)
+			t.Errorf("Extensions[%q] advertised; tasks are not built (spec §13.2)", key)
 		}
 	}
 }
 
-// TestNoIconMetadataV01 enforces spec §13.2 line 3309: icons metadata is
-// deferred to v0.2.0 and MUST NOT appear in tools/resources/templates. A
+// TestNoIconMetadataV01 enforces spec §13.2: icons metadata is not built
+// and MUST NOT appear in tools/resources/templates. A
 // regression that decorates a Tier A tool with an icon adds metadata bytes
 // to every tools/list response, breaking the token-budget claim of §4.1.
 func TestNoIconMetadataV01(t *testing.T) {
@@ -163,7 +163,7 @@ func TestNoIconMetadataV01(t *testing.T) {
 	}
 	for _, tool := range tools.Tools {
 		if len(tool.Icons) != 0 {
-			t.Errorf("tool %q has %d icons; want 0 in v0.1.0", tool.Name, len(tool.Icons))
+			t.Errorf("tool %q has %d icons; want 0", tool.Name, len(tool.Icons))
 		}
 	}
 

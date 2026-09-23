@@ -8,7 +8,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestScopeMissingPrefersTheAuthEnvelope pins spec §7 lines 1378-1381: when the
+// TestScopeMissingPrefersTheAuthEnvelope pins spec §7: when the
 // failure carries its own setup_command, that command wins over the canned
 // "re-authenticate with the missing scopes" text.
 func TestScopeMissingPrefersTheAuthEnvelope(t *testing.T) {

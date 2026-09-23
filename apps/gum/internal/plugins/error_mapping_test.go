@@ -7,7 +7,7 @@ import (
 )
 
 // TestPluginErrorCodeMapping covers docs/test-matrix.md line 101 and
-// spec §8 lines 1635-1641: plugin-local error codes map deterministically to
+// spec §8: plugin-local error codes map deterministically to
 // stable GUM codes, retry fields are preserved per row, and the source code
 // is forwarded to audit metadata.
 func TestPluginErrorCodeMapping(t *testing.T) {

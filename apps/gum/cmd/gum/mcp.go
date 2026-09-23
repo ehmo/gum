@@ -44,10 +44,13 @@ func runMCPStdio(parent context.Context, profile string, stderr io.Writer) error
 	// initSessionCatalog during PersistentPreRunE. Passing it here rather
 	// than letting the server re-read the embedded catalog is what keeps
 	// `gum call plug.<plugin>.<tool>` and gum://op/plug.<plugin>.<tool>
-	// agreeing on which plugin ops exist (spec §5 line 405, §13 line 2765).
+	// agreeing on which plugin ops exist (spec §5, §13).
 	srv := gummcp.NewServerWithCatalog(disp, loadCatalog())
 	if err := srv.SetProfile(profile); err != nil {
 		return err
 	}
+	// §9.2 shadowing warning. The flag is a root persistent flag, and the
+	// server logs rather than writing to stdout, which the transport owns.
+	srv.SetSuppressLossyWarnings(shadowWarningsSuppressed())
 	return srv.Run(ctx, &sdkmcp.StdioTransport{})
 }

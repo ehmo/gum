@@ -18,7 +18,7 @@ func writeProfile(t *testing.T, src string) string {
 }
 
 // TestProfileValidateRejectsLongOnEmpty pins ON_EMPTY_TOO_LONG at the CLI
-// boundary. docs/spec.md:1584 names `gum profile validate` as the one place
+// boundary. Spec §7 names `gum profile validate` as the one place
 // that enforces the 500-codepoint cap, because the JSON Schema deliberately
 // cannot.
 func TestProfileValidateRejectsLongOnEmpty(t *testing.T) {

@@ -23,13 +23,13 @@ const parallelMaxWorkers = 8
 const parallelMaxElements = 256
 
 // parallel429DefaultRetryAfter is the fallback pause when an upstream 429
-// response omits a Retry-After hint (spec §6.3 line 1171: "from the 429
+// response omits a Retry-After hint (spec §6.3: "from the 429
 // response header, or 60s if absent").
 const parallel429DefaultRetryAfter = 60 * time.Second
 
 // parallel429StaggerStep is the per-worker-index delay applied after a
 // family-pause expires, to spread retries and avoid a thundering-herd
-// re-attempt (spec §6.3 line 1171: "staggered by 50ms × worker_index").
+// re-attempt (spec §6.3: "staggered by 50ms × worker_index").
 const parallel429StaggerStep = 50 * time.Millisecond
 
 // parallelElement is the normalised input shape for one element of the
@@ -55,7 +55,7 @@ type parallelBudget struct {
 
 // buildParallelFn returns the gum_parallel closure for one Risor execution.
 // The closure captures the enclosing context so cancellation propagates to all
-// in-flight workers (spec §6.3 lines 1007-1016), and the §9.0.1 output budget
+// in-flight workers (spec §6.3), and the §9.0.1 output budget
 // so the batch can refuse or truncate its own encoding.
 func buildParallelFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite, allowDestructive bool, budget parallelBudget) func(...any) (any, error) {
 	return func(args ...any) (any, error) {
@@ -157,7 +157,7 @@ func parseParallelInput(raw any) ([]parallelElement, error) {
 // in input order, and assembles the §9.0.1 envelope with shared-field hoist.
 // Workers honour per-service-family 429 isolation: a RATE_LIMITED result on a
 // gmail op pauses other gmail-family workers for retry_after_ms but does NOT
-// stall workers in other families (spec §6.3 line 1171).
+// stall workers in other families (spec §6.3).
 func runParallelBatch(parentCtx context.Context, disp dispatch.Dispatcher, elements []parallelElement, allowWrite, allowDestructive bool, budget parallelBudget) map[string]any {
 	// The batch id is generated before any dispatch, not when the envelope is
 	// assembled, because every inner invocation has to carry it: §12.3 links
@@ -479,7 +479,7 @@ func batchLedgerArgs(elements []parallelElement) map[string]any {
 }
 
 // familyGate tracks per-service-family pause windows for gum_parallel 429
-// isolation (spec §6.3 line 1171). Workers consult the gate before each
+// isolation (spec §6.3). Workers consult the gate before each
 // dispatch and block (with the parent context honoured) until any pause for
 // their op's family expires. The gate is concurrent-safe.
 type familyGate struct {
@@ -657,9 +657,9 @@ func successItem(idx int, opID string, shaped *dispatch.ShapedResponse) map[stri
 }
 
 // errorItem builds the per-element envelope for a failed dispatch. Carries
-// the canonical {error_code, op_id, retryable} envelope per §6.3 line 1001,
+// the canonical {error_code, op_id, retryable} envelope per §6.3,
 // plus any structured detail keys (e.g. retry_after_ms on RATE_LIMITED, used
-// by the 429 service-family pause gate, spec §6.3 line 1171).
+// by the 429 service-family pause gate, spec §6.3).
 func errorItem(idx int, opID string, err error) map[string]any {
 	code := string(dispatch.ErrCodeServiceDown)
 	retryable := false
@@ -691,7 +691,7 @@ func errorItem(idx int, opID string, err error) map[string]any {
 
 // cancelledItem returns the canonical CANCELLED envelope for elements whose
 // dispatch did not complete because the enclosing context was cancelled.
-// Spec §1421 / §6.3 line 1003: `{"error_code":"CANCELLED","cancelled":true,...}`.
+// Spec §7 / §6.3: `{"error_code":"CANCELLED","cancelled":true,...}`.
 func cancelledItem(idx int, opID string) map[string]any {
 	return map[string]any{
 		"_idx":        idx,

@@ -9,7 +9,7 @@ import (
 )
 
 // HashInput is the principal-scoped tuple over which the tee artifact hash
-// is computed. Spec §9.0 line 1846:
+// is computed. Spec §9.0:
 //
 //	hash = HMAC-SHA-256(tee_secret,
 //	    op_id + ":" + variant_id_resolved + ":" + args_canonical +

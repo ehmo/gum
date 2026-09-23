@@ -52,15 +52,15 @@ const (
 	ConfirmationPurposeCodeDestroy = "gum_code_destructive"
 )
 
-// Default TTL constants for each confirmation purpose (spec §6.1.2 line 1128).
+// Default TTL constants for each confirmation purpose (spec §6.1.2).
 // Both are 5 minutes — the spec uses a single unified TTL for all confirmation tokens.
 const (
-	DefaultWriteTokenTTL       = 5 * time.Minute // spec §6.1.2 line 1128
-	DefaultDestructiveTokenTTL = 5 * time.Minute // spec §6.1.2 line 1128
+	DefaultWriteTokenTTL       = 5 * time.Minute // spec §6.1.2
+	DefaultDestructiveTokenTTL = 5 * time.Minute // spec §6.1.2
 )
 
 // DefaultTTLForPurpose returns the spec-defined default TTL for the given confirmation purpose.
-// Both ConfirmationPurposeWrite and ConfirmationPurposeDestructive return 5 minutes (spec §6.1.2 line 1128).
+// Both ConfirmationPurposeWrite and ConfirmationPurposeDestructive return 5 minutes (spec §6.1.2).
 // Unknown purposes also return DefaultWriteTokenTTL as a safe fallback.
 func DefaultTTLForPurpose(purpose string) time.Duration {
 	switch purpose {
@@ -404,7 +404,7 @@ func sweepExpiredReplayMarkers(dir string) {
 // ----------------------------------------------------------------------------
 
 // confirmationSourceHash is the source-rehash value bound into every token.
-// Default sentinel for v0.1.0; SetSourceHashForTest replaces it for testing.
+// Default sentinel; SetSourceHashForTest replaces it for testing.
 var (
 	confirmationSourceHash   = "spec-v1.34-model-free"
 	confirmationSourceHashMu sync.RWMutex

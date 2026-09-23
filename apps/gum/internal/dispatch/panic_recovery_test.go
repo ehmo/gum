@@ -1,11 +1,11 @@
-// Package dispatch — RED TEAM tests for panic recovery (spec.md §3.1.7, line 235).
+// Package dispatch — RED TEAM tests for panic recovery (spec.md §3.1.7).
 //
 // These tests are intentionally FAILING until the Green Team implements:
 //   - deferred recover() in executeAdapter (or executeAdapterSafe wrapper)
 //   - AuditSink interface with injection point on NewDispatcher / NewDispatcherWithAudit
 //   - ERROR-level slog emission of sanitized stack trace with "stack" or "stack_trace" attribute
 //
-// Spec rule: spec.md §3.1 step 7 (line 235): internal/dispatch wraps every call
+// Spec rule: spec.md §3.1 step 7: internal/dispatch wraps every call
 // to Executor.Execute in a deferred recover(). Panic → SERVICE_DOWN envelope,
 // sanitized stack to slog ERROR, audit entry with panic:true. MCP server MUST NOT crash.
 package dispatch
@@ -107,7 +107,7 @@ func (h *panicCapturingHandler) WithGroup(name string) slog.Handler       { retu
 // a message containing "internal error" but with no panic or stack text, and
 // Retryable==false.
 //
-// Spec: line 235 — "returns {"error_code":"SERVICE_DOWN","message":"internal error;
+// Spec: §3.1 step 7 — "returns {"error_code":"SERVICE_DOWN","message":"internal error;
 // see audit log","retryable":false,"isError":true} to the caller without crashing"
 func TestDispatchAdapterPanicReturnsServiceDownEnvelope(t *testing.T) {
 	// Catch any panic that escapes Dispatch — if this fires the test would
@@ -135,7 +135,7 @@ func TestDispatchAdapterPanicReturnsServiceDownEnvelope(t *testing.T) {
 		t.Fatalf("expected error to be *StructuredError; got %T: %v", err, err)
 	}
 
-	// Code must be SERVICE_DOWN (spec line 235).
+	// Code must be SERVICE_DOWN (spec §3.1 step 7).
 	if se.ErrCode != ErrCodeServiceDown {
 		t.Errorf("expected ErrCode=SERVICE_DOWN, got %q", se.ErrCode)
 	}
@@ -158,7 +158,7 @@ func TestDispatchAdapterPanicReturnsServiceDownEnvelope(t *testing.T) {
 		}
 	}
 
-	// Retryable must be false (spec line 235: "retryable: false").
+	// Retryable must be false (spec §3.1 step 7: "retryable: false").
 	if se.Retryable != false {
 		t.Errorf("expected Retryable=false, got %v", se.Retryable)
 	}
@@ -171,7 +171,7 @@ func TestDispatchAdapterPanicReturnsServiceDownEnvelope(t *testing.T) {
 // TestDispatchAdapterPanicDoesNotKillProcess calls Dispatch 10 times against a
 // panicking adapter, asserting each call returns normally (no escaping panic).
 //
-// Spec: line 235 — "A nil-pointer dereference in a generated REST stub MUST NOT
+// Spec: §3.1 step 7 — "A nil-pointer dereference in a generated REST stub MUST NOT
 // terminate a long-running `gum mcp --stdio` session."
 func TestDispatchAdapterPanicDoesNotKillProcess(t *testing.T) {
 	outerPanic := false
@@ -210,7 +210,7 @@ func TestDispatchAdapterPanicDoesNotKillProcess(t *testing.T) {
 // attribute "stack" or "stack_trace" that contains the word "runtime" (proving
 // a real stack trace was captured, not a placeholder string).
 //
-// Spec: line 235 — "The panic stack is written to the structured log at ERROR
+// Spec: §3.1 step 7 — "The panic stack is written to the structured log at ERROR
 // level, not to the MCP response."
 func TestDispatchAdapterPanicLogsStackToSlog(t *testing.T) {
 	h := &panicCapturingHandler{}
@@ -248,7 +248,7 @@ func TestDispatchAdapterPanicLogsStackToSlog(t *testing.T) {
 	}
 
 	if !found {
-		t.Error("expected slog ERROR record with attribute 'stack' or 'stack_trace' containing 'runtime'; none found — stack is not being logged per spec line 235")
+		t.Error("expected slog ERROR record with attribute 'stack' or 'stack_trace' containing 'runtime'; none found — stack is not being logged per spec §3.1 step 7")
 	}
 }
 
@@ -263,7 +263,7 @@ func TestDispatchAdapterPanicLogsStackToSlog(t *testing.T) {
 // happens, tests referencing AuditSink will fail at compile time, which is the
 // intended signal.
 //
-// Spec: line 235 — "appends an audit-log entry carrying risk_class, op_id,
+// Spec: §3.1 step 7 — "appends an audit-log entry carrying risk_class, op_id,
 // variant_id, args_hash, and panic: true"
 type AuditSink interface {
 	Append(entry map[string]any)
@@ -320,14 +320,14 @@ func TestDispatchAdapterPanicAuditEntryHasPanicTrue(t *testing.T) {
 		}
 	}
 	if panicEntry == nil {
-		t.Fatal("no audit entry has panic=true (spec line 235 requires panic:true in audit entry)")
+		t.Fatal("no audit entry has panic=true (spec §3.1 step 7 requires panic:true in audit entry)")
 	}
 
-	// Required keys per spec line 235.
+	// Required keys per spec §3.1 step 7.
 	requiredKeys := []string{"risk_class", "op_id", "variant_id", "args_hash"}
 	for _, k := range requiredKeys {
 		if _, ok := panicEntry[k]; !ok {
-			t.Errorf("audit entry missing required key %q (spec line 235)", k)
+			t.Errorf("audit entry missing required key %q (spec §3.1 step 7)", k)
 		}
 	}
 }
@@ -340,7 +340,7 @@ func TestDispatchAdapterPanicAuditEntryHasPanicTrue(t *testing.T) {
 // *StructuredError via MarshalJSON and asserts that the bytes contain
 // "SERVICE_DOWN" but do not contain any stack-frame markers.
 //
-// Spec: line 235 — panic stack "NOT in MCP response".
+// Spec: §3.1 step 7 — panic stack "NOT in MCP response".
 func TestDispatchAdapterPanicResponseDoesNotLeakStackText(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -389,7 +389,7 @@ func TestDispatchAdapterPanicResponseDoesNotLeakStackText(t *testing.T) {
 // that panics with heterogeneous values (string, int, error, runtime divide-by-zero)
 // all produce a SERVICE_DOWN StructuredError and no escaping panic.
 //
-// Spec: line 235 — "wraps every call to Executor.Execute in a deferred recover()"
+// Spec: §3.1 step 7 — "wraps every call to Executor.Execute in a deferred recover()"
 // regardless of the type of the panic value.
 func TestDispatchAdapterPanicWithDifferentPanicValues(t *testing.T) {
 	cases := []struct {

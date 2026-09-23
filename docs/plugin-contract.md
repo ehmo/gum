@@ -6,7 +6,7 @@ This document is normative for GUM plugin authoring and install-time validation.
 
 Plugin authors must also follow these supporting contracts:
 
-- `spec.md` §8 for manifest field semantics, host services by shape, canary grammar and re-ingestion, crash/quarantine behavior, atomic registry updates, and install/restart semantics.
+- `spec.md` §8 for manifest field semantics, host services by shape, the canary spawn probe, crash/quarantine behavior, atomic registry updates, and install/restart semantics.
 - `spec.md` §13 for MCP inventory resource-template wire behavior.
 - `docs/expression-profile-dsl.md` and `docs/expression-profile-dsl.json` for output-profile syntax, validation, tests, and MCP-root-based project-local lookup.
 - `docs/catalog-abi.md` for stable IDs, `backend_kind`, capability atoms, variant lifecycle, and `null_elision_safe_fields`.
@@ -106,7 +106,14 @@ unpinned-`git` installs carry `risk = "dev-untrusted"`.
 - `advertised_tools`, one object per exposed tool, each with `name`
   (`^[a-z0-9][a-z0-9_.-]{0,63}$`), `description`, and `risk_class`
   (`read`, `write`, or `destructive`), plus optional `auth_strategy` (from
-  the §7 closed enum) and `schema_ref`.
+  the §7 closed enum) and `schema_ref`. Each `description` MUST pass the
+  spec §7 13-rule description sanitizer, evaluated at tool kind `plugin`
+  and at the tool's own `risk_class`; a violation fails the manifest load with
+  `PLUGIN_MANIFEST_INVALID` naming the tool and the rule. Tool kind `plugin`
+  carries the convenience token budget plus the rule 13 cap of 400 Unicode
+  codepoints on the description.
+  The check runs inside `LoadManifest`, so it covers install, `plugin list`,
+  and every subprocess spawn, not install alone.
 
 **Derived, never declared.** A manifest carries no `op_id`, `variant_id`,
 `backend_kind`, `interface_kind`, `adapter_key`, `capabilities`, `scopes`,
@@ -189,7 +196,7 @@ opaque 401. Each spawn that does forward a token appends one
 `plugin_token_forwarded` entry to the profile audit log with the plugin id, the
 credential subject fingerprint, and the forwarded scopes.
 
-If an output profile strips null or empty values, the catalog variant that binds the profile must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation in v0.1.0. A registry variant row becomes a dispatchable catalog op at process start, when the session merge described in `spec.md` §4.2 reads `plugin-catalog.json`, but the merged variant carries no `output_profile`. Shaping falls back to the default profile, so there is no profile binding to check at install time. A plugin that needs a named profile must wait for a release that binds one, and `PROFILE_STRIP_NULLS_UNSAFE` stays a build-time gate over the generated catalog.
+If an output profile strips null or empty values, the catalog variant that binds the profile must declare the exact dot paths where that elision is safe, for example `null_elision_safe_fields = ["price.currency", "segments[].aircraft"]`. Use `"*"` only for curator-reviewed whole-response elision. Missing or insufficient declarations fail catalog build with `PROFILE_STRIP_NULLS_UNSAFE`: `cmd/gen-catalog` resolves every variant's `output_profile` against the built-in profile set and runs the check with that variant's `null_elision_safe_fields`. `gum plugin install` runs no profile validation. A registry variant row becomes a dispatchable catalog op at process start, when the session merge described in `spec.md` §4.2 reads `plugin-catalog.json`, but the merged variant carries no `output_profile`. Shaping falls back to the default profile, so there is no profile binding to check at install time. A plugin that needs a named profile must wait for a release that binds one, and `PROFILE_STRIP_NULLS_UNSAFE` stays a build-time gate over the generated catalog.
 
 ## Schema Refs
 
@@ -248,12 +255,18 @@ For non-dev profiles, the launched executable must be inside the host-managed in
 
 ## Reserved Namespaces
 
-Namespace ownership is first claim wins. `ValidateNamespaceOwnership`
-(`internal/plugins/namespace.go`) admits any op_id prefix that no other
-`namespace_owner` holds in the selected profile's `plugins.lock`, and fails a
-prefix already held by a different owner with `PLUGIN_NAMESPACE_CONFLICT`. No
-reserved list of Google prefixes ships in any build, so on a fresh profile a
-third-party plugin can claim `gmail` (gum-g9qv).
+Every op_id your plugin produces is `plug.<plugin_id>.<tool_name>`. The host
+prepends `plug.` itself, and `plugin_id` must match `^[a-z][a-z0-9-]{0,63}$`,
+so it cannot carry a dot. No first-party catalog op_id sits under `plug.`.
+Google service prefixes are therefore out of reach by construction, and no
+reserved list of Google prefixes needs to ship: declaring `plugin_id = "gmail"`
+gives you `plug.gmail.*`, never the first-party `gmail.*` ops.
+
+Inside the `plug.` namespace, ownership is first claim wins.
+`ValidateNamespaceOwnership` (`internal/plugins/namespace.go`) admits any
+`plugin_id` that no other `namespace_owner` holds in the selected profile's
+`plugins.lock`, and fails one already held by a different owner with
+`PLUGIN_NAMESPACE_CONFLICT`.
 
 Third-party plugins must also declare `namespace_owner` in the manifest. The
 owner is a reverse-DNS or package-registry publisher identity displayed at

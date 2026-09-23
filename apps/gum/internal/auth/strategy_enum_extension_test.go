@@ -3,12 +3,12 @@ package auth
 // The spec §7 "auth_strategy enum extension procedure" gate
 // (docs/test-matrix.md row 240, bead gum-codx).
 //
-// §7 says an enum value added after v0.1.0 MUST land six things in one PR.
+// §7 says a value added to the enum MUST land six things in one PR.
 // Three of them leave an artifact this test can see: the value in
 // docs/catalog-abi.md's auth_strategy cross-reference (step 2), a
 // strategy_<name>.go file under internal/auth (step 3), and a
 // docs/test-matrix.md row naming TestAuthStrategy<Name> (step 5). The gate
-// subtracts the v0.1.0 baseline, which pre-existing per-strategy fixtures
+// subtracts the declared baseline, which pre-existing per-strategy fixtures
 // already cover, and applies (a)/(b)/(c) to whatever is left.
 //
 // The residual set is empty today, so the checker itself is proved against
@@ -28,7 +28,7 @@ import (
 	"testing"
 )
 
-// v01BaselineStrategies is the auth_strategy set v0.1.0 shipped, enumerated
+// baselineStrategies is the auth_strategy set already covered, enumerated
 // here rather than derived so the gate is self-bootstrapping: dropping a name
 // re-arms (a)/(b)/(c) against it, and adding a constant to strategy.go without
 // adding it here arms them immediately.
@@ -43,7 +43,7 @@ import (
 // passed Validate at build and install and failed only at dispatch. gum-z5yx
 // removed both constants; re-adding either now arms (a)/(b)/(c) against it,
 // which is what §7's extension procedure asks for.
-var v01BaselineStrategies = map[string]bool{
+var baselineStrategies = map[string]bool{
 	"gum_oauth":           true,
 	"byo_oauth":           true,
 	"adc":                 true,
@@ -65,14 +65,14 @@ func TestAuthStrategyEnumExtensionComplete(t *testing.T) {
 	for _, v := range values {
 		declared[v] = true
 	}
-	for name := range v01BaselineStrategies {
+	for name := range baselineStrategies {
 		if !declared[name] {
-			t.Errorf("baseline names %q but internal/auth/strategy.go no longer declares it; drop it from v01BaselineStrategies", name)
+			t.Errorf("baseline names %q but internal/auth/strategy.go no longer declares it; drop it from baselineStrategies", name)
 		}
 	}
 
 	for _, value := range values {
-		if v01BaselineStrategies[value] {
+		if baselineStrategies[value] {
 			continue
 		}
 		problems, err := residualStrategyViolations(docs, authDir, value)
@@ -80,7 +80,7 @@ func TestAuthStrategyEnumExtensionComplete(t *testing.T) {
 			t.Fatalf("checking %q: %v", value, err)
 		}
 		for _, p := range problems {
-			t.Errorf("auth_strategy %q is outside the v0.1.0 baseline, so spec §7's extension procedure applies: %s", value, p)
+			t.Errorf("auth_strategy %q is outside the declared baseline, so spec §7's extension procedure applies: %s", value, p)
 		}
 	}
 }
@@ -229,7 +229,7 @@ func docsDirForTest(t *testing.T, moduleRoot string) string {
 
 // TestResidualStrategyChecksReportEveryMissingStep proves the checker against
 // a value no PR ever landed. The residual set is empty while the baseline
-// covers the whole v0.1.0 enum, so without this fixture
+// covers the whole enum, so without this fixture
 // TestAuthStrategyEnumExtensionComplete would pass whether or not its checks
 // work.
 func TestResidualStrategyChecksReportEveryMissingStep(t *testing.T) {

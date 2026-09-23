@@ -96,7 +96,7 @@ func checkNoExportedConstructors(t *testing.T, root string, fset *token.FileSet,
 			if fn.Recv != nil {
 				kind = "method"
 			}
-			t.Errorf("%s:%d: exported constructor %s %s — internal/output encoders are stateless (spec §14 line 3506)",
+			t.Errorf("%s:%d: exported constructor %s %s — internal/output encoders are stateless (spec §14)",
 				relPath(root, pos.Filename), pos.Line, kind, fn.Name.Name)
 		}
 	}
@@ -138,7 +138,7 @@ func checkNoWrittenPackageVars(t *testing.T, root string, fset *token.FileSet, f
 
 	report := func(name string, pos token.Position, how string) {
 		decl := pkgVars[name]
-		t.Errorf("%s:%d: %s package-level var %s (declared at %s:%d) — internal/output holds no mutable state (spec §14 line 3506)",
+		t.Errorf("%s:%d: %s package-level var %s (declared at %s:%d) — internal/output holds no mutable state (spec §14)",
 			relPath(root, pos.Filename), pos.Line, how, name, relPath(root, decl.Filename), decl.Line)
 	}
 
@@ -372,7 +372,7 @@ func checkNoExportedStructWithHiddenFields(t *testing.T, root string, fset *toke
 					continue
 				}
 				pos := fset.Position(sel.Pos())
-				t.Errorf("%s:%d: assignment to unexported field %s of exported type %s — internal/output holds no mutable state (spec §14 line 3506)",
+				t.Errorf("%s:%d: assignment to unexported field %s of exported type %s — internal/output holds no mutable state (spec §14)",
 					relPath(root, pos.Filename), pos.Line, sel.Sel.Name, typeName)
 			}
 			return true

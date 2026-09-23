@@ -30,8 +30,7 @@ func withTempCacheRootCLI(t *testing.T) string {
 	return root
 }
 
-// cacheStatsSchema is the CacheStatsResult JSON Schema inlined from
-// docs/spec.md lines 3003-3055.
+// cacheStatsSchema is the CacheStatsResult JSON Schema inlined from spec §13.
 const cacheStatsSchema = `{
   "type": "object",
   "required": ["semantic", "http", "prompt", "audit_broken"],
@@ -91,7 +90,7 @@ func compileCacheStatsSchema(t *testing.T) *jsonschema.Resolved {
 
 // TestCacheStatsFormatJSONValidatesAgainstSchema asserts that
 // `gum cache stats --format=json` emits a JSON object that validates against
-// the spec §3003 CacheStatsResult schema.
+// the spec §13 CacheStatsResult schema.
 func TestCacheStatsFormatJSONValidatesAgainstSchema(t *testing.T) {
 	withTempCacheRootCLI(t)
 
@@ -200,8 +199,8 @@ func keyNames(m map[string]json.RawMessage) []string {
 
 // TestCacheStatsDefaultMatchesJSONFormat pins the unified-schema contract
 // (review gum-oqer): `gum cache stats` (no --format) and `--format=json` must
-// emit the same §3003 envelope, so adding the flag never changes the shape a
-// script already parses. The old v0.1.0 placeholder ({version,note,...}) is
+// emit the same §13 envelope, so adding the flag never changes the shape a
+// script already parses. The earlier placeholder ({version,note,...}) is
 // retired.
 func TestCacheStatsDefaultMatchesJSONFormat(t *testing.T) {
 	withTempCacheRootCLI(t)

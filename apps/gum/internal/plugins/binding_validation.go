@@ -14,7 +14,7 @@ import (
 // `grpc-plugin` ABI fixture needs `rpc_service` + `rpc_method`. Missing or
 // blank selector fields surface this sentinel before subprocess start.
 //
-// The third-party Shape 2 install gate (spec §8 line 1510) wins over this
+// The third-party Shape 2 install gate (spec §8) wins over this
 // validator and returns PLUGIN_SHAPE_UNSUPPORTED instead, so callers that
 // gate by shape MUST run that check first.
 var ErrPluginBindingInvalid = errors.New("PLUGIN_BINDING_INVALID")

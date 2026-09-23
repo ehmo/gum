@@ -18,7 +18,7 @@ import (
 
 // seedBoltRecords writes cacheRecord-shaped values into the gum-cache bucket,
 // which is the shape BBoltCache writes and therefore the shape a real
-// v0.1.0 http.db holds.
+// http.db holds.
 func seedBoltRecords(t *testing.T, path string, records map[string]cacheRecord) {
 	t.Helper()
 	db, err := bolt.Open(path, 0o600, nil)

@@ -19,7 +19,7 @@ type cacheStatsOnly interface {
 // TestCacheStatsZeroWhenNoCacheWired pins the no-cache branch: a
 // dispatcher constructed without either cache returns an all-zero
 // CacheLayerStats so gum.cache_stats is safe to call before any cache
-// is configured (spec §3003).
+// is configured (spec §13).
 func TestCacheStatsZeroWhenNoCacheWired(t *testing.T) {
 	d := NewDispatcherWithConfig(&catalog.Catalog{}, nil, DispatcherConfig{}).(cacheStatsOnly)
 	got := d.CacheStats()

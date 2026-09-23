@@ -11,7 +11,7 @@ import "github.com/ehmo/gum/internal/catalog"
 // callers can discover them even before the corresponding plugin subprocess
 // is installed. Dispatch against an uninstalled plugin surfaces SERVICE_DOWN
 // with the adapter_key in the error envelope — the documented "plugin not
-// installed" failure shape (spec §8 line 1631; same path as flights.search
+// installed" failure shape (spec §8; same path as flights.search
 // when google-flights is missing).
 //
 // All four variants use auth_strategy=plugin_managed: each plugin owns its

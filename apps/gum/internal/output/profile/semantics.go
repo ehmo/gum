@@ -22,7 +22,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// OnEmptyMaxCodepoints caps on_empty (docs/spec.md:2103). The cap keeps the
+// OnEmptyMaxCodepoints caps on_empty (spec §9.1). The cap keeps the
 // message inside a reasonable token budget and stops a profile field being
 // repurposed as a freeform documentation blob. It counts codepoints after NFC
 // normalization, which is why expression-profile-dsl.json carries no literal
@@ -45,15 +45,15 @@ const (
 
 var (
 	// ErrOnEmptyTooLong is the sentinel for spec §7 error code
-	// ON_EMPTY_TOO_LONG (docs/spec.md:1584).
+	// ON_EMPTY_TOO_LONG.
 	ErrOnEmptyTooLong = errors.New("ON_EMPTY_TOO_LONG")
 
 	// ErrProfileTeeModeConflict is the sentinel for spec §7 error code
-	// PROFILE_TEE_MODE_CONFLICT (docs/spec.md:1583).
+	// PROFILE_TEE_MODE_CONFLICT.
 	ErrProfileTeeModeConflict = errors.New("PROFILE_TEE_MODE_CONFLICT")
 
 	// ErrOverrideBindingInvalid is the sentinel for spec §7 error code
-	// OVERRIDE_BINDING_INVALID (docs/spec.md:1581).
+	// OVERRIDE_BINDING_INVALID.
 	ErrOverrideBindingInvalid = errors.New("OVERRIDE_BINDING_INVALID")
 )
 
@@ -112,7 +112,7 @@ func ValidateSemantics(p *Profile) error {
 	// A resource link is a handle to an artifact. tee_mode "off" writes no
 	// artifact and "failures" writes one only on an upstream error, so either
 	// one hands the caller a URI that resolves to nothing on the success path
-	// the link exists for (docs/spec.md:1953). An unset tee_mode is not a
+	// the link exists for (spec §9.0). An unset tee_mode is not a
 	// conflict: it defaults to "always" whenever recovery is not "none".
 	if p.Recovery == RecoveryResourceLink && (p.TeeMode == TeeModeOff || p.TeeMode == TeeModeFailures) {
 		errs = append(errs, fmt.Errorf("%w: recovery=%q needs a guaranteed backing artifact, so tee_mode=%q is invalid; set tee_mode=%q or leave it unset",

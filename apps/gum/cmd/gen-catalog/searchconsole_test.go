@@ -37,7 +37,7 @@ func TestBuildSearchConsoleOpsShape(t *testing.T) {
 		}
 		v := op.Variants[0]
 		if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-			t.Errorf("op %s: gum_oauth is disabled in v0.1.0", op.OpID)
+			t.Errorf("op %s: gum_oauth is disabled", op.OpID)
 		}
 		if v.AuthStrategy != catalog.AuthStrategyBYOOAuth {
 			t.Errorf("op %s: auth_strategy = %q, want byo_oauth", op.OpID, v.AuthStrategy)

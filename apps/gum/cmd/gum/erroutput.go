@@ -21,13 +21,13 @@ func (e errRendered) Error() string { return e.err.Error() }
 func (e errRendered) Unwrap() error { return e.err }
 
 // renderStructuredEnvelope writes a JSON error envelope to w. It flattens
-// StructuredError.Detail at the top level (spec §1421) and additionally adds:
+// StructuredError.Detail at the top level (spec §7) and additionally adds:
 //
 //   - "how_to_fix": one-line, actionable remediation derived from the error
 //     code and any free-text reason carried in Detail. Empty when the code
 //     has no canned hint and the upstream did not carry a reason.
 //   - "machine_envelope": the original error_code+message+detail envelope
-//     preserved verbatim, so automation that already targets the §1421 shape
+//     preserved verbatim, so automation that already targets the §7 shape
 //     keeps parsing without churn after we add the human-facing field.
 //
 // Tracks gum-fkme: gives the LLM and human user a single read-and-act surface
@@ -175,7 +175,7 @@ func howToFix(se *dispatch.StructuredError, extras map[string]any) string {
 }
 
 // authEnvelopeHint turns the spec §7 auth envelope into the one-line
-// remediation. Spec §7 lines 1378-1381 forbid answering a non-gum_oauth
+// remediation. Spec §7 forbids answering a non-gum_oauth
 // failure with a hint that implies browser OAuth alone will fix it, so the
 // envelope's own setup_command wins over any canned text. Returns "" when the
 // error carries no auth envelope, leaving the caller's default in place.

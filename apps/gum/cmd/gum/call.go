@@ -36,6 +36,9 @@ func newCallCmd() *cobra.Command {
 		raw         bool
 		noFieldMask bool
 		maxItems    string
+
+		unsanitized    bool
+		yesUnsanitized bool
 	)
 	cmd := &cobra.Command{
 		Use:   "call <op_id> --risk=<read|write|destructive> [args...]",
@@ -175,6 +178,19 @@ func newCallCmd() *cobra.Command {
 				inv.ConfirmationToken = token
 			}
 
+			// §12.4 --unsanitized returns the upstream error body without the
+			// §11 layer-2 scrubber. The non-TTY guard exists because the flag
+			// is only ever wanted by a human reading a diagnostic: a script or
+			// an agent that inherited it from a shell alias would feed the raw
+			// body straight into a model, which is the case layer 2 covers.
+			if unsanitized {
+				if !isReaderTerminal(cmd.InOrStdin()) && !yesUnsanitized {
+					return cliArgInvalid("--unsanitized needs --yes-unsanitized in a non-interactive session: the flag returns the upstream error body without the layer-2 prompt-injection scrubber")
+				}
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), unsanitizedWarning)
+				inv.SkipErrorSanitizer = true
+			}
+
 			// Host-control pagination / field-mask flags map to the canonical
 			// Google query parameters. The adapter forwards these verbatim to the
 			// REST API, which expects fields / pageToken / {pageSize|maxResults} —
@@ -273,6 +289,8 @@ func newCallCmd() *cobra.Command {
 	cmd.Flags().StringVar(&token, "token", "", "HMAC-SHA256 confirmation token returned by a prior destructive attempt")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Return the raw upstream JSON without shaping")
 	cmd.Flags().BoolVar(&noFieldMask, "no-field-mask", false, "Disable upstream field_mask injection")
+	cmd.Flags().BoolVar(&unsanitized, "unsanitized", false, "Return the upstream error body without the layer-2 injection scrubber")
+	cmd.Flags().BoolVar(&yesUnsanitized, "yes-unsanitized", false, "Confirm --unsanitized in a non-interactive session")
 	registerMaxItemsFlag(cmd, &maxItems)
 
 	_ = cmd.RegisterFlagCompletionFunc("fields", completeFieldsForOp)
@@ -465,6 +483,11 @@ func normalizeFormat(s string) string {
 
 // cliArgInvalid wraps a CLI_ARG_INVALID error with a stable code so callers
 // can pattern-match on it.
+// unsanitizedWarning is the spec §12.4 stderr line `gum call --unsanitized`
+// always prints. It is emitted before the call, not after, so it is visible
+// even when the operator pipes stdout somewhere else and the call succeeds.
+const unsanitizedWarning = "WARNING: error body returned unsanitized. Do not paste into an LLM context without review."
+
 func cliArgInvalid(reason string) error {
 	return &callargs.Error{Code: "CLI_ARG_INVALID", Reason: reason}
 }
@@ -481,7 +504,7 @@ func requiresConfirmation(opID string) error {
 // RISK_TOOL_MISMATCH is rendered with the expected --risk flag so the LLM /
 // user can correct and retry. Output goes through renderStructuredEnvelope
 // so every error_code carries a "how_to_fix" remediation block and the raw
-// §1421 envelope is preserved under "machine_envelope" (gum-fkme).
+// §7 envelope is preserved under "machine_envelope" (gum-fkme).
 func printDispatchError(w io.Writer, requestedRisk string, err error) error {
 	var se *dispatch.StructuredError
 	if !errors.As(err, &se) {

@@ -1,5 +1,5 @@
 // Package catalog — session snapshot merge for plugin-owned variants
-// (spec.md §5 line 405, §8.7).
+// (spec.md §5, §8.7).
 //
 // The build-time catalog ships inside the binary. Plugin-owned variants are
 // written to the profile's plugin-catalog.json at install time, so the two
@@ -135,6 +135,14 @@ func decodePluginVariantRow(raw any) (*pluginVariantRow, error) {
 		return nil, fmt.Errorf("%w: op %s: binding.adapter_key is empty", ErrPluginRowMalformed, row.OpID)
 	case row.Binding.ToolName == "":
 		return nil, fmt.Errorf("%w: op %s: binding.tool_name is empty", ErrPluginRowMalformed, row.OpID)
+	}
+
+	// A plugin writes its own risk_override_reason into plugin-catalog.json,
+	// and the merge is the only gate the value passes before it reaches the
+	// audit log, gum.describe_op and `gum catalog list-overrides`. Op.Validate
+	// never runs here: the merged snapshot is assembled at boot, not built.
+	if err := validateRiskOverride(row.VariantID, row.RiskOverride, row.RiskOverrideReason); err != nil {
+		return nil, fmt.Errorf("%w: op %s: %v", ErrPluginRowMalformed, row.OpID, err)
 	}
 
 	// The binding names the host the adapter spawns. A row that claims one

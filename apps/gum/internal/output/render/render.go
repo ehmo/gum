@@ -429,7 +429,7 @@ func writeASCIITable(w io.Writer, cols []string, rows [][]string) error {
 // terminal: maxCellWidth exists so an aligned ASCII table stays readable at 80
 // columns, and applying it here cut strings a second time, below whatever limit
 // the profile's truncate_strings stage had already applied. Stage 8 encodes the
-// tree stage 6 handed it (docs/spec.md:2050).
+// tree stage 6 handed it (spec §9.1).
 func writeMarkdownTable(w io.Writer, cols []string, rows [][]string) error {
 	var b strings.Builder
 	esc := func(s string) string {

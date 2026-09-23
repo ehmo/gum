@@ -37,8 +37,8 @@ func loadEmbeddedCatalog(t *testing.T) *catalog.Catalog {
 
 // TestCatalogIndexSnapshotInvariant asserts that every op in the catalog
 // snapshot is represented in the BM25 index, AND that the index contains no
-// op that the snapshot does not. As the catalog grows beyond the 17 curated
-// v0.1.0 ops, this prevents a silent drift where the index falls behind the
+// op that the snapshot does not. As the catalog grows beyond its 17 curated
+// ops, this prevents a silent drift where the index falls behind the
 // dispatch surface.
 //
 // Spec anchors: §5.3 (retrieval index), §5.4 (active session snapshot).

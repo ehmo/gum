@@ -8,7 +8,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestCodeCmdDestructiveBudgetAndScopeReachInvocation covers the spec §2492 CLI
+// TestCodeCmdDestructiveBudgetAndScopeReachInvocation covers the spec §12 CLI
 // usage line for `gum code`: --destructive-budget=N and repeated
 // --destructive-scope op_id[:resource_key].
 //

@@ -39,7 +39,7 @@ func baseParams(t *testing.T) dispatch.ConfirmationParams {
 
 // assertTokenInvalidReplayed asserts err is a *StructuredError with
 // ErrCodeConfirmationTokenInvalid and Detail["reason"]=="replayed".
-// This is the spec §1421 canonical code; "TOKEN_ALREADY_USED" is NOT correct.
+// This is the spec §7 canonical code; "TOKEN_ALREADY_USED" is NOT correct.
 func assertTokenInvalidReplayed(t *testing.T, err error, context string) {
 	t.Helper()
 	if err == nil {

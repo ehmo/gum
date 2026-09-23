@@ -1,5 +1,5 @@
 // gum-45d acceptance: Docs, Sheets, Slides Tier A convenience tools.
-// Spec §4.1 lines 359-363 — five ops: docs.documents.get, docs.documents.create,
+// Spec §4.1 — five ops: docs.documents.get, docs.documents.create,
 // sheets.spreadsheets.values.get, sheets.spreadsheets.values.update,
 // slides.presentations.get. Each backs a convenience tool already registered
 // in internal/mcp/tier_a_abi.go; these tests pin the catalog entries that
@@ -217,14 +217,14 @@ func TestDocsSheetsSlidesOpsValidate(t *testing.T) {
 	}
 }
 
-// TestDocsSheetsSlidesOpsRejectsGUMOAuth pins that the v0.1.0-disabled
+// TestDocsSheetsSlidesOpsRejectsGUMOAuth pins that the disabled
 // gum_oauth strategy is never produced for these variants (bd memory:
 // gum-auth-strategy-v3).
 func TestDocsSheetsSlidesOpsRejectsGUMOAuth(t *testing.T) {
 	for _, op := range allWorkspaceTierAOps() {
 		for _, v := range op.Variants {
 			if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-				t.Errorf("op %s variant %s: gum_oauth is disabled in v0.1.0", op.OpID, v.VariantID)
+				t.Errorf("op %s variant %s: gum_oauth is disabled", op.OpID, v.VariantID)
 			}
 		}
 	}

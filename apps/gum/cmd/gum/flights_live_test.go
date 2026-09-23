@@ -15,7 +15,7 @@ import (
 // at the path named by GUM_FLIGHTS_MCP_BIN — both gates protect CI machines
 // that don't have Python/uvx + the `fli` package installed and prevent
 // flights.google.com from blocking deterministic test runs from datacenter
-// IPs (see spec §1692 canary failure handling).
+// IPs (see spec §8.7 canary failure handling).
 //
 // The test:
 //  1. Builds gum from source via `go run ./cmd/gum`.
@@ -24,7 +24,7 @@ import (
 //  3. Installs the bundled apps/gum/plugins/google-flights manifest pointing
 //     at the discovered fli executable.
 //  4. Invokes `gum plugin run google-flights flights_search '{...}'` for a
-//     single-leg SFO→LAX query 4 weeks out (matching spec §1664 canary
+//     single-leg SFO→LAX query 4 weeks out (matching spec §8.7 canary
 //     guidance: low-volume synthetic request for a well-known route).
 //  5. Asserts the response envelope's `data.itineraries` array is non-empty.
 //
@@ -38,7 +38,7 @@ import (
 //   - plugin install/run returns a non-zero exit with a real error envelope.
 //   - response envelope decodes but itineraries is empty (could indicate
 //     google.com is blocking the test source IP — re-run from a residential
-//     IP or accept the soft canary failure per §1692).
+//     IP or accept the soft canary failure per §8.7).
 func TestLiveFlightsSearchViaFli(t *testing.T) {
 	if os.Getenv("GUM_LIVE_FLIGHTS") != "1" {
 		t.Skip("set GUM_LIVE_FLIGHTS=1 to enable; this test makes a live request to flights.google.com")
@@ -112,6 +112,6 @@ func TestLiveFlightsSearchViaFli(t *testing.T) {
 			env.ErrorCode, env.Error, out)
 	}
 	if len(env.Data.Itineraries) == 0 {
-		t.Fatalf("itineraries array is empty (datacenter IP may be blocked by Google; per spec §1692 this is a soft canary failure)\nfull output:\n%s", out)
+		t.Fatalf("itineraries array is empty (datacenter IP may be blocked by Google; per spec §8.7 this is a soft canary failure)\nfull output:\n%s", out)
 	}
 }

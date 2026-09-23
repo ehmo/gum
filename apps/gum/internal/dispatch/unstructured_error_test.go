@@ -18,7 +18,7 @@ func (a rawErrorAdapter) Execute(_ context.Context, _ *dispatch.Invocation, _ *d
 	return nil, a.err
 }
 
-// Spec §1421 gives every dispatch failure a parseable envelope with a stable
+// Spec §7 gives every dispatch failure a parseable envelope with a stable
 // error_code. An adapter that fails with a plain error used to travel out of
 // Dispatch unwrapped, so the caller got free text with no code, no retryable
 // flag, and nothing to branch on. §3.1 step 7 already sets the precedent for

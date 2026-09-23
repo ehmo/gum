@@ -111,7 +111,7 @@ func TestCompositeNoneStrategyNeedsNoCreds(t *testing.T) {
 
 // TestCompositeBYOErrorPropagatesNoADCFallback pins that a byo_oauth failure
 // surfaces verbatim and is NOT silently rescued by ADC/gcloud. The earlier
-// v0.1.0 fallthrough was removed: byo_oauth is now self-contained (the user's
+// fallthrough was removed: byo_oauth is now self-contained (the user's
 // own OAuth client + loopback flow), so a BYO error must reach the caller so
 // the JIT layer can prompt for `gum login` instead of leaking into ADC.
 func TestCompositeBYOErrorPropagatesNoADCFallback(t *testing.T) {

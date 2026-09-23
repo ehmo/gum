@@ -23,7 +23,7 @@ func TestSuccessAuditEntryRiskOverrideReasonIsSurfaced(t *testing.T) {
 		},
 	}
 
-	entry := successAuditEntry(inv, rv, map[string]any{})
+	entry := dispatchAuditEntry(inv, rv, map[string]any{})
 
 	if got, _ := entry["risk_override"].(bool); !got {
 		t.Errorf("risk_override=%v; want true", entry["risk_override"])
@@ -49,7 +49,7 @@ func TestSuccessAuditEntryEmptyReasonNotEmitted(t *testing.T) {
 		},
 	}
 
-	entry := successAuditEntry(inv, rv, map[string]any{})
+	entry := dispatchAuditEntry(inv, rv, map[string]any{})
 
 	if _, ok := entry["risk_override_reason"]; ok {
 		t.Errorf("risk_override_reason key present despite empty reason: %v", entry["risk_override_reason"])

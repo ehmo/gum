@@ -8,7 +8,7 @@ import (
 
 // The spec §5.8 closed capabilities enum, split by how an atom executes.
 //
-// GenericCapabilities are the atoms the v0.1 long-tail dispatcher runs itself.
+// GenericCapabilities are the atoms the long-tail dispatcher runs itself.
 // TypedExecutorCapabilities are executable, but only through a purpose-built
 // adapter. UnsupportedCapabilityClasses are cataloged for search and describe
 // and are not claimed executable through raw dispatch.
@@ -36,7 +36,7 @@ const (
 )
 
 // ExperimentalCapabilityPrefix namespaces an atom that is not in the enum yet.
-// Spec §913 allows one only on a `schema_only` variant.
+// Spec §5.8 allows one only on a `schema_only` variant.
 const ExperimentalCapabilityPrefix = "x-"
 
 // GenericCapabilities are executable through the generic long-tail dispatcher.
@@ -92,14 +92,14 @@ func experimentalCapability(atom Capability) bool {
 	return strings.HasPrefix(atom, ExperimentalCapabilityPrefix) && len(atom) > len(ExperimentalCapabilityPrefix)
 }
 
-// validateCapabilities enforces the spec §913 closed-enum rule. Nothing
+// validateCapabilities enforces the spec §5.8 closed-enum rule. Nothing
 // checked atom names before this: an unknown atom passed catalog validation,
 // reached `gum.describe_op`, and told the caller about a capability class no
 // executor implements.
 //
 // The `x-` escape hatch is narrow on purpose. An experimental atom is
 // describable metadata, so the variant that carries it must be `schema_only`,
-// which the §927 dispatch gate refuses before any upstream request.
+// which the §5.8 dispatch gate refuses before any upstream request.
 func (v Variant) validateCapabilities(opID string) error {
 	for _, atom := range v.Capabilities {
 		if CapabilityKnown(atom) {

@@ -182,7 +182,7 @@ func TestHTTPCacheDegradedArms(t *testing.T) {
 	})
 }
 
-// TestClearHTTP covers §2031's reclaim path: the glob matches op_id, and an
+// TestClearHTTP covers §9.0's reclaim path: the glob matches op_id, and an
 // entry a pattern cannot name survives a targeted clear.
 func TestClearHTTP(t *testing.T) {
 	t.Parallel()

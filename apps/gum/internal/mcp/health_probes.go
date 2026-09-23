@@ -13,12 +13,12 @@ import (
 	"github.com/ehmo/gum/internal/output/gain"
 )
 
-// healthSnapshotTTL is the §13 line 3149 "5s sample TTL" constant. The probe
+// healthSnapshotTTL is the §13 "5s sample TTL" constant. The probe
 // layer caches snapshot results for this window so repeated resources/read
 // calls do not re-stat the filesystem.
 const healthSnapshotTTL = 5 * time.Second
 
-// healthDetailMaxChars is the §13 line 3314 bound on the detail column. It
+// healthDetailMaxChars is the §13 bound on the detail column. It
 // counts characters, not bytes, so a multibyte error message clamps to the
 // same visible width as an ASCII one.
 const healthDetailMaxChars = 80
@@ -40,8 +40,8 @@ func clampHealthDetail(detail string) string {
 }
 
 // subsystemHealth is one row of the gum://status/health response prior to
-// TOON encoding. Spec §13 line 3283 closes Status at
-// {"healthy","degraded","unavailable"}. No v0.1.0 probe returns
+// TOON encoding. Spec §13 closes Status at
+// {"healthy","degraded","unavailable"}. No probe returns
 // "unavailable": it is reserved for live probes that detect a hard failure.
 type subsystemHealth struct {
 	Subsystem   string
@@ -56,7 +56,7 @@ type subsystemHealth struct {
 // safe default rather than crashing).
 type healthProbe func(now time.Time, profileDir string) subsystemHealth
 
-// healthProbes maps each subsystem in the closed enum (spec §13 line 3149) to
+// healthProbes maps each subsystem in the closed enum (spec §13) to
 // its cheap local probe. Probes MUST NOT make upstream network calls per the
 // same spec line. Adding or removing a subsystem requires a minor-version
 // spec PR and a matching update to staticHealthSubsystems.
@@ -179,7 +179,7 @@ func readHealthAuditBrokenHint(path string) string {
 	return msg
 }
 
-// probeCacheSQLite probes the cache backing store. v0.1.0 ships bbolt
+// probeCacheSQLite probes the cache backing store. gum ships bbolt
 // (~/.cache/gum/cache.db); SQLite migration is gum-9qn. The probe is
 // considered healthy when the parent directory exists or can be created
 // — an absent cache.db is interpreted as "no cached responses yet", which
@@ -198,7 +198,7 @@ func probeCacheSQLite(now time.Time, _ string) subsystemHealth {
 		return subsystemHealth{
 			Subsystem:   "cache_sqlite",
 			Status:      "healthy",
-			Detail:      "bbolt cache.db (sqlite migration v0.2.0)",
+			Detail:      "bbolt cache.db (sqlite migration not built)",
 			LastCheckAt: now,
 		}
 	}
@@ -211,15 +211,15 @@ func probeCacheSQLite(now time.Time, _ string) subsystemHealth {
 	}
 }
 
-// probeCanaryRunner reports on the §8.5 passive canary runner. v0.1.0 keeps
-// the runner in-process with zero registered canaries; the resource shows
-// this as healthy with an explanatory detail so operators do not mistake
-// the empty roster for a failure.
+// probeCanaryRunner reports on the §8.5 passive canary runner. No scheduler
+// ships, so the roster is always empty; the resource shows this as healthy
+// with an explanatory detail so operators do not mistake the empty roster
+// for a failure.
 func probeCanaryRunner(now time.Time, _ string) subsystemHealth {
 	return subsystemHealth{
 		Subsystem:   "canary_runner",
 		Status:      "healthy",
-		Detail:      "no canaries registered (v0.1.0)",
+		Detail:      "no canaries registered; no scheduler ships (§8.5)",
 		LastCheckAt: now,
 	}
 }
@@ -269,14 +269,14 @@ func gainLedgerHealth(now time.Time, ledger string) subsystemHealth {
 
 // probeKeychain reports on the §7 keychain integration. Calling into the OS
 // keychain (Security framework on macOS, libsecret on Linux) is expensive
-// and can prompt the user, so v0.1.0 returns healthy unconditionally —
-// live keychain reachability is deferred. The detail field calls this out
+// and can prompt the user, so the probe returns healthy unconditionally.
+// Live keychain reachability is not built. The detail field calls this out
 // so operators are not misled.
 func probeKeychain(now time.Time, _ string) subsystemHealth {
 	return subsystemHealth{
 		Subsystem:   "keychain",
 		Status:      "healthy",
-		Detail:      "OS keychain probe deferred (v0.2.0)",
+		Detail:      "OS keychain reachability probe not built",
 		LastCheckAt: now,
 	}
 }

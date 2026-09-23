@@ -14,7 +14,7 @@ import (
 // to profile identity alone: nothing else in the profile directory, and no
 // catalog or index artifact, participates in its derivation or rewrites it.
 //
-// v0.1.0 ships no embedding-model identity to rotate. Spec §5.7 pins
+// gum ships no embedding-model identity to rotate. Spec §5.7 pins
 // embeddings.bin as a reserved placeholder, no embeddings.model file exists in
 // the tree, and internal/embed is bm25-only-v1 with no external model call. So
 // the row's independence claim is proved the only way it can be: the secret

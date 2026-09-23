@@ -31,7 +31,7 @@ func TestResolveVariantHonorsRequestedVariantID(t *testing.T) {
 
 // TestResolveVariantPinUnknownReturnsVariantNotFound verifies that a
 // nonexistent pinned variant fails before any upstream call with the stable
-// VARIANT_NOT_FOUND code per spec §12.0 + §1421.
+// VARIANT_NOT_FOUND code per spec §12.0 + §7.
 func TestResolveVariantPinUnknownReturnsVariantNotFound(t *testing.T) {
 	d := &dispatcher{
 		snapshot: variantPinCatalog(),

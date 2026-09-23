@@ -70,7 +70,7 @@ func TestPluginRegistryABISchemas(t *testing.T) {
 		t.Errorf("plugins[1].name = %q; want zebra (sorted)", got)
 	}
 
-	// File mode must be 600 per spec §8.7 line 1705.
+	// File mode must be 600 per spec §8.7.
 	for _, name := range []string{CatalogFilename, LockFilename, StateFilename} {
 		info, err := os.Stat(filepath.Join(dir, name))
 		if err != nil {

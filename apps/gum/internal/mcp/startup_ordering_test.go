@@ -12,7 +12,7 @@ import (
 	gummcp "github.com/ehmo/gum/internal/mcp"
 )
 
-// TestMCPStartupOrdering asserts the spec §4.1 line 383 invariant: every
+// TestMCPStartupOrdering asserts the spec §4.1 invariant: every
 // Tier A tool (9 meta + 18 convenience = 27) is registered before Run, and
 // the connected client sees zero spurious tools/list_changed notifications
 // during the initialize handshake. The SDK auto-emits list_changed when
@@ -62,7 +62,7 @@ func TestMCPStartupOrdering(t *testing.T) {
 	time.Sleep(1200 * time.Millisecond)
 
 	if got := notifyCount.Load(); got != 0 {
-		t.Errorf("tools/list_changed notifications during/after initialize = %d; want 0 (spec §4.1 line 383)", got)
+		t.Errorf("tools/list_changed notifications during/after initialize = %d; want 0 (spec §4.1)", got)
 	}
 
 	// tools/list MUST return exactly the 27 Tier A tools plus the two

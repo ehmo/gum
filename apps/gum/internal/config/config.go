@@ -4,7 +4,7 @@
 // $HOME/.config/gum/<profile>/config.toml if XDG_CONFIG_HOME is unset), with
 // mode 600. Keys are flat dotted strings; values are stored verbatim as
 // strings. Unknown keys are preserved with a structured warning rather than
-// a fatal error (spec §12.2 line 2474).
+// a fatal error (spec §12.2).
 package config
 
 import (

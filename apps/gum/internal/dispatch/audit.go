@@ -1,4 +1,4 @@
-// Package dispatch — audit helpers and panic-recovery utilities (spec.md §3.1 step 7, line 235).
+// Package dispatch — audit helpers and panic-recovery utilities (spec.md §3.1 step 7).
 package dispatch
 
 import (
@@ -22,7 +22,7 @@ type auditSink interface {
 
 // NewDispatcherWithAudit constructs the dispatch kernel with an optional audit
 // sink. Panic recovery appends an entry with panic:true to the sink on each
-// adapter panic (spec §3.1 step 7, line 235).
+// adapter panic (spec §3.1 step 7).
 func NewDispatcherWithAudit(snapshot *catalog.Catalog, adapters map[string]Adapter, sink interface{ Append(entry map[string]any) }) Dispatcher {
 	return &dispatcher{
 		snapshot:  snapshot,
@@ -36,7 +36,9 @@ func NewDispatcherWithAudit(snapshot *catalog.Catalog, adapters map[string]Adapt
 // init to avoid repeated regexp compilation per panic event.
 var runtimeAddr = regexp.MustCompile(`0x[0-9a-fA-F]+`)
 
-// sanitizeStackForLog is the §11 layer-2 sanitizer for stack traces.
+// sanitizeStackForLog trims a panic stack before it reaches the structured
+// log. It is not the §11 layer-2 injection scrubber: the stack never reaches
+// the caller, so there is no prompt to scrub, only host paths to drop.
 // WHY: raw debug.Stack() output contains absolute file-system paths (which
 // may expose workspace layout or user home directory) and memory addresses
 // (which are useless for debugging but add noise). We keep only the base
@@ -68,7 +70,7 @@ func sanitizeStackForLog(raw string) string {
 }
 
 // panicAuditEntry builds the audit-log map for a recovered adapter panic.
-// Required keys per spec §3.1 step 7 (line 235): panic, op_id, variant_id,
+// Required keys per spec §3.1 step 7: panic, op_id, variant_id,
 // args_hash, risk_class. canonicalArgs is the dispatcher-normalized args
 // (spec §10.0 Rule 4 datetime normalization when enabled); the hash MUST
 // match the cache key and tee hash to satisfy "all reference args_canonical"
@@ -84,16 +86,20 @@ func panicAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[str
 	}
 }
 
-// successAuditEntry builds the normative §11 audit-log map for a successful
-// dispatch. The on-disk writer (internal/auditlog) stamps `v`, `ts`, and key
-// order; this helper supplies the per-invocation payload.
+// dispatchAuditEntry builds the normative §11 audit-log map for one dispatch.
+// The on-disk writer (internal/auditlog) stamps `v`, `ts`, and key order;
+// this helper supplies the per-invocation payload. Callers that need a bypass
+// flag add it to the returned map.
 //
 // It never sets dual_fetch. §11 reserves that key for the second, unmasked
 // request alone, so dispatcher.dualFetch adds it to its own entry; a masked
 // request under a dual_fetch profile is an ordinary call and must not carry
-// it. shaping_bypassed and sanitizer_bypassed remain deferred to follow-on
-// beads.
-func successAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[string]any) map[string]any {
+// it.
+//
+// It does set shaping_bypassed, because that flag describes the invocation
+// rather than one entry: a --raw call under a dual_fetch profile bypassed
+// shaping on both requests.
+func dispatchAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[string]any) map[string]any {
 	variantID := ""
 	riskClass := ""
 	riskOverride := false
@@ -117,7 +123,42 @@ func successAuditEntry(inv *Invocation, rv *ResolvedVariant, canonicalArgs map[s
 	if riskOverride && riskOverrideReason != nil {
 		entry["risk_override_reason"] = riskOverrideReason
 	}
+	// §12.4. Both --raw and --output raw resolve to Invocation.Format ==
+	// "raw", which is the kernel's own switch for skipping §9.1 stages 2-7.
+	// Keying the audit flag off that field keeps the log honest when a caller
+	// reaches the bypass through --output instead of --raw.
+	if inv.Format == "raw" {
+		entry["shaping_bypassed"] = true
+	}
 	return entry
+}
+
+// appendFailureAudit emits the §11 entry for a dispatch that failed. Step 9
+// never runs on that path, so this is the call's only audit row. §11 says every
+// dispatch is appended; before this helper existed a rejected destructive call,
+// an AUTH_REQUIRED and an upstream 403 all left the log silent.
+//
+// The row carries error_code so a reader can tell those three apart without
+// joining it against the gain ledger. It also carries sanitizer_bypassed when
+// `gum call --unsanitized` (§12.4) suppressed the layer-2 scrubber on the error
+// envelope: that is a property of this failed call, not a separate event, and a
+// row of its own meant a bypassed failure logged one line and every other
+// failure logged none.
+//
+// No-op when no audit sink is wired (tests and library embedders), and when the
+// stage that produced the error already wrote the row.
+func (d *dispatcher) appendFailureAudit(inv *Invocation, rv *ResolvedVariant, err error) {
+	if d.auditSink == nil || inv == nil || dispatchAudited(err) {
+		return
+	}
+	entry := dispatchAuditEntry(inv, rv, d.canonicalArgs(inv.Args))
+	if code := structuredErrorCode(err); code != "" {
+		entry["error_code"] = string(code)
+	}
+	if inv.SkipErrorSanitizer {
+		entry["sanitizer_bypassed"] = true
+	}
+	d.auditSink.Append(entry)
 }
 
 // argsHashHex returns the SHA-256 hex of the canonical args JSON. Spec §11
@@ -130,8 +171,7 @@ func argsHashHex(args map[string]any) string {
 
 // callerToClientID maps the dispatch Caller enum to the §11 audit-log
 // `client_id` field. The MCP layer surfaces "mcp" rather than the connected
-// client's Implementation.Name in v0.1.0; threading that through is gum-gv9a
-// scope.
+// client's Implementation.Name; threading that through is gum-gv9a scope.
 func callerToClientID(c Caller) string {
 	if c == "" {
 		return "unknown"
@@ -161,10 +201,18 @@ func (d *dispatcher) recoverAdapterPanic(inv *Invocation, rv *ResolvedVariant, r
 		"stack", sanitizedStack,
 	)
 
+	se := NewStructuredError(ErrCodeServiceDown, "internal error; see audit log").WithRetryable(false)
+
 	if d.auditSink != nil {
-		d.auditSink.Append(panicAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
+		// The panic row is this dispatch's §11 row, so it carries the code the
+		// caller is about to see. Marking the error keeps Dispatch from adding
+		// a second row for the same call.
+		entry := panicAuditEntry(inv, rv, d.canonicalArgs(inv.Args))
+		entry["error_code"] = string(ErrCodeServiceDown)
+		d.auditSink.Append(entry)
+		se.auditWritten = true
 	}
 
-	*err = NewStructuredError(ErrCodeServiceDown, "internal error; see audit log").WithRetryable(false)
+	*err = se
 	*resp = nil
 }

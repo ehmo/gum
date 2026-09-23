@@ -78,7 +78,7 @@ type Invocation struct {
 	MaxItems profile.MaxItemsOverride
 
 	// AuthSubjectFingerprint is the stable per-principal opaque ID used as the
-	// fourth component of the tee artifact hash (spec §9.0 line 1846,
+	// fourth component of the tee artifact hash (spec §9.0,
 	// §10.0.1). Falls back to Credentials.SubjectFingerprint when this field
 	// is empty so call-sites that already populate the value on the resolved
 	// credentials don't have to repeat it here.
@@ -105,6 +105,13 @@ type Invocation struct {
 	// BatchID means a standalone call, and BatchIndex is then ignored.
 	BatchID    string
 	BatchIndex int
+
+	// SkipErrorSanitizer disables the §11 layer-2 syntactic scrubber for this
+	// call's error envelope (`gum call --unsanitized`, spec §12.4). It is a
+	// CLI-only developer escape hatch: internal/mcp never sets it, so the MCP
+	// surface is always scrubbed. Setting it also makes the dispatcher append
+	// the §12.4 audit entry carrying sanitizer_bypassed: true.
+	SkipErrorSanitizer bool
 }
 
 // ResolvedVariant is the output of step 3 (routing / resolveVariant).
@@ -114,7 +121,7 @@ type ResolvedVariant struct {
 	AdapterKey string
 	// Deprecated is true when the selected variant is listed in op.DeprecatedVariantIDs.
 	// The variant is still invoked; the output pipeline uses this flag to attach the
-	// VARIANT_DEPRECATED warning envelope field (spec §5.5, §1421).
+	// VARIANT_DEPRECATED warning envelope field (spec §5.5, §7).
 	Deprecated bool
 }
 
@@ -139,7 +146,7 @@ type Credentials struct {
 	// it when the caller is using user ADC instead of a service account.
 	QuotaProjectID string
 	// SubjectFingerprint is the stable per-principal opaque ID used by the
-	// step-8 tee artifact write (spec §9.0 line 1846, §10.0.1). Typically the
+	// step-8 tee artifact write (spec §9.0, §10.0.1). Typically the
 	// SHA-256 of the OAuth subject claim or ADC service-account email.
 	// Filled by the AuthResolver; empty when running unauthenticated stubs.
 	SubjectFingerprint string
@@ -177,7 +184,7 @@ type Response struct {
 // It is the shaped tree, not the upstream body. Building it from the upstream
 // body made structuredContent contradict Body on every profiled op: a client
 // reading it got every field the profile removed, the full row count the cap
-// had trimmed, and none of the token saving (spec §13 line 2134).
+// had trimmed, and none of the token saving (spec §13).
 type ShapedResponse struct {
 	Body              []byte
 	Format            string
@@ -191,7 +198,7 @@ type ShapedResponse struct {
 
 	// FullResultResource is the gum://results/<hash> recovery URI. Set only
 	// when the active profile uses recovery = "resource_link" and we are in
-	// MCP mode (spec §9.0 line 1845). The presentation layer projects it as
+	// MCP mode (spec §9.0). The presentation layer projects it as
 	// _expression.full_result_resource and emits a matching MCP
 	// resource_link content block.
 	FullResultResource string
@@ -199,7 +206,7 @@ type ShapedResponse struct {
 	// FullResultSize is the decompressed byte length of the tee artifact
 	// payload. Populated whenever tee fires (alongside FullResultPath);
 	// the MCP layer threads it into ResourceLink.Size on the recovery
-	// content block per spec §9.0 line 1846 ("size when known"). Nil when
+	// content block per spec §9.0 ("size when known"). Nil when
 	// tee did not fire.
 	FullResultSize *int64
 
@@ -254,7 +261,7 @@ type ShapedResponse struct {
 }
 
 // CacheLayerStats holds a point-in-time snapshot of the semantic (in-process)
-// cache counters surfaced by gum.cache_stats (spec §3003).
+// cache counters surfaced by gum.cache_stats (spec §13).
 type CacheLayerStats struct {
 	Hits      int64
 	Misses    int64
@@ -272,7 +279,7 @@ type Dispatcher interface {
 // op's catalog service_family (e.g. "workspace", "cloud", "maps", "genai",
 // "plugin"). gum_parallel uses it to scope upstream-429 pauses so a Gmail
 // quota hit does not stall unrelated BigQuery or Maps workers in the same
-// batch (spec §6.3 line 1171). Mock dispatchers in tests may omit this
+// batch (spec §6.3). Mock dispatchers in tests may omit this
 // capability; consumers must tolerate a missing resolver by falling back to
 // a single shared pause group.
 type ServiceFamilyResolver interface {
@@ -444,7 +451,7 @@ func (d *dispatcher) opByID() map[string]*catalog.Op {
 }
 
 // CacheStats returns a live snapshot of the semantic cache counters for
-// gum.cache_stats (spec §3003). Returns zero-value if no cache is wired.
+// gum.cache_stats (spec §13). Returns zero-value if no cache is wired.
 // SemanticCache (§10.3) wins over the legacy MemCache when both are set.
 func (d *dispatcher) CacheStats() CacheLayerStats {
 	if d.semanticCache != nil {
@@ -529,7 +536,15 @@ func (d *dispatcher) Dispatch(ctx context.Context, inv *Invocation) (*ShapedResp
 	shaped, err := d.dispatchSteps(ctx, inv, &resolved)
 	if err != nil {
 		wrapped := wrapKernelError(inv, err)
-		// Step 9 never ran, so the §12.3 entry for this call is written here.
+		// §11 layer 2. The envelope is the last point where every failure
+		// path converges, so one call here covers the adapter, the token
+		// bucket, the plugin envelope and the kernel fallback alike.
+		if inv == nil || !inv.SkipErrorSanitizer {
+			scrubErrorEnvelope(wrapped)
+		}
+		// Step 9 never ran, so this call's §11 audit row and §12.3 gain entry
+		// are both written here.
+		d.appendFailureAudit(inv, resolved, wrapped)
 		d.recordFailedDispatch(inv, resolved, wrapped)
 		return shaped, wrapped
 	}
@@ -617,7 +632,7 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 		return nil, serr
 	}
 
-	// Step 3a-pre: spec §927 capability gate. A typed_executor_required or
+	// Step 3a-pre: spec §5.8 capability gate. A typed_executor_required or
 	// schema_only variant is describable but not invokable, and the refusal
 	// must land before auth, before the rate limiter, and before any upstream
 	// request.
@@ -834,7 +849,7 @@ func (d *dispatcher) dispatchSteps(ctx context.Context, inv *Invocation, resolve
 	}
 	logEvent(EventExecuteAdapter, t0)
 
-	// Step 7a1: §2024. Upstream says the copy gum already holds is current, so
+	// Step 7a1: §9.0. Upstream says the copy gum already holds is current, so
 	// the answer is the validator alone. Returning here is what skips stages
 	// 1-8, the field mask, the tee artifact and the results handle; every one
 	// of those lives below this line.
@@ -1820,7 +1835,7 @@ func (d *dispatcher) cacheCheck(ctx context.Context, inv *Invocation, rv *Resolv
 
 // Step 5 — resolve auth credentials.
 //
-// Wraps plain resolver errors as AUTH_REQUIRED (spec §3.1 step 5, §1421 stable
+// Wraps plain resolver errors as AUTH_REQUIRED (spec §3.1 step 5, §7 stable
 // runtime error codes) so downstream surfaces get a consistent structured code.
 // Errors that are already structured (e.g. SCOPE_MISSING, the per-strategy
 // AUTH_REQUIRED variant from auth/byooauth.go) and context.Canceled /
@@ -1959,7 +1974,7 @@ func (d *dispatcher) serviceFamilyFor(opID string) string {
 
 // Step 7 — execute adapter.
 // The deferred recoverAdapterPanic call catches any executor panic and converts
-// it to a SERVICE_DOWN error (spec §3.1 step 7, line 235).
+// it to a SERVICE_DOWN error (spec §3.1 step 7).
 func (d *dispatcher) executeAdapter(ctx context.Context, inv *Invocation, rv *ResolvedVariant, creds *Credentials) (resp *Response, err error) {
 	defer d.recoverAdapterPanic(inv, rv, &resp, &err)
 
@@ -2003,7 +2018,7 @@ func (d *dispatcher) attachTeeHandles(shaped *ShapedResponse, art *teeArtifact) 
 	}
 	// The artifact was written moments ago, so its expiry is now plus the
 	// retention window. Clients poll this instead of discovering expiry on a
-	// failed gum://results read (spec §7, §3269).
+	// failed gum://results read (spec §7, §13).
 	shaped.Expression.attachArtifactHandles(
 		shaped.FullResultPath, shaped.FullResultResource, d.teeConfig.RetentionHours, time.Now())
 }
@@ -2036,7 +2051,7 @@ func (d *dispatcher) shapeResponse(_ context.Context, inv *Invocation, rv *Resol
 
 	// Executor signals opaque bytes (e.g. gum.code Risor printed output): bypass
 	// the JSON-parsing profile pipeline regardless of inv.Format. The envelope
-	// still goes out, reporting the "_raw" sentinel profile (spec §2705).
+	// still goes out, reporting the "_raw" sentinel profile (spec §13).
 	if resp.Format == "raw" {
 		meta := newExpressionMeta(inv, rv, nil, &profile.ApplyOutput{Format: "raw"})
 		if resp.CodeOutputTruncated {
@@ -2172,7 +2187,7 @@ func (d *dispatcher) annotateSafely(annotator ResponseAnnotator, inv *Invocation
 	return annotator.AnnotateResponse(inv, rv, body)
 }
 
-// Step 9 — record audit / gain ledger and return (spec §3.1 line 237).
+// Step 9 — record audit / gain ledger and return (spec §3.1).
 //
 // Best-effort accounting: ledger errors are logged but never fail the dispatch
 // — the caller already has a valid shaped response, and corrupting the success
@@ -2192,13 +2207,13 @@ func (d *dispatcher) recordAndReturn(_ context.Context, inv *Invocation, rv *Res
 
 // appendSuccessAudit emits the normative §11 audit entry for a successful
 // dispatch. No-op when no audit sink is wired (tests and library embedders).
-// The entry shape is built in dispatch/audit.go's successAuditEntry helper to
+// The entry shape is built in dispatch/audit.go's dispatchAuditEntry helper to
 // keep recordAndReturn focused on bookkeeping bookkeeping.
 func (d *dispatcher) appendSuccessAudit(inv *Invocation, rv *ResolvedVariant) {
 	if d.auditSink == nil {
 		return
 	}
-	d.auditSink.Append(successAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
+	d.auditSink.Append(dispatchAuditEntry(inv, rv, d.canonicalArgs(inv.Args)))
 }
 
 // canonicalizeArgs produces the spec §10.0 args_canonical string: the RFC 8785

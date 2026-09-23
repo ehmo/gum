@@ -12,8 +12,8 @@ import (
 )
 
 // TestResourceTemplateRegistration — bead-named acceptance for gum-k9k.
-// Spec §13 line 3168: six parameterized resource templates MUST be advertised
-// via resources/templates/list (not resources/list). The v0.1.0 closed
+// Spec §13: six parameterized resource templates MUST be advertised
+// via resources/templates/list (not resources/list). The closed
 // inventory is: gum://op/{id}, gum://variant/{id}, gum://schema/{ref},
 // gum://results/{hash}, gum://plugin/{name}, gum://help/{topic}.
 func TestResourceTemplateRegistration(t *testing.T) {
@@ -46,13 +46,13 @@ func TestResourceTemplateRegistration(t *testing.T) {
 	}
 	for uri := range got {
 		if _, ok := want[uri]; !ok {
-			t.Errorf("unexpected template %q advertised; v0.1.0 inventory is closed at 6", uri)
+			t.Errorf("unexpected template %q advertised; the inventory is closed at 6", uri)
 		}
 	}
 }
 
 // TestOpVariantResourceWireShape — bead-named acceptance for gum-k9k.
-// Spec §13 line 3154-3155 + line 1427: gum://op/{id} and gum://variant/{id}
+// Spec §13: gum://op/{id} and gum://variant/{id}
 // MUST return exactly one text resource content item with uri equal to the
 // requested URI, mimeType "application/json", and JCS-canonical JSON text.
 func TestOpVariantResourceWireShape(t *testing.T) {
@@ -134,13 +134,13 @@ func TestOpVariantResourceWireShape(t *testing.T) {
 }
 
 // TestSchemaResourceLookup — bead-named acceptance for gum-k9k.
-// Spec §13 line 3156: gum://schema/{ref} returns the full JSON Schema 2020-12
+// Spec §13: gum://schema/{ref} returns the full JSON Schema 2020-12
 // document. A ref that is unknown to both the active snapshot and the
 // profile-local plugin inventory MUST resolve to the canonical
 // RESOURCE_NOT_FOUND envelope. The body-materialiser happy paths live in
 // schema_resource_test.go (gum-kqvf); this test pins the unknown-ref case
-// so the existing gum-k9k contract stays asserted after kqvf closed the
-// v0.2.0 deferral.
+// so the existing gum-k9k contract stays asserted after kqvf wired the
+// schema resource.
 func TestSchemaResourceLookup(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cs, _, cleanup := connectResourceClient(t)
@@ -149,7 +149,7 @@ func TestSchemaResourceLookup(t *testing.T) {
 	const uri = "gum://schema/gmail.users.messages.list.response"
 	_, err := cs.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: uri})
 	if err == nil {
-		t.Fatal("ReadResource succeeded; want RESOURCE_NOT_FOUND envelope (no v0.1.0 catalog op references this schema_ref)")
+		t.Fatal("ReadResource succeeded; want RESOURCE_NOT_FOUND envelope (no catalog op references this schema_ref)")
 	}
 	envelope := assertResourceNotFound(t, err, uri)
 	if d, _ := envelope["detail"].(string); !strings.Contains(d, "not in active snapshot") {

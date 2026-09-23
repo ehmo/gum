@@ -1,4 +1,4 @@
-// lossless_test.go — stage 8 is an encoder, not a filter (spec §9.1, docs/spec.md:2050).
+// lossless_test.go — stage 8 is an encoder, not a filter (spec §9.1).
 //
 // Two ways the renderer used to delete data it was handed: CSV wrote only the
 // primary record table, so a top-level nextPageToken and every secondary array

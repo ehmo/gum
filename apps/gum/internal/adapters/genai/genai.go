@@ -1,11 +1,11 @@
 // Package genai is the backend executor for catalog variants with
-// backend_kind="gen-ai" (spec §14 line 3334). It wraps
+// backend_kind="gen-ai" (spec §14). It wraps
 // google.golang.org/genai so the dispatcher can call Gemini's
 // generateContent (and follow-on Live / Caches / Files operations) without
 // going through the discovery-REST or raw-HTTP paths — generativelanguage
 // is NOT in the discovery doc set per docs/research/deep-research/01.
 //
-// v0.1.0 wires the `genai.models.generate_content` adapter_key as the
+// The adapter wires the `genai.models.generate_content` adapter_key as the
 // canary surface; follow-ons (Live, Caches, embeddings) add new cases to
 // the switch in Execute.
 package genai
@@ -65,7 +65,7 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 	case "models.generate_content":
 		return executeGenerateContent(ctx, client, inv)
 	default:
-		return nil, fmt.Errorf("genai adapter: unsupported adapter_key %q (v0.1.0 wires `genai.models.generate_content` only)", binding(rv))
+		return nil, fmt.Errorf("genai adapter: unsupported adapter_key %q (this adapter wires `genai.models.generate_content` only)", binding(rv))
 	}
 }
 
@@ -87,7 +87,7 @@ func genaiOp(rv *dispatch.ResolvedVariant) string {
 }
 
 // executeGenerateContent marshals inv.Args into a Gemini generateContent
-// call. v0.1.0 expects:
+// call. It expects:
 //   - args["model"]: string, e.g. "gemini-2.0-flash"
 //   - args["prompt"]: string, single-turn user prompt
 //

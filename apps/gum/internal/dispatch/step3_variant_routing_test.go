@@ -9,7 +9,7 @@
 //     default rule, AMBIGUOUS_VARIANT envelope, OP_NOT_FOUND envelope"
 //   - §5.5 catalog entry lifecycle: deprecated variants in deprecated_variant_ids return
 //     VARIANT_DEPRECATED warning but still execute; quarantined variants return VARIANT_QUARANTINED
-//   - §1421 stable error codes: OP_NOT_FOUND, AMBIGUOUS_VARIANT, VARIANT_QUARANTINED,
+//   - §7 stable error codes: OP_NOT_FOUND, AMBIGUOUS_VARIANT, VARIANT_QUARANTINED,
 //     VARIANT_DEPRECATED
 //
 // CURRENT STATE: resolveVariant only calls findOpVariant which looks up default_variant_id.
@@ -359,7 +359,7 @@ func TestVariantRoutingAmbiguousReturnsError(t *testing.T) {
 // is quarantined, resolveVariant returns VARIANT_QUARANTINED before any upstream call.
 // Spec §5.5 rule 5: "Security quarantine overrides the grace window. Quarantined variants
 // return VARIANT_QUARANTINED before auth or upstream execution."
-// Spec §1421: VARIANT_QUARANTINED is a terminal error code.
+// Spec §7: VARIANT_QUARANTINED is a terminal error code.
 //
 // Requires catalog.Variant.Quarantined bool field (new).
 func TestVariantRoutingQuarantinedRejected(t *testing.T) {
@@ -392,7 +392,7 @@ func TestVariantRoutingQuarantinedRejected(t *testing.T) {
 // Spec §5.5 rule 2–3: "Deprecated variants remain invokable by explicit variant_id
 // for 90 days unless quarantined ... MUST return VARIANT_DEPRECATED as a warning
 // envelope field while still executing."
-// Spec §1421: "VARIANT_DEPRECATED is a warning envelope field (the call still executes
+// Spec §7: "VARIANT_DEPRECATED is a warning envelope field (the call still executes
 // with a deprecation annotation)".
 //
 // The green team should attach the warning via ResolvedVariant.Deprecated bool == true
@@ -431,7 +431,7 @@ func TestVariantRoutingDeprecatedAccepted(t *testing.T) {
 //
 // Spec §4.1: "if op_id is not present in catalog.json (after alias normalization), the
 // call returns {"error_code": "OP_NOT_FOUND", "message": "...", "suggestions": [...]}".
-// The red team requires detail["op_id"] to equal the requested op_id (spec line 230:
+// The red team requires detail["op_id"] to equal the requested op_id (spec §3.1 step 2:
 // "reject missing/quarantined/unsupported variants" → the caller must know which op failed).
 func TestVariantRoutingOpNotFoundCarriesOpID(t *testing.T) {
 	d := newRoutingDispatcher()

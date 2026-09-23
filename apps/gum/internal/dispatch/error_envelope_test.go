@@ -14,7 +14,7 @@ import (
 
 // ---------------------------------------------------------------------------
 // Test 1 — Basic Error() shape
-// spec ref: §1421 (stable runtime error codes list); §3.1 step 7 (SERVICE_DOWN)
+// spec ref: §7 (stable runtime error codes list); §3.1 step 7 (SERVICE_DOWN)
 // ---------------------------------------------------------------------------
 
 func TestStructuredErrorBasicShape(t *testing.T) {
@@ -109,7 +109,7 @@ func TestStructuredErrorRetryableEmitted(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Test 5 — implements error interface; errors.Is; IsStructuredError helper
-// spec ref: §1421 (typed sentinel errors; replace ad-hoc fmt.Errorf)
+// spec ref: §7 (typed sentinel errors; replace ad-hoc fmt.Errorf)
 // ---------------------------------------------------------------------------
 
 func TestStructuredErrorImplementsErrorInterface(t *testing.T) {
@@ -139,8 +139,8 @@ func TestStructuredErrorImplementsErrorInterface(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 6 — All 28 spec-stable error code string values match spec §1421
-// spec ref: §1421 (full stable runtime error codes list)
+// Test 6 — All 28 spec-stable error code string values match spec §7
+// spec ref: §7 (full stable runtime error codes list)
 // ---------------------------------------------------------------------------
 
 func TestStructuredErrorAllSpecCodes(t *testing.T) {
@@ -191,7 +191,7 @@ func TestStructuredErrorAllSpecCodes(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Test 7 — JSON canonical key order: error_code before message in output
-// spec ref: §1421 (MCP error envelope shape; error_code is the discriminator field)
+// spec ref: §7 (MCP error envelope shape; error_code is the discriminator field)
 // ---------------------------------------------------------------------------
 
 func TestStructuredErrorJSONCanonicalOrder(t *testing.T) {
@@ -218,7 +218,7 @@ func TestStructuredErrorJSONCanonicalOrder(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Test 8 — The literal "detail" key must NOT appear in JSON output
-// spec ref: §1421 (detail fields are flattened; struct field tagged json:"-")
+// spec ref: §7 (detail fields are flattened; struct field tagged json:"-")
 // ---------------------------------------------------------------------------
 
 func TestStructuredErrorMarshalDoesNotIncludeDetailKey(t *testing.T) {
@@ -237,7 +237,7 @@ func TestStructuredErrorMarshalDoesNotIncludeDetailKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Test 9 — RISK_TOOL_MISMATCH envelope exact shape (spec §4.1 / §1421)
+// Test 9 — RISK_TOOL_MISMATCH envelope exact shape (spec §4.1 / §7)
 // spec ref: §4.1 line ~330: {"error_code":"RISK_TOOL_MISMATCH","op_id":"...","variant_id":"...",
 //           "variant_risk_class":"...","required_tool":"gum.write"}
 // ---------------------------------------------------------------------------

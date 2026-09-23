@@ -51,9 +51,9 @@ func (f *HTTPFetcher) Fetch(ctx context.Context, operationName string) (*Status,
 	// Attempt 1: routing-table hit.
 	if ep, _, ok := routing.Lookup(operationName); ok {
 		if ep.Transport == routing.TransportGRPC {
-			// v0.1.0 has no gRPC longrunning client wired; surface unroutable
-			// with a specific hint so the caller can wait for v0.2.0 gRPC
-			// support (gum-7po). Downgrades gracefully to fallback.
+			// No gRPC longrunning client is wired; surface unroutable with
+			// a specific hint (gum-7po tracks gRPC support). Downgrades
+			// gracefully to fallback.
 			if status, err := f.tryREST(ctx, "googleapis.com", "/v1/"+operationName); err == nil {
 				return status, nil
 			}

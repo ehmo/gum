@@ -85,7 +85,7 @@ retryable; the originating op MUST be re-dispatched.
 - `gum profile test <path> --input fixture.json` — verify the profile's output
   shape before using it in automation.
 - MCP clients recover `resource_link` payloads by calling `resources/read` on
-  the emitted `gum://results/{hash}` URI. v0.1.x has no separate CLI
+  the emitted `gum://results/{hash}` URI. There is no separate CLI
   `recover` command.
 
 See `gum://help/profiles` for where the tee tree and secret live.

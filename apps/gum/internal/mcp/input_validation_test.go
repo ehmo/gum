@@ -113,13 +113,13 @@ func TestMetaToolInputSchemaIsEnforced(t *testing.T) {
 			name: "language_outside_v01_enum",
 			tool: "gum.code",
 			args: map[string]any{"language": "python", "source": "print(1)"},
-			why:  "language is the closed v0.1.0 enum risor",
+			why:  "language is the closed enum risor",
 		},
 		{
 			name: "destructive_budget_above_cap",
 			tool: "gum.code",
 			args: map[string]any{"language": "risor", "source": "1", "destructive_budget": 25},
-			why:  "destructive_budget is capped at 20 (spec §1085)",
+			why:  "destructive_budget is capped at 20 (spec §6.1.1)",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

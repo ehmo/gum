@@ -40,7 +40,7 @@ func TestProbeGainLedgerNoHomeReturnsDegraded(t *testing.T) {
 // subsystem is listed in staticHealthSubsystems but no probe is
 // registered (e.g., a future minor-version spec PR widens the enum
 // before the runtime catches up), the snapshot MUST emit a degraded
-// row rather than silently drop it — spec §13 line 3149 requires the
+// row rather than silently drop it — spec §13 requires the
 // row set to be complete.
 func TestHealthSnapshotMissingProbeReportsDegraded(t *testing.T) {
 	// Temporarily widen staticHealthSubsystems with a name that has no

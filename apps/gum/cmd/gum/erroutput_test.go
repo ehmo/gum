@@ -10,7 +10,7 @@ import (
 )
 
 // TestRenderStructuredEnvelope_AddsHowToFix verifies that every known error
-// code grows a "how_to_fix" key while preserving the original §1421 envelope
+// code grows a "how_to_fix" key while preserving the original §7 envelope
 // verbatim under "machine_envelope" (gum-fkme).
 func TestRenderStructuredEnvelope_AddsHowToFix(t *testing.T) {
 	cases := []struct {
@@ -56,7 +56,7 @@ func TestRenderStructuredEnvelope_AddsHowToFix(t *testing.T) {
 			}
 			// machine_envelope MUST NOT carry the human-only fields.
 			if _, leaked := machine["how_to_fix"]; leaked {
-				t.Error("machine_envelope leaked how_to_fix — it must stay §1421-pure")
+				t.Error("machine_envelope leaked how_to_fix — it must stay §7-pure")
 			}
 		})
 	}
@@ -127,7 +127,7 @@ func TestJoinAny(t *testing.T) {
 	}
 }
 
-// TestRenderStructuredEnvelope_FlatDetail verifies §1421 layout: detail keys
+// TestRenderStructuredEnvelope_FlatDetail verifies §7 layout: detail keys
 // remain at the top level (never nested), and extras are merged in too.
 func TestRenderStructuredEnvelope_FlatDetail(t *testing.T) {
 	se := &dispatch.StructuredError{

@@ -5,23 +5,23 @@ import (
 	"testing"
 )
 
-// TestNoOTelImportV01 asserts that v0.1.0 binaries do not import any
-// OpenTelemetry packages. Required by spec §14.1 rule 5 (no OTel in v0.1).
+// TestNoOTelImportV01 asserts that release binaries do not import any
+// OpenTelemetry package. Required by spec §14.1 rule 5.
 func TestNoOTelImportV01(t *testing.T) {
 	leaks := importsMatchingPrefix(t, "go.opentelemetry.io/")
 	if len(leaks) > 0 {
-		t.Fatalf("OpenTelemetry imports detected in ./cmd/gum/... closure (spec §14.1 rule 5 forbids OTel in v0.1.0):\n  %s",
+		t.Fatalf("OpenTelemetry imports detected in ./cmd/gum/... closure (spec §14.1 rule 5 forbids OTel in release binaries):\n  %s",
 			strings.Join(leaks, "\n  "))
 	}
 }
 
-// TestNoPprofImportV01 asserts that v0.1.0 binaries do not import
+// TestNoPprofImportV01 asserts that release binaries do not import
 // net/http/pprof or runtime/pprof's HTTP-exposing facilities. Required by
-// spec §14.1 rule 6 (no pprof HTTP surface in v0.1).
+// spec §14.1 rule 6.
 func TestNoPprofImportV01(t *testing.T) {
 	leaks := importsMatchingPrefix(t, "net/http/pprof")
 	if len(leaks) > 0 {
-		t.Fatalf("pprof imports detected in ./cmd/gum/... closure (spec §14.1 rule 6 forbids pprof in v0.1.0):\n  %s",
+		t.Fatalf("pprof imports detected in ./cmd/gum/... closure (spec §14.1 rule 6 forbids pprof in release binaries):\n  %s",
 			strings.Join(leaks, "\n  "))
 	}
 }

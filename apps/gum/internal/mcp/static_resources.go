@@ -19,14 +19,14 @@ const (
 	statusHealthResourceURI = "gum://status/health"
 	noAutoInjectAnnotation  = "x-gum-do-not-auto-inject"
 
-	// canaryStatusStale is the §13 line 3252 initial state: a known canary
+	// canaryStatusStale is the §13 initial state: a known canary
 	// that has not run. It is the only status gum emits until the §8.5
 	// passive runner lands.
 	canaryStatusStale = "stale"
 )
 
-// staticHealthSubsystems is the closed v0.1.0 enum for gum://status/health
-// rows. Spec §13 line 3149 pins this set; widening it requires a minor-version
+// staticHealthSubsystems is the closed enum for gum://status/health
+// rows. Spec §13 pins this set; widening it requires a minor-version
 // spec PR (tracked under gum-nb85).
 var staticHealthSubsystems = []string{
 	"audit_log",
@@ -38,7 +38,7 @@ var staticHealthSubsystems = []string{
 }
 
 // registerStaticResources wires the four spec §13 static resources (catalog,
-// status/canaries, plugins, status/health) that complete the v0.1.0 quintet
+// status/canaries, plugins, status/health) that complete the quintet
 // alongside gum://help/topics. Each handler is intentionally lightweight here;
 // deeper data wiring lives in sibling beads (gum-nb85 status/health probes,
 // gum-k9k templates, gum-99f prompt-cache hints).
@@ -109,7 +109,7 @@ func (s *Server) handleCatalogRead(_ context.Context, req *sdkmcp.ReadResourceRe
 }
 
 // canaryStatusRow is one gum://status/canaries row. Field order matches the
-// §13 line 3252 column order.
+// §13 column order.
 type canaryStatusRow struct {
 	CanaryID  string
 	OpID      string
@@ -129,7 +129,7 @@ type canaryStatusRow struct {
 //
 // The roster is LoadPluginInventory unfiltered. gum://plugins drops
 // installed_pending_restart rows because those plugins cannot dispatch, but
-// §13 line 3252 requires the opposite here: "every known plugin canary,
+// §13 requires the opposite here: "every known plugin canary,
 // including freshly-installed-but-never-run canaries".
 //
 // Every row is stale with an empty last_run_at. No §8.5 passive runner is
@@ -181,7 +181,7 @@ func (s *Server) handleCanariesRead(_ context.Context, req *sdkmcp.ReadResourceR
 }
 
 // handlePluginsRead returns the plugin inventory for the active profile. Rows
-// in status=installed_pending_restart are filtered out per spec §13 line 3148.
+// in status=installed_pending_restart are filtered out per spec §13.
 // Errors that prevent loading the registry surface as an empty list rather
 // than a hard failure; the operator can still inspect `gum plugin list`.
 func (s *Server) handlePluginsRead(_ context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
@@ -216,7 +216,7 @@ func (s *Server) handlePluginsRead(_ context.Context, req *sdkmcp.ReadResourceRe
 
 // handleStatusHealthRead returns the closed six-subsystem health table.
 // Rows are sourced from healthProbes via the 5s TTL snapshot cache; per
-// spec §13 line 3149 no probe may make an upstream network call. The
+// spec §13 no probe may make an upstream network call. The
 // row order is stable (lexicographic by subsystem name) so test fixtures
 // and consumers can compare without re-sorting.
 func (s *Server) handleStatusHealthRead(_ context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
@@ -245,7 +245,7 @@ func (s *Server) handleStatusHealthRead(_ context.Context, req *sdkmcp.ReadResou
 }
 
 // loadPluginInventoryRows returns the rows gum://plugins may show: the full
-// profile inventory minus installed_pending_restart, which spec §13 line 3234
+// profile inventory minus installed_pending_restart, which spec §13
 // filters out because those plugins cannot dispatch in this session. The CLI
 // reads the same inventory unfiltered through mcp.LoadPluginInventory.
 func (s *Server) loadPluginInventoryRows() []PluginInventoryRow {
@@ -285,7 +285,7 @@ func loadPluginRowsFromFile(path string) []map[string]any {
 }
 
 // resolvePluginStatus folds the per-row state-flag enum down to the closed
-// inventory status (spec §13 line 3176). Precedence: quarantined →
+// inventory status (spec §13). Precedence: quarantined →
 // needs_configuration → installed_pending_restart → active. This mirrors the
 // catalog model's ordering for unambiguous reporting when several flags overlap.
 func resolvePluginStatus(row map[string]any) string {

@@ -43,7 +43,7 @@ func TestEvaluatePolicyOpNotInCatalogShortCircuits(t *testing.T) {
 
 // TestEvaluatePolicyReadOpRejectsAllowDestructive pins evaluatePolicy's
 // `RiskClassRead + AllowDestructive/AllowWrite → RISK_TOOL_MISMATCH`
-// arm (policy.go:174-183). Spec §4.1 line 304: the risk gate is
+// arm (policy.go:174-183). Spec §4.1: the risk gate is
 // bidirectional — a read-class variant invoked via gum.write or
 // gum.destructive is ALSO RISK_TOOL_MISMATCH. The CLI surface routes
 // --risk=destructive→AllowDestructive, so either of those flags on

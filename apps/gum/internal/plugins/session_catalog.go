@@ -47,7 +47,7 @@ func ActivePluginNames(files *registry.Files) map[string]bool {
 }
 
 // SessionCatalog returns base plus every active plugin variant recorded in
-// the profile reg is bound to (spec §5 line 405).
+// the profile reg is bound to (spec §5).
 //
 // It is the one seam that builds a session snapshot: the CLI dispatcher and
 // the MCP server both take their snapshot from a single call, so `gum call`

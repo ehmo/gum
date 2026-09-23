@@ -1,4 +1,4 @@
-// gum-49v: spec §9.0 lines 1845-1847 + §13 line 3313 + line 3238.
+// gum-49v: spec §9.0 + §13.
 // When recovery=resource_link and tee_mode=always, the MCP tool result
 // content[] MUST contain exactly one resource_link block whose URI matches
 // _expression.full_result_resource carried in structuredContent. CLI mode
@@ -50,13 +50,13 @@ func (d recoveryDispatcher) Dispatch(_ context.Context, _ *dispatch.Invocation) 
 
 // TestRecoveryResourceLinkContentBlock — bead-named acceptance for gum-49v.
 //
-// Spec §9.0 line 1845-1847: when shaped.FullResultResource is set, the
+// Spec §9.0: when shaped.FullResultResource is set, the
 // MCP CallToolResult.Content slice MUST contain exactly one *ResourceLink
 // with the matching URI, name non-empty, mimeType "application/json", and
 // description ≤120 chars. The original text content block stays first;
 // the resource_link is appended.
 //
-// Spec §9.0 line 1847 also forbids duplicates for the same hash.
+// Spec §9.0 also forbids duplicates for the same hash.
 func TestRecoveryResourceLinkContentBlock(t *testing.T) {
 	const wantURI = "gum://results/abc123def456"
 
@@ -93,7 +93,7 @@ func TestRecoveryResourceLinkContentBlock(t *testing.T) {
 		t.Fatalf("Content length=%d; want ≥2 (text + resource_link). Got=%+v", len(res.Content), res.Content)
 	}
 
-	// Exactly one resource_link block, no duplicates (spec §9.0 line 1847).
+	// Exactly one resource_link block, no duplicates (spec §9.0).
 	var links []*sdkmcp.ResourceLink
 	for _, c := range res.Content {
 		if rl, ok := c.(*sdkmcp.ResourceLink); ok {
@@ -101,7 +101,7 @@ func TestRecoveryResourceLinkContentBlock(t *testing.T) {
 		}
 	}
 	if len(links) != 1 {
-		t.Fatalf("found %d resource_link content blocks; want exactly 1 (spec §9.0 line 1847 forbids duplicates for the same hash)", len(links))
+		t.Fatalf("found %d resource_link content blocks; want exactly 1 (spec §9.0 forbids duplicates for the same hash)", len(links))
 	}
 
 	link := links[0]
@@ -109,17 +109,17 @@ func TestRecoveryResourceLinkContentBlock(t *testing.T) {
 		t.Errorf("resource_link.uri=%q; want %q (must match _expression.full_result_resource)", link.URI, wantURI)
 	}
 	if link.Name == "" {
-		t.Error("resource_link.name is empty; spec §9.0 line 1846 requires a name field")
+		t.Error("resource_link.name is empty; spec §9.0 requires a name field")
 	}
 	if link.MIMEType != "application/json" {
-		t.Errorf("resource_link.mimeType=%q; want application/json (spec §9.0 line 1846)", link.MIMEType)
+		t.Errorf("resource_link.mimeType=%q; want application/json (spec §9.0)", link.MIMEType)
 	}
 	if len(link.Description) > 120 {
-		t.Errorf("resource_link.description length=%d; spec §9.0 line 1847 caps it at 120 chars", len(link.Description))
+		t.Errorf("resource_link.description length=%d; spec §9.0 caps it at 120 chars", len(link.Description))
 	}
 
 	// StructuredContent.full_result_resource must equal the link URI
-	// (cross-check the spec §9.0 line 1847 invariant from the structured side).
+	// (cross-check the spec §9.0 invariant from the structured side).
 	sc, _ := res.StructuredContent.(map[string]any)
 	if sc == nil {
 		t.Fatal("StructuredContent is nil; want pass-through of shaped.StructuredContent")
@@ -135,7 +135,7 @@ func TestRecoveryResourceLinkContentBlock(t *testing.T) {
 
 // TestRecoveryResourceLinkAbsentWhenURIEmpty — bead-named acceptance for gum-49v.
 //
-// Spec §9.0 line 1845: the resource_link block is emitted iff the active
+// Spec §9.0: the resource_link block is emitted iff the active
 // profile uses recovery=resource_link in MCP mode (signalled by a non-empty
 // shaped.FullResultResource). CLI calls always leave it empty, as do MCP
 // calls whose profile uses recovery=none or recovery=local_artifact. A
@@ -156,7 +156,7 @@ func TestRecoveryResourceLinkAbsentWhenURIEmpty(t *testing.T) {
 	}
 	for _, c := range res.Content {
 		if _, ok := c.(*sdkmcp.ResourceLink); ok {
-			t.Fatalf("found resource_link block when FullResultResource was empty; spec §9.0 line 1845 forbids emission outside recovery=resource_link MCP mode")
+			t.Fatalf("found resource_link block when FullResultResource was empty; spec §9.0 forbids emission outside recovery=resource_link MCP mode")
 		}
 	}
 }
@@ -164,7 +164,7 @@ func TestRecoveryResourceLinkAbsentWhenURIEmpty(t *testing.T) {
 // TestRecoveryResourceLinkDescriptionUnder120Chars — bead-named acceptance for
 // gum-49v. The description hint is constructed from the op_id, which can be
 // long (e.g. "google.cloud.aiplatform.v1.projects.locations.models.predict").
-// Spec §9.0 line 1847 caps at 120 chars; this asserts the truncation path.
+// Spec §9.0 caps at 120 chars; this asserts the truncation path.
 func TestRecoveryResourceLinkDescriptionUnder120Chars(t *testing.T) {
 	longOpID := strings.Repeat("aaaaaaaaaa.", 20) + "tail" // ~224 chars, well over the 120-char cap when concatenated with prefix
 	srv := NewServer(recoveryDispatcher{
@@ -183,15 +183,15 @@ func TestRecoveryResourceLinkDescriptionUnder120Chars(t *testing.T) {
 			continue
 		}
 		if len(rl.Description) > 120 {
-			t.Errorf("description length=%d for long op_id; spec §9.0 line 1847 cap is 120", len(rl.Description))
+			t.Errorf("description length=%d for long op_id; spec §9.0 cap is 120", len(rl.Description))
 		}
 	}
 }
 
 // TestRecoveryResourceLinkSize — bead-named acceptance for gum-6krt.
 //
-// Spec §9.0 line 1846 lists "size when known" as a field on the resource_link
-// block; v0.1.0 wires this from the decompressed tee payload length (matching
+// Spec §9.0 lists "size when known" as a field on the resource_link
+// block; gum wires this from the decompressed tee payload length (matching
 // what gum://results/<hash> returns to a resources/read). When the dispatcher
 // reports ShapedResponse.FullResultSize, the MCP layer MUST forward it as
 // ResourceLink.Size; when it is nil the field MUST stay nil so clients can

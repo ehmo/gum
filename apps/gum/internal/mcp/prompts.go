@@ -9,9 +9,9 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// staticPrompt is the host-side declaration of one v0.1.0 prompt: name,
-// human description, and the assembled message body. Spec §13 line 3164
-// pins the v0.1.0 prompt roster to exactly two zero-argument templates;
+// staticPrompt is the host-side declaration of one prompt: name,
+// human description, and the assembled message body. Spec §13
+// pins the prompt roster to exactly two zero-argument templates;
 // adding or removing one requires a minor-version spec PR (tracked under
 // gum-z6w).
 type staticPrompt struct {
@@ -21,7 +21,7 @@ type staticPrompt struct {
 	Body        string
 }
 
-// staticPrompts is the closed v0.1.0 prompt roster. Both templates are
+// staticPrompts is the closed prompt roster. Both templates are
 // zero-argument: they bake in deterministic instructions for the host LLM
 // rather than templating user-provided arguments. The first call to
 // prompts/get returns the prompt verbatim; the client decides whether to
@@ -53,7 +53,7 @@ Render the result as a chronological list. For each entry note: (a) whether a co
 	},
 }
 
-// registerPrompts wires the v0.1.0 static prompt roster into the SDK. The
+// registerPrompts wires the static prompt roster into the SDK. The
 // SDK auto-advertises the prompts capability the first time AddPrompt is
 // called, so this method MUST run before Server.Run.
 func (s *Server) registerPrompts() {
@@ -83,7 +83,7 @@ func (s *Server) registerPrompts() {
 	}
 }
 
-// promptInvalidArgsError builds the spec §7 line 1575 argument-rejection
+// promptInvalidArgsError builds the spec §7 argument-rejection
 // envelope: JSON-RPC -32602 plus error.data carrying the stable gum error
 // code, the prompt name, and the user-facing message.
 //
@@ -95,7 +95,7 @@ func promptInvalidArgsError(name string, count int) *jsonrpc.Error {
 		"error_code": "INVALID_ARGS",
 		"prompt":     name,
 		"user_message": fmt.Sprintf(
-			"Prompt '%s' takes no arguments in v0.1.0; remove the arguments field or upgrade once dynamic prompts ship.",
+			"Prompt '%s' takes no arguments; remove the arguments field or upgrade once dynamic prompts ship.",
 			name),
 	})
 	return &jsonrpc.Error{

@@ -362,7 +362,7 @@ func Apply(p *Profile, in ApplyInput) (ApplyOutput, error) {
 	// Discriminator 5: the cap in force is 0, so the rows are gone on purpose.
 	// The flag is withheld without a message, because §13 makes
 	// {intentional_zero_max_items: true, on_empty_message: null} a combination
-	// the v0.1.0 runtime must never emit.
+	// the runtime must never emit.
 	zeroMaxItems := false
 	if spec := effectiveCollapse(p.CollapseArrays, in.MaxItems); spec != nil && spec.MaxItems == 0 && onEmptyMessage != "" {
 		zeroMaxItems = true

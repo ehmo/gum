@@ -27,25 +27,23 @@ func populatedMeta() *ExpressionMeta {
 	onEmpty := "No messages matched the filter."
 	expires := "2026-01-01T00:00:00Z"
 	root := "file:///work"
-	warning := "implicit_project_root"
 	zero := true
 	truncated := true
 	return &ExpressionMeta{
-		Profile:                  "gmail.messages.list.v1",
-		OpID:                     "gmail.users.messages.list",
-		VariantID:                &variant,
-		Lossy:                    true,
-		ResultCount:              7,
-		OmittedCount:             236,
-		OnEmptyMessage:           &onEmpty,
-		FullResultPath:           "/tmp/gum/full.json",
-		FullResultResource:       "gum://results/abc",
-		ArtifactExpiresAt:        &expires,
-		IntentionalZeroMaxItems:  &zero,
-		ProjectRootURI:           &root,
-		ProfileResolutionWarning: &warning,
-		CodeOutputTruncated:      &truncated,
-		UnsupportedCapabilities:  []string{"media_download"},
+		Profile:                 "gmail.messages.list.v1",
+		OpID:                    "gmail.users.messages.list",
+		VariantID:               &variant,
+		Lossy:                   true,
+		ResultCount:             7,
+		OmittedCount:            236,
+		OnEmptyMessage:          &onEmpty,
+		FullResultPath:          "/tmp/gum/full.json",
+		FullResultResource:      "gum://results/abc",
+		ArtifactExpiresAt:       &expires,
+		IntentionalZeroMaxItems: &zero,
+		ProjectRootURI:          &root,
+		CodeOutputTruncated:     &truncated,
+		UnsupportedCapabilities: []string{"media_download"},
 	}
 }
 

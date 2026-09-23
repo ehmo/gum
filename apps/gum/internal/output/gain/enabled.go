@@ -19,7 +19,7 @@ const DisabledEnv = "GUM_GAIN_DISABLED"
 // Enabled reports whether gain accounting runs for this profile.
 //
 // Both the writer (the dispatch ledger) and the reader (gum gain, gum.gain)
-// call this, so one opt-out covers recording and reporting. Spec §2689 makes
+// call this, so one opt-out covers recording and reporting. Spec §12.3 makes
 // the config key the documented switch; the env var stays as an override.
 //
 // A missing key, an unreadable config, or a value that is not a bool leaves

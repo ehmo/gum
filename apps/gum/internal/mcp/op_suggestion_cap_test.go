@@ -1,6 +1,6 @@
 // Package mcp — regression test for the OP_NOT_FOUND suggestion cap.
 //
-// Defect: spec.md §4.1 (docs/spec.md:349) caps the OP_NOT_FOUND envelope at
+// Defect: spec §4.1 caps the OP_NOT_FOUND envelope at
 // "up to 3 BM25-fuzzy matches". internal/dispatch honours that cap on both
 // CLI paths, but handleRiskTier asked the search index for 5, so the same
 // error code carried a different suggestion count depending on which surface

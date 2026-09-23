@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestWriteTransactionSortsCatalogVariants pins spec §8.7 line 1884: "All three
+// TestWriteTransactionSortsCatalogVariants pins spec §8.7: "All three
 // objects use arrays sorted by plugin name (and, inside plugin-catalog.json,
 // variants sorted by variant_id) before JCS hashing or golden tests."
 //

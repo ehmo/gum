@@ -18,7 +18,7 @@ const completionMaxValues = 50
 
 // handleComplete dispatches completion/complete to a focused per-ref source.
 // Spec §13 calls for op_id, variant_id, resource-template params, plugin
-// names, and closed-enum completions. v0.1.0 wires:
+// names, and closed-enum completions. gum wires:
 //
 //   - ref/resource gum://help/{topic}      → embedded help-topic names
 //   - ref/resource gum://op/{id}           → active-snapshot op_ids
@@ -71,9 +71,9 @@ func (s *Server) completeResourceRef(uri, argName, prefix string) *sdkmcp.Comple
 }
 
 // completionOpIDs returns every op_id from the active session catalog
-// snapshot. Spec §13 line 3208: completion handlers read the snapshot, never
+// snapshot. Spec §13: completion handlers read the snapshot, never
 // the raw BM25 index, so quarantined / pending-restart variants never surface
-// as completions. v0.1.0 snapshots contain only first-party ops, so the
+// as completions. Snapshots contain only first-party ops, so the
 // "exclude inactive" branch is a no-op until plugin install paths land.
 func (s *Server) completionOpIDs() []string {
 	if s.snapshot == nil {
@@ -88,7 +88,7 @@ func (s *Server) completionOpIDs() []string {
 
 // completionVariantIDs returns every variant_id across every active op.
 // The worst-case canary (gum-tsu) seeds a single op with 50 variants to
-// exercise the upper bound. Spec §13 line 3259 budgets P95 ≤ 100 ms over a
+// exercise the upper bound. Spec §13 budgets P95 ≤ 100 ms over a
 // catalog with the maximum supported variant fan-out.
 func (s *Server) completionVariantIDs() []string {
 	if s.snapshot == nil {
@@ -104,10 +104,10 @@ func (s *Server) completionVariantIDs() []string {
 }
 
 // completionPluginNames returns every plugin name visible to MCP from the
-// active profile inventory. Spec §13 line 3208 second bullet permits
+// active profile inventory. Spec §13 second bullet permits
 // inventory-only plugins to appear because gum://plugin/{name} is metadata-
 // only. The shared loader already filters installed_pending_restart per
-// spec §13 line 3148.
+// spec §13.
 func (s *Server) completionPluginNames() []string {
 	rows := s.loadPluginInventoryRows()
 	out := make([]string, 0, len(rows))
@@ -118,13 +118,13 @@ func (s *Server) completionPluginNames() []string {
 }
 
 // completePromptRef routes completion requests for prompt arguments. All
-// v0.1.0 prompts are zero-argument so this always returns an empty result;
-// the case statement is reserved for the v0.2.0 templated prompts.
+// prompts are zero-argument so this always returns an empty result; the
+// case statement is reserved for templated prompts, which are not built.
 func (s *Server) completePromptRef(_ string, _ string, _ string) *sdkmcp.CompleteResult {
 	return emptyCompleteResult()
 }
 
-// completionRanked applies the spec §13 line 3208 ordering rule for op_id
+// completionRanked applies the spec §13 ordering rule for op_id
 // completions: exact-prefix match first (case-sensitive — a candidate whose
 // literal start matches the user's typed prefix outranks one that only
 // matches case-insensitively), BM25 rank second (the same index that
@@ -140,7 +140,7 @@ func (s *Server) completionRanked(values []string, prefix string) *sdkmcp.Comple
 	return capCompletionValues(values)
 }
 
-// rankCompletionValues sorts values in place per the §13 line 3208 rule.
+// rankCompletionValues sorts values in place per the §13 rule.
 // Exposed as a package-local function so the ordering invariant is unit-
 // testable without standing up a Server.
 func rankCompletionValues(values []string, prefix string, idx *embed.Index) {

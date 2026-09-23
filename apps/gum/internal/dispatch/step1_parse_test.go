@@ -4,7 +4,7 @@
 //   - §3.1 step 2 (catalog resolution, alias normalization, op_id lookup)
 //   - §4.1 op_id validation ("OP_NOT_FOUND + BM25 suggestions")
 //   - §5.3/§5.4 params_required / params_optional type grammar
-//   - §8.42 / spec line 842: INVALID_ARGS envelope {"missing":[...],"unknown":[...],"type_errors":[...]}
+//   - §5.7: INVALID_ARGS envelope {"missing":[...],"unknown":[...],"type_errors":[...]}
 //
 // These tests are intentionally written against the *target* parseAndValidate
 // signature:
@@ -122,7 +122,7 @@ func newTestDispatcher() *dispatcher {
 
 // TestParseAndValidateOpNotFound verifies that an unknown op_id returns a
 // StructuredError with ErrCode == ErrCodeOpNotFound and a "suggestions" detail
-// key (spec §4.1, spec line 331: "up to 3 BM25-fuzzy matches").
+// key (spec §4.1: "up to 3 BM25-fuzzy matches").
 func TestParseAndValidateOpNotFound(t *testing.T) {
 	d := newTestDispatcher()
 	inv := &Invocation{OpID: "non.existent.op", Args: nil}
@@ -134,7 +134,7 @@ func TestParseAndValidateOpNotFound(t *testing.T) {
 	if serr.ErrCode != ErrCodeOpNotFound {
 		t.Errorf("expected ErrCode=%q, got %q", ErrCodeOpNotFound, serr.ErrCode)
 	}
-	// Detail["suggestions"] must exist and be a slice (possibly empty per spec v0.1.0 note).
+	// Detail["suggestions"] must exist and be a slice (possibly empty per the spec note).
 	sug, ok := serr.Detail["suggestions"]
 	if !ok {
 		t.Errorf("expected detail key 'suggestions' in StructuredError, got detail=%v", serr.Detail)
@@ -176,7 +176,7 @@ func TestParseAndValidateOpNotFoundSuggestsNearMiss(t *testing.T) {
 
 // TestParseAndValidateMissingRequiredArgs verifies that calling an op without
 // its required args returns INVALID_ARGS with detail["missing"] populated.
-// Spec §5.3 / spec line 837 / spec line 842.
+// Spec §5.3 / §5.7.
 func TestParseAndValidateMissingRequiredArgs(t *testing.T) {
 	d := newTestDispatcher()
 	// "test.op.required" requires "foo"; call with no args.
@@ -204,7 +204,7 @@ func TestParseAndValidateMissingRequiredArgs(t *testing.T) {
 
 // TestParseAndValidateUnknownArgs verifies that passing an arg not declared in
 // params_required ∪ params_optional returns INVALID_ARGS with
-// detail["unknown"] populated. Spec line 839.
+// detail["unknown"] populated. Spec §5.7.
 func TestParseAndValidateUnknownArgs(t *testing.T) {
 	d := newTestDispatcher()
 	// "test.op.required" only allows "foo" and "bar"; "baz" is unknown.
@@ -236,7 +236,7 @@ func TestParseAndValidateUnknownArgs(t *testing.T) {
 // TestParseAndValidateTypeErrors verifies that passing an arg whose runtime type
 // does not match the declared catalog type returns INVALID_ARGS with
 // detail["type_errors"] populated with a message mentioning the field name and
-// the expected type. Spec line 838 / line 842.
+// the expected type. Spec §5.7.
 func TestParseAndValidateTypeErrors(t *testing.T) {
 	d := newTestDispatcher()
 	// "foo" is declared as type "string"; pass an integer instead.
@@ -375,7 +375,7 @@ func TestParseAndValidateArgsHashStable(t *testing.T) {
 // TestParseAndValidateAllErrorsAggregated verifies that validation returns ALL
 // errors (missing + unknown + type_errors) in a single envelope rather than
 // short-circuiting on the first failure.
-// Spec line 842: all three keys are returned in one envelope.
+// Spec §5.7: all three keys are returned in one envelope.
 func TestParseAndValidateAllErrorsAggregated(t *testing.T) {
 	d := newTestDispatcher()
 	// "foo" is required (missing), "baz" is unknown, "bar" is integer but we pass a string.

@@ -1,6 +1,6 @@
 // Bead gum-yh7p / docs/test-matrix.md row 180.
 //
-// Spec §13 line 3252 makes the startup shape of gum://status/canaries
+// Spec §13 makes the startup shape of gum://status/canaries
 // normative: "on server startup, before any passive cron run has completed,
 // the resource MUST return rows with status = \"stale\" for every known plugin
 // canary, including freshly-installed-but-never-run canaries." The same
@@ -78,7 +78,7 @@ func TestCanaryStaleOnStartup(t *testing.T) {
 		t.Fatalf("got %d rows, want 3:\n%s", len(rows), body)
 	}
 
-	// Sorted by canary_id lexicographically (spec §13 line 3252).
+	// Sorted by canary_id lexicographically (spec §13).
 	wantIDs := []string{"alpha", "mid", "zeta"}
 	for i, row := range rows {
 		fields := strings.Split(row, ",")
@@ -104,7 +104,7 @@ func TestCanaryStaleOnStartup(t *testing.T) {
 }
 
 // TestCanaryRosterTracksInstallsBetweenReads proves the roster is regenerated
-// per resources/read (spec §13 line 3252), not captured at server startup.
+// per resources/read (spec §13), not captured at server startup.
 func TestCanaryRosterTracksInstallsBetweenReads(t *testing.T) {
 	defer goleak.VerifyNone(t)
 

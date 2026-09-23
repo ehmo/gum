@@ -21,7 +21,7 @@ func capabilityCatalog(support catalog.ExecutionSupport, caps, unsupported []str
 				OpID:             "test.capability.op",
 				OpSchemaVersion:  1,
 				Title:            "Capability gate op",
-				Summary:          "Exercises the spec §927 capability gate.",
+				Summary:          "Exercises the spec §5.8 capability gate.",
 				DefaultVariantID: "v1",
 				Variants: []catalog.Variant{
 					{
@@ -45,7 +45,7 @@ func capabilityCatalog(support catalog.ExecutionSupport, caps, unsupported []str
 	}
 }
 
-// TestCapabilityGateRefusesBeforeTheUpstreamRequest pins spec §927. A
+// TestCapabilityGateRefusesBeforeTheUpstreamRequest pins spec §5.8. A
 // typed_executor_required or schema_only variant must answer
 // UNSUPPORTED_CAPABILITY without reaching the adapter. Nothing enforced this
 // before: such a variant resolved auth and issued a request that could not
@@ -100,14 +100,14 @@ func TestCapabilityGateRefusesBeforeTheUpstreamRequest(t *testing.T) {
 				t.Fatalf("error_code = %s; want %s", se.ErrCode, ErrCodeUnsupportedCapability)
 			}
 			if calls != 0 {
-				t.Errorf("adapter ran %d time(s); §927 refuses before any upstream request", calls)
+				t.Errorf("adapter ran %d time(s); §5.8 refuses before any upstream request", calls)
 			}
 			if got := se.Detail["suggestion"]; got != unsupportedCapabilitySuggestion {
 				t.Errorf("suggestion = %v; want %q", got, unsupportedCapabilitySuggestion)
 			}
 			blocked, ok := se.Detail["unsupported_capabilities"].([]string)
 			if !ok {
-				t.Fatalf("detail[unsupported_capabilities] = %T; spec.md:941 makes it the branch discriminator and it must be present", se.Detail["unsupported_capabilities"])
+				t.Fatalf("detail[unsupported_capabilities] = %T; spec §5.8 makes it the branch discriminator and it must be present", se.Detail["unsupported_capabilities"])
 			}
 			if len(blocked) != len(tc.wantBlocked) {
 				t.Fatalf("unsupported_capabilities = %v; want %v", blocked, tc.wantBlocked)
@@ -118,13 +118,13 @@ func TestCapabilityGateRefusesBeforeTheUpstreamRequest(t *testing.T) {
 				}
 			}
 			if _, present := se.Detail["status"]; present {
-				t.Error("detail carries both discriminators; spec.md:943 makes them mutually exclusive")
+				t.Error("detail carries both discriminators; spec §5.8 makes them mutually exclusive")
 			}
 		})
 	}
 }
 
-// TestCapabilityGateLetsFullAndPartialThrough pins the other half of §927.
+// TestCapabilityGateLetsFullAndPartialThrough pins the other half of §5.8.
 // "full" and "partial" variants stay invokable; refusing them would turn a
 // documented warning into an outright failure.
 func TestCapabilityGateLetsFullAndPartialThrough(t *testing.T) {
@@ -155,7 +155,7 @@ func TestCapabilityGateLetsFullAndPartialThrough(t *testing.T) {
 	}
 }
 
-// TestPartialVariantWarnsInTheExpressionEnvelope pins spec §932. A "partial"
+// TestPartialVariantWarnsInTheExpressionEnvelope pins spec §5.8. A "partial"
 // variant executes, so the caller gets data and must also be told which atoms
 // did not run. The field rides in _expression because the three §13 result
 // shapes are closed.
@@ -183,11 +183,11 @@ func TestPartialVariantWarnsInTheExpressionEnvelope(t *testing.T) {
 		}
 	}
 	if fields := shaped.Expression.Fields(); fields["_unsupported_capabilities"] == nil {
-		t.Error("Fields() drops _unsupported_capabilities; the wire envelope would omit the §932 warning")
+		t.Error("Fields() drops _unsupported_capabilities; the wire envelope would omit the §5.8 warning")
 	}
 }
 
-// TestFullVariantCarriesNoCapabilityWarning keeps the §932 field off every
+// TestFullVariantCarriesNoCapabilityWarning keeps the §5.8 field off every
 // other execution_support. A warning on a fully executable variant names atoms
 // that did run, which is worse than no warning.
 func TestFullVariantCarriesNoCapabilityWarning(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 // TestStructuredErrorEnvelopeGolden pins the JSON-envelope shape of three
 // representative error codes under testdata/golden/envelope/ (gum-b22o.2). The
-// envelope wire format is normative per spec §1421; a silent change to the
+// envelope wire format is normative per spec §7; a silent change to the
 // MarshalJSON method MUST break this test.
 func TestStructuredErrorEnvelopeGolden(t *testing.T) {
 	cases := []struct {

@@ -36,11 +36,10 @@ func TestPluginManifestVersionRejectedTooNew(t *testing.T) {
 }
 
 // TestPluginManifestVersionRejectedTooOld verifies that manifest_schema_version=0
-// (pre-normative, treated as unsupported for third-party manifests) returns
-// ErrUnsupportedSchemaVersion.
+// (pre-normative, always unsupported) returns ErrUnsupportedSchemaVersion.
 //
-// Spec §8.6: "missing is treated as 1 only for bundled v0.1.0 development manifests,
-// not third-party installs." An explicit 0 is always unsupported.
+// Spec §8.6: "A missing or future version fails with the same code; no
+// manifest is exempt." An explicit 0 is always unsupported.
 func TestPluginManifestVersionRejectedTooOld(t *testing.T) {
 	dir := writeManifestDir(t, 0)
 
@@ -128,7 +127,7 @@ func itoa(n int) string {
 }
 
 // TestPluginManifestSchemaVersionPlacement pins docs/test-matrix.md row 79
-// and spec §8.6 line 1737: the canonical version field is a top-level
+// and spec §8.6: the canonical version field is a top-level
 // sibling of `plugin`. A missing field and a copy nested inside `plugin`
 // both fail install with PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED, and the nested
 // copy fails even when it names the supported version.

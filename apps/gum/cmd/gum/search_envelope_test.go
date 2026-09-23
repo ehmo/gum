@@ -9,7 +9,7 @@ import (
 )
 
 // TestSearchJSONEnvelopeMatchesSpec pins the `gum search --format=json` root to
-// spec §2515: `{"query", "results", "on_empty_message"?}`. The command emitted
+// spec §12: `{"query", "results", "on_empty_message"?}`. The command emitted
 // only `results`, so a consumer reading a saved file could not tell which query
 // produced the hits, and an empty set arrived with no explanation.
 func TestSearchJSONEnvelopeMatchesSpec(t *testing.T) {

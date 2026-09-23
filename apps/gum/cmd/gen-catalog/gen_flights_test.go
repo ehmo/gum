@@ -8,7 +8,7 @@ import (
 )
 
 // TestBuildFlightsOpShape — gum-9vuq.10 acceptance. The fli Shape 1 plugin
-// variant must match spec §4.1 line 366 and §8.2 exactly so the convenience
+// variant must match spec §4.1 and §8.2 exactly so the convenience
 // handler (internal/mcp/tier_a_abi.go) can resolve flights_search →
 // flights.search → flights.v1.plugin.search and route to the mcp-plugin
 // executor with the right tool_name.
@@ -16,13 +16,13 @@ func TestBuildFlightsOpShape(t *testing.T) {
 	op := BuildFlightsOp()
 
 	if op.OpID != "flights.search" {
-		t.Errorf("op_id = %q; want flights.search (spec §4.1 line 366)", op.OpID)
+		t.Errorf("op_id = %q; want flights.search (spec §4.1)", op.OpID)
 	}
 	if op.OpSchemaVersion != 1 {
 		t.Errorf("op_schema_version = %d; want 1", op.OpSchemaVersion)
 	}
 	if op.DefaultVariantID != "flights.v1.plugin.search" {
-		t.Errorf("default_variant_id = %q; want flights.v1.plugin.search (spec §4.1 line 366)", op.DefaultVariantID)
+		t.Errorf("default_variant_id = %q; want flights.v1.plugin.search (spec §4.1)", op.DefaultVariantID)
 	}
 	if got := len(op.Variants); got != 1 {
 		t.Fatalf("variants = %d; want 1", got)
@@ -33,13 +33,13 @@ func TestBuildFlightsOpShape(t *testing.T) {
 		t.Errorf("variant_id = %q; want flights.v1.plugin.search", v.VariantID)
 	}
 	if v.InterfaceKind != catalog.InterfaceKindPluginMCP {
-		t.Errorf("interface_kind = %q; want plugin-mcp (spec §8.2 / spec line 1583)", v.InterfaceKind)
+		t.Errorf("interface_kind = %q; want plugin-mcp (spec §8.2)", v.InterfaceKind)
 	}
 	if v.BackendKind != catalog.BackendKindMCPPlugin {
-		t.Errorf("backend_kind = %q; want mcp-plugin (spec §8.2 / spec line 1582)", v.BackendKind)
+		t.Errorf("backend_kind = %q; want mcp-plugin (spec §8.2)", v.BackendKind)
 	}
 	if v.RiskClass != catalog.RiskClassRead {
-		t.Errorf("risk_class = %q; want read (spec §4.1 line 366: readonly=true)", v.RiskClass)
+		t.Errorf("risk_class = %q; want read (spec §4.1: readonly=true)", v.RiskClass)
 	}
 	if v.AuthStrategy != catalog.AuthStrategyPluginManaged {
 		t.Errorf("auth_strategy = %q; want plugin_managed (plugin owns its own credentials per spec §8.3)", v.AuthStrategy)
@@ -64,13 +64,13 @@ func TestBuildFlightsOpShape(t *testing.T) {
 	if v.Binding.AdapterKey != "plugin.mcp" {
 		t.Errorf("binding.adapter_key = %q; want plugin.mcp", v.Binding.AdapterKey)
 	}
-	// tool_name MUST equal the MCP-registered convenience tool (spec line 1578).
+	// tool_name MUST equal the MCP-registered convenience tool (spec §8.2).
 	// Plugin host uses this to dispatch tools/call against the subprocess.
 	if v.Binding.ToolName != "flights_search" {
-		t.Errorf("binding.tool_name = %q; want flights_search (spec line 1578: tool_name = \"flights_search\")", v.Binding.ToolName)
+		t.Errorf("binding.tool_name = %q; want flights_search (spec §8.2: tool_name = \"flights_search\")", v.Binding.ToolName)
 	}
 	if v.Binding.PluginName != "google-flights" {
-		t.Errorf("binding.plugin_name = %q; want google-flights (spec §8.2 line 1538: plugin.name)", v.Binding.PluginName)
+		t.Errorf("binding.plugin_name = %q; want google-flights (spec §8.2: plugin.name)", v.Binding.PluginName)
 	}
 	if v.Binding.OperationKey != "flights.search" {
 		t.Errorf("binding.operation_key = %q; want flights.search", v.Binding.OperationKey)
@@ -93,7 +93,7 @@ func TestBuildFlightsOpValidates(t *testing.T) {
 }
 
 // TestBuildFlightsOpBindingValidatesAsPlugin asserts the plugin-shape binding
-// passes plugins.ValidateBinding (spec §5.1 + spec §8.2 line 1593), so the
+// passes plugins.ValidateBinding (spec §5.1 + spec §8.2), so the
 // install/dispatch gates accept this catalog variant when the fli plugin
 // activates.
 func TestBuildFlightsOpBindingValidatesAsPlugin(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 // tierAResult wraps a shaped dispatch result in the spec §13 structured result
 // shape: ToonResult, SingleObjectResult, or RawJsonResult.
 //
-// The §13 selection rule (spec line 2701) keys on the resolved format, so the
+// The §13 selection rule keys on the resolved format, so the
 // wrapper reads shaped.Format rather than guessing from the payload. Before
 // this existed the MCP layer put the bare payload in structuredContent and no
 // production path ever emitted `_expression`, so a client had the rows but no
@@ -28,7 +28,7 @@ func tierAResult(shaped *dispatch.ShapedResponse) any {
 	switch shaped.Format {
 	case "raw":
 		// RawJsonResult: format is the constant "json" even for a raw pass,
-		// and data is the unprocessed value (§2705). An executor that returned
+		// and data is the unprocessed value (§13). An executor that returned
 		// opaque bytes has no JSON tree, so its printed output is the data.
 		env["format"] = "json"
 		if shaped.StructuredContent != nil {

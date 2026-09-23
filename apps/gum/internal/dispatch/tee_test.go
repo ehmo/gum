@@ -101,7 +101,7 @@ func TestTeeOmittedWhenTeeModeOff(t *testing.T) {
 
 // TestFullResultPathPresentInExpression locks down the contract that
 // ShapedResponse.FullResultPath is the canonical handle the presentation layer
-// projects into _expression.full_result_path (spec §9.0 line 1847). When the
+// projects into _expression.full_result_path (spec §9.0). When the
 // active profile uses recovery="resource_link", FullResultResource is also
 // populated with the gum://results/<hash> URI.
 func TestFullResultPathPresentInExpression(t *testing.T) {
@@ -139,7 +139,7 @@ func TestFullResultPathPresentInExpression(t *testing.T) {
 // TestFullResultSizeMatchesDecompressedBody — bead-named acceptance for
 // gum-6krt. When tee fires, the dispatcher MUST attach the decompressed
 // payload length to ShapedResponse.FullResultSize so the MCP layer can
-// thread it onto ResourceLink.Size (spec §9.0 line 1846 "size when known").
+// thread it onto ResourceLink.Size (spec §9.0 "size when known").
 // The size MUST match what `gum://results/<hash>` resources/read returns —
 // i.e. len(resp.Body) — not the gzip-compressed on-disk file size.
 func TestFullResultSizeMatchesDecompressedBody(t *testing.T) {
@@ -184,7 +184,7 @@ func TestFullResultSizeMatchesDecompressedBody(t *testing.T) {
 // TestPrincipalScopedDedup runs the same op+args twice with different
 // AuthSubjectFingerprints. The two writes MUST produce distinct artifact
 // hashes (and therefore distinct paths) so cross-principal handles are
-// non-reusable per spec §9.0 line 1846.
+// non-reusable per spec §9.0.
 func TestPrincipalScopedDedup(t *testing.T) {
 	t.Parallel()
 	fx := newTeeFixture(t, []byte(`{"hits":1}`))

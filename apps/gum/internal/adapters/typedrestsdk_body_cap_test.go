@@ -61,7 +61,7 @@ func TestTypedRestSDKResponseBodyCapped(t *testing.T) {
 	}
 	// Accept either a wrapped StructuredError with ErrCodeResponseTooLarge or
 	// an error whose message contains "RESPONSE_TOO_LARGE" — both shapes are
-	// compatible with the spec §1421 envelope.
+	// compatible with the spec §7 envelope.
 	var se *dispatch.StructuredError
 	if (!errors.As(err, &se) || string(se.ErrCode) != "RESPONSE_TOO_LARGE") &&
 		!strings.Contains(err.Error(), "RESPONSE_TOO_LARGE") {

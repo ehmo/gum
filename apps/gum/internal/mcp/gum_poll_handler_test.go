@@ -6,8 +6,8 @@
 //
 // Spec anchors:
 //   - spec.md §4.1/§5.7 polling-loop contract.
-//   - spec.md §1421 — LRO_TIMEOUT stable error code.
-//   - spec.md §3304-3306 — notifications/progress + _meta.progressToken wiring.
+//   - spec.md §7 — LRO_TIMEOUT stable error code.
+//   - spec.md §13 — notifications/progress + _meta.progressToken wiring.
 //
 // These tests FAIL until Green:
 //
@@ -212,7 +212,7 @@ func TestHandlePollEmitsProgressWithIntegerToken(t *testing.T) {
 	notifications := drainProgress(progressCh, 500*time.Millisecond, 50*time.Millisecond)
 
 	if len(notifications) == 0 {
-		t.Fatal("no progress notifications received; want ≥1 (spec §3304)")
+		t.Fatal("no progress notifications received; want ≥1 (spec §13)")
 	}
 
 	// ProgressToken must be numeric — int64(42) or float64(42). Must NOT be "42".
@@ -384,10 +384,10 @@ func TestHandlePollReturnsLROTimeoutEnvelope(t *testing.T) {
 		t.Errorf("operation_name=%q; want \"ops/abc\"", opName)
 	}
 	if rh, _ := m["resume_handle"].(string); rh != "ops/abc" {
-		t.Errorf("resume_handle=%q; want \"ops/abc\" (spec §1421)", rh)
+		t.Errorf("resume_handle=%q; want \"ops/abc\" (spec §7)", rh)
 	}
 	if suggestion, _ := m["suggestion"].(string); suggestion == "" {
-		t.Error("suggestion is empty; want non-empty human-readable hint (spec §1421)")
+		t.Error("suggestion is empty; want non-empty human-readable hint (spec §7)")
 	}
 }
 

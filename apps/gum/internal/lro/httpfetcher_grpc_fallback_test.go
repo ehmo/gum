@@ -12,7 +12,7 @@ import (
 
 // TestHTTPFetcherGRPCFallbackSucceeds pins Fetch's
 // `routing match is gRPC → tryREST(googleapis.com, /v1/{op}) succeeds`
-// arm (httpfetcher.go:47-53). v0.1.0 has no gRPC client wired, so when
+// arm (httpfetcher.go:47-53). No gRPC client is wired, so when
 // routing.Lookup returns TransportGRPC the fetcher MUST attempt a REST
 // fallback against googleapis.com before giving up. Operation names
 // starting with "operations/" trigger the gRPC route per

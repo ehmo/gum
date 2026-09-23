@@ -41,7 +41,7 @@ func TestToolAnnotations(t *testing.T) {
 		t.Fatal("sdkmcp.ToolAnnotations has no DestructiveHint field")
 	}
 	if destField.Type.Kind() != reflect.Pointer || destField.Type.Elem().Kind() != reflect.Bool {
-		t.Errorf("DestructiveHint type = %s; want *bool (spec §13 line 3210; SDK upgrade regression)", destField.Type)
+		t.Errorf("DestructiveHint type = %s; want *bool (spec §13; SDK upgrade regression)", destField.Type)
 	}
 	if got, want := destField.Tag.Get("json"), "destructiveHint,omitempty"; got != want {
 		t.Errorf("DestructiveHint json tag = %q; want %q", got, want)
@@ -107,7 +107,7 @@ func TestToolAnnotationsWireForm(t *testing.T) {
 
 	for name, ann := range anns {
 		if ann == nil {
-			t.Errorf("%s: nil annotation pointer (spec §13 line 3212 requires destructiveHint on every Tier A tool)", name)
+			t.Errorf("%s: nil annotation pointer (spec §13 requires destructiveHint on every Tier A tool)", name)
 			continue
 		}
 

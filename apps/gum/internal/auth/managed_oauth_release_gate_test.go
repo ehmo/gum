@@ -10,7 +10,7 @@ import (
 
 // The two tests in this file are the release gates the managed-scope
 // manifest's own preamble names: "runs TestManagedScopeVerificationEvidence
-// and TestManagedOAuthProjectReadiness as v0.1 CI gates". They cover the
+// and TestManagedOAuthProjectReadiness as CI gates". They cover the
 // parts of spec §7 scope promotion that data/auth-managed-scopes.v1.schema.json
 // cannot express.
 //
@@ -161,7 +161,7 @@ func TestManagedOAuthProjectReadiness(t *testing.T) {
 		}
 	}
 	if active == 0 {
-		t.Fatal("no scope has status=active; the readiness gate would be vacuous and v0.1.0 tagging requires one")
+		t.Fatal("no scope has status=active; the readiness gate would be vacuous and release tagging requires one")
 	}
 
 	if gaps := projectReadinessGaps(doc); len(gaps) != 0 {

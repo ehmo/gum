@@ -1,7 +1,7 @@
-// Spec §1606: credential descriptor types, validation, and keychain key helpers.
+// Spec §7: credential descriptor types, validation, and keychain key helpers.
 // User-facing surfaces (errors, resource records, prompts) MUST use alias,
 // display_name, and setup_hint only; raw env var names MUST NOT appear in any
-// message returned to the user (spec §1414, §1606).
+// message returned to the user (spec §7).
 
 package plugins
 
@@ -12,11 +12,11 @@ import (
 )
 
 // ErrCredentialDescriptorInvalid is returned by ValidateCredentialDescriptors
-// when the manifest's credential_descriptors block violates spec §1606 rules.
+// when the manifest's credential_descriptors block violates spec §7 rules.
 // The error wraps a detail message but the sentinel itself is stable.
 var ErrCredentialDescriptorInvalid = errors.New("PLUGIN_CREDENTIAL_DESCRIPTOR_INVALID")
 
-// validCredentialKinds is the closed enum of credential kinds per spec §1606.
+// validCredentialKinds is the closed enum of credential kinds per spec §7.
 var validCredentialKinds = map[string]bool{
 	"api_key":     true,
 	"oauth_token": true,
@@ -26,11 +26,11 @@ var validCredentialKinds = map[string]bool{
 }
 
 // credAliasRe is the pattern for a valid descriptor alias: lowercase token
-// per spec §1606 example "flights_session".
+// per spec §7 example "flights_session".
 var credAliasRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 // CredentialDescriptor carries the user-facing metadata for one plugin
-// credential per spec §1606. The Env field is the raw subprocess env var name
+// credential per spec §7. The Env field is the raw subprocess env var name
 // and MUST NOT appear in any user-visible output.
 type CredentialDescriptor struct {
 	// Alias is the stable lowercase token used in user-facing error messages
@@ -47,7 +47,7 @@ type CredentialDescriptor struct {
 	SetupHint string `json:"setup_hint"`
 }
 
-// ValidateCredentialDescriptors enforces the spec §1606 invariants on the
+// ValidateCredentialDescriptors enforces the spec §7 invariants on the
 // manifest's needs_user_creds / credential_descriptors pair:
 //
 //   - Every env name in needs_user_creds has exactly one descriptor.
@@ -83,7 +83,7 @@ func ValidateCredentialDescriptors(needs []string, descs []CredentialDescriptor)
 			// Do NOT include the env var name in the message returned to users
 			// (the validation error is a manifest-author error shown in CLI
 			// diagnostics only — but we keep the message env-free to satisfy
-			// spec §1606 "may appear only in local CLI diagnostics and manifest
+			// spec §7 "may appear only in local CLI diagnostics and manifest
 			// validation errors").
 			return fmt.Errorf("%w: descriptor env not listed in needs_user_creds", ErrCredentialDescriptorInvalid)
 		}
@@ -138,7 +138,7 @@ func PluginCredentialKey(profile, pluginID, alias string) string {
 // SafeDescriptorMaps returns a slice of maps containing only the
 // user-safe fields (alias, kind, display_name, setup_hint) for each descriptor.
 // This is the shape persisted to plugin-state.json and surfaced in MCP resources
-// per spec §3165.
+// per spec §13.
 func SafeDescriptorMaps(descs []CredentialDescriptor) []any {
 	if len(descs) == 0 {
 		return nil

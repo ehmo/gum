@@ -47,13 +47,13 @@ var (
 	ErrUndeclaredUnsupportedCapability   = errors.New("catalog: unsupported_capabilities atom is not declared in capabilities")
 	ErrPartialWithNoExecutableCapability = errors.New("catalog: execution_support \"partial\" blocks every declared capability")
 
-	// ErrUnknownCapability is the spec §913 build-time and load-time code
+	// ErrUnknownCapability is the spec §5.8 build-time and load-time code
 	// UNKNOWN_CAPABILITY. The capabilities enum is closed, so an atom outside
 	// it is a typo or an unpromoted experiment, and either one would reach
 	// gum.describe_op as a claim gum cannot honour.
 	ErrUnknownCapability = errors.New("catalog: UNKNOWN_CAPABILITY")
 
-	// ErrExperimentalCapabilityNotSchemaOnly is the second half of the §913
+	// ErrExperimentalCapabilityNotSchemaOnly is the second half of the §5.8
 	// rule: an `x-` atom is searchable metadata only, so the variant carrying
 	// it must declare execution_support "schema_only".
 	ErrExperimentalCapabilityNotSchemaOnly = errors.New("catalog: experimental x- capability requires execution_support \"schema_only\"")
@@ -90,16 +90,16 @@ func (r RiskClass) Valid() bool {
 	return false
 }
 
-// ExecutionSupport is a closed enum per spec.md §918. It states how much of a
+// ExecutionSupport is a closed enum per spec.md §5.8. It states how much of a
 // variant's declared `capabilities[]` the dispatcher can actually execute.
 type ExecutionSupport string
 
 const (
-	// ExecutionSupportFull means every declared atom executes. §925 forbids
+	// ExecutionSupportFull means every declared atom executes. §5.8 forbids
 	// `unsupported_capabilities` on this value.
 	ExecutionSupportFull ExecutionSupport = "full"
 	// ExecutionSupportPartial means at least one declared atom executes and at
-	// least one does not. §925 requires `unsupported_capabilities` to list
+	// least one does not. §5.8 requires `unsupported_capabilities` to list
 	// every non-executable atom, which is a strict subset of `capabilities[]`.
 	ExecutionSupportPartial ExecutionSupport = "partial"
 	// ExecutionSupportTypedExecutorRequired means no declared atom executes
@@ -151,11 +151,11 @@ const (
 	BackendKindGRPCPlugin    BackendKind = "grpc-plugin"
 	// BackendKindMapsSDK selects internal/adapters/maps/ which wraps
 	// googlemaps.github.io/maps for the Maps Web Service family (Routes,
-	// Directions, Geocoding, Places, …). Spec §14 line 3335.
+	// Directions, Geocoding, Places, …). Spec §14.
 	BackendKindMapsSDK BackendKind = "maps-sdk"
 	// BackendKindGenAI selects internal/adapters/genai/ which wraps
 	// google.golang.org/genai for Gemini generateContent and friends.
-	// Spec §14 line 3334.
+	// Spec §14.
 	BackendKindGenAI BackendKind = "gen-ai"
 	// BackendKindGoogleAdsSDK selects internal/adapters/googleads/ which calls
 	// the Google Ads API (googleads.googleapis.com) Keyword Planner methods.
@@ -584,6 +584,12 @@ func (op *Op) Validate() error {
 				return fmt.Errorf("op %s: variant %s: auth_components kind %q: %w", op.OpID, v.VariantID, comp.Kind, ErrUnknownAuthComponent)
 			}
 		}
+		// §7. risk_override_reason is replayed verbatim into catalog.json,
+		// gum.describe_op and the audit log, and printed to a terminal by
+		// `gum catalog list-overrides`. This is the only gate on it.
+		if err := validateRiskOverride(v.VariantID, v.RiskOverride, v.RiskOverrideReason); err != nil {
+			return fmt.Errorf("op %s: %w", op.OpID, err)
+		}
 		if err := v.validateCapabilities(op.OpID); err != nil {
 			return err
 		}
@@ -617,7 +623,7 @@ func (op *Op) Validate() error {
 	return nil
 }
 
-// validateExecutionSupport enforces the spec §925 binding between a variant's
+// validateExecutionSupport enforces the spec §5.8 binding between a variant's
 // `execution_support` and its `unsupported_capabilities`. The catalog is the
 // declaration site: `gum.describe_op` reads the field straight through, so an
 // unchecked variant here becomes a wrong `DescribeOpResult` downstream.
@@ -650,7 +656,7 @@ func (v Variant) validateExecutionSupport(opID string) error {
 	}
 
 	if support == ExecutionSupportPartial {
-		// §918 defines "partial" as a mixed variant: at least one declared
+		// §5.8 defines "partial" as a mixed variant: at least one declared
 		// atom executes and at least one does not.
 		if len(v.UnsupportedCapabilities) == 0 {
 			return fmt.Errorf("op %s: variant %s: execution_support %q: %w", opID, v.VariantID, support, ErrMissingUnsupportedCapabilities)
@@ -697,7 +703,7 @@ type Variant struct {
 	NullElisionSafeFields []string         `json:"null_elision_safe_fields,omitempty"`
 	ExecutionSupport      ExecutionSupport `json:"execution_support,omitempty"`
 	// UnsupportedCapabilities names the atoms of Capabilities that this variant
-	// cannot execute. §925 binds it to ExecutionSupport: absent on "full",
+	// cannot execute. §5.8 binds it to ExecutionSupport: absent on "full",
 	// every non-executable atom on "partial", every blocking atom on
 	// "typed_executor_required" and "schema_only".
 	UnsupportedCapabilities []string     `json:"unsupported_capabilities,omitempty"`

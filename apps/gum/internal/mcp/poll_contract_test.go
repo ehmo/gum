@@ -19,7 +19,7 @@ import (
 
 // TestPollProgressTokenContract — bead-named acceptance for gum-qu0.
 //
-// Spec §4.1 / §3304-3306: progress notifications MUST be emitted iff the
+// Spec §4.1 / §13: progress notifications MUST be emitted iff the
 // caller supplied a _meta.progressToken. Token type (int / string) MUST
 // be preserved across the JSON wire. Absent token → zero notifications.
 func TestPollProgressTokenContract(t *testing.T) {
@@ -43,7 +43,7 @@ func TestPollProgressTokenContract(t *testing.T) {
 		}
 		notes := drainProgress(progressCh, 500*time.Millisecond, 50*time.Millisecond)
 		if len(notes) == 0 {
-			t.Fatal("zero progress notifications with progressToken set; want ≥1 (spec §3304)")
+			t.Fatal("zero progress notifications with progressToken set; want ≥1 (spec §13)")
 		}
 		// Token type preserved across wire (int64 or float64 acceptable; never string).
 		switch v := notes[0].ProgressToken.(type) {
@@ -131,7 +131,7 @@ func TestPollTimeoutAndCancellation(t *testing.T) {
 			t.Fatalf("non-JSON result: %v; text=%s", err, firstText(res))
 		}
 		if code, _ := m["error_code"].(string); code != "LRO_TIMEOUT" {
-			t.Errorf("error_code=%q; want LRO_TIMEOUT (spec §4.1 / §1421)", code)
+			t.Errorf("error_code=%q; want LRO_TIMEOUT (spec §4.1 / §7)", code)
 		}
 		if rh, _ := m["resume_handle"].(string); rh != "ops/qu0-timeout" {
 			t.Errorf("resume_handle=%q; want \"ops/qu0-timeout\"", rh)

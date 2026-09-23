@@ -13,10 +13,10 @@
 //
 // Spec anchors:
 //
-//	§6.1.2 line 1128 — "TTL: 5 minutes from the issuance timestamp embedded in the token"
-//	§6.1.2 line 1122 — high_stakes_write and ABI write-confirmation paths use
+//	§6.1.2 — "TTL: 5 minutes from the issuance timestamp embedded in the token"
+//	§6.1.2 — high_stakes_write and ABI write-confirmation paths use
 //	                    ConfirmationPurposeWrite = "gum_confirm_write"
-//	§6.1.2 line 1120 — confirmation_purpose is in the binding tuple; mismatch → reject
+//	§6.1.2 — confirmation_purpose is in the binding tuple; mismatch → reject
 //	§4.1 / §6.1      — write-tier does NOT enforce destructive_scope_canonical
 //
 // Done criterion: go test -run TestWriteToken ./internal/dispatch/... FAILS.
@@ -102,13 +102,13 @@ func TestWriteTokenDistinctFromDestructive(t *testing.T) {
 	}
 }
 
-// TestWriteTokenDefaultTTL (§6.1.2 line 1128) — DefaultTTLForPurpose must return
+// TestWriteTokenDefaultTTL (§6.1.2) — DefaultTTLForPurpose must return
 // the spec-defined defaults:
 //   - ConfirmationPurposeWrite       → DefaultWriteTokenTTL (spec: 5 minutes)
 //   - ConfirmationPurposeDestructive → DefaultDestructiveTokenTTL (spec: 5 minutes; same TTL,
 //     single unified spec value — verify exact constant from DefaultDestructiveTokenTTL)
 //
-// Spec §6.1.2 line 1128 states: "TTL: 5 minutes from the issuance timestamp."
+// Spec §6.1.2 states: "TTL: 5 minutes from the issuance timestamp."
 // There is no per-purpose TTL differentiation in the spec; this test verifies that
 // both purposes return >= 5 minutes (300 seconds) as the default, and that
 // DefaultTTLForPurpose exists as a callable export.
@@ -123,7 +123,7 @@ func TestWriteTokenDefaultTTL(t *testing.T) {
 	if writeTTL != DefaultWriteTokenTTL {
 		t.Errorf("DefaultTTLForPurpose(write) = %v; want DefaultWriteTokenTTL = %v", writeTTL, DefaultWriteTokenTTL)
 	}
-	// Spec §6.1.2 line 1128: "5 minutes"
+	// Spec §6.1.2: "5 minutes"
 	if writeTTL < 5*time.Minute {
 		t.Errorf("DefaultTTLForPurpose(write) = %v; want >= 5 minutes (spec §6.1.2)", writeTTL)
 	}
@@ -135,7 +135,7 @@ func TestWriteTokenDefaultTTL(t *testing.T) {
 	if destructiveTTL != DefaultDestructiveTokenTTL {
 		t.Errorf("DefaultTTLForPurpose(destructive) = %v; want DefaultDestructiveTokenTTL = %v", destructiveTTL, DefaultDestructiveTokenTTL)
 	}
-	// Spec §6.1.2 line 1128: unified "5 minutes" for all purposes
+	// Spec §6.1.2: unified "5 minutes" for all purposes
 	if destructiveTTL < 5*time.Minute {
 		t.Errorf("DefaultTTLForPurpose(destructive) = %v; want >= 5 minutes (spec §6.1.2)", destructiveTTL)
 	}
@@ -214,7 +214,7 @@ func TestWriteTokenReplayCacheSeparateFromDestructive(t *testing.T) {
 // The test validates:
 //   - DefaultWriteTokenTTL >= 60 seconds (minimum useful token window)
 //   - DefaultDestructiveTokenTTL >= 30 seconds (minimum useful token window)
-//   - Both constants are >= 5 minutes per spec §6.1.2 line 1128
+//   - Both constants are >= 5 minutes per spec §6.1.2
 //
 // Required: DefaultWriteTokenTTL and DefaultDestructiveTokenTTL exported constants.
 func TestWriteTokenLongerTTLThanDestructive(t *testing.T) {
@@ -225,7 +225,7 @@ func TestWriteTokenLongerTTLThanDestructive(t *testing.T) {
 	if DefaultDestructiveTokenTTL < 30*time.Second {
 		t.Errorf("DefaultDestructiveTokenTTL = %v; want >= 30s", DefaultDestructiveTokenTTL)
 	}
-	// Spec §6.1.2 line 1128: "5 minutes" is the normative TTL for all confirmation tokens.
+	// Spec §6.1.2: "5 minutes" is the normative TTL for all confirmation tokens.
 	if DefaultWriteTokenTTL < 5*time.Minute {
 		t.Errorf("DefaultWriteTokenTTL = %v; spec §6.1.2 requires >= 5 minutes", DefaultWriteTokenTTL)
 	}

@@ -6,7 +6,7 @@
 // (the active field-mask projection) so two callers requesting different
 // projections of the same upstream payload don't collide.
 //
-// VAAC eviction (spec §10.3 line 2255): when the entry count exceeds
+// VAAC eviction (spec §10.3): when the entry count exceeds
 // MaxEntries, the cache scores live entries by
 //
 //	(frequency × value) / (recency × freshness_decay)
@@ -33,9 +33,9 @@ import (
 // unconfigured op doesn't accidentally pin stale data for hours.
 const DefaultSemanticTTL = 60 * time.Second
 
-// PerOpTTL is the spec §10.3 TTL table (docs/spec.md:2379) for the semantic
-// cache. Operators MAY override via a future `gum config set
-// cache.ttl.<op_id>=...` hook (deferred); v0.1.0 ships the spec-listed tiers.
+// PerOpTTL is the spec §10.3 TTL table for the semantic cache. The tiers are
+// fixed at build time: no `gum config set cache.ttl.<op_id>=...` hook is built,
+// so what the table lists is what every process uses.
 //
 // The spec writes its tiers as prose labels ("calendar.events: 60s",
 // "gmail.profiles.get: 3600s", "user-immutable references: 24h"). Every key
@@ -75,9 +75,9 @@ func SemanticKey(opID, variantID, argsCanonical, fields, authFP string) string {
 
 // SemanticCache is the spec §10.3 in-process semantic response cache.
 // Wraps an LRU MemCache for storage and layers per-op TTL + VAAC scoring on
-// top. Persistent on-disk storage (semantic.db) is reserved for v0.2.0;
-// v0.1.0 ships the in-process layer so `gum.cache_stats` can surface
-// non-zero semantic.hits per the bead acceptance.
+// top. Persistent on-disk storage (semantic.db) is not built; the in-process
+// layer is what ships, so `gum.cache_stats` reports semantic.hits for the
+// life of one process and nothing across processes.
 type SemanticCache struct {
 	mu                 sync.Mutex
 	maxEntries         int
@@ -215,8 +215,8 @@ func (s *SemanticCache) Len() int {
 	return len(s.entries)
 }
 
-// Bytes returns the sum of stored value lengths. Linear scan acceptable
-// at v0.1 cache sizes; revisit when persistent storage lands.
+// Bytes returns the sum of stored value lengths. The linear scan is fine at
+// the bounded in-process cache sizes MaxEntries allows.
 func (s *SemanticCache) Bytes() int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()

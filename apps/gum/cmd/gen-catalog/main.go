@@ -199,10 +199,10 @@ func run() error {
 		}
 	}
 
-	// Per spec §5.4 line 676: validate any catalog-embedded expression-profile
-	// definitions against docs/expression-profile-dsl.json. v0.1.0 catalogs hold
-	// profile name-references only; this loop runs vacuously today but the gate
-	// is in place for the day profiles get inlined.
+	// Per spec §5.4: validate any catalog-embedded expression-profile
+	// definitions against docs/expression-profile-dsl.json. Catalogs hold
+	// profile name-references only, so this loop runs vacuously; the gate is
+	// in place for the day profiles get inlined.
 	for _, raw := range catalogEmbeddedProfiles(cat) {
 		if err := profile.ValidateRawProfileFile(raw); err != nil {
 			return fmt.Errorf("expression-profile validation failed: %w", err)
@@ -589,7 +589,7 @@ type discoveryMethod struct {
 //   - "gmail"    → emits gmail.users.messages.list
 //   - "calendar" → emits calendar.events.list and calendar.calendarList.list
 //
-// All variants use auth_strategy = byo_oauth (gum_oauth is disabled in v0.1.0).
+// All variants use auth_strategy = byo_oauth (gum_oauth is disabled).
 // The returned Catalog always has catalog_schema_version=1 and a generated_at timestamp.
 // This is the seam the green team must implement; tests call it directly to avoid
 // network access.
@@ -742,11 +742,11 @@ func GenerateFromDiscovery(disco io.Reader) (*catalog.Catalog, error) {
 		return nil, fmt.Errorf("gen-catalog: unrecognised discovery doc name %q; expected \"gmail\" or \"calendar\"", doc.Name)
 	}
 
-	// Hard-fail: no op may use gum_oauth (disabled in v0.1.0 per bd memory gum-auth-strategy-v3).
+	// Hard-fail: no op may use gum_oauth (disabled per bd memory gum-auth-strategy-v3).
 	for _, op := range ops {
 		for _, v := range op.Variants {
 			if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-				return nil, fmt.Errorf("gen-catalog: gum_oauth is disabled in v0.1.0; op %s variant %s uses gum_oauth", op.OpID, v.VariantID)
+				return nil, fmt.Errorf("gen-catalog: gum_oauth is disabled; op %s variant %s uses gum_oauth", op.OpID, v.VariantID)
 			}
 		}
 	}
@@ -955,11 +955,11 @@ func GenerateFromDiscoveries(gmailDisco, calendarDisco io.Reader) (*catalog.Cata
 		}),
 	}
 
-	// Hard-fail: no op may use gum_oauth (disabled in v0.1.0 per bd memory gum-auth-strategy-v3).
+	// Hard-fail: no op may use gum_oauth (disabled per bd memory gum-auth-strategy-v3).
 	for _, op := range ops {
 		for _, v := range op.Variants {
 			if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-				return nil, fmt.Errorf("gen-catalog: gum_oauth is disabled in v0.1.0; op %s variant %s uses gum_oauth", op.OpID, v.VariantID)
+				return nil, fmt.Errorf("gen-catalog: gum_oauth is disabled; op %s variant %s uses gum_oauth", op.OpID, v.VariantID)
 			}
 		}
 	}
@@ -1032,8 +1032,8 @@ func makeDestructiveOp(spec opSpec) catalog.Op {
 }
 
 // catalogEmbeddedProfiles returns any inlined expression-profile JSON documents
-// found in the catalog. In v0.1.0, Variant.OutputProfile is a name-reference
-// string only — no JSON is embedded — so this function always returns nil.
+// found in the catalog. Variant.OutputProfile is a name-reference string
+// only, so no JSON is embedded and this function always returns nil.
 // When profiles are inlined in a future version, this function must be updated
 // to extract and return their serialised JSON for the validation gate above.
 func catalogEmbeddedProfiles(_ *catalog.Catalog) [][]byte {

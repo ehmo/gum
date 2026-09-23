@@ -3,10 +3,10 @@
 // test cannot reach: active plugins present before Server.Run do not grow
 // tools/list.
 //
-// Spec §4.2 line 405 is the normative sentence: "tools/list MUST therefore
+// Spec §4.2 is the normative sentence: "tools/list MUST therefore
 // remain exactly the 27 Tier A tools plus the two embedded-skill helpers
 // skills_list and skills_get (29 entries) even when active plugins are
-// installed." §4.1 line 383 forbids dynamic Tier B materialization, so the
+// installed." §4.1 forbids dynamic Tier B materialization, so the
 // roster is closed whatever the profile holds.
 
 package mcp_test
@@ -53,7 +53,7 @@ func TestTierAToolCountWithPlugins(t *testing.T) {
 
 	want := wireToolNames(t)
 	if !slices.Equal(got, want) {
-		t.Errorf("tools/list with %d active plugins = %d tools; want %d (spec §4.2 line 405)\n got=%v\nwant=%v",
+		t.Errorf("tools/list with %d active plugins = %d tools; want %d (spec §4.2)\n got=%v\nwant=%v",
 			len(pluginNames), len(got), len(want), got, want)
 	}
 	for _, name := range got {
@@ -153,7 +153,7 @@ func seedActivePlugins(t *testing.T, profileDir string, names ...string) {
 	)
 }
 
-// skillHelperTools are the two embedded-skill tools spec §4.2 line 405 puts on
+// skillHelperTools are the two embedded-skill tools spec §4.2 puts on
 // the wire beside the roster. They are outside the §4.1 Tier A roster, so
 // docs/tier-a-roster.v1.json does not list them.
 var skillHelperTools = []string{"skills_get", "skills_list"}

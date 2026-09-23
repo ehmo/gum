@@ -35,7 +35,7 @@ func TestCodeRunnerExecuteNilArgsTreatedAsEmpty(t *testing.T) {
 }
 
 // TestCodeRunnerExecuteRejectsNonRisorLanguage pins the
-// `language != "risor" → INVALID_ARGS` guard. v0.1.0 is
+// `language != "risor" → INVALID_ARGS` guard. gum is
 // Risor-only; the guard makes that contract visible to the caller
 // (operators may set `language: "python"` expecting future support).
 // Without the guard the empty-source path would surface a
@@ -88,7 +88,7 @@ func TestCodeRunnerExecuteRejectsEmptyCode(t *testing.T) {
 
 // TestCodeRunnerExecuteGumSearchStubReturnsEmpty pins the
 // `"gum_search": func(query string) any { return []any{} }` closure
-// body. v0.1.0 ships gum_search as a registered-but-stubbed global
+// body. gum ships gum_search as a registered-but-stubbed global
 // so Risor scripts don't crash with "name not found"; the contract
 // is that it returns an empty list for any query so downstream
 // `.length()` / iteration code is well-defined. Without this test

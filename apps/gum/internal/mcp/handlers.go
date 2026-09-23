@@ -18,6 +18,7 @@ import (
 	"github.com/ehmo/gum/internal/lro"
 	"github.com/ehmo/gum/internal/output/gain"
 	"github.com/ehmo/gum/internal/output/profile"
+	"github.com/ehmo/gum/internal/sanitize"
 	skillreg "github.com/ehmo/gum/internal/skills"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -82,7 +83,7 @@ func (s *Server) makeConvenienceHandler(toolName string) sdkmcp.ToolHandler {
 		args := parseArgs(req)
 		opID, ok := convenienceOpRouting[toolName]
 		if !ok {
-			return errorResult(fmt.Sprintf("CONVENIENCE_NOT_WIRED: %s has no catalog mapping in v0.1.0", toolName)), nil
+			return errorResult(fmt.Sprintf("CONVENIENCE_NOT_WIRED: %s has no catalog mapping", toolName)), nil
 		}
 		abi := ConvenienceToolABI(toolName)
 		invArgs := copyArgsWithoutControls(args, "confirmed", "confirmation_token")
@@ -157,8 +158,8 @@ func foldConvenienceBody(abi *ConvenienceABI, args map[string]any) error {
 	return nil
 }
 
-// handleSearchAPIs runs a BM25 query and returns spec §4.1 / §2129 TOON tuples.
-// The response is routed through profile.Apply with the spec §2129 implicit
+// handleSearchAPIs runs a BM25 query and returns spec §4.1 / §9.4 TOON tuples.
+// The response is routed through profile.Apply with the spec §9.4 implicit
 // profile (hardcoded, not user-overridable per spec §9.4).
 // searchAPIsToolName is the op_id gum.search_apis reports in its §13 envelope.
 const searchAPIsToolName = "gum.search_apis"
@@ -182,7 +183,7 @@ func (s *Server) handleSearchAPIs(ctx context.Context, req *sdkmcp.CallToolReque
 			return errorResult(fmt.Sprintf("SEARCH_INDEX_BUILD_FAILED: %v", err)), nil
 		}
 		// Fetch up to 50 candidates (BM25 hard cap) so CollapseArrays.MaxItems=k
-		// is the effective limiter — not the search retrieval bound. Spec §2129:
+		// is the effective limiter — not the search retrieval bound. Spec §9.4:
 		// collapse_arrays.max_items binds k and is the authoritative truncation step.
 		candidateK := k * 5
 		if candidateK > 50 {
@@ -253,7 +254,7 @@ func onEmptyStringPtr(msg string) *string {
 	return &msg
 }
 
-// shapeSearchAPIsRow remaps one BM25 hit to the spec §4.1 line 291 tuple:
+// shapeSearchAPIsRow remaps one BM25 hit to the spec §4.1 tuple:
 // {api, op, summary, params_required, expected_response}.
 func (s *Server) shapeSearchAPIsRow(hit embed.SearchResult) map[string]any {
 	// api = first segment of op_id before the first dot.
@@ -502,7 +503,7 @@ func (s *Server) handlePoll(ctx context.Context, req *sdkmcp.CallToolRequest) (*
 	if err != nil {
 		var te *lro.TimeoutError
 		if errors.As(err, &te) {
-			// LRO_TIMEOUT is a §1527 terminal error code: the poll ended without
+			// LRO_TIMEOUT is a §7 terminal error code: the poll ended without
 			// a result. Returning it with IsError=false told the agent the call
 			// succeeded and handed it an envelope its outputSchema rejects. The
 			// LRO_FAILED branch below already used jsonErrorResult.
@@ -541,7 +542,7 @@ func (s *Server) handlePoll(ctx context.Context, req *sdkmcp.CallToolRequest) (*
 
 // rawPassThroughProfile is the §13 profile name a response reports when it
 // never entered the expression pipeline. It mirrors the dispatch package's
-// unexported `_raw` sentinel (§2705); gum.poll returns the upstream Operation
+// unexported `_raw` sentinel (§13); gum.poll returns the upstream Operation
 // untouched, so no profile name would be truthful.
 const rawPassThroughProfile = "_raw"
 
@@ -572,7 +573,7 @@ type cacheStatProvider interface {
 	CacheStats() dispatch.CacheLayerStats
 }
 
-// handleCacheStats returns the spec §3003 CacheStatsResult envelope.
+// handleCacheStats returns the spec §13 CacheStatsResult envelope.
 func (s *Server) handleCacheStats(_ context.Context, req *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
 	var sem dispatch.CacheLayerStats
 	if csp, ok := s.disp.(cacheStatProvider); ok {
@@ -582,7 +583,7 @@ func (s *Server) handleCacheStats(_ context.Context, req *sdkmcp.CallToolRequest
 }
 
 // auditBroken returns true when the audit.broken sentinel file exists at
-// <XDG_DATA_HOME or $HOME/.local/share>/gum/<profile>/audit.broken. Spec §2333-2336.
+// <XDG_DATA_HOME or $HOME/.local/share>/gum/<profile>/audit.broken. Spec §11.
 func (s *Server) auditBroken() bool {
 	dir, err := s.profile.DataDir()
 	if err != nil {
@@ -592,12 +593,12 @@ func (s *Server) auditBroken() bool {
 	return err == nil
 }
 
-// cacheStatsEnvelope builds the spec §3003 CacheStatsResult map.
-// semantic is live; http stays a v0.1.0 stub (zeros). prompt.supported
+// cacheStatsEnvelope builds the spec §13 CacheStatsResult map.
+// semantic is live; http stays a stub (zeros). prompt.supported
 // reflects the connected client's prompt-cache capability per §10.1
 // (true when the client looks Anthropic-backed). hits_estimate stays nil
 // because GUM has no provider-side observability surface yet.
-// audit_broken reflects sentinel-file presence per §2335.
+// audit_broken reflects sentinel-file presence per §11.
 func cacheStatsEnvelope(sem dispatch.CacheLayerStats, auditBroken, promptSupported bool) map[string]any {
 	return map[string]any{
 		"semantic": map[string]any{
@@ -621,15 +622,15 @@ func cacheStatsEnvelope(sem dispatch.CacheLayerStats, auditBroken, promptSupport
 	}
 }
 
-// handleGain returns the spec §2793 GainResult envelope.
+// handleGain returns the spec §13 GainResult envelope.
 func (s *Server) handleGain(_ context.Context, _ *sdkmcp.CallToolRequest) (*sdkmcp.CallToolResult, error) {
-	// Spec §2570 + §2689: GAIN_DISABLED terminal error. The documented opt-out
+	// Spec §7 + §12.3: GAIN_DISABLED terminal error. The documented opt-out
 	// is `gum config set gain.enabled=false`, so read the profile config, not
 	// just the env override.
 	if !gain.Enabled(s.profile) {
 		return jsonErrorResult(map[string]any{"error_code": "GAIN_DISABLED"}), nil
 	}
-	// Spec §2541: GAIN_LEDGER_UNAVAILABLE terminal error.
+	// Spec §7: GAIN_LEDGER_UNAVAILABLE terminal error.
 	// The ledger is per profile (§12.3), so an MCP server bound to --profile
 	// work must not report the default profile's savings.
 	path, err := gain.DefaultPath(s.profile)
@@ -650,7 +651,7 @@ func (s *Server) handleGain(_ context.Context, _ *sdkmcp.CallToolRequest) (*sdkm
 	return structuredJSONResult(gainSuccessEnvelope(ledger.Stats(), gain.Sessions(ledger.Select(gain.Filter{})))), nil
 }
 
-// gainSuccessEnvelope builds the spec §2793 GainResult map from ledger stats.
+// gainSuccessEnvelope builds the spec §13 GainResult map from ledger stats.
 // baseline_tokens is the naive raw-token total (TotalTokensIn) and
 // actual_tokens is the shaped total, so savings_pct is the real reduction.
 //
@@ -698,7 +699,7 @@ func gainSuccessEnvelope(stats gain.Stats, sessions []gain.SessionRow) map[strin
 		"batch_envelope_overhead": stats.BatchEnvelopeTokens,
 		"tokenizer":               "cl100k_base",
 		// Summary mode carries one aggregate per session, and an empty
-		// ledger emits [] rather than dropping the key (spec §2818-2833).
+		// ledger emits [] rather than dropping the key (spec §13).
 		"sessions": sessions,
 	}
 }
@@ -889,6 +890,7 @@ func (s *Server) dispatchToolCall(ctx context.Context, req *sdkmcp.CallToolReque
 				inv.OutputProfile = p
 			}
 		}
+		s.warnShadowedProfile(rootPath, inv)
 	}
 	return s.dispatchAndShapeForRequest(ctx, req, inv)
 }
@@ -956,8 +958,16 @@ func (s *Server) dispatchAndShapeForRequest(ctx context.Context, req *sdkmcp.Cal
 		}
 		return failureResult(err), nil
 	}
+	// Spec §11 layer 1. The fence goes on here, at the MCP presentation
+	// boundary, because this is the first point past every stage that measures
+	// the shaped body: the §9.1 expression pipeline, the field masks, the TOON
+	// encoder, the outputSchema conformance check and the gain ledger's token
+	// math. Marking the payload earlier would make each of them measure the
+	// markers. The blocks appended below carry gum's own words and stay outside
+	// the fence, and structuredContent keeps the payload unfenced because §13
+	// closes that object.
 	res := &sdkmcp.CallToolResult{
-		Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: string(shaped.Body)}},
+		Content: []sdkmcp.Content{&sdkmcp.TextContent{Text: sanitize.MarkExternalData(string(shaped.Body))}},
 	}
 	// Spec §13: structuredContent is the ToonResult / SingleObjectResult /
 	// RawJsonResult envelope, which carries the `_expression` metadata block
@@ -983,7 +993,7 @@ func (s *Server) dispatchAndShapeForRequest(ctx context.Context, req *sdkmcp.Cal
 	if msg := notice; msg != "" {
 		res.Content = append(res.Content, &sdkmcp.TextContent{Text: msg})
 	}
-	// Spec §9.0 lines 1845-1847: when the active profile uses
+	// Spec §9.0: when the active profile uses
 	// recovery=resource_link and tee fired, the dispatch layer populates
 	// shaped.FullResultResource with the gum://results/<hash> URI. We mirror
 	// it as a resource_link content block so MCP clients can fetch the full
@@ -1014,7 +1024,7 @@ func onEmptyMessageOf(shaped *dispatch.ShapedResponse) string {
 }
 
 // recoveryResourceLinkDescription returns the short hint surfaced on the
-// resource_link content block. Spec §9.0 line 1847 caps it at 120 chars.
+// resource_link content block. Spec §9.0 caps it at 120 chars.
 func recoveryResourceLinkDescription(opID string) string {
 	desc := "Full pre-projection result for " + opID
 	if len(desc) > 120 {
@@ -1101,7 +1111,7 @@ func errorResult(msg string) *sdkmcp.CallToolResult {
 // failureResult is the one error path for a failure the handler could not
 // classify itself.
 //
-// A structured error renders as its own JSON envelope (spec §1421), so the
+// A structured error renders as its own JSON envelope (spec §7), so the
 // caller sees error_code, message, and the flattened detail fields
 // (confirmation_token, reason, scope). Anything else used to fall through to
 // free text with IsError=true and no code at all, which left the agent a bare
@@ -1141,7 +1151,7 @@ func jsonResult(v any) *sdkmcp.CallToolResult {
 
 // structuredJSONResult is jsonResult plus the structuredContent the tool's
 // registered outputSchema promises. A tool that advertises an outputSchema and
-// returns text only violates spec §3175; the pinned go-sdk's low-level AddTool
+// returns text only violates spec §13; the pinned go-sdk's low-level AddTool
 // leaves that validation to the caller and catches nothing, so the pairing is
 // enforced by TestEveryRegisteredToolPairsOutputSchemaWithStructuredContent.
 //

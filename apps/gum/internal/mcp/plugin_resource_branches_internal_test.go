@@ -15,7 +15,7 @@ import (
 //
 // Without coverage on this branch, a plugin that needs auth setup would
 // silently surface an empty Reason and no descriptors, blinding the
-// resource consumer to actionable setup hints (spec §13 line 3165).
+// resource consumer to actionable setup hints (spec §13).
 func TestLoadPluginResourceRecordNeedsConfiguration(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
@@ -59,7 +59,7 @@ func TestLoadPluginResourceRecordNeedsConfiguration(t *testing.T) {
 	if !ok {
 		t.Fatalf("descriptor[0] type=%T; want map[string]any", rec.CredentialDescriptors[0])
 	}
-	// Spec §13 line 3165: the raw "env" key MUST be stripped by the
+	// Spec §13: the raw "env" key MUST be stripped by the
 	// sanitiser; only the four whitelisted fields survive.
 	if _, leaked := desc["env"]; leaked {
 		t.Errorf("descriptor leaked raw 'env' key=%v; sanitiser must drop it", desc["env"])
@@ -163,7 +163,7 @@ func TestLoadPluginFileEnvelopeMalformedJSONReturnsNil(t *testing.T) {
 // 197): non-object entries in variants[] MUST be skipped (line 194),
 // and rows whose owner_plugin doesn't match the queried name MUST be
 // excluded (line 197). The owner_plugin filter is what keeps each
-// plugin's variant_ids list scoped per spec §13 line 3161.
+// plugin's variant_ids list scoped per spec §13.
 func TestCollectPluginVariantIDsFiltersNonObjectsAndOtherOwners(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)

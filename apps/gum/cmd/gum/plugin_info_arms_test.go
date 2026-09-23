@@ -128,7 +128,7 @@ func TestStringFieldWithoutAnObject(t *testing.T) {
 
 // TestCredentialAliasesSkipsNonObjects pins every arm of the alias list: a
 // non-object entry is skipped, a descriptor with no alias contributes nothing,
-// and only the alias is printed (spec §1414 forbids raw env names).
+// and only the alias is printed (spec §7 forbids raw env names).
 func TestCredentialAliasesSkipsNonObjects(t *testing.T) {
 	got := credentialAliases([]any{
 		"not-an-object",

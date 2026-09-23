@@ -57,14 +57,14 @@ func validateVariantProfiles(cat *catalog.Catalog, lookup func(string) (*profile
 	return errors.Join(errs...)
 }
 
-// errDefaultVariantInvalid is the spec §7 build-time code DEFAULT_VARIANT_INVALID
-// (docs/spec.md line 1580). The message is the code itself, matching
+// errDefaultVariantInvalid is the spec §7 build-time code
+// DEFAULT_VARIANT_INVALID. The message is the code itself, matching
 // ErrProfileStripNullsUnsafe, so a generator failure prints the contract name
 // the spec tells operators to look up.
 var errDefaultVariantInvalid = errors.New("DEFAULT_VARIANT_INVALID")
 
 // variantIsExecutable reports whether v executes at least one declared
-// capability atom through generic dispatch (§918). An omitted execution_support
+// capability atom through generic dispatch (§5.8). An omitted execution_support
 // means "full", which Op.Validate also assumes.
 //
 // This is what makes a variant an alternative worth promoting. A
@@ -81,7 +81,7 @@ func variantIsExecutable(v catalog.Variant) bool {
 }
 
 // validateDefaultVariantLifecycle enforces the spec §5.1 lifecycle-aware
-// default rule (docs/spec.md line 434) at generation time.
+// default rule at generation time.
 //
 // Two halves had no producer before this gate. A quarantined default is never
 // allowed: the rule is absolute and carries no grace clause. A deprecated
@@ -147,7 +147,7 @@ func validateDefaultVariantLifecycle(cat *catalog.Catalog) error {
 
 // validateGeneratedCatalog is the single gate every generator path runs before
 // it writes a snapshot: the catalog ABI checks from Catalog.Validate plus the
-// spec §7 build-time output-profile checks. The offline inject paths rewrite
+// spec §5.4 build-time description-sanitizer and output-profile checks. The offline inject paths rewrite
 // catalog.json without touching the network, so each one needs the same gate
 // or a dangling profile reference re-enters the snapshot through a side door.
 func validateGeneratedCatalog(cat *catalog.Catalog) error {
@@ -155,6 +155,9 @@ func validateGeneratedCatalog(cat *catalog.Catalog) error {
 		return err
 	}
 	if err := validateDefaultVariantLifecycle(cat); err != nil {
+		return err
+	}
+	if err := validateOpDescriptions(cat); err != nil {
 		return err
 	}
 	return validateVariantProfiles(cat, profile.BuiltinLookup)

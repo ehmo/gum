@@ -319,11 +319,12 @@ func TestSanitizePIIEmailPlaceholderAllowed(t *testing.T) {
 	}
 }
 
-// ── All 7 rules summary ──────────────────────────────────────────────────────
+// ── All 13 rules summary ─────────────────────────────────────────────────────
 
-// TestSanitizeAllRulesHaveTests is a compile-time proof that the 7 Rule
-// constants can all be referenced. If a constant is removed or renamed, this
-// test file will fail to compile.
+// TestSanitizeAllRulesHaveTests is a compile-time proof that the 13 Rule
+// constants can all be referenced, and that the enum stays contiguous from
+// rule 1 to rule 13. If a constant is removed, renamed or renumbered, this
+// test fails to compile or reports the gap.
 func TestSanitizeAllRulesHaveTests(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
@@ -335,8 +336,19 @@ func TestSanitizeAllRulesHaveTests(t *testing.T) {
 		sanitize.RuleTokenBudgetMeta,
 		sanitize.RuleRequireRiskDisclosure,
 		sanitize.RuleNoPIIPatterns,
+		sanitize.RuleNoCompatibilityChars,
+		sanitize.RuleNoInstructionTags,
+		sanitize.RuleNoInjectionDirectives,
+		sanitize.RuleNoSecretWithPath,
+		sanitize.RuleNoOpaqueBlob,
+		sanitize.RuleDescriptionRuneCap,
 	}
-	if len(rules) != 7 {
-		t.Errorf("expected 7 rules, got %d", len(rules))
+	if len(rules) != 13 {
+		t.Errorf("expected 13 rules, got %d", len(rules))
+	}
+	for i, rule := range rules {
+		if int(rule) != i+1 {
+			t.Errorf("rule at index %d has number %d, want %d", i, rule, i+1)
+		}
 	}
 }

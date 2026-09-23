@@ -60,7 +60,7 @@ func findOpByID(c *Catalog, opID string) *Op {
 	return nil
 }
 
-// TestMergePluginVariantsActiveOp is the spec §5 line 405 contract: an active
+// TestMergePluginVariantsActiveOp is the spec §5 contract: an active
 // plugin variant reaches the session snapshot as a dispatchable op.
 func TestMergePluginVariantsActiveOp(t *testing.T) {
 	base := baseSnapshot()

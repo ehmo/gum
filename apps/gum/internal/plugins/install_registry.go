@@ -30,7 +30,7 @@ import (
 
 // executableDigestSidecar is the in-install-dir file that records the sha256
 // captured at install time. Start re-hashes the installed executable and
-// compares against this value before exec'ing (spec §8.7 line 1690).
+// compares against this value before exec'ing (spec §8.7).
 const executableDigestSidecar = ".executable.sha256"
 
 // InstallOptions carries the registry binding + namespace-conflict opt-ins
@@ -250,7 +250,7 @@ func (h *Host) InstallWithRegistry(ctx context.Context, source string, opts Inst
 // A fresh install is installed_pending_restart, not active. A running MCP
 // server keeps serving the roster it booted with, so the row stays out of
 // every invokable surface until PromotePendingRestart runs at the next
-// startup (spec §13 line 3148). A manifest that declares needs_user_creds
+// startup (spec §13). A manifest that declares needs_user_creds
 // parks in needs_configuration instead: `gum plugin setup` and its live
 // canary are what activate that one.
 func initialPluginState(m *Manifest, execSHA256 string, now time.Time) map[string]any {

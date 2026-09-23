@@ -1,4 +1,4 @@
-// Spec §12 line 2495 lists `info` in the `gum plugin` subcommand roster, and
+// Spec §12 lists `info` in the `gum plugin` subcommand roster, and
 // line 2520 pins its JSON root: "gum plugin info <name> --format=json |
 // PluginInfo | Same object carried inside the gum://plugin/{name} JSON
 // resource payload." The command was missing entirely, so an operator could
@@ -82,8 +82,8 @@ func seedPluginInfoFixture(t *testing.T, status string) string {
 	return dir
 }
 
-// TestPluginInfoJSONCarriesSpecFields pins the spec §13 line 3275 required
-// field set on the CLI JSON root, which spec line 2520 declares identical to
+// TestPluginInfoJSONCarriesSpecFields pins the spec §13 required
+// field set on the CLI JSON root, which spec §12 declares identical to
 // the gum://plugin/{name} payload.
 func TestPluginInfoJSONCarriesSpecFields(t *testing.T) {
 	dir := seedPluginInfoFixture(t, "active")
@@ -188,7 +188,7 @@ func TestPluginInfoRejectsUnknownFormat(t *testing.T) {
 }
 
 // TestPluginInfoCmdRegistered pins the subcommand onto the `gum plugin`
-// subtree: spec §12 line 2495 lists it in the roster.
+// subtree: spec §12 lists it in the roster.
 func TestPluginInfoCmdRegistered(t *testing.T) {
 	var found bool
 	for _, sub := range newPluginCmd().Commands() {

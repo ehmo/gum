@@ -28,7 +28,7 @@ var curatedDefaultFieldsOps = []string{
 	"youtube.search.list",
 }
 
-// TestCatalogCarriesDefaultFields is the gum-a2wy repro. Spec §772 makes a
+// TestCatalogCarriesDefaultFields is the gum-a2wy repro. Spec §5.4.1 makes a
 // non-empty `default_fields` on at least one variant a MUST, and two live paths
 // read it: internal/dispatch/lifecycle.go step 3c falls back to it when a
 // profile omits `field_mask`, and cmd/gum/call.go builds the --fields
@@ -59,7 +59,7 @@ func TestCatalogCarriesDefaultFields(t *testing.T) {
 	sort.Strings(got)
 
 	if len(got) == 0 {
-		t.Fatal("no variant carries default_fields; spec §772 requires at least one")
+		t.Fatal("no variant carries default_fields; spec §5.4.1 requires at least one")
 	}
 	if strings.Join(got, ",") != strings.Join(curatedDefaultFieldsOps, ",") {
 		t.Fatalf("ops carrying default_fields:\n  got  %v\n  want %v\n"+

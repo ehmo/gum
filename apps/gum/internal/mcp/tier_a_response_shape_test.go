@@ -46,7 +46,6 @@ const expressionMetaDef = `"ExpressionMeta": {
     "full_result_path": {"type": "string"},
     "full_result_resource": {"type": "string"},
     "project_root_uri": {"type": ["string", "null"]},
-    "_profile_resolution_warning": {"type": ["string", "null"]},
     "artifact_expires_at": {"type": ["string", "null"]},
     "intentional_zero_max_items": {"type": ["boolean", "null"]},
     "_code_output_truncated": {"type": ["boolean", "null"]}
@@ -96,7 +95,7 @@ const rawJSONResultSpecSchema = `{
   "additionalProperties": false
 }`
 
-// gainResultSpecSchema is the spec §13 GainResult schema (lines 2791-2898).
+// gainResultSpecSchema is the spec §13 GainResult schema.
 // `oneOf` enforces the mode-discriminator branches:
 //   - summary  : sessions[] present, operations/history absent
 //   - session  : operations[] present, sessions/history absent
@@ -320,7 +319,7 @@ func TestCacheStatsOutputSchema(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 // TestGainOutputSchema invokes handleGain and validates the JSON body against
-// the spec §13 GainResult schema. Default v0.1.0 invocation lands in the
+// the spec §13 GainResult schema. A default invocation lands in the
 // `summary` branch with `sessions: []`; the `oneOf` enforces that the other
 // mode-specific arrays (operations, history) are absent.
 func TestGainOutputSchema(t *testing.T) {
@@ -353,7 +352,7 @@ type shapeFixture struct {
 
 // TestTierAResponseShapeConformance feeds representative structuredContent
 // fixtures through their declared $defs. Mirrors the structural assertion in
-// spec §3051 ("structuredContent MUST validate against the registered
+// spec §13 ("structuredContent MUST validate against the registered
 // outputSchema") for the five Tier A response shapes plus the §13-exempt
 // 304 diff-only envelope.
 func TestTierAResponseShapeConformance(t *testing.T) {

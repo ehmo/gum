@@ -66,7 +66,7 @@ func TestLoadManifestValid(t *testing.T) {
 }
 
 // TestLoadManifestInvalidShape verifies that a manifest with shape="grpc-subprocess"
-// is rejected with ErrUnsupportedShape before v0.4.0.
+// is rejected with ErrUnsupportedShape.
 func TestLoadManifestInvalidShape(t *testing.T) {
 	defer goleak.VerifyNone(t)
 

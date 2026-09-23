@@ -6,7 +6,7 @@ import (
 )
 
 // MaxOpSuggestions is the spec §4.1 cap on the OP_NOT_FOUND "suggestions"
-// list (docs/spec.md:349: "up to 3 BM25-fuzzy matches"). Every surface that
+// list ("up to 3 BM25-fuzzy matches"). Every surface that
 // builds that envelope reads the cap from here, so the CLI and the MCP server
 // cannot drift apart on the same error code.
 const MaxOpSuggestions = 3

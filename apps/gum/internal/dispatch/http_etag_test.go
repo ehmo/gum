@@ -93,7 +93,7 @@ const (
 )
 
 // etagFullBody is the representation upstream sends on a cold read. It is a
-// realistic list page rather than a two-element stub, because the §2030 claim
+// realistic list page rather than a two-element stub, because the §9.0 claim
 // under test is that a 304 saves the caller the whole body: a body smaller
 // than the 39-byte `{"unchanged":true,"etag":...}` envelope cannot show that.
 var etagFullBody = func() string {
@@ -190,7 +190,7 @@ func etagInvocation(variantID, fingerprint string) *Invocation {
 
 // TestDiffOnlyModeEtagReplay is the named acceptance for two claims.
 //
-// test-matrix row 67 (spec §2024-2031): a 304 short-circuits the expression
+// test-matrix row 67 (spec §9.0): a 304 short-circuits the expression
 // pipeline, the ledger records cache_status "etag_304" with response_tokens 0,
 // `_expression` is absent from the 304 response, and a second call that
 // differs only in resolved variant or credential subject MUST NOT revalidate,
@@ -285,7 +285,7 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 		}
 	})
 
-	// Sub-test: §2028. A 304 answer returns the validator and nothing else —
+	// Sub-test: §9.0. A 304 answer returns the validator and nothing else —
 	// no shaped body, no _expression envelope, no tee artifact.
 	t.Run("304_short_circuits_the_expression_pipeline", func(t *testing.T) {
 		fx := newETagFixture(t)
@@ -310,16 +310,16 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 			t.Fatalf("conditional requests = %d; want 1 (the replay must carry If-None-Match)", got)
 		}
 		if got := string(second.Body); got != `{"unchanged":true,"etag":"W/\"v1-abc\""}` {
-			t.Errorf("304 body = %s; want the §2029 two-key object", got)
+			t.Errorf("304 body = %s; want the §9.0 two-key object", got)
 		}
 		if second.Expression != nil {
-			t.Errorf("_expression = %+v; want nil (§2029 omits it from 304 responses)", second.Expression)
+			t.Errorf("_expression = %+v; want nil (§9.0 omits it from 304 responses)", second.Expression)
 		}
 		if second.FullResultPath != "" || second.FullResultResource != "" {
-			t.Errorf("recovery handles = %q/%q; want empty (§2028 mints none)", second.FullResultPath, second.FullResultResource)
+			t.Errorf("recovery handles = %q/%q; want empty (§9.0 mints none)", second.FullResultPath, second.FullResultResource)
 		}
 		if got := fx.teeFileCount(t); got != teeAfterFirst {
-			t.Errorf("tee files = %d; want %d unchanged (§2028 writes no artifact on 304)", got, teeAfterFirst)
+			t.Errorf("tee files = %d; want %d unchanged (§9.0 writes no artifact on 304)", got, teeAfterFirst)
 		}
 		var structured map[string]any
 		if err := json.Unmarshal(second.Body, &structured); err != nil {
@@ -330,7 +330,7 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 		}
 	})
 
-	// Sub-test: §2030. The row is a positive saving, so its baseline must be
+	// Sub-test: §9.0. The row is a positive saving, so its baseline must be
 	// the body the caller did not receive.
 	t.Run("ledger_records_etag_304_with_zero_response_tokens", func(t *testing.T) {
 		fx := newETagFixture(t)
@@ -400,7 +400,7 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 		}
 	})
 
-	// Sub-test: §2031 item 4. The cache key carries no profile component, so a
+	// Sub-test: §9.0 item 4. The cache key carries no profile component, so a
 	// caller who changed profiles still gets the 304 and must clear the entry
 	// to re-shape the resource.
 	t.Run("a_profile_change_does_not_affect_the_304", func(t *testing.T) {

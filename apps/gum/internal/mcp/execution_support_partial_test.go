@@ -9,7 +9,7 @@ import (
 	"github.com/ehmo/gum/internal/catalog"
 )
 
-// partialOp is an op whose default variant declares the §918
+// partialOp is an op whose default variant declares the §5.8
 // `execution_support: "partial"` state: one declared atom executes, one does
 // not.
 func partialOp() *catalog.Op {
@@ -26,7 +26,7 @@ func partialOp() *catalog.Op {
 			Scopes:           []string{"https://www.googleapis.com/auth/drive.file"},
 			Capabilities:     []string{"json_request", "json_response", "media_upload_simple"},
 			ExecutionSupport: catalog.ExecutionSupportPartial,
-			// §918's worked example: the JSON request and response execute,
+			// §5.8's worked example: the JSON request and response execute,
 			// the media upload does not.
 			UnsupportedCapabilities: []string{"media_upload_simple"},
 		}},
@@ -34,11 +34,11 @@ func partialOp() *catalog.Op {
 }
 
 // TestDescribeOpResultAcceptsPartialExecutionSupport pins the gum-o293 fix.
-// §918 closes `execution_support` over four values and defines "partial" with
+// §5.8 closes `execution_support` over four values and defines "partial" with
 // its own discriminator rule: `unsupported_capabilities` MUST list every
 // non-executable atom. §13 omitted "partial" from both enums, so a variant that
-// is legal per §918 produced structuredContent that failed the outputSchema
-// §3175 binds it to.
+// is legal per §5.8 produced structuredContent that failed the outputSchema
+// §13 binds it to.
 func TestDescribeOpResultAcceptsPartialExecutionSupport(t *testing.T) {
 	res := buildDescribeOpResult(partialOp(), defaultMaxVariants)
 
@@ -46,7 +46,7 @@ func TestDescribeOpResultAcceptsPartialExecutionSupport(t *testing.T) {
 		t.Fatalf("top-level execution_support = %q; want %q", res.ExecutionSupport, "partial")
 	}
 	if res.UnsupportedCapabilities == nil || len(*res.UnsupportedCapabilities) == 0 {
-		t.Fatalf("partial op carries no unsupported_capabilities; §918 requires the list")
+		t.Fatalf("partial op carries no unsupported_capabilities; §5.8 requires the list")
 	}
 	if res.Variants[0].ExecutionSupport != "partial" {
 		t.Fatalf("variants[0].execution_support = %q; want %q", res.Variants[0].ExecutionSupport, "partial")
@@ -60,7 +60,7 @@ func TestDescribeOpResultAcceptsPartialExecutionSupport(t *testing.T) {
 }
 
 // TestDescribeOpResultPartialRequiresUnsupportedCapabilities holds the other
-// half of the §918 discriminator: a "partial" result without the list is
+// half of the §5.8 discriminator: a "partial" result without the list is
 // invalid, exactly as "schema_only" and "typed_executor_required" are.
 func TestDescribeOpResultPartialRequiresUnsupportedCapabilities(t *testing.T) {
 	res := buildDescribeOpResult(partialOp(), defaultMaxVariants)
@@ -68,20 +68,20 @@ func TestDescribeOpResultPartialRequiresUnsupportedCapabilities(t *testing.T) {
 
 	rs := compileSpecSchema(t, string(metaToolOutputSchema("gum.describe_op")))
 	if err := rs.Validate(asJSON(t, res)); err == nil {
-		t.Fatal("partial payload without unsupported_capabilities validated; §918 requires the list")
+		t.Fatal("partial payload without unsupported_capabilities validated; §5.8 requires the list")
 	}
 }
 
 // TestDescribeOpResultUsesDeclaredUnsupportedCapabilities pins the gum-j6xl
 // fix. describe_op used to substitute the variant's whole `capabilities[]` for
 // the unsupported list, because the catalog ABI declared no field to read.
-// That inference is wrong for "partial": §925 requires only the non-executable
-// atoms, and the worked example in §918 has two of the three atoms executing.
+// That inference is wrong for "partial": §5.8 requires only the non-executable
+// atoms, and the worked example in §5.8 has two of the three atoms executing.
 func TestDescribeOpResultUsesDeclaredUnsupportedCapabilities(t *testing.T) {
 	res := buildDescribeOpResult(partialOp(), defaultMaxVariants)
 
 	if res.UnsupportedCapabilities == nil {
-		t.Fatal("partial op carries no unsupported_capabilities; §925 requires the list")
+		t.Fatal("partial op carries no unsupported_capabilities; §5.8 requires the list")
 	}
 	got := *res.UnsupportedCapabilities
 	want := []string{"media_upload_simple"}
@@ -93,7 +93,7 @@ func TestDescribeOpResultUsesDeclaredUnsupportedCapabilities(t *testing.T) {
 // TestDescribeOpResultWarnsOnBlockedCapabilityClasses pins §5.8 checklist item
 // 5: a new non-executable atom must reach describe_op as prose, not only as
 // the `execution_support` discriminator. The registered outputSchema has
-// carried `capability_class_warnings` since v0.1 with no producer, so the
+// carried `capability_class_warnings` from the start with no producer, so the
 // field was always absent and a caller who read the answer learned nothing.
 func TestDescribeOpResultWarnsOnBlockedCapabilityClasses(t *testing.T) {
 	res := buildDescribeOpResult(partialOp(), defaultMaxVariants)

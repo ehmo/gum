@@ -65,7 +65,7 @@ func (c *CodeRunner) WithOutputLimitBytes(n int) *CodeRunner {
 // Execute satisfies dispatch.Adapter for adapter_key = "code.risor".
 //
 // Required inv.Args keys:
-//   - "language": string — only "risor" is accepted in v0.1.0.
+//   - "language": string — only "risor" is accepted.
 //   - "source": string   — the Risor program to execute.
 func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dispatch.ResolvedVariant, creds *dispatch.Credentials) (*dispatch.Response, error) {
 	args := inv.Args
@@ -83,7 +83,7 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 		// against the registered inputSchema before dispatch (spec §4.3
 		// reserved-language rejection transport).
 		return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
-			"only risor is supported in v0.1.0").
+			"only risor is supported").
 			WithDetail("field", "language").
 			WithDetail("value", language)
 	}
@@ -97,10 +97,10 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 	}
 
 	// Reject pragma headers before sandbox.Run so the error is a structured
-	// INVALID_ARGS, not an opaque Risor parse error (spec §6.1 line 1110).
+	// INVALID_ARGS, not an opaque Risor parse error (spec §6.1).
 	if hasPragmaHeader(code) {
 		return nil, dispatch.NewStructuredError(dispatch.ErrCodeInvalidArgs,
-			"script-header pragma directives are not supported in v0.1.0 (deferred to v0.3.0)").
+			"script-header pragma directives are not supported").
 			WithDetail("pragma", "rejected")
 	}
 
@@ -170,7 +170,7 @@ func (c *CodeRunner) Execute(ctx context.Context, inv *dispatch.Invocation, rv *
 	}, nil
 }
 
-// Spec §1083 destructive envelope bounds: a confirmed allow_destructive
+// Spec §6.1.1 destructive envelope bounds: a confirmed allow_destructive
 // invocation must declare a budget in minDestructiveBudget..maxDestructiveBudget,
 // and destructive_scope holds at most maxDestructiveScopeEntries entries.
 const (
@@ -332,12 +332,12 @@ func buildCallFn(parentCtx context.Context, disp dispatch.Dispatcher, allowWrite
 // lroRefusalMessage is the §6.1 message the LRO refusal carries verbatim. The
 // wording names the two surfaces that do support an LRO, so the script author
 // knows where to move the call.
-const lroRefusalMessage = "long-running operations are not callable from gum.code in v0.1.0; " +
+const lroRefusalMessage = "long-running operations are not callable from gum.code; " +
 	"use the MCP gum.call tool or CLI directly"
 
 // refuseLRO is the §6.1 pre-dispatch gate shared by the code-mode host
 // functions: an op whose default variant is classified `lro_return` is not
-// callable from gum.code in v0.1.0.
+// callable from gum.code.
 //
 // The gate lives here rather than in the kernel because the restriction is a
 // property of code mode; the same op called through the MCP gum.call tool or
@@ -345,7 +345,7 @@ const lroRefusalMessage = "long-running operations are not callable from gum.cod
 // the gate open, which keeps mock dispatchers working and matches how
 // gum_parallel treats a missing ServiceFamilyResolver.
 //
-// Poll-cycle support inside gum.code stays deferred to v0.3.0: a
+// Poll-cycle support inside gum.code is not built: a
 // request-scoped Risor execution cannot safely drive the host-side polling
 // state machine.
 func refuseLRO(disp dispatch.Dispatcher, opID string) error {
@@ -395,7 +395,7 @@ func consumeDestructiveCallGate(ds *destructiveState, opID string) error {
 			WithDetail("op_id", opID)
 	}
 	if ds.pendingOpID != opID {
-		// Consume the one-shot pending slot before returning error (spec §6.1 line 1117).
+		// Consume the one-shot pending slot before returning error (spec §6.1).
 		ds.hasPending = false
 		return dispatch.NewStructuredError(dispatch.ErrCodeRequiresConfirmation,
 			fmt.Sprintf("gum_confirm_destructive op_id %q does not match gum_call op_id %q", ds.pendingOpID, opID)).

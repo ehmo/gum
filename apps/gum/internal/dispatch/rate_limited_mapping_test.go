@@ -1,6 +1,6 @@
 // Package dispatch — gum-r35i acceptance tests.
 //
-// Spec §3.1 + §1635 + §1421 require: upstream 429 responses and local
+// Spec §3.1 + §7 require: upstream 429 responses and local
 // token-bucket exhaustion BOTH surface to the caller as the canonical
 // `RATE_LIMITED` structured error envelope, with `retryable=true` and
 // (when known) a `retry_after_ms` detail. These tests anchor the
@@ -40,7 +40,7 @@ func (b *rateLimitingBucket) Wait(_ context.Context, _, _ string) error { return
 // returns a *adapters.UpstreamError with HTTPStatus=429 and a Retry-After
 // hint, dispatch.Dispatch surfaces a *StructuredError with code
 // RATE_LIMITED, retryable=true, and retry_after_ms equal to the upstream
-// hint. The mapping happens at the dispatch boundary (spec §1635).
+// hint. The mapping happens at the dispatch boundary (spec §7).
 func TestDispatchMapsUpstream429ToRateLimited(t *testing.T) {
 	c := loadKernelCatalog(t)
 	upstream := &adapters.UpstreamError{
@@ -68,20 +68,20 @@ func TestDispatchMapsUpstream429ToRateLimited(t *testing.T) {
 		t.Fatalf("err = %T (%v); want *dispatch.StructuredError", err, err)
 	}
 	if se.ErrCode != dispatch.ErrCodeRateLimited {
-		t.Errorf("ErrCode = %q; want %q (spec §1421)", se.ErrCode, dispatch.ErrCodeRateLimited)
+		t.Errorf("ErrCode = %q; want %q (spec §7)", se.ErrCode, dispatch.ErrCodeRateLimited)
 	}
 	if !se.Retryable {
-		t.Errorf("Retryable = false; want true (spec §1635)")
+		t.Errorf("Retryable = false; want true (spec §7)")
 	}
 	if got := se.Detail["retry_after_ms"]; got != int64(5000) {
-		t.Errorf("Detail[retry_after_ms] = %v (%T); want 5000 (int64) — spec §1635 must preserve Retry-After hint", got, got)
+		t.Errorf("Detail[retry_after_ms] = %v (%T); want 5000 (int64) — spec §7 must preserve Retry-After hint", got, got)
 	}
 }
 
 // TestDispatchMapsUpstream429WithoutRetryAfter asserts that an upstream 429
 // without a Retry-After hint still produces RATE_LIMITED + retryable=true,
 // but with no retry_after_ms detail (the field is OPTIONAL on the envelope
-// per spec §1635 "preserve retry_after_ms when positive").
+// per spec §7 "preserve retry_after_ms when positive").
 func TestDispatchMapsUpstream429WithoutRetryAfter(t *testing.T) {
 	c := loadKernelCatalog(t)
 	upstream := &adapters.UpstreamError{HTTPStatus: 429}
@@ -104,7 +104,7 @@ func TestDispatchMapsUpstream429WithoutRetryAfter(t *testing.T) {
 		t.Errorf("ErrCode = %q; want %q", se.ErrCode, dispatch.ErrCodeRateLimited)
 	}
 	if _, present := se.Detail["retry_after_ms"]; present {
-		t.Errorf("Detail[retry_after_ms] present (=%v); want absent when upstream omitted Retry-After (spec §1635)", se.Detail["retry_after_ms"])
+		t.Errorf("Detail[retry_after_ms] present (=%v); want absent when upstream omitted Retry-After (spec §7)", se.Detail["retry_after_ms"])
 	}
 }
 
@@ -139,10 +139,10 @@ func TestDispatchMapsTokenBucketExhaustionToRateLimited(t *testing.T) {
 		t.Fatalf("err = %T (%v); want *dispatch.StructuredError", err, err)
 	}
 	if se.ErrCode != dispatch.ErrCodeRateLimited {
-		t.Errorf("ErrCode = %q; want %q (spec §1421)", se.ErrCode, dispatch.ErrCodeRateLimited)
+		t.Errorf("ErrCode = %q; want %q (spec §7)", se.ErrCode, dispatch.ErrCodeRateLimited)
 	}
 	if !se.Retryable {
-		t.Errorf("Retryable = false; want true (spec §1635)")
+		t.Errorf("Retryable = false; want true (spec §7)")
 	}
 	if _, present := se.Detail["retry_after_ms"]; present {
 		t.Errorf("Detail[retry_after_ms] present (=%v); want absent for local bucket exhaustion", se.Detail["retry_after_ms"])
@@ -177,7 +177,7 @@ func TestDispatchPassesThroughNon429UpstreamErrors(t *testing.T) {
 	// machine-readable SERVICE_DOWN code so the agent isn't handed an opaque
 	// "upstream error HTTP 503..." string (audit 6th pass).
 	if se.ErrCode == dispatch.ErrCodeRateLimited {
-		t.Errorf("503 was coerced to RATE_LIMITED — the mapper must scope to 429 only (spec §1635 / §1638)")
+		t.Errorf("503 was coerced to RATE_LIMITED — the mapper must scope to 429 only (spec §7)")
 	}
 	if se.ErrCode != dispatch.ErrCodeServiceDown {
 		t.Errorf("ErrCode=%q; want SERVICE_DOWN for an exhausted 5xx", se.ErrCode)

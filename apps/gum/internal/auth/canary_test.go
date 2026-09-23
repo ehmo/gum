@@ -526,15 +526,15 @@ func TestCanaryNotUsedToFlipGumOAuth(t *testing.T) {
 
 	// After RunOnce (or even if it panicked), Acquire for gum_oauth must never
 	// return usable credentials. Per strategy.go and bd memory gum-auth-strategy-v3,
-	// StrategyGUMOAuth (iota=0) maps to "gum_oauth" which is disabled in v0.1.0.
+	// StrategyGUMOAuth (iota=0) maps to "gum_oauth", which Acquire refuses.
 	//
 	// Note: auth.Resolve maps the variant to the Strategy enum without error
-	// (gum_oauth is a recognized strategy string). The v0.1.0 gate is in Acquire,
+	// (gum_oauth is a recognized strategy string). The gate is in Acquire,
 	// which returns AUTH_STRATEGY_NOT_IMPLEMENTED for the six stubbed strategies
 	// including gum_oauth.
 	_, acquireErr := auth.Acquire(t.Context(), auth.StrategyGUMOAuth, nil)
 	if acquireErr == nil {
-		t.Fatal("auth.Acquire for StrategyGUMOAuth returned nil error; gum_oauth must remain disabled in v0.1.0")
+		t.Fatal("auth.Acquire for StrategyGUMOAuth returned nil error; Acquire must refuse gum_oauth")
 	}
 	// Must be AUTH_STRATEGY_NOT_IMPLEMENTED (or equivalent), not a real token.
 	if !errors.Is(acquireErr, auth.ErrAuthStrategyNotImplemented) {

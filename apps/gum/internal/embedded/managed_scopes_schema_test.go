@@ -8,7 +8,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// TestManagedScopeManifestSchema is the spec §7 line 1454 build gate:
+// TestManagedScopeManifestSchema is the spec §7 build gate:
 // data/auth-managed-scopes.v1.json MUST validate against
 // data/auth-managed-scopes.v1.schema.json (JSON Schema 2020-12). The gate runs
 // on every `go test ./...`, so an invalid manifest fails CI before a release

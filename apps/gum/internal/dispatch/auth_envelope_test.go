@@ -14,7 +14,7 @@ func (e *richAuthErr) Error() string { return "auth [compound/AUTH_REQUIRED]: ne
 
 func (e *richAuthErr) AsStructuredError() *StructuredError { return e.se }
 
-// TestResolveAuthKeepsRichAuthEnvelope pins spec §7 lines 1378-1381: a
+// TestResolveAuthKeepsRichAuthEnvelope pins spec §7: a
 // non-gum_oauth auth failure must reach the caller with auth_strategy,
 // missing_components and setup_command intact. Flattening it to a bare
 // AUTH_REQUIRED tells the caller `gum auth login` will fix an operation that

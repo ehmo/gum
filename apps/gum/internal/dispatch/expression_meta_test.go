@@ -4,7 +4,7 @@
 // single-op result. shapeResponse set StructuredContent to the raw pre-shaping
 // body and emitted no envelope, so result_count, omitted_count, lossy and
 // on_empty_message never reached a caller. docs/spec.md §9.1 requires the
-// envelope on every shaped result and §2134 requires structuredContent to
+// envelope on every shaped result and §13 requires structuredContent to
 // carry the shaped value, not the upstream one.
 package dispatch
 
@@ -92,7 +92,7 @@ func TestExpressionEnvelopeReportsShapedCounts(t *testing.T) {
 	}
 }
 
-// TestStructuredContentCarriesShapedValue pins §2134: structuredContent is the
+// TestStructuredContentCarriesShapedValue pins §13: structuredContent is the
 // shaped value. It carried the raw upstream body, so an MCP client reading
 // structuredContent saw every field the profile had removed.
 func TestStructuredContentCarriesShapedValue(t *testing.T) {
@@ -178,7 +178,7 @@ func TestExpressionEnvelopeFlagsIntentionalZero(t *testing.T) {
 	}
 }
 
-// TestExpressionEnvelopeOnRawIsSentinel pins §2705: a raw pass-through reports
+// TestExpressionEnvelopeOnRawIsSentinel pins §13: a raw pass-through reports
 // profile "_raw" and MUST NOT claim lossy.
 func TestExpressionEnvelopeOnRawIsSentinel(t *testing.T) {
 	t.Parallel()

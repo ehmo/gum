@@ -19,7 +19,7 @@ type TokenBucket interface {
 }
 
 // GainLedger is the typed seam between the dispatch kernel and the gain
-// ledger. Step 9 (spec §3.1 line 237) appends one spec §12.3 entry per
+// ledger. Step 9 (spec §3.1) appends one spec §12.3 entry per
 // dispatch. *gain.Ledger satisfies it directly; tests substitute a capture.
 //
 // The seam used to carry a reduced dispatch-local GainEntry (op_id, format,
@@ -84,7 +84,7 @@ type DispatcherConfig struct {
 	// consults it after the §10.3 lookup misses and before the executor runs:
 	// a stored validator goes out as `If-None-Match`, and a 304 answer
 	// short-circuits the expression pipeline into `{"unchanged": true,
-	// "etag": "..."}` (§2024). Nil disables conditional requests; every call
+	// "etag": "..."}` (§9.0). Nil disables conditional requests; every call
 	// then fetches the full body.
 	HTTPCache *cache.HTTPCache
 	// RateLimiter, when non-nil, is called in step 6 before the executor.

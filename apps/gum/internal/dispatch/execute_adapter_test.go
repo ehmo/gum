@@ -34,7 +34,7 @@ func TestExecuteAdapterPassesContext(t *testing.T) {
 
 // TestExecuteAdapterCancellationReturnsStructured verifies a cancelled context
 // during adapter Execute is surfaced as a structured CANCELLED error (spec
-// §1421 stable runtime error codes).
+// §7 stable runtime error codes).
 // Acceptance: ctx cancel mid-execute causes Execute to return CANCELLED.
 func TestExecuteAdapterCancellationReturnsStructured(t *testing.T) {
 	slow := &slowAdapter{block: 50 * time.Millisecond}

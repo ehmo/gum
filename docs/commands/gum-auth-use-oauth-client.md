@@ -38,6 +38,7 @@ gum auth use-oauth-client --client-id <id> [--secret-stdin | --secret-file <path
 | `--secret-stdin` | `bool` | false | Read the client secret from stdin (kept out of shell history) |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
+| `--no-warn-lossy` | `bool` | false | Suppress the OVERRIDE_DISABLES_LOSSY_STAGE warning when a profile override drops a lossy-compression stage |
 | `--profile` | `string` | default | Profile name to read/write config under |
 
 ## See also

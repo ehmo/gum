@@ -80,7 +80,7 @@ func TestNoNoticeBlockWhenNothingDropped(t *testing.T) {
 
 // TestNoticeBlockPrecedesResourceLink: with both present, the order is body,
 // notice, resource_link. The resource_link block must stay exactly one
-// (spec §9.0 line 1847) with the notice inserted before it.
+// (spec §9.0) with the notice inserted before it.
 func TestNoticeBlockPrecedesResourceLink(t *testing.T) {
 	srv := NewServer(droppedDispatcher{
 		body:     `{"results":[]}`,

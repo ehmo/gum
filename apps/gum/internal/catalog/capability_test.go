@@ -52,7 +52,7 @@ func TestCapabilityEnumMembership(t *testing.T) {
 	}
 }
 
-// TestOpValidateRejectsUnknownCapability pins the §913 UNKNOWN_CAPABILITY
+// TestOpValidateRejectsUnknownCapability pins the §5.8 UNKNOWN_CAPABILITY
 // rule. Before this gate an atom outside the enum passed catalog validation
 // and reached gum.describe_op, telling the caller about a capability class no
 // executor implements.

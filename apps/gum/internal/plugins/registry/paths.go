@@ -11,7 +11,7 @@ package registry
 
 import "path/filepath"
 
-// File names under the profile directory. Spec §8.7 lines 1700-1702.
+// File names under the profile directory. Spec §8.7.
 const (
 	CatalogFilename     = "plugin-catalog.json"
 	LockFilename        = "plugins.lock"

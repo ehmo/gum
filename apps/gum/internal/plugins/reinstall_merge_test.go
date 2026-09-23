@@ -1,4 +1,4 @@
-// Spec §8.7 step 2 (docs/spec.md:1886): the install transaction reads the
+// Spec §8.7 step 2: the install transaction reads the
 // existing three files and MERGES the new plugin's rows. InstallWithRegistry
 // appended instead, so an upgrade left two rows per plugin in plugins.lock and
 // plugin-state.json and two variants per advertised tool in the catalog.

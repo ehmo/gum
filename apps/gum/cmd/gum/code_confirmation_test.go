@@ -76,7 +76,7 @@ func elevatedArgs(flag string) []string {
 // proof for spec §6.1 step 6: `--allow-write` / `--allow-destructive` require
 // an interactive y or a non-interactive `--yes`, read-only scripts require
 // neither, repeated `--destructive-scope op_id[:resource_key]` is the only
-// scope grammar, and the v0.3.0 flags fail parsing instead of being accepted.
+// scope grammar, and the unbuilt flags fail parsing instead of being accepted.
 func TestCLICodeConfirmationAndScopeGrammar(t *testing.T) {
 	t.Run("read_only_script_needs_no_consent", func(t *testing.T) {
 		rec := stubCodeDispatcher(t)
@@ -185,7 +185,7 @@ func TestCLICodeConfirmationAndScopeGrammar(t *testing.T) {
 			args := append([]string{"gum_print(1)", "--yes"}, extra...)
 			_, _, err := runCodeCmd(t, "", args...)
 			if err == nil {
-				t.Errorf("%v was accepted; spec §6.1 defers it to v0.3.0", extra)
+				t.Errorf("%v was accepted; spec §6.1 says it is not built", extra)
 			}
 			if len(rec.invs) != 0 {
 				t.Errorf("%v reached dispatch; want a parse failure", extra)

@@ -20,7 +20,7 @@ import (
 //
 // The adapter caches running plugin handles by plugin_id so repeated calls in
 // the same gum process reuse the subprocess instead of paying the connect
-// handshake on every invocation. v0.1.0 keeps the cache process-local; the
+// handshake on every invocation. The cache is process-local; the
 // starter hook wires the supervisor that drives crash quarantine in production.
 type PluginMCP struct {
 	hostOnce sync.Once
@@ -108,7 +108,7 @@ func (p *PluginMCP) Execute(ctx context.Context, inv *dispatch.Invocation, rv *d
 				WithRetryable(false)
 		}
 		// A plugin-bound op that can't start its plugin surfaces as SERVICE_DOWN
-		// with the adapter_key (spec §8 line 1631), not a bare error string — so
+		// with the adapter_key (spec §8), not a bare error string — so
 		// an agent can branch on error_code and a human gets the plugin name. The
 		// common case is "plugin not installed" (no manifest), which is expected
 		// for the unofficial ops (flights/scholar/…) until their plugin is added.

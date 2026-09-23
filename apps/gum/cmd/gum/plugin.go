@@ -188,7 +188,7 @@ func DispatchPluginCommandFull(args []string, host pluginsHostInterface, profile
 		if len(args) < 2 {
 			return "", fmt.Errorf("gum plugin remove: missing <id> argument")
 		}
-		// Spec §8.7 line 1893: remove drops the catalog variants, the lock row
+		// Spec §8.7: remove drops the catalog variants, the lock row
 		// with its namespace lease, and the state row under the same
 		// transaction protocol install uses. Without a profile there is no
 		// registry, so the removal degrades to deleting the install dir — the
@@ -343,7 +343,7 @@ func DispatchPluginCommandFull(args []string, host pluginsHostInterface, profile
 }
 
 // dispatchTransferNamespace handles `gum plugin transfer-namespace <prefix>
-// {--new-owner <name>|--release} --yes` per spec §5.1.3 line 526. Flags are
+// {--new-owner <name>|--release} --yes` per spec §5.1.3. Flags are
 // position-independent (any order after the prefix); --yes is mandatory in
 // both modes to make this a non-interactive override.
 func dispatchTransferNamespace(ctx context.Context, args []string, profileDir string, regFactory PluginRegistryFactory) (string, error) {
@@ -577,7 +577,7 @@ func newPluginCmd() *cobra.Command {
 // It prompts for each credential declared in the plugin manifest, stores
 // secrets in the OS keychain, and runs the live canary to verify the
 // plugin is functional. All user-facing output uses alias/display_name/
-// setup_hint — raw env var names are never shown (spec §1414, §1606).
+// setup_hint — raw env var names are never shown (spec §7).
 func newPluginSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:               "setup <name>",
@@ -824,7 +824,7 @@ func newPluginRemoveCmd() *cobra.Command {
 		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			profile := resolveProfileFlag(cmd)
-			// §8.7 line 1893: removal drops the catalog variants, the lock row
+			// §8.7: removal drops the catalog variants, the lock row
 			// with its namespace lease, and the state row in one transaction.
 			// A resolve failure is not fatal — remove then degrades to deleting
 			// the install dir, the same degradation install makes.

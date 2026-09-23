@@ -2,7 +2,7 @@ package mcp
 
 // Red-team failing tests for gum-awf — Tier A convenience tool ABI verification.
 //
-// Spec anchor: spec.md §4.1 lines 343-368.
+// Spec anchor: spec.md §4.1.
 //
 // These tests reference ConvenienceABI and ConvenienceToolABI which do NOT yet
 // exist in the mcp package. They will fail to compile until the Green team adds
@@ -48,7 +48,7 @@ func schemaHasOptionalProp(raw json.RawMessage, name string) bool {
 }
 
 // TestTierAConvenienceABI verifies the ABI binding contract for every one of
-// the 18 Tier A convenience tools (spec.md §4.1 lines 343-368).
+// the 18 Tier A convenience tools (spec.md §4.1).
 //
 // This test MUST fail to compile until the Green team adds:
 //
@@ -83,13 +83,13 @@ func TestTierAConvenienceABI(t *testing.T) {
 
 			// 3. VariantRule must be "default" OR a non-empty string that starts
 			//    with the tool's service prefix.
-			//    flights_search MUST be "flights.v1.plugin.search" (spec line 366).
+			//    flights_search MUST be "flights.v1.plugin.search" (spec §4.1).
 			if abi.VariantRule == "" {
 				t.Errorf("abi.VariantRule is empty for tool %q; want \"default\" or a fixed variant_id", n)
 			}
 			if n == "flights_search" {
 				if abi.VariantRule != "flights.v1.plugin.search" {
-					t.Errorf("flights_search VariantRule = %q; want \"flights.v1.plugin.search\" (spec §4.1 line 366)", abi.VariantRule)
+					t.Errorf("flights_search VariantRule = %q; want \"flights.v1.plugin.search\" (spec §4.1)", abi.VariantRule)
 				}
 			} else {
 				// All non-flights tools must use "default".
@@ -155,7 +155,7 @@ func TestTierAConvenienceABI(t *testing.T) {
 		if abi != nil && abi.VariantRule != "default" {
 			fixedCount++
 			if n != "flights_search" {
-				t.Errorf("tool %q has a fixed variant %q; only flights_search is allowed a fixed variant (spec §4.1 line 366)", n, abi.VariantRule)
+				t.Errorf("tool %q has a fixed variant %q; only flights_search is allowed a fixed variant (spec §4.1)", n, abi.VariantRule)
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func TestTierAConvenienceABI(t *testing.T) {
 	// Confirm the one fixed-variant tool is flights_search.
 	flightsABI := ConvenienceToolABI("flights_search")
 	if flightsABI != nil && flightsABI.VariantRule != "flights.v1.plugin.search" {
-		t.Errorf("flights_search VariantRule = %q; want \"flights.v1.plugin.search\" (spec §4.1 line 366)", flightsABI.VariantRule)
+		t.Errorf("flights_search VariantRule = %q; want \"flights.v1.plugin.search\" (spec §4.1)", flightsABI.VariantRule)
 	}
 }
 

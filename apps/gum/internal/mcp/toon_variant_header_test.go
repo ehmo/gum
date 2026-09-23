@@ -13,7 +13,7 @@ import (
 // variant that produced it, and that the id it reports is an exact key into
 // the catalog.
 //
-// Spec §13 line 2771 splits the answer in two: the `toon` string body carries
+// Spec §13 splits the answer in two: the `toon` string body carries
 // the `count` and `fields` header values, and `op` and `variant` are
 // duplicated as top-level keys on the ToonResult. The first two subtests cover
 // the envelope and the id lookup; the third decodes the shaped body itself and
@@ -103,7 +103,7 @@ func TestToonVariantHeader(t *testing.T) {
 	})
 
 	t.Run("the shaped TOON body is a 9.0 document naming the resolved variant", func(t *testing.T) {
-		// §9.0 line 1953 measured against the encoder the response path
+		// §9.0 measured against the encoder the response path
 		// actually calls, not against the toon package directly.
 		out, err := shapedTOONBody(t, opID, variantID)
 		if err != nil {

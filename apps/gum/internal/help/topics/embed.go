@@ -1,5 +1,5 @@
 // Package topics embeds the per-topic markdown bodies served by the
-// gum://help/{topic} MCP resource template. The thirteen v0.1.0 active topics
+// gum://help/{topic} MCP resource template. The thirteen active topics
 // (the spec §13 seed set plus the five per-service quickstarts) are validated
 // against an 8 KiB ceiling at process startup; anything larger fails the
 // build with HELP_TOPIC_TOO_LARGE.
@@ -15,7 +15,7 @@ import (
 //go:embed *.md
 var topicsFS embed.FS
 
-// MaxTopicBytes is the spec §13 line 3159 ceiling on rendered help body
+// MaxTopicBytes is the spec §13 ceiling on rendered help body
 // length. Active topics exceeding this fail the build with
 // HELP_TOPIC_TOO_LARGE (see ErrTopicTooLarge).
 const MaxTopicBytes = 8 * 1024

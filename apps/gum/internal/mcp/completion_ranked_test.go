@@ -10,7 +10,7 @@ import (
 )
 
 // TestRankCompletionValuesExactPrefixWinsOverCaseInsensitive — gum-eul8
-// acceptance: spec §13 line 3208 sorts completion results "by exact-prefix
+// acceptance: spec §13 sorts completion results "by exact-prefix
 // match first and BM25 rank second". A value whose case-sensitive start
 // matches the typed prefix outranks one whose lower-cased start matches.
 // (filterByPrefix is case-insensitive so both candidates pass the gate.)

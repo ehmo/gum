@@ -18,7 +18,7 @@ import (
 //
 // plugins.lock stays empty on purpose: loadPluginInventoryRows folds lock
 // metadata in by name, and these tests only assert which names survive the
-// §13 line 3148 status filter.
+// §13 status filter.
 func seedPluginStatuses(t *testing.T, statuses map[string]string) string {
 	t.Helper()
 	dataHome := t.TempDir()
@@ -42,7 +42,7 @@ func seedPluginStatuses(t *testing.T, statuses map[string]string) string {
 // installed_pending_restart status: the operator inventory keeps the row so
 // `gum plugin list` can report "installed, restart required", and every MCP
 // surface drops it so nothing can invoke a plugin this process never loaded
-// (spec §8.7 + §13 line 3148).
+// (spec §8.7 + §13).
 //
 // Both halves run against production readers: plugins.InventoryRows is what
 // cmd/gum/plugin.go lists, and Server.loadPluginInventoryRows is what every
@@ -82,7 +82,7 @@ func TestPluginInactiveInventoryOnly(t *testing.T) {
 // TestPendingRestartExcludedFromCompletions pins the completion half of the
 // same rule. Server.completionPluginNames feeds `completion/complete`, and it
 // reads the filtered loader, so an installed_pending_restart plugin can never
-// be completed. A needs_configuration plugin still can: spec §13 line 3208
+// be completed. A needs_configuration plugin still can: spec §13
 // permits inventory-only names because gum://plugin/{name} is metadata-only.
 func TestPendingRestartExcludedFromCompletions(t *testing.T) {
 	seedPluginStatuses(t, map[string]string{

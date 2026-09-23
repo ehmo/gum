@@ -67,7 +67,7 @@ func TestPluginMCPRejectsMissingBinding(t *testing.T) {
 	}
 }
 
-// TestPluginMCPReportsMissingInstall pins the documented v0.1.0 "plugin not
+// TestPluginMCPReportsMissingInstall pins the documented "plugin not
 // installed" failure shape (cmd/gen-catalog/gen_flights.go): when the
 // binding points to a plugin that isn't in the install root, the adapter
 // MUST surface an error containing the plugin_id so the operator can

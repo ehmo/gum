@@ -22,7 +22,7 @@
 //	spec.md §4.1: "Their inputSchema is generated from the listed required/optional
 //	               args plus confirmed? / confirmation_token? when
 //	               confirmation_passthrough=yes."
-//	spec.md §6 / §1421: REQUIRES_CONFIRMATION stable error code.
+//	spec.md §6 / §7: REQUIRES_CONFIRMATION stable error code.
 //
 // Done criterion:
 //
@@ -381,7 +381,7 @@ func buildWriteCallRequest(toolName string, extraArgs map[string]any) *sdkmcp.Ca
 // handler without confirmed=true and expects a REQUIRES_CONFIRMATION envelope.
 //
 // Spec anchor: spec.md §4.1 confirmation_passthrough=yes rows; §6 confirmation
-// gate; §1421 stable error code REQUIRES_CONFIRMATION.
+// gate; §7 stable error code REQUIRES_CONFIRMATION.
 //
 // Expected failure: makeConvenienceHandler currently calls applyRiskFlagsFromCatalog
 // (sets AllowWrite=true) then dispatches directly without checking confirmed. The
@@ -421,7 +421,7 @@ func TestTierAWriteToolsRequireConfirmation(t *testing.T) {
 			if !strings.Contains(body, "REQUIRES_CONFIRMATION") {
 				t.Errorf("%s: calling without confirmed=true should return REQUIRES_CONFIRMATION envelope; "+
 					"got: %s\n"+
-					"(spec §4.1 confirmation_passthrough=yes; §1421 stable error code)", name, body)
+					"(spec §4.1 confirmation_passthrough=yes; §7 stable error code)", name, body)
 			}
 			var env map[string]any
 			if err := json.Unmarshal([]byte(body), &env); err != nil {

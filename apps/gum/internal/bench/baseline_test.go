@@ -13,7 +13,7 @@ import (
 const wantLiveToolEntryCount = 29
 
 // TestTierABaselineJSONLoads asserts that testdata/tier-a-token-baseline.json
-// (spec §2 line 129, bead gum-coo) exists, parses as valid JSON, and has
+// (spec §2, bead gum-coo) exists, parses as valid JSON, and has
 // exactly 29 entries (27 Tier A tools plus 2 skills helper tools).
 func TestTierABaselineJSONLoads(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)

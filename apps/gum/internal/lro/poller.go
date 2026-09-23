@@ -41,7 +41,7 @@ func (e *TimeoutError) Error() string {
 	return fmt.Sprintf("lro: poll timeout after %s for operation %q", e.Elapsed, e.OperationName)
 }
 
-// Default knobs (spec §4.1 lines 336-339).
+// Default knobs (spec §4.1).
 const (
 	DefaultInitialInterval = 2 * time.Second
 	DefaultBackoffFactor   = 1.5

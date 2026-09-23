@@ -152,8 +152,8 @@ func TestSemanticCacheReplacePreservesKey(t *testing.T) {
 	}
 }
 
-// TestPerOpTTLTableShape sanity-checks that the spec §10.3 table
-// (docs/spec.md:2379) carries its entries with the documented values. The
+// TestPerOpTTLTableShape sanity-checks that the spec §10.3 table carries its
+// entries with the documented values. The
 // keys are catalog op ids, not the spec's prose tier labels:
 // TestPerOpTTLCoversEverySpecTier reads the same tiers through TTLForOp.
 func TestPerOpTTLTableShape(t *testing.T) {

@@ -24,7 +24,7 @@ func (d *dispatcher) canonicalArgs(args map[string]any) map[string]any {
 // value parseable as RFC 3339 date-time is replaced with its UTC, second-
 // precision serialization. Date-only strings (YYYY-MM-DD) and full ISO
 // datetimes truncated to dates are not currently distinguished from upstream
-// schema annotations; the v0.1.0 implementation normalizes any string that
+// schema annotations; the implementation normalizes any string that
 // successfully parses as RFC 3339 and leaves all other values unchanged. This
 // satisfies the cache-hit-rate intent of §10.0 Rule 4 without requiring a
 // per-arg schema lookup in the catalog.

@@ -21,7 +21,7 @@ func TestAuthErrorIsStructuredErrorCarrier(t *testing.T) {
 	}
 }
 
-// TestCompoundAuthErrorKeepsEnvelopeFields pins spec §7 lines 1378-1381: a
+// TestCompoundAuthErrorKeepsEnvelopeFields pins spec §7: a
 // compound failure must name its strategy, its missing components and the
 // command that fixes them.
 func TestCompoundAuthErrorKeepsEnvelopeFields(t *testing.T) {

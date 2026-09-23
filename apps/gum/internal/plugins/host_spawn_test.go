@@ -1,4 +1,4 @@
-// Spec §8.7 line 1690: plugin spawn MUST re-verify the installed
+// Spec §8.7: plugin spawn MUST re-verify the installed
 // executable's sha256 against the binding captured at install time. A
 // mutated-binary-on-disk attack must surface as PLUGIN_EXECUTABLE_UNTRUSTED
 // before any subprocess is exec'd.

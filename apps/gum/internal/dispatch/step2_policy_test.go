@@ -2,19 +2,19 @@
 //
 // Spec anchors:
 //   - §3.1 step 4: Risk gate — resolved variant's risk_class vs. calling path flags.
-//     Mismatch returns RISK_TOOL_MISMATCH. (spec line 232)
+//     Mismatch returns RISK_TOOL_MISMATCH. (spec §3.1 step 4)
 //   - §4.1 risk gate four-step table: resolve variant → read risk_class → compare to
-//     calling tool → authority. (spec lines 299–303)
+//     calling tool → authority. (spec §4.1)
 //   - §4.1 RISK_TOOL_MISMATCH envelope: error_code, op_id, variant_id, variant_risk_class,
-//     required_tool. Fires in BOTH directions. (spec line 330)
+//     required_tool. Fires in BOTH directions. (spec §4.1)
 //   - §3.1 step 5: Auth/scope check — missing authority → AUTH_REQUIRED or SCOPE_MISSING.
-//     (spec line 233)
+//     (spec §3.1 step 5)
 //   - §4.1 confirmation gate: destructive op without confirmed:true returns
-//     REQUIRES_CONFIRMATION. (spec line 332)
+//     REQUIRES_CONFIRMATION. (spec §4.1)
 //   - §4.1 REQUIRES_CONFIRMATION: write op with confirmation_policy="high_stakes_write"
-//     also triggers confirmation gate. (spec line 294)
-//   - §1421 stable runtime error codes: RISK_TOOL_MISMATCH, REQUIRES_CONFIRMATION,
-//     SCOPE_MISSING listed as stable. (spec line 1421)
+//     also triggers confirmation gate. (spec §4.1)
+//   - §7 stable runtime error codes: RISK_TOOL_MISMATCH, REQUIRES_CONFIRMATION,
+//     SCOPE_MISSING listed as stable. (spec §7)
 //
 // Required NEW API surface (Green Team must add to evaluatePolicy):
 //
@@ -41,20 +41,21 @@
 //
 //     ErrCodePolicyDenied ErrorCode = "POLICY_DENIED"
 //
-//     The spec §1421 list does not include POLICY_DENIED; however the issue body
-//     requires it as the discriminator for allowlist/denylist gate failures.
-//     Green Team must add it to errors.go alongside the existing codes.
+//     POLICY_DENIED is the discriminator for allowlist/denylist gate failures.
+//     It is declared in errors.go and enumerated in the spec's stable runtime
+//     error code list (bead gum-irx2); TestErrorCodesMatchSpecList keeps the two
+//     in agreement.
 //
 //  4. The risk-class gate must return *StructuredError with ErrCodeRiskToolMismatch
 //     (not a plain fmt.Errorf string) carrying detail keys: op_id, variant_id,
-//     variant_risk_class, required_tool. (spec line 330)
+//     variant_risk_class, required_tool. (spec §4.1)
 //
 //  5. The confirmation gate for destructive ops must return *StructuredError with
-//     ErrCodeRequiresConfirmation (not plain error). (spec line 332)
+//     ErrCodeRequiresConfirmation (not plain error). (spec §4.1)
 //
 //  6. The scope check must return *StructuredError with ErrCodeScopeMissing when
 //     the variant's required scope is absent from the profile's AllowedScopes.
-//     (spec line 233)
+//     (spec §3.1 step 5)
 //
 // All tests in this file FAIL to compile until Green Team implements the API surface
 // described above. That is the intended state for Red Team output.
@@ -172,7 +173,7 @@ func newPolicyDispatcher(policy ProfilePolicy) *dispatcher {
 
 // TestPolicyWriteOpRequiresAllowWrite verifies that a write-class op is rejected
 // with RISK_TOOL_MISMATCH when AllowWrite=false on the Invocation.
-// Spec: §3.1 step 4, §4.1 risk gate step 3 (spec line 302).
+// Spec: §3.1 step 4, §4.1 risk gate step 3.
 func TestPolicyWriteOpRequiresAllowWrite(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -189,9 +190,9 @@ func TestPolicyWriteOpRequiresAllowWrite(t *testing.T) {
 		t.Errorf("expected ErrCode=%q, got %q", ErrCodeRiskToolMismatch, serr.ErrCode)
 	}
 	if serr.Retryable {
-		t.Error("RISK_TOOL_MISMATCH must not be retryable (spec line 330)")
+		t.Error("RISK_TOOL_MISMATCH must not be retryable (spec §4.1)")
 	}
-	// Required detail keys per spec line 330.
+	// Required detail keys per spec §4.1.
 	if serr.Detail["op_id"] != "test.write.op" {
 		t.Errorf("detail['op_id'] = %v, want 'test.write.op'", serr.Detail["op_id"])
 	}
@@ -201,7 +202,7 @@ func TestPolicyWriteOpRequiresAllowWrite(t *testing.T) {
 }
 
 // TestPolicyWriteOpAllowedWhenAllowWriteTrue verifies that a write-class op passes
-// the risk gate when AllowWrite=true. Spec: §4.1 (spec line 302).
+// the risk gate when AllowWrite=true. Spec: §4.1.
 func TestPolicyWriteOpAllowedWhenAllowWriteTrue(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -386,7 +387,7 @@ func TestPolicyDestructiveOpRequiresAllowDestructive(t *testing.T) {
 
 // TestPolicyDestructiveOpRequiresConfirmationToken verifies that a destructive-class
 // op with AllowDestructive=true but Confirmed=false returns REQUIRES_CONFIRMATION.
-// Spec: §4.1 confirmation gate (spec line 332).
+// Spec: §4.1 confirmation gate.
 func TestPolicyDestructiveOpRequiresConfirmationToken(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -406,7 +407,7 @@ func TestPolicyDestructiveOpRequiresConfirmationToken(t *testing.T) {
 	if serr.Retryable {
 		t.Error("REQUIRES_CONFIRMATION must not be retryable (Retryable=false per issue)")
 	}
-	// Must expose op_id so LLM knows which op triggered it (spec line 332 envelope shape).
+	// Must expose op_id so LLM knows which op triggered it (spec §4.1 envelope shape).
 	if serr.Detail["op_id"] != "test.destructive.op" {
 		t.Errorf("detail['op_id'] = %v, want 'test.destructive.op'", serr.Detail["op_id"])
 	}
@@ -414,7 +415,7 @@ func TestPolicyDestructiveOpRequiresConfirmationToken(t *testing.T) {
 
 // TestPolicyDestructiveOpConfirmedWithoutTokenRejected verifies that confirmed=true
 // without a confirmation_token is still rejected. Token is mandatory.
-// Spec §4.1: "Re-invocation with confirmed: true MUST include confirmation_token" (line 332).
+// Spec §4.1: "Re-invocation with confirmed: true MUST include confirmation_token".
 func TestPolicyDestructiveOpConfirmedWithoutTokenRejected(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -440,7 +441,7 @@ func TestPolicyDestructiveOpConfirmedWithoutTokenRejected(t *testing.T) {
 }
 
 // TestPolicyReadOpDoesNotRequireFlags verifies that a read-class op passes the risk
-// gate with no flags set. Spec: §4.1, gum.read annotation (spec line 268).
+// gate with no flags set. Spec: §4.1, gum.read annotation.
 func TestPolicyReadOpDoesNotRequireFlags(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -478,7 +479,7 @@ func TestPolicyWriteAllowWriteDoesNotSatisfyDestructive(t *testing.T) {
 // ── 2. Allowlist gate ─────────────────────────────────────────────────────────
 
 // TestPolicyAllowlistIncludesOpID verifies that an op in AllowOps passes the gate.
-// Spec: §3.1 step 4 policy wrappers (spec line 234); issue body "allowlist gate".
+// Spec: §3.1 step 6 policy wrappers; issue body "allowlist gate".
 func TestPolicyAllowlistIncludesOpID(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{
 		AllowOps: []string{"test.read.op", "test.write.op"},
@@ -600,7 +601,7 @@ func TestPolicyDenylistDoesNotAffectUnmentionedOps(t *testing.T) {
 
 // TestPolicyDestructiveDenyByDefaultNoFlags verifies the spec's deny-by-default:
 // a destructive op with no flags at all returns a structured error, not a nil.
-// Spec: §3.1 step 4, §4.1 risk gate (spec lines 232, 296–332).
+// Spec: §3.1 step 4, §4.1 risk gate.
 // Note: token verification is deferred to step 3 (confirmation_token binding);
 // step 2 only flags the requirement.
 func TestPolicyDestructiveDenyByDefaultNoFlags(t *testing.T) {
@@ -626,7 +627,7 @@ func TestPolicyDestructiveDenyByDefaultNoFlags(t *testing.T) {
 // TestPolicyDestructiveRequiresConfirmationTokenFlaggedInStep2 verifies that even
 // when AllowDestructive=true, if Confirmed=false the policy step flags the
 // REQUIRES_CONFIRMATION gate (token verify is deferred to step 3, but the absence
-// must be caught at step 2). Spec §4.1 line 332.
+// must be caught at step 2). Spec §4.1.
 func TestPolicyDestructiveRequiresConfirmationTokenFlaggedInStep2(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{})
 	inv := &Invocation{
@@ -650,7 +651,7 @@ func TestPolicyDestructiveRequiresConfirmationTokenFlaggedInStep2(t *testing.T) 
 
 // TestPolicyAuthScopeRequiredScopePresent verifies that a write op whose variant
 // declares RequiredScopes passes when the profile AllowedScopes includes that scope.
-// Spec: §3.1 step 5 (spec line 233).
+// Spec: §3.1 step 5.
 func TestPolicyAuthScopeRequiredScopePresent(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{
 		AllowedScopes: []string{"https://www.googleapis.com/auth/drive"},
@@ -670,7 +671,7 @@ func TestPolicyAuthScopeRequiredScopePresent(t *testing.T) {
 // TestPolicyAuthScopeRequiredScopeMissing verifies that a write op whose variant
 // declares RequiredScopes fails with SCOPE_MISSING when the profile AllowedScopes
 // does NOT include the required scope.
-// Spec: §3.1 step 5 (spec line 233), §1421 SCOPE_MISSING.
+// Spec: §3.1 step 5, §7 SCOPE_MISSING.
 func TestPolicyAuthScopeRequiredScopeMissing(t *testing.T) {
 	d := newPolicyDispatcher(ProfilePolicy{
 		AllowedScopes: []string{"https://www.googleapis.com/auth/gmail.readonly"}, // wrong scope

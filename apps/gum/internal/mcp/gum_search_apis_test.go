@@ -5,9 +5,9 @@
 // result shape ({api, op, summary, params_required, expected_response} per row).
 //
 // Spec anchors:
-//   - spec.md §4.1 line 291: gum.search_apis(query, k=5)
-//   - spec.md §2139 meta_tools.search_apis.k: default=5, range 1–20
-//   - spec.md §13 line 3220 annotations table: readOnlyHint=true, destructiveHint=false
+//   - spec.md §4.1: gum.search_apis(query, k=5)
+//   - spec.md §9.4 meta_tools.search_apis.k: default=5, range 1–20
+//   - spec.md §13 annotations table: readOnlyHint=true, destructiveHint=false
 //
 // All 5 tests MUST FAIL until production code is fixed.
 package mcp
@@ -27,7 +27,7 @@ import (
 // TestGumSearchAPIsSchemaParamNameK asserts that the gum.search_apis input schema
 // contains property "k" and does NOT contain property "top_k".
 //
-// Spec anchor: spec.md §4.1 line 291 — gum.search_apis(query, k=5).
+// Spec anchor: spec.md §4.1 — gum.search_apis(query, k=5).
 // Current schema (schemas.go line 129) declares "top_k" — wrong name.
 func TestGumSearchAPIsSchemaParamNameK(t *testing.T) {
 	raw := metaToolSchema("gum.search_apis")
@@ -47,12 +47,12 @@ func TestGumSearchAPIsSchemaParamNameK(t *testing.T) {
 
 	// Must have "k"
 	if _, exists := props["k"]; !exists {
-		t.Error(`schema missing property "k" (spec §4.1 line 291: gum.search_apis(query, k=5))`)
+		t.Error(`schema missing property "k" (spec §4.1: gum.search_apis(query, k=5))`)
 	}
 
 	// Must NOT have "top_k"
 	if _, exists := props["top_k"]; exists {
-		t.Error(`schema must not contain property "top_k"; spec §4.1 line 291 uses "k"`)
+		t.Error(`schema must not contain property "top_k"; spec §4.1 uses "k"`)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestGumSearchAPIsSchemaParamNameK(t *testing.T) {
 // TestGumSearchAPIsSchemaKBounds asserts that the "k" property is type integer
 // with default=5, minimum=1, and maximum=20.
 //
-// Spec anchor: spec.md §2139 meta_tools.search_apis.k — default 5, range 1–20.
+// Spec anchor: spec.md §9.4 meta_tools.search_apis.k — default 5, range 1–20.
 // Current schema has "top_k" with maximum=50 — both name and bound are wrong.
 func TestGumSearchAPIsSchemaKBounds(t *testing.T) {
 	raw := metaToolSchema("gum.search_apis")
@@ -92,23 +92,23 @@ func TestGumSearchAPIsSchemaKBounds(t *testing.T) {
 
 	// default must be 5
 	if def, ok := kMap["default"]; !ok {
-		t.Error(`k missing "default" field (spec §2139: default=5)`)
+		t.Error(`k missing "default" field (spec §9.4: default=5)`)
 	} else if def != float64(5) {
-		t.Errorf("k.default=%v; want 5 (spec §2139)", def)
+		t.Errorf("k.default=%v; want 5 (spec §9.4)", def)
 	}
 
 	// minimum must be 1
 	if min, ok := kMap["minimum"]; !ok {
-		t.Error(`k missing "minimum" field (spec §2139: range 1–20)`)
+		t.Error(`k missing "minimum" field (spec §9.4: range 1–20)`)
 	} else if min != float64(1) {
-		t.Errorf("k.minimum=%v; want 1 (spec §2139)", min)
+		t.Errorf("k.minimum=%v; want 1 (spec §9.4)", min)
 	}
 
 	// maximum must be 20
 	if max, ok := kMap["maximum"]; !ok {
-		t.Error(`k missing "maximum" field (spec §2139: range 1–20)`)
+		t.Error(`k missing "maximum" field (spec §9.4: range 1–20)`)
 	} else if max != float64(20) {
-		t.Errorf("k.maximum=%v; want 20 (spec §2139, current has 50 — wrong)", max)
+		t.Errorf("k.maximum=%v; want 20 (spec §9.4, current has 50 — wrong)", max)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestGumSearchAPIsSchemaRequiredOnlyQuery(t *testing.T) {
 // returns an entry for "gum.search_apis" with ReadOnlyHint=true and
 // DestructiveHint=*bool(false).
 //
-// Spec anchor: spec.md §13 line 3220 annotations table —
+// Spec anchor: spec.md §13 annotations table —
 // gum.search_apis: readOnlyHint=true, destructiveHint=false.
 // Current TierAMetaToolAnnotations() has no entry for "gum.search_apis".
 func TestGumSearchAPIsAnnotationReadOnlyHintTrue(t *testing.T) {
@@ -155,7 +155,7 @@ func TestGumSearchAPIsAnnotationReadOnlyHintTrue(t *testing.T) {
 
 	entry, exists := ann["gum.search_apis"]
 	if !exists {
-		t.Fatal(`TierAMetaToolAnnotations() missing entry for "gum.search_apis" (spec §13 line 3220)`)
+		t.Fatal(`TierAMetaToolAnnotations() missing entry for "gum.search_apis" (spec §13)`)
 	}
 	if entry == nil {
 		t.Fatal(`TierAMetaToolAnnotations()["gum.search_apis"] is nil`)
@@ -181,7 +181,7 @@ func TestGumSearchAPIsAnnotationReadOnlyHintTrue(t *testing.T) {
 //   - the envelope is {"results":[...]}
 //   - each result row has keys: api, op, summary, params_required, expected_response
 //
-// Spec anchor: spec.md §4.1 line 291 — result tuples contain
+// Spec anchor: spec.md §4.1 — result tuples contain
 // {api, op, summary, params_required, expected_response}.
 //
 // Current handler returns raw embed.SearchResult rows with keys op_id/score/
@@ -241,9 +241,9 @@ func TestGumSearchAPIsResultShape(t *testing.T) {
 		t.Fatal("handleSearchAPIs returned error result")
 	}
 
-	// Parse the TOON body. Spec §4.1 line 291: tuple shape
+	// Parse the TOON body. Spec §4.1: tuple shape
 	// {api, op, summary, params_required, expected_response}.
-	// Handler now routes through profile.Apply (spec §2129) — output is TOON, not JSON.
+	// Handler now routes through profile.Apply (spec §9.4) — output is TOON, not JSON.
 	if len(res.Content) == 0 {
 		t.Fatal("result has no content")
 	}
@@ -255,14 +255,14 @@ func TestGumSearchAPIsResultShape(t *testing.T) {
 
 	// TOON body must NOT start with '{' — it is not JSON.
 	if strings.HasPrefix(strings.TrimSpace(text), "{") {
-		t.Errorf("result starts with '{' — handler still returns JSON; want TOON (spec §2129); body: %s", text)
+		t.Errorf("result starts with '{' — handler still returns JSON; want TOON (spec §9.4); body: %s", text)
 	}
 
 	// TOON encoder emits sorted keys as the header row for homogeneous arrays.
-	// Spec §2129 field order (alphabetical): api, expected_response, op, params_required, summary.
+	// Spec §9.4 field order (alphabetical): api, expected_response, op, params_required, summary.
 	wantHeader := "api,expected_response,op,params_required,summary"
 	if !strings.Contains(text, wantHeader) {
-		t.Errorf("TOON body missing header row %q (spec §4.1 line 291 tuple shape); body:\n%s", wantHeader, text)
+		t.Errorf("TOON body missing header row %q (spec §4.1 tuple shape); body:\n%s", wantHeader, text)
 	}
 
 	// Body must contain the op id and summary fragment.
@@ -272,7 +272,7 @@ func TestGumSearchAPIsResultShape(t *testing.T) {
 	if !strings.Contains(text, "Reads an example thing") {
 		// BM25 should match "read thing" against "Reads an example thing by id".
 		// If the fragment is absent the handler may be returning nothing.
-		t.Errorf("TOON body missing summary fragment %q (spec §4.1 line 291); body: %s",
+		t.Errorf("TOON body missing summary fragment %q (spec §4.1); body: %s",
 			"Reads an example thing", text)
 	}
 }

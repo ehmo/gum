@@ -13,7 +13,7 @@ import (
 
 // TestStaticResourceRegistration is the bead-named acceptance for gum-cw1:
 // resources/list must surface the five static resources required by spec
-// §13 lines 3146-3150 (gum://catalog, gum://status/canaries, gum://plugins,
+// §13 (gum://catalog, gum://status/canaries, gum://plugins,
 // gum://status/health, gum://help/topics). Each fixed URI must be readable
 // and the catalog row must carry the Size annotation + the
 // x-gum-do-not-auto-inject Meta flag.
@@ -112,7 +112,7 @@ func TestStaticCatalogResourceBodyMatchesEmbedded(t *testing.T) {
 }
 
 // TestStaticHealthResourceClosedEnum pins the six-subsystem closed enum from
-// spec §13 line 3149. Adding or removing a row requires a minor-version spec
+// spec §13. Adding or removing a row requires a minor-version spec
 // PR; this test is the canary.
 func TestStaticHealthResourceClosedEnum(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -143,7 +143,7 @@ func TestStaticHealthResourceClosedEnum(t *testing.T) {
 
 // TestStaticCanariesResourceInitialStale covers the zero case: a profile with
 // no installed plugin has no known canary, so the roster is empty rather than
-// carrying a synthetic row. The populated startup shape spec §13 line 3252
+// carrying a synthetic row. The populated startup shape spec §13
 // makes normative is TestCanaryStaleOnStartup.
 func TestStaticCanariesResourceInitialStale(t *testing.T) {
 	defer goleak.VerifyNone(t)

@@ -1,4 +1,4 @@
-// Spec §8.7 line 1893: "`gum plugin remove` MUST remove the corresponding
+// Spec §8.7: "`gum plugin remove` MUST remove the corresponding
 // entries under the same full-state transaction protocol."
 //
 // Host.Remove is os.RemoveAll of the install directory and nothing else, so a

@@ -1,5 +1,22 @@
-// Package sanitize implements the 7-rule build-time and runtime description
-// sanitizer (spec.md §5.4, §11).
+// Package sanitize holds gum's two text defenses. They share a package
+// because both are pure text transforms with no other internal dependency,
+// which is what lets the build-time generator import one of them (§14 rule 4).
+// They are otherwise unrelated and never run on the same input.
+//
+// Sanitize, in this file, is the 13-rule build-time description sanitizer
+// (spec.md §5.4, "Build-time description sanitizer"). It rejects a description,
+// it never repairs one, and it never sees an upstream response body. Two
+// callers gate on it: validateOpDescriptions in cmd/gen-catalog fails the
+// build on a violation in any op title or summary, and plugins.LoadManifest
+// fails the manifest load on a violation in any advertised tool description.
+//
+// Rules 1-7 live in this file and judge how a description is written. Rules
+// 8-13 live in hardening.go and judge whether it is addressing the model
+// instead of describing an operation.
+//
+// Scrub, in scrub.go, is the §11 layer-2 runtime syntactic scrubber. It
+// repairs rather than rejects, and it runs over upstream error text at the
+// dispatch boundary. See scrub.go for why its scope stops at error text.
 //
 // Rules (applied in order):
 //  1. RuleNoMarketing       — reject marketing language ("revolutionary", "best-in-class", etc.)
@@ -7,9 +24,16 @@
 //  3. RuleNoSecondPerson    — reject second-person address ("you can use this to...", "your", etc.)
 //  4. RuleTokenBudgetConvenience — description ≤220 cl100k tokens when toolKind="convenience"
 //  5. RuleTokenBudgetMeta   — description ≤360 cl100k tokens when toolKind="meta"
-//  6. RuleRequireRiskDisclosure — write/destructive ops must contain a risk-disclosure phrase
-//     (e.g. "permanently deletes" for destructive ops)
+//  6. RuleRequireRiskDisclosure — write/destructive ops must contain a risk-disclosure
+//     phrase. A destructive op must name the loss ("permanently deletes"); a write op
+//     must name the mutation ("appends rows", "submits a sitemap").
 //  7. RuleNoPIIPatterns     — reject email addresses, phone numbers, SSN patterns
+//  8. RuleNoCompatibilityChars — reject a codepoint whose NFKD form is plain ASCII
+//  9. RuleNoInstructionTags  — reject <system>, <prompt>, <instruction>, <context>
+//  10. RuleNoInjectionDirectives — reject override, reassignment and directive headers
+//  11. RuleNoSecretWithPath  — reject a credential-shaped token beside a filesystem path
+//  12. RuleNoOpaqueBlob      — reject an encoded run that carries hidden text
+//  13. RuleDescriptionRuneCap — third-party description ≤400 codepoints when toolKind="plugin"
 package sanitize
 
 import (
@@ -40,6 +64,32 @@ const (
 	RuleRequireRiskDisclosure
 	// RuleNoPIIPatterns rejects email, phone, SSN-like patterns in descriptions.
 	RuleNoPIIPatterns
+	// RuleNoCompatibilityChars rejects a non-ASCII codepoint whose NFKD
+	// decomposition is plain ASCII, the shape a homoglyph payload takes.
+	RuleNoCompatibilityChars
+	// RuleNoInstructionTags rejects pseudo-instruction tags such as <system>.
+	RuleNoInstructionTags
+	// RuleNoInjectionDirectives rejects text that instructs a reader rather
+	// than describing an operation.
+	RuleNoInjectionDirectives
+	// RuleNoSecretWithPath rejects a credential-shaped token that appears
+	// beside a filesystem path.
+	RuleNoSecretWithPath
+	// RuleNoOpaqueBlob rejects an encoded run long enough to carry a payload.
+	RuleNoOpaqueBlob
+	// RuleDescriptionRuneCap enforces ≤400 codepoints on a third-party tool
+	// description (tool kind "plugin").
+	RuleDescriptionRuneCap
+)
+
+// Tool kinds. The kind selects the rule 4 or rule 5 token budget, and
+// ToolKindPlugin additionally selects the rule 13 codepoint cap: a plugin
+// description is written by whoever published the plugin, so it is bounded
+// harder than curator-authored catalog text.
+const (
+	ToolKindConvenience = "convenience"
+	ToolKindMeta        = "meta"
+	ToolKindPlugin      = "plugin"
 )
 
 // Violation reports which rule fired and the offending substring.
@@ -67,12 +117,24 @@ var (
 		`(?i)\b(you|your|you're|you'll|you've|you'd)\b`,
 	)
 
-	// Risk disclosure phrases / verb forms (case-insensitive). Matches any
-	// inflection of the listed verbs so that op titles like "Send Gmail
-	// message" satisfy the rule alongside summaries like "Sends a Gmail
-	// message".
-	riskDisclosureRe = regexp.MustCompile(
+	// destructiveDisclosureRe is the rule 6 vocabulary for risk_class
+	// "destructive". It matches any inflection of the listed verbs, so an op
+	// title like "Delete Gmail label" satisfies the rule alongside a summary
+	// like "Permanently delete a draft. Unrecoverable.". A destructive op that
+	// only says where the resource went ("Move a Gmail message to the Trash")
+	// does not disclose, so the euphemism list stays out.
+	destructiveDisclosureRe = regexp.MustCompile(
 		`(?i)\b(send(s|ing|er)?|sent|delete(s|d|ing)?|create(s|d|ing)?|update(s|d|ing)?|modif(y|ies|ied|ying)|remove(s|d|ing)?|write(s|n|ing)?|wrote|permanently|irreversible|cannot be undone)\b`,
+	)
+
+	// writeDisclosureRe is the rule 6 vocabulary for risk_class "write". It
+	// extends destructiveDisclosureRe with the rest of the mutation verbs the
+	// catalog uses, because a write op discloses by naming the mutation it
+	// performs: "Append Rows to a Sheet" and "Submit a sitemap" say as much as
+	// "Creates a draft". The stronger destructive list is deliberately not
+	// widened this way.
+	writeDisclosureRe = regexp.MustCompile(
+		`(?i)\b(` + strings.Join(writeDisclosureVerbs, `|`) + `)\b`,
 	)
 
 	// PII patterns
@@ -87,6 +149,45 @@ var (
 	)
 )
 
+// writeDisclosureVerbs are the regex alternatives that satisfy rule 6 for a
+// write-class op, on top of the destructive vocabulary. Each names a mutation
+// the first-party catalog or a plugin manifest actually performs; none of them
+// is strong enough on its own for a destructive op.
+var writeDisclosureVerbs = []string{
+	`send(s|ing|er)?`, `sent`,
+	`delete(s|d|ing)?`,
+	`create(s|d|ing)?`,
+	`update(s|d|ing)?`,
+	`modif(y|ies|ied|ying)`,
+	`remove(s|d|ing)?`,
+	`write(s|n|ing)?`, `wrote`,
+	`permanently`, `irreversible`, `cannot be undone`,
+	`add(s|ed|ing)?`,
+	`append(s|ed|ing)?`,
+	`clear(s|ed|ing)?`,
+	`close(s|d)?`, `closing`,
+	`cop(y|ies|ied|ying)`,
+	`edit(s|ed|ing)?`,
+	`grant(s|ed|ing)?`,
+	`import(s|ed|ing)?`,
+	`ingest(s|ed|ing)?`,
+	`insert(s|ed|ing)?`,
+	`mov(e|es|ed|ing)`,
+	`mutat(e|es|ed|ing)`,
+	`patch(es|ed|ing)?`,
+	`post(s|ed|ing)?`,
+	`publish(es|ed|ing)?`,
+	`renam(e|es|ed|ing)`,
+	`replac(e|es|ed|ing|ement)`,
+	`restor(e|es|ed|ing)`,
+	`revok(e|es|ed|ing)`,
+	`shar(e|es|ed|ing)`,
+	`submit(s|ted|ting)?`,
+	`(un)?subscrib(e|es|ed|ing)`,
+	`(un)?trash(es|ed|ing)?`,
+	`upload(s|ed|ing)?`,
+}
+
 // budgetCodec returns the cl100k tokenizer that rules 4 and 5 count with.
 // It is a package var so a test can drive the two SANITIZER_TOKENIZER_FAILED
 // arms; production always gets the real cl100k_base codec.
@@ -96,7 +197,8 @@ var budgetCodec = func() (tokenizer.Codec, error) {
 
 // Sanitize returns the rewritten description and any violations.
 //
-//   - toolKind ∈ {"meta","convenience"}; if empty, no token-budget rule fires.
+//   - toolKind ∈ {"meta","convenience","plugin"}; if empty, no token-budget
+//     rule fires. "plugin" takes the convenience budget plus rule 13.
 //   - riskClass ∈ {"read","write","destructive"}; if empty, RuleRequireRiskDisclosure
 //     is skipped.
 //
@@ -134,8 +236,10 @@ func Sanitize(description, toolKind, riskClass string) (string, []Violation, err
 		})
 	}
 
-	// Rules 4 & 5: Token budget (only when toolKind is set)
-	if toolKind == "convenience" || toolKind == "meta" {
+	// Rules 4 & 5: Token budget (only when toolKind is set). A plugin
+	// description is a convenience description with a tighter cap, so it is
+	// budgeted the same way.
+	if toolKind == ToolKindConvenience || toolKind == ToolKindMeta || toolKind == ToolKindPlugin {
 		enc, err := budgetCodec()
 		if err != nil {
 			return "", nil, fmt.Errorf("SANITIZER_TOKENIZER_FAILED: %w", err)
@@ -146,13 +250,13 @@ func Sanitize(description, toolKind, riskClass string) (string, []Violation, err
 		}
 		n := len(ids)
 
-		if toolKind == "convenience" && n > 220 {
+		if (toolKind == ToolKindConvenience || toolKind == ToolKindPlugin) && n > 220 {
 			violations = append(violations, Violation{
 				Rule:      RuleTokenBudgetConvenience,
 				Offending: fmt.Sprintf("%d tokens", n),
 				Reason:    fmt.Sprintf("convenience tool description exceeds 220 cl100k tokens (got %d)", n),
 			})
-		} else if toolKind == "meta" && n > 360 {
+		} else if toolKind == ToolKindMeta && n > 360 {
 			violations = append(violations, Violation{
 				Rule:      RuleTokenBudgetMeta,
 				Offending: fmt.Sprintf("%d tokens", n),
@@ -161,9 +265,14 @@ func Sanitize(description, toolKind, riskClass string) (string, []Violation, err
 		}
 	}
 
-	// Rule 6: Risk disclosure for write/destructive ops
+	// Rule 6: Risk disclosure for write/destructive ops. A destructive op must
+	// name the loss; a write op must name the mutation.
 	if riskClass == "write" || riskClass == "destructive" {
-		if !riskDisclosureRe.MatchString(description) {
+		disclosure := destructiveDisclosureRe
+		if riskClass == "write" {
+			disclosure = writeDisclosureRe
+		}
+		if !disclosure.MatchString(description) {
 			violations = append(violations, Violation{
 				Rule:      RuleRequireRiskDisclosure,
 				Offending: "missing risk disclosure",
@@ -206,6 +315,9 @@ func Sanitize(description, toolKind, riskClass string) (string, []Violation, err
 			Reason:    fmt.Sprintf("PII pattern (SSN): %q", ssnMatch),
 		})
 	}
+
+	// Rules 8-13: injection hardening (hardening.go).
+	violations = append(violations, hardeningViolations(description, toolKind)...)
 
 	sanitized := strings.TrimRight(description, " \t\r\n")
 	return sanitized, violations, nil

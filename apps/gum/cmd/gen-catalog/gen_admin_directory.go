@@ -20,8 +20,8 @@ const (
 //
 // READS use the raw-http long-tail surface (the §5.7 allowlist escape hatch).
 // WRITES use the typed-rest-sdk path (adminDirectoryWriteOps) so the policy
-// kernel keeps full visibility into directory mutations — the deliberate split
-// noted in v0.1.0. Destructive ops (user/group/member delete) are
+// kernel keeps full visibility into directory mutations — a deliberate
+// split. Destructive ops (user/group/member delete) are
 // confirmation-gated.
 func BuildAdminDirectoryOps() []catalog.Op {
 	ops := []catalog.Op{

@@ -57,7 +57,7 @@ func TestCacheClearNoFlagsClearsTheHTTPStore(t *testing.T) {
 	}
 }
 
-// TestCacheClearPatternClearsOnlyMatchingOps pins §2031's instruction that a
+// TestCacheClearPatternClearsOnlyMatchingOps pins §9.0's instruction that a
 // caller re-shapes a 304'd resource by clearing its entry with
 // `gum cache clear <pattern>`. A pattern that names one API must leave every
 // other API's validators in place.
@@ -89,7 +89,7 @@ func TestCacheClearPatternClearsOnlyMatchingOps(t *testing.T) {
 	}
 }
 
-// TestCacheStatsReportsStoredHTTPEntries pins the §3003 http counters against
+// TestCacheStatsReportsStoredHTTPEntries pins the §13 http counters against
 // a store on disk. Hits and misses stay zero because they are per-process and
 // this process dispatched nothing; entries and bytes are readable, so they
 // must be read rather than reported as zero.

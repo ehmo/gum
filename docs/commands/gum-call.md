@@ -43,10 +43,13 @@ gum call <op_id> --risk=<read|write|destructive> [args...] [flags]
 | `--skeleton` | `bool` | false | Print a fillable template of the op's request fields and exit (no upstream call) |
 | `--token` | `string` |  | HMAC-SHA256 confirmation token returned by a prior destructive attempt |
 | `--toon` | `bool` | false | Render output as TOON |
+| `--unsanitized` | `bool` | false | Return the upstream error body without the layer-2 injection scrubber |
 | `--variant-id` | `string` |  | Pin variant_id (default: op's default_variant_id) |
 | `--yes` | `bool` | false | Deprecated: destructive variants require --confirmed --token |
+| `--yes-unsanitized` | `bool` | false | Confirm --unsanitized in a non-interactive session |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
+| `--no-warn-lossy` | `bool` | false | Suppress the OVERRIDE_DISABLES_LOSSY_STAGE warning when a profile override drops a lossy-compression stage |
 | `--profile` | `string` | default | Profile name to read/write config under |
 
 ## See also

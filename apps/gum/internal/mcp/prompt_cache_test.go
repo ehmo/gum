@@ -117,7 +117,7 @@ func TestCacheStatsPromptSupportedReflectsClient(t *testing.T) {
 				t.Errorf("client=%q supported=%v; want %v", clientName, supported, c.want)
 			}
 			if _, ok := prompt["hits_estimate"]; !ok {
-				t.Error("prompt.hits_estimate missing (spec §3035 requires the key, value may be null)")
+				t.Error("prompt.hits_estimate missing (spec §13 requires the key, value may be null)")
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-// TestNoCyclicImports is the §14 import-graph gate. Spec §14 line 3503 names
+// TestNoCyclicImports is the §14 import-graph gate. Spec §14 names
 // this file and this test by path, requires golang.org/x/tools/go/packages for
 // the graph load, and lists three assertions: (a) the module import graph has
 // no cycle, (b) nothing in internal/dispatch's transitive import set imports
@@ -16,7 +16,10 @@
 //     internal/catalog, but the §5.4 pipeline requires the generator to
 //     "validate all catalog-embedded output profiles against
 //     docs/expression-profile-dsl.json; fail build on any violation", and that
-//     validator is internal/output/profile.ValidateRawProfileFile.
+//     validator is internal/output/profile.ValidateRawProfileFile. §5.6 adds
+//     internal/output/fieldmask on the same grounds, and §7 adds
+//     internal/sanitize: the description sanitizer is a build-time gate, so
+//     the generator is the only place it can run over the catalog.
 //
 // Rule 2 also needed a reading, now written into §14. It lists internal/auth
 // among the packages that must not import internal/dispatch, on the stated
@@ -51,6 +54,7 @@ const (
 	catalogPkg   = modulePath + "/internal/catalog"
 	profilePkg   = modulePath + "/internal/output/profile"
 	fieldmaskPkg = modulePath + "/internal/output/fieldmask"
+	sanitizePkg  = modulePath + "/internal/sanitize"
 	genCatalog   = modulePath + "/cmd/gen-catalog"
 	mcpPkg       = modulePath + "/internal/mcp"
 	cliPkg       = modulePath + "/internal/cli"
@@ -86,7 +90,7 @@ var rule2Families = []string{
 // dispatcher entrypoint, as module-relative paths. §14 rule 3 lets the two
 // presentation layers call it; cmd/gum is the binary that wires them. The two
 // internal/adapters files are the rule-3 exception: they are the Risor sandbox
-// host functions behind gum_call and gum_parallel, which §1 line 241 requires
+// host functions behind gum_call and gum_parallel, which §1 requires
 // to pass through the dispatch core.
 var dispatcherCallAllowlist = []string{
 	"cmd/",
@@ -171,7 +175,7 @@ func (g importGraph) matching(family string) []string {
 	return out
 }
 
-// TestNoCyclicImports asserts the §14 line 3503 contract.
+// TestNoCyclicImports asserts the §14 contract.
 func TestNoCyclicImports(t *testing.T) {
 	graph := loadImportGraph(t)
 
@@ -256,8 +260,8 @@ func TestNoCyclicImports(t *testing.T) {
 		if _, ok := graph[genCatalog]; !ok {
 			t.Fatalf("%s absent from the loaded graph", genCatalog)
 		}
-		allowed := map[string]bool{catalogPkg: true, profilePkg: true, fieldmaskPkg: true}
-		for _, root := range []string{catalogPkg, profilePkg, fieldmaskPkg} {
+		allowed := map[string]bool{catalogPkg: true, profilePkg: true, fieldmaskPkg: true, sanitizePkg: true}
+		for _, root := range []string{catalogPkg, profilePkg, fieldmaskPkg, sanitizePkg} {
 			for pkg := range graph.transitive(root) {
 				allowed[pkg] = true
 			}
@@ -265,7 +269,7 @@ func TestNoCyclicImports(t *testing.T) {
 		for pkg := range graph.transitive(genCatalog) {
 			if !allowed[pkg] {
 				t.Errorf("%s imports %s; §14 rule 4 allows only internal/catalog, the §5.4 profile "+
-					"validator, and the §5.6 field-mask grammar", genCatalog, pkg)
+					"validator, the §5.6 field-mask grammar, and the §5.4 description sanitizer", genCatalog, pkg)
 			}
 		}
 		if graph.transitive(genCatalog)[dispatchPkg] {

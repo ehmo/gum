@@ -8,7 +8,7 @@ import (
 )
 
 // TestDispatcherServiceFamily exercises the public ServiceFamily resolver
-// (spec §6.3 line 1171 — gum_parallel's 429 isolation calls this to partition
+// (spec §6.3 — gum_parallel's 429 isolation calls this to partition
 // rate-limit budgets). Three behaviors:
 //   - Known op → returns the catalog ServiceFamily verbatim.
 //   - Unknown op → returns "" (defense in depth; routing has already vetted).

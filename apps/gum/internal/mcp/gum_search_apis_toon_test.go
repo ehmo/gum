@@ -1,10 +1,10 @@
 // Package mcp — Red Team failing tests for gum-np38.10.
 //
-// Covers: gum.search_apis TOON output profile binding per spec §2129.
+// Covers: gum.search_apis TOON output profile binding per spec §9.4.
 //
 // Spec anchors:
-//   - spec.md §9.4 / §2129: gum.search_apis → TOON profile (hardcoded, non-overridable)
-//   - spec.md §4.1 line 291: tuple shape {api, op, summary, params_required, expected_response}
+//   - spec.md §9.4: gum.search_apis → TOON profile (hardcoded, non-overridable)
+//   - spec.md §4.1: tuple shape {api, op, summary, params_required, expected_response}
 //   - expression-profile-dsl.md: collapse_arrays, truncate_strings, on_empty, recovery
 //
 // ALL 5 tests MUST FAIL until Green implements:
@@ -32,37 +32,37 @@ import (
 // ---------------------------------------------------------------------------
 
 // TestSearchAPIsProfileShape asserts that searchAPIsProfile(k) returns a
-// *profile.Profile matching spec §2129 exactly.
+// *profile.Profile matching spec §9.4 exactly.
 func TestSearchAPIsProfileShape(t *testing.T) {
 	prof := searchAPIsProfile(7, searchAPIsTuning{})
 	if prof == nil {
 		t.Fatal("searchAPIsProfile(7) returned nil")
 	}
 
-	// DefaultFormat must be "toon" — spec §2129 implicit TOON profile.
+	// DefaultFormat must be "toon" — spec §9.4 implicit TOON profile.
 	if prof.DefaultFormat != "toon" {
-		t.Errorf("DefaultFormat=%q; want \"toon\" (spec §2129)", prof.DefaultFormat)
+		t.Errorf("DefaultFormat=%q; want \"toon\" (spec §9.4)", prof.DefaultFormat)
 	}
 
 	// collapse_arrays.max_items must bind caller k.
 	if prof.CollapseArrays == nil {
-		t.Fatal("CollapseArrays is nil; want non-nil with MaxItems==7 (spec §2129)")
+		t.Fatal("CollapseArrays is nil; want non-nil with MaxItems==7 (spec §9.4)")
 	} else if prof.CollapseArrays.MaxItems != 7 {
-		t.Errorf("CollapseArrays.MaxItems=%d; want 7 (spec §2129: binds caller k)", prof.CollapseArrays.MaxItems)
+		t.Errorf("CollapseArrays.MaxItems=%d; want 7 (spec §9.4: binds caller k)", prof.CollapseArrays.MaxItems)
 	}
 
 	// truncate_strings: default_chars=120.
 	if prof.TruncateStrings == nil {
-		t.Fatal("TruncateStrings is nil; want non-nil (spec §2129)")
+		t.Fatal("TruncateStrings is nil; want non-nil (spec §9.4)")
 	} else {
 		if prof.TruncateStrings.DefaultChars != 120 {
-			t.Errorf("TruncateStrings.DefaultChars=%d; want 120 (spec §2129)", prof.TruncateStrings.DefaultChars)
+			t.Errorf("TruncateStrings.DefaultChars=%d; want 120 (spec §9.4)", prof.TruncateStrings.DefaultChars)
 		}
 		// truncate_strings.fields.summary = 80.
 		if prof.TruncateStrings.Fields == nil {
-			t.Error("TruncateStrings.Fields is nil; want {\"summary\":80} (spec §2129)")
+			t.Error("TruncateStrings.Fields is nil; want {\"summary\":80} (spec §9.4)")
 		} else if prof.TruncateStrings.Fields["summary"] != 80 {
-			t.Errorf("TruncateStrings.Fields[\"summary\"]=%d; want 80 (spec §2129)",
+			t.Errorf("TruncateStrings.Fields[\"summary\"]=%d; want 80 (spec §9.4)",
 				prof.TruncateStrings.Fields["summary"])
 		}
 	}
@@ -70,12 +70,12 @@ func TestSearchAPIsProfileShape(t *testing.T) {
 	// on_empty sentinel.
 	wantOnEmpty := "No matching operations found. Try a broader query."
 	if prof.OnEmpty != wantOnEmpty {
-		t.Errorf("OnEmpty=%q; want %q (spec §2129)", prof.OnEmpty, wantOnEmpty)
+		t.Errorf("OnEmpty=%q; want %q (spec §9.4)", prof.OnEmpty, wantOnEmpty)
 	}
 
 	// recovery = "none".
 	if prof.Recovery != "none" {
-		t.Errorf("Recovery=%q; want \"none\" (spec §2129)", prof.Recovery)
+		t.Errorf("Recovery=%q; want \"none\" (spec §9.4)", prof.Recovery)
 	}
 
 	// k binding is dynamic: k=3 must yield MaxItems==3.
@@ -156,8 +156,8 @@ func TestSearchAPIsHandlerReturnsTOON(t *testing.T) {
 	}
 	text := tc.Text
 
-	// Spec §2129 TOON column header must be present (homogeneous array encoding).
-	// TOON encoder emits sorted keys as the header row; spec §2129 fields are
+	// Spec §9.4 TOON column header must be present (homogeneous array encoding).
+	// TOON encoder emits sorted keys as the header row; spec §9.4 fields are
 	// api, op, summary, params_required, expected_response.
 	// All five field names must appear in the header line.
 	for _, col := range []string{"api", "op", "summary", "params_required", "expected_response"} {
@@ -167,7 +167,7 @@ func TestSearchAPIsHandlerReturnsTOON(t *testing.T) {
 	}
 
 	// The column header must appear as a CSV row — all 5 fields comma-separated on one line.
-	// Spec §2129 exact field order: api,expected_response,op,params_required,summary
+	// Spec §9.4 exact field order: api,expected_response,op,params_required,summary
 	// (TOON encoder sorts keys alphabetically for homogeneous arrays).
 	wantHeader := "api,expected_response,op,params_required,summary"
 	if !strings.Contains(text, wantHeader) {
@@ -184,7 +184,7 @@ func TestSearchAPIsHandlerReturnsTOON(t *testing.T) {
 
 	// Negative: body must NOT start with '{' — it is TOON, not JSON.
 	if strings.HasPrefix(strings.TrimSpace(text), "{") {
-		t.Errorf("TOON body starts with '{' — handler still returns JSON (spec §2129 requires TOON); body: %s", text)
+		t.Errorf("TOON body starts with '{' — handler still returns JSON (spec §9.4 requires TOON); body: %s", text)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestSearchAPIsHandlerReturnsTOON(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestSearchAPIsOnEmptyFires verifies that the on_empty sentinel is emitted
-// when no ops match the query (spec §2129 on_empty).
+// when no ops match the query (spec §9.4 on_empty).
 func TestSearchAPIsOnEmptyFires(t *testing.T) {
 	opID := "example.read.thing"
 	variantID := opID + ".v1"
@@ -283,7 +283,7 @@ func TestSearchAPIsOnEmptyFires(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestSearchAPIsTruncateStringsApplies verifies that the per-field truncation
-// limit of 80 characters is applied to "summary" (spec §2129).
+// limit of 80 characters is applied to "summary" (spec §9.4).
 func TestSearchAPIsTruncateStringsApplies(t *testing.T) {
 	// Build a 200-char summary — well beyond the 80-char per-field limit.
 	longSummary := strings.Repeat("a", 200)
@@ -343,7 +343,7 @@ func TestSearchAPIsTruncateStringsApplies(t *testing.T) {
 
 	// The 200-char run of 'a' must NOT appear intact in the body.
 	if strings.Contains(text, longSummary) {
-		t.Errorf("full 200-char summary appears in body — truncate_strings not applied (spec §2129 summary limit=80)")
+		t.Errorf("full 200-char summary appears in body — truncate_strings not applied (spec §9.4 summary limit=80)")
 	}
 
 	// At most 80 consecutive 'a' chars should appear (the truncated cell).
@@ -361,14 +361,14 @@ func TestSearchAPIsTruncateStringsApplies(t *testing.T) {
 		}
 	}
 	if maxRun > 80 {
-		t.Errorf("longest run of 'a' in body=%d; want <=80 after truncate_strings{summary:80} (spec §2129)", maxRun)
+		t.Errorf("longest run of 'a' in body=%d; want <=80 after truncate_strings{summary:80} (spec §9.4)", maxRun)
 	}
 
 	// The 81st 'a' must not be present after the truncated cell.
 	// Construct the 81-char prefix and assert it's absent.
 	run81 := strings.Repeat("a", 81)
 	if strings.Contains(text, run81) {
-		t.Errorf("body contains 81+ consecutive 'a' chars — truncation to 80 not applied (spec §2129)")
+		t.Errorf("body contains 81+ consecutive 'a' chars — truncation to 80 not applied (spec §9.4)")
 	}
 }
 
@@ -378,7 +378,7 @@ func TestSearchAPIsTruncateStringsApplies(t *testing.T) {
 
 // TestSearchAPIsCollapseAtK verifies that when more than k results exist,
 // the TOON body shows exactly k data rows and an omitted_count marker
-// (spec §2129: collapse_arrays.max_items=k).
+// (spec §9.4: collapse_arrays.max_items=k).
 func TestSearchAPIsCollapseAtK(t *testing.T) {
 	// Build 6 ops all matching "match-token".
 	ops := make([]catalog.Op, 6)
@@ -449,14 +449,14 @@ func TestSearchAPIsCollapseAtK(t *testing.T) {
 		t.Errorf("records header = %q; want \"items\" (collapse_arrays wraps under items);\nbody:\n%s", doc.RecordKey, text)
 	}
 	if doc.Count > 3 {
-		t.Errorf("count = %d; want at most 3 (k=3 limit, spec §2129);\nbody:\n%s", doc.Count, text)
+		t.Errorf("count = %d; want at most 3 (k=3 limit, spec §9.4);\nbody:\n%s", doc.Count, text)
 	}
 
 	// The k=3 binding held only if collapse dropped rows, so omitted_count must
 	// be present and positive.
 	omitted, found := headerNumber(doc, "omitted_count")
 	if !found {
-		t.Fatalf("TOON header missing \"omitted_count\" — collapse_arrays not applied (spec §2129 k=3 against 6 results);\nbody:\n%s", text)
+		t.Fatalf("TOON header missing \"omitted_count\" — collapse_arrays not applied (spec §9.4 k=3 against 6 results);\nbody:\n%s", text)
 	}
 	if omitted <= 0 {
 		t.Errorf("omitted_count = %v; want > 0 with k=3 and 6 matching ops;\nbody:\n%s", omitted, text)

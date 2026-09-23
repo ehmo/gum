@@ -127,7 +127,7 @@ func TestResultsSubscribeIsRefused(t *testing.T) {
 	// client stops polling and waits for an update frame gum never sends.
 	result, rpcErr := conn.callRaw("resources/subscribe", map[string]any{"uri": uri})
 	if len(rpcErr) == 0 || string(rpcErr) == "null" {
-		t.Fatalf("resources/subscribe returned result %s and no error; with resources.subscribe advertised false it must be refused, or a client will wait for notifications/resources/updated frames that v0.1.0 never emits", result)
+		t.Fatalf("resources/subscribe returned result %s and no error; with resources.subscribe advertised false it must be refused, or a client will wait for notifications/resources/updated frames that gum never emits", result)
 	}
 
 	var wireErr struct {
@@ -141,7 +141,7 @@ func TestResultsSubscribeIsRefused(t *testing.T) {
 	// that answers with a result, or with some other error, and either way the
 	// refusal the advertised capability implies has stopped being true.
 	if wireErr.Code != jsonRPCMethodNotFound {
-		t.Errorf("resources/subscribe error code = %d; want %d (method not found), because v0.1.0 registers no subscribe handler", wireErr.Code, jsonRPCMethodNotFound)
+		t.Errorf("resources/subscribe error code = %d; want %d (method not found), because gum registers no subscribe handler", wireErr.Code, jsonRPCMethodNotFound)
 	}
 
 	assertNoResourceUpdated(t, conn)
@@ -158,7 +158,7 @@ func assertNoResourceUpdated(t *testing.T, conn *wireConn) {
 
 	for _, note := range conn.notifications {
 		if note.Method == "notifications/resources/updated" {
-			t.Errorf("server sent %s with params %s; v0.1.0 emits no resource-updated frames for results, so clients poll against artifact_expires_at instead", note.Method, note.Params)
+			t.Errorf("server sent %s with params %s; gum emits no resource-updated frames for results, so clients poll against artifact_expires_at instead", note.Method, note.Params)
 		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Bead gum-t3tl. Spec §8.7 line 1886 (step 3) writes the same
+// Bead gum-t3tl. Spec §8.7 (step 3) writes the same
 // install_generation and install_txid into all three temp files, and step 4
 // says "a generation is authoritative only when all three final files exist
 // and carry the same install_generation and install_txid".

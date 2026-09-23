@@ -89,7 +89,7 @@ func (d *dispatcher) writeTeeArtifact(inv *Invocation, rv *ResolvedVariant, cred
 		return nil, nil
 	case "failures":
 		// Spec §9: "failures" writes only when the upstream HTTP response is
-		// 4xx/5xx (or a structured-error envelope). v0.1.0 minimal slice
+		// 4xx/5xx (or a structured-error envelope). The implementation
 		// keys off StatusCode; structured-error mapping is handled before
 		// this stage and would have early-returned, so falling through to a
 		// 2xx here is a healthy execution and must be skipped.

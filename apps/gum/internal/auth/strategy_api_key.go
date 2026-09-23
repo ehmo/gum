@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// EnvAPIKeyVar is the env variable the v0.1.0 api_key resolver reads. Spec
+// EnvAPIKeyVar is the env variable the api_key resolver reads. Spec
 // §7 mandates keychain storage for secret components; the keychain path is
 // the default and the env var stays as a CI/automation fallback. See bd memo
 // gum-auth-strategy-v3 for the migration history.
@@ -65,10 +65,9 @@ func DeleteAPIKey(kb KeyringBackend, profile string) error {
 // environment. It satisfies the Resolver interface so CompositeResolver
 // can dispatch to it the same way it dispatches to ADC.
 //
-// v0.1.0 storage is the GUM_API_KEY env variable. Future revisions move
-// the read to the per-profile keychain entry (gum-0wv); the resolver
-// interface stays stable so the wiring in CompositeResolver does not
-// change when storage moves.
+// Storage is the per-profile OS keychain entry, with the GUM_API_KEY env
+// variable as the CI/automation fallback. Lookup indirects both reads so the
+// wiring in CompositeResolver does not care which one answered.
 type APIKeyResolver struct {
 	// Lookup returns the API key for the active profile. Defaults to
 	// (1) os-keyring lookup → (2) GUM_API_KEY env var. Tests inject a
@@ -134,9 +133,9 @@ func (r *APIKeyResolver) Resolve(_ context.Context, scopes []string) (*Credentia
 }
 
 // apiKeyFingerprint returns the spec §10.0.1-compatible double-hashed
-// subject fingerprint described in spec.md line 2217: sha256 of
-// sha256(raw_api_key). The double-hash ensures the audit log never
-// stores a value that could collide with a raw token search.
+// subject fingerprint: sha256 of sha256(raw_api_key). The double-hash
+// ensures the audit log never stores a value that could collide with a
+// raw token search.
 func apiKeyFingerprint(key string) string {
 	first := sha256.Sum256([]byte(key))
 	hexFirst := hex.EncodeToString(first[:])

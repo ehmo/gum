@@ -86,7 +86,7 @@ func TestShapeResponseJSONFormat(t *testing.T) {
 // is rejected before encoding with a structured INVALID_ARGS error carrying
 // the offending field in Detail.
 // Acceptance: unknown format returns INVALID_FORMAT (we use INVALID_ARGS per
-// spec §1421; the canonical stable code, with `field=format` in detail).
+// spec §7; the canonical stable code, with `field=format` in detail).
 func TestShapeResponseInvalidFormatStructured(t *testing.T) {
 	d := &dispatcher{}
 	inv := &Invocation{OpID: "x", Format: "xml"}

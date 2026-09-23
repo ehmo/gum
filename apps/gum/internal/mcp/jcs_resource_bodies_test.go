@@ -1,6 +1,6 @@
 package mcp_test
 
-// Spec §13 line 1562 (normative): every JSON-valued GUM resource —
+// Spec §13 (normative): every JSON-valued GUM resource —
 // gum://op/{id}, gum://variant/{id}, gum://schema/{ref}, gum://results/{hash},
 // gum://plugin/{name}, and deprecated gum://help/{topic} redirects — returns
 // one text content item whose text is JCS-canonical JSON (RFC 8785).
@@ -60,7 +60,7 @@ func assertJCSCanonical(t *testing.T, uri, body string) {
 }
 
 // readOneJSONContent reads uri and returns the single content item's text
-// after checking the shape spec §13 line 1562 also fixes.
+// after checking the shape spec §13 also fixes.
 func readOneJSONContent(t *testing.T, ctx context.Context, cs *sdkmcp.ClientSession, uri, wantMIME string) string {
 	t.Helper()
 

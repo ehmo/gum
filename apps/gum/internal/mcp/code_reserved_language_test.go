@@ -2,13 +2,13 @@ package mcp
 
 // Reserved gum.code language rejection (test-matrix row 216, bead gum-q6v7).
 //
-// v0.1.0 ships one scripting language. The strings starlark, yaegi, js and
-// python are reserved for later releases and are absent from the language
-// enum (spec §411). The closed-enum claim is one assertion per reserved name,
+// gum ships one scripting language. The strings starlark, yaegi, js and
+// python are reserved and absent from the language
+// enum (spec §4.3). The closed-enum claim is one assertion per reserved name,
 // not one name standing in for four: an enum widened by a single entry still
 // passes a single-case test.
 //
-// Spec §307 fixes the rejection transport. go-sdk validates tool input only
+// Spec §4.3 fixes the rejection transport. go-sdk validates tool input only
 // inside its generic AddTool[In, Out] helper and gum registers raw schemas
 // through the untyped AddTool(*Tool, ToolHandler), so the validation seam is
 // gum's own validatedHandler: the response is a tools/call result carrying the
@@ -26,7 +26,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// reservedCodeLanguages is the §411 reserved list. unknownCodeLanguage stands
+// reservedCodeLanguages is the §4.3 reserved list. unknownCodeLanguage stands
 // for "any other unknown value", which the same enum check rejects.
 var reservedCodeLanguages = []string{"starlark", "yaegi", "js", "python"}
 
@@ -78,7 +78,7 @@ func TestCodeReservedLanguageRejection(t *testing.T) {
 			result, rpcErr, disp := callCode(t, language)
 
 			if len(rpcErr) > 0 && string(rpcErr) != "null" {
-				t.Fatalf("language %q produced JSON-RPC error %s; spec §307 rejects a schema violation with an INVALID_ARGS result envelope, not a transport error", language, rpcErr)
+				t.Fatalf("language %q produced JSON-RPC error %s; spec §4.3 rejects a schema violation with an INVALID_ARGS result envelope, not a transport error", language, rpcErr)
 			}
 
 			var res struct {
@@ -106,13 +106,13 @@ func TestCodeReservedLanguageRejection(t *testing.T) {
 				t.Fatalf("decode error envelope %q: %v", res.Content[0].Text, err)
 			}
 			if envelope.ErrorCode != "INVALID_ARGS" {
-				t.Errorf("language %q: error_code = %q; want INVALID_ARGS (spec §307)", language, envelope.ErrorCode)
+				t.Errorf("language %q: error_code = %q; want INVALID_ARGS (spec §4.3)", language, envelope.ErrorCode)
 			}
 			if envelope.Retryable {
 				t.Errorf("language %q: retryable = true; a closed enum never accepts the value on a retry", language)
 			}
 			if !strings.Contains(envelope.Message, "gum.code") {
-				t.Errorf("language %q: message %q does not name the tool, which §307 requires", language, envelope.Message)
+				t.Errorf("language %q: message %q does not name the tool, which §4.3 requires", language, envelope.Message)
 			}
 			if !strings.Contains(envelope.Message, language) {
 				t.Errorf("language %q: message %q does not name the rejected value", language, envelope.Message)

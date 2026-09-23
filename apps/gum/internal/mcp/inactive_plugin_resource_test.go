@@ -1,4 +1,4 @@
-// gum-j8g2 acceptance: spec §13 lines 3155 + 3179 + 3180 inactive-plugin and
+// gum-j8g2 acceptance: spec §13 inactive-plugin and
 // quarantined branches for gum://op/{id} and gum://variant/{id}.
 //
 // When the active catalog snapshot doesn't carry the op/variant but the
@@ -23,7 +23,7 @@ import (
 	"go.uber.org/goleak"
 )
 
-// TestOpResourceInactivePluginPath covers the spec §13 line 3179 op-resource
+// TestOpResourceInactivePluginPath covers the spec §13 op-resource
 // branches: pending_restart and needs_configuration each surface a
 // status-only schema instead of the full record (or a RESOURCE_NOT_FOUND).
 func TestOpResourceInactivePluginPath(t *testing.T) {
@@ -46,7 +46,7 @@ func TestOpResourceInactivePluginPath(t *testing.T) {
 			t.Errorf("status=%q; want installed_pending_restart", got)
 		}
 		if got, _ := payload["reason"].(string); got != "Plugin installed but MCP server not yet restarted; restart to invoke." {
-			t.Errorf("reason=%q; mismatch with spec §13 line 3179", got)
+			t.Errorf("reason=%q; mismatch with spec §13", got)
 		}
 		// pending_restart MUST NOT carry credential_aliases (that's the
 		// needs_configuration branch).
@@ -72,7 +72,7 @@ func TestOpResourceInactivePluginPath(t *testing.T) {
 			t.Errorf("status=%q; want needs_configuration", got)
 		}
 		if got, _ := payload["reason"].(string); got != "Plugin requires credential setup and a successful live canary before activation." {
-			t.Errorf("reason=%q; mismatch with spec §13 line 3179", got)
+			t.Errorf("reason=%q; mismatch with spec §13", got)
 		}
 		aliases, _ := payload["credential_aliases"].([]any)
 		if len(aliases) != 2 || aliases[0] != "flights_oauth" || aliases[1] != "openai_api_key" {
@@ -81,7 +81,7 @@ func TestOpResourceInactivePluginPath(t *testing.T) {
 	})
 }
 
-// TestVariantResourceQuarantinedPath covers spec §13 lines 3155 + 3180: a
+// TestVariantResourceQuarantinedPath covers spec §13: a
 // variant owned by a quarantined plugin returns the VARIANT_QUARANTINED
 // application error (not RESOURCE_NOT_FOUND and not a status-only response).
 func TestVariantResourceQuarantinedPath(t *testing.T) {
@@ -99,7 +99,7 @@ func TestVariantResourceQuarantinedPath(t *testing.T) {
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("error type=%T; want *jsonrpc.Error", err)
 	}
-	// Per spec §13 line 1427 the JSON-RPC code is -32000 for non-RESOURCE_NOT_FOUND
+	// Per spec §13 the JSON-RPC code is -32000 for non-RESOURCE_NOT_FOUND
 	// / non-RESULT_ARTIFACT_EXPIRED runtime resource errors.
 	if rpcErr.Code != -32000 {
 		t.Errorf("JSON-RPC error.code=%d; want -32000", rpcErr.Code)
@@ -116,7 +116,7 @@ func TestVariantResourceQuarantinedPath(t *testing.T) {
 	}
 }
 
-// TestOpResourceQuarantinedPath pins the §13 line 3180 op-resource quarantine
+// TestOpResourceQuarantinedPath pins the §13 op-resource quarantine
 // path symmetric to the variant test above.
 func TestOpResourceQuarantinedPath(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -142,7 +142,7 @@ func TestOpResourceQuarantinedPath(t *testing.T) {
 	}
 }
 
-// TestVariantResourceInactivePluginPath pins the §13 line 3155 symmetric
+// TestVariantResourceInactivePluginPath pins the §13 symmetric
 // inactive-plugin response for the variant resource. Both inactive statuses
 // are covered: the needs_configuration branch carries credential aliases and
 // its own reason, and pending_restart carries neither.
@@ -187,7 +187,7 @@ func TestVariantResourceInactivePluginPath(t *testing.T) {
 			t.Errorf("status=%q; want needs_configuration", got)
 		}
 		if got, _ := payload["reason"].(string); got != "Plugin requires credential setup and a successful live canary before activation." {
-			t.Errorf("reason=%q; mismatch with spec §13 line 3179", got)
+			t.Errorf("reason=%q; mismatch with spec §13", got)
 		}
 		aliases, _ := payload["credential_aliases"].([]any)
 		if len(aliases) != 2 || aliases[0] != "flights_oauth" || aliases[1] != "openai_api_key" {

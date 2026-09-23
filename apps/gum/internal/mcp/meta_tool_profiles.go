@@ -9,7 +9,7 @@ import (
 )
 
 // searchAPIsTuning captures the admin tuning knobs for gum.search_apis
-// (spec §2139-§2145). Values come from the active profile's config; each
+// (spec §9.4). Values come from the active profile's config; each
 // knob has a default and a clamp range applied at request time. A clamped
 // value emits one slog.Warn so operators learn their setting was rejected.
 type searchAPIsTuning struct {
@@ -23,7 +23,7 @@ type searchAPIsTuning struct {
 // is read and reported in two places, so it is named once.
 const maxItemsKey = "meta_tools.search_apis.collapse_arrays.max_items"
 
-// loadSearchAPIsTuning reads spec §2139-§2145 admin keys from the active
+// loadSearchAPIsTuning reads spec §9.4 admin keys from the active
 // profile's config.toml and clamps each to its documented range. Missing or
 // unparseable keys fall back to the spec defaults. Errors loading the config
 // itself are non-fatal: handlers continue with defaults.
@@ -101,13 +101,13 @@ func clampIntOK(key, raw string, lo, hi int, log *slog.Logger) (int, bool) {
 	return v, true
 }
 
-// searchAPIsProfile returns the spec §2129 implicit output profile for
+// searchAPIsProfile returns the spec §9.4 implicit output profile for
 // gum.search_apis. The caller's k binds CollapseArrays.MaxItems so result
 // pages grow with the user request. Profile is NOT user-overridable
 // (spec §9.4) — Tier A meta-tools carry hardcoded implicit profiles, but
-// admin tuning keys (§2139-§2145) may override the defaults when present.
+// admin tuning keys (§9.4) may override the defaults when present.
 //
-// Fields (spec §2129):
+// Fields (spec §9.4):
 //   - format = "toon"
 //   - collapse_arrays.max_items = k (or admin-tuned override when set)
 //   - truncate_strings.default_chars = 120 (or admin-tuned)
@@ -115,7 +115,7 @@ func clampIntOK(key, raw string, lo, hi int, log *slog.Logger) (int, bool) {
 //   - on_empty = "No matching operations found. Try a broader query."
 //   - recovery = "none"
 //
-// searchAPIsKMin and searchAPIsKMax are the spec §2139 bounds for the
+// searchAPIsKMin and searchAPIsKMax are the spec §9.4 bounds for the
 // gum.search_apis k argument, mirrored in the registered input schema.
 const (
 	searchAPIsKMin = 1
@@ -144,7 +144,7 @@ func searchAPIsProfile(k int, tuning searchAPIsTuning) *profile.Profile {
 		// §9.4 profiles are hardcoded and not overridable, so they have no
 		// file to take a name from. The envelope still has to report one, and
 		// an empty string would read as "no profile ran". The leading
-		// underscore follows the "_raw" sentinel convention (§2705).
+		// underscore follows the "_raw" sentinel convention (§13).
 		Name:          searchAPIsProfileName,
 		DefaultFormat: "toon",
 		CollapseArrays: &profile.CollapseArraysSpec{

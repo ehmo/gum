@@ -27,8 +27,8 @@ import (
 
 // listPageCap is the server-chosen page cap for MCP list methods
 // (resources/list, resources/templates/list, tools/list, prompts/list).
-// Spec §13: "v0.1.0 uses a server-chosen page cap of 100 entries; there is
-// no client page-size input in the MCP 2025-11-25 contract".
+// Spec §13: "GUM uses a server-chosen page cap of 100 entries; there is no
+// client page-size input in the MCP 2025-11-25 contract".
 const listPageCap = 100
 
 // metaToolNames is the canonical ordered list of Tier A meta-tools.
@@ -72,18 +72,19 @@ func (w *sdkServer) Connect(ctx context.Context, t sdkmcp.Transport) (*sdkmcp.Se
 // before accepting connections. All tool registrations MUST happen before
 // Run is called (spec.md §4.2).
 type Server struct {
-	disp                 dispatch.Dispatcher
-	snapshot             *catalog.Catalog
-	bm25                 *embed.Index
-	bm25Once             sync.Once // guards the lazy bm25 build (goroutine-per-session)
-	bm25Err              error
-	sdkSrv               *sdkServer
-	convenienceToolNames []string
-	pollerFactory        pollerFactory   // injectable; nil → default production poller
-	profile              profilepkg.Name // active profile; resolves <data home>/gum/<profile>/audit.broken
-	healthCache          healthSnapshotCache
-	roots                rootsCache   // per-session roots/list cache (§9.2)
-	logger               *slog.Logger // §14.1 rule 2 injected logger; nil means slog.Default()
+	disp                  dispatch.Dispatcher
+	snapshot              *catalog.Catalog
+	bm25                  *embed.Index
+	bm25Once              sync.Once // guards the lazy bm25 build (goroutine-per-session)
+	bm25Err               error
+	sdkSrv                *sdkServer
+	convenienceToolNames  []string
+	pollerFactory         pollerFactory   // injectable; nil → default production poller
+	profile               profilepkg.Name // active profile; resolves <data home>/gum/<profile>/audit.broken
+	healthCache           healthSnapshotCache
+	roots                 rootsCache   // per-session roots/list cache (§9.2)
+	logger                *slog.Logger // §14.1 rule 2 injected logger; nil means slog.Default()
+	suppressLossyWarnings bool         // --no-warn-lossy; silences the §9.2 shadowing warning
 }
 
 // SetLogger injects the logger this package emits through (spec §14.1 rule
@@ -116,12 +117,12 @@ func (s *Server) SetProfile(name string) error {
 
 // defaultPollerFactory constructs an *lro.Poller wired to the §5.7 routing
 // table (internal/lro/routing) plus the two GET fallback templates. The
-// LastHost field stays empty in v0.1.0 — fallback steps 2/3 activate only
+// LastHost field stays empty: fallback steps 2/3 activate only
 // once dispatch starts threading the per-session last-upstream-host into the
 // factory (a follow-up §5.7 wiring task). With LastHost empty, the fetcher
 // still serves operation names that hit a routing-table entry (Compute,
 // Cloud Run, google.longrunning.Operations) and surfaces ErrUnroutable for
-// everything else — matching the documented v0.1.0 LRO behaviour without
+// everything else, matching the documented LRO behaviour without
 // the previous "all calls fail" stub.
 func (s *Server) defaultPollerFactory(onTick func(elapsed time.Duration)) lroPoller {
 	return &lro.Poller{
@@ -161,7 +162,7 @@ func NewServerWithCatalog(disp dispatch.Dispatcher, snapshot *catalog.Catalog) *
 		&sdkmcp.Implementation{Name: "gum", Version: Version},
 		&sdkmcp.ServerOptions{
 			Capabilities: &sdkmcp.ServerCapabilities{
-				// ListChanged stays false in v0.1.0: spec §4.1 line 383 forbids
+				// ListChanged stays false: spec §4.1 forbids
 				// tools/list_changed and dynamic Tier B materialization. The
 				// invariant is enforced by TestMCPNoSpuriousListChangedNotifications.
 				Tools:       &sdkmcp.ToolCapabilities{ListChanged: false},
@@ -170,7 +171,7 @@ func NewServerWithCatalog(disp dispatch.Dispatcher, snapshot *catalog.Catalog) *
 				Completions: &sdkmcp.CompletionCapabilities{},
 			},
 			CompletionHandler: s.handleComplete,
-			// Spec §13 fixes the v0.1.0 list page cap at 100 entries. The SDK
+			// Spec §13 fixes the list page cap at 100 entries. The SDK
 			// default is 1000, so leaving this unset would hand clients pages
 			// the spec does not permit.
 			PageSize: listPageCap,
@@ -247,7 +248,7 @@ func (s *Server) registerSkillTools() {
 			// skills_get registers no outputSchema on purpose. Its payload is
 			// one skill body, and structuredContent would put that body on the
 			// wire a second time beside the text content. The skill helpers sit
-			// outside the Tier A roster (§403, §2709), so no spec rule requires
+			// outside the Tier A roster (§4.2, §13), so no spec rule requires
 			// a schema here, and MCP does not require one.
 			name:        "skills_get",
 			description: "Return one embedded gum agent skill body.",

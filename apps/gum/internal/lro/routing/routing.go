@@ -5,15 +5,15 @@
 // Two artifacts live here:
 //
 //  1. ServiceByPrefix — the generated map illustrated in spec.md §5.7
-//     ("var lroServiceByPrefix = map[string]lroEndpoint{ … }"). For v0.1.0 the
-//     entries are hand-curated against the public Google API surface; the
+//     ("var lroServiceByPrefix = map[string]lroEndpoint{ … }"). The entries
+//     are hand-curated against the public Google API surface; the
 //     daily catalog regen workflow (gum-7ht) will rebuild this from the
 //     resources.operations.methods.get walk of each discovery doc in a future
 //     release.
 //  2. Lookup() — pattern matcher with prefix specificity (most specific
 //     literal pattern wins; wildcard segments are scored last).
 //
-// The fallback templates (spec §5.7 lines 861-868) are NOT in this package —
+// The fallback templates (spec §5.7) are NOT in this package —
 // they live next to the HTTP fetcher in internal/lro where the actual HTTP
 // requests get built.
 package routing
@@ -113,8 +113,8 @@ var ServiceByPrefix = map[string]Endpoint{
 
 	// Artifact Registry (REST). Same project/location/operations shape, but
 	// served by artifactregistry.googleapis.com — bind to a different host
-	// than Cloud Run despite the matching prefix. Disambiguation in v0.1.0
-	// is by upstream host fallback (the projects/*/locations/*/operations/
+	// than Cloud Run despite the matching prefix. Disambiguation is by
+	// upstream host fallback (the projects/*/locations/*/operations/
 	// entry above is the default; a session that just hit
 	// artifactregistry.googleapis.com falls through to the host fallback).
 

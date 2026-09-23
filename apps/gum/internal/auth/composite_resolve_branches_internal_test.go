@@ -42,7 +42,7 @@ func TestResolveAuthBYOErrorNoADCPropagates(t *testing.T) {
 }
 
 // TestResolveAuthBYOErrorIgnoresWiredADC pins that even when ADC is wired, a
-// byo_oauth failure is NOT rescued by it. The v0.1.0 fallthrough was removed:
+// byo_oauth failure is NOT rescued by it. The earlier fallthrough was removed:
 // the BYO error (byo-first) must surface, and the wired ADC stub's error
 // (which the old code would have surfaced instead) must never be reached.
 func TestResolveAuthBYOErrorIgnoresWiredADC(t *testing.T) {

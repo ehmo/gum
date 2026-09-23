@@ -121,12 +121,12 @@ func TestBuildCalendarTierBOpsValidates(t *testing.T) {
 }
 
 // TestBuildCalendarTierBOpsRejectsGUMOAuth pins that no Tier B variant uses
-// gum_oauth (disabled in v0.1.0 per bd memory gum-auth-strategy-v3).
+// gum_oauth (disabled per bd memory gum-auth-strategy-v3).
 func TestBuildCalendarTierBOpsRejectsGUMOAuth(t *testing.T) {
 	for _, op := range BuildCalendarTierBOps() {
 		for _, v := range op.Variants {
 			if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-				t.Errorf("op %s variant %s: gum_oauth disabled in v0.1.0", op.OpID, v.VariantID)
+				t.Errorf("op %s variant %s: gum_oauth is disabled", op.OpID, v.VariantID)
 			}
 		}
 	}

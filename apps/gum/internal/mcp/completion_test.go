@@ -89,10 +89,10 @@ func TestMCPCompletions(t *testing.T) {
 		t.Fatalf("Complete(unknown-template): %v", err)
 	}
 	if len(res.Completion.Values) != 0 {
-		t.Errorf("Complete(unknown-template).Values = %v; want empty (v0.2.0 will wire schema completions)", res.Completion.Values)
+		t.Errorf("Complete(unknown-template).Values = %v; want empty (schema completions are not wired)", res.Completion.Values)
 	}
 
-	// ref/prompt → always empty for the v0.1.0 zero-argument roster.
+	// ref/prompt → always empty for the zero-argument roster.
 	res, err = cs.Complete(ctx, &sdkmcp.CompleteParams{
 		Ref:      &sdkmcp.CompleteReference{Type: "ref/prompt", Name: "gum.summarize_workspace_for_today"},
 		Argument: sdkmcp.CompleteParamsArgument{Name: "anything", Value: "x"},

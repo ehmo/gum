@@ -202,9 +202,9 @@ func propertyKeys(props map[string]any) []string {
 // declares enum: ["risor"] only. Reserved strings (python, starlark, yaegi, js)
 // MUST NOT appear in the enum.
 //
-// Spec anchor: spec.md §6.1 — "Closed v0.1 language enum: risor. The strings
-// starlark, yaegi, js, and python are reserved … MUST NOT appear in the v0.1.0
-// MCP input schema."
+// Spec anchor: spec.md §4.1 — "The closed `language` enum is exactly `risor`.
+// The strings `starlark`, `yaegi`, `js`, and `python` are reserved and MUST NOT
+// appear in the MCP input schema, completions, or CLI help."
 //
 // Failure: current schema has no "language" property at all.
 func TestGumCodeSchemaLanguageEnumRisorOnly(t *testing.T) {
@@ -255,7 +255,7 @@ func TestGumCodeSchemaLanguageEnumRisorOnly(t *testing.T) {
 	for _, r := range reserved {
 		if enumSet[r] {
 			t.Errorf(`gum.code "language".enum contains reserved string %q; `+
-				`spec.md §6.1: reserved strings MUST NOT appear in v0.1.0 MCP input schema. `+
+				`spec.md §4.1: reserved strings MUST NOT appear in the MCP input schema. `+
 				`Any value other than "risor" is rejected by the §4.1 validation seam.`, r)
 		}
 	}
@@ -352,7 +352,7 @@ func TestGumCodeSchemaDestructiveScopeDefaultsToEmptyArray(t *testing.T) {
 		t.Errorf(`gum.code "destructive_scope".type = %q; want "array" (spec.md §4.1)`, typ)
 	}
 
-	// items must be the {op_id, resource_key} object of spec §1089. This
+	// items must be the {op_id, resource_key} object of spec §6.1.1. This
 	// assertion used to demand type:string, which no code ever produced or
 	// consumed: the CLI builds objects (addDestructiveArgs) and the executor
 	// reads objects (extractScope, which skips any entry that is not a map).
@@ -360,7 +360,7 @@ func TestGumCodeSchemaDestructiveScopeDefaultsToEmptyArray(t *testing.T) {
 	// its scope silently discarded.
 	itemsRaw, hasItems := scopeMap["items"]
 	if !hasItems {
-		t.Error(`gum.code "destructive_scope" must declare "items" (spec.md §1089)`)
+		t.Error(`gum.code "destructive_scope" must declare "items" (spec.md §6.1.1)`)
 	} else {
 		itemsMap, ok := itemsRaw.(map[string]any)
 		if !ok {
@@ -368,21 +368,21 @@ func TestGumCodeSchemaDestructiveScopeDefaultsToEmptyArray(t *testing.T) {
 		} else {
 			itemType, _ := itemsMap["type"].(string)
 			if itemType != "object" {
-				t.Errorf(`gum.code "destructive_scope".items.type = %q; want "object" (spec.md §1089)`, itemType)
+				t.Errorf(`gum.code "destructive_scope".items.type = %q; want "object" (spec.md §6.1.1)`, itemType)
 			}
 			itemProps, _ := itemsMap["properties"].(map[string]any)
 			for _, want := range []string{"op_id", "resource_key"} {
 				if _, ok := itemProps[want]; !ok {
-					t.Errorf(`gum.code "destructive_scope".items is missing %q (spec.md §1089)`, want)
+					t.Errorf(`gum.code "destructive_scope".items is missing %q (spec.md §6.1.1)`, want)
 				}
 			}
 		}
 	}
 
-	// The 20-entry cap is enforced by the executor (§1083); advertising it
+	// The 20-entry cap is enforced by the executor (§6.1.1); advertising it
 	// lets the caller see the limit instead of discovering it on a rejection.
 	if maxItems, _ := scopeMap["maxItems"].(float64); maxItems != 20 {
-		t.Errorf(`gum.code "destructive_scope".maxItems = %v; want 20 (spec.md §1083)`, scopeMap["maxItems"])
+		t.Errorf(`gum.code "destructive_scope".maxItems = %v; want 20 (spec.md §6.1.1)`, scopeMap["maxItems"])
 	}
 }
 

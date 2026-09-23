@@ -46,8 +46,8 @@ type SchedulerConfig struct {
 	RegistryPath string        // path to auth-managed-scopes.v1.json
 	Probe        CanaryProbe   // per-scope probe
 	StaleAfter   time.Duration // last_checked older than this → stale
-	// StaleAfter is stored but unused in v0.1.0 logic; staleness detection
-	// lands in v0.2.0 when background scheduling is introduced.
+	// StaleAfter is stored but unused: staleness detection needs background
+	// scheduling, which is not built.
 	Now func() time.Time // injectable clock; defaults to time.Now
 }
 

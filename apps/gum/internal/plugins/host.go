@@ -52,14 +52,14 @@ type Manifest struct {
 }
 
 // Requirements carries the plugin's declared runtime requirements including
-// credential descriptors per spec §1606.
+// credential descriptors per spec §7.
 type Requirements struct {
 	// NeedsUserCreds lists the env var names that require user-supplied
 	// credentials. The env var names are the subprocess-side names and must
-	// NOT be exposed in user-facing messages per spec §1414/§1606.
+	// NOT be exposed in user-facing messages per spec §7.
 	NeedsUserCreds []string `json:"needs_user_creds,omitempty"`
 	// CredentialDescriptors maps each entry in NeedsUserCreds (by env var
-	// name) to a safe user-facing descriptor (spec §1606). Must contain
+	// name) to a safe user-facing descriptor (spec §7). Must contain
 	// exactly one entry per NeedsUserCreds element.
 	CredentialDescriptors []CredentialDescriptor `json:"credential_descriptors,omitempty"`
 	// AuthComponents declares the §7 prerequisite components this plugin
@@ -111,7 +111,7 @@ var validRiskClasses = map[string]bool{
 }
 
 // rejectNestedSchemaVersion fails a manifest that places
-// manifest_schema_version inside the `plugin` table (spec §8.6 line 1737).
+// manifest_schema_version inside the `plugin` table (spec §8.6).
 // A malformed `plugin` member is not this gate's business; the caller's
 // field validation already rejects the manifests that matter.
 func rejectNestedSchemaVersion(data []byte) error {
@@ -202,6 +202,14 @@ func LoadManifest(dir string) (*Manifest, error) {
 		if tool.AuthStrategy != "" && !tool.AuthStrategy.Valid() {
 			return nil, ErrManifestInvalid
 		}
+		// §5.4: an advertised description reaches the model through the tool
+		// list and gum.describe_op on every session, so it passes the same
+		// 13-rule sanitizer the first-party catalog passes at build time.
+		// Enforced here, not only at install, because a manifest edited in
+		// place after install would otherwise serve unchecked text forever.
+		if err := sanitizeToolDescription(tool); err != nil {
+			return nil, err
+		}
 	}
 
 	// §7: a declared prerequisite kind must be on the closed enum. Checked
@@ -276,7 +284,7 @@ func NewHost(cfg HostConfig) *Host {
 func (h *Host) Install(ctx context.Context, source string) (string, error) {
 	// URL detection: if source looks like a URL, return not-implemented error.
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		return "", fmt.Errorf("plugin install url: not implemented in v0.1.0")
+		return "", fmt.Errorf("plugin install url: not implemented")
 	}
 
 	// Check source is a directory.
@@ -483,7 +491,7 @@ func (h *Host) Start(ctx context.Context, pluginID string) (*Plugin, error) {
 		return nil, fmt.Errorf("plugin start: executable %q is a directory", execPath)
 	}
 
-	// Spec §8.7 line 1690: re-verify the installed binary against the digest
+	// Spec §8.7: re-verify the installed binary against the digest
 	// captured at install time on EVERY spawn (no caching). A mutated binary
 	// on disk MUST surface as PLUGIN_EXECUTABLE_UNTRUSTED before exec.
 	wantDigest, err := h.trustedDigest(pluginID, installDir)
@@ -634,7 +642,7 @@ func (p *Plugin) Stop(ctx context.Context) error {
 // On error envelopes (res.IsError=true) the plugin-local error code is
 // projected through MapPluginError so the host envelope carries the stable
 // GUM-side code (RATE_LIMITED, AUTH_REQUIRED, SERVICE_DOWN, …) plus the
-// original SourceErrorCode for observability — spec §8 line 1631.
+// original SourceErrorCode for observability — spec §8.
 func (p *Plugin) CallTool(ctx context.Context, toolName string, args any) ([]byte, error) {
 	if p == nil || p.cs == nil {
 		return nil, fmt.Errorf("plugin CallTool: plugin not running")
@@ -666,7 +674,7 @@ func (p *Plugin) CallTool(ctx context.Context, toolName string, args any) ([]byt
 }
 
 // parsePluginErrorEnvelope extracts the plugin-local error fields from an
-// IsError result. The envelope is the spec §8 line 1625 shape carried as
+// IsError result. The envelope is the spec §8 shape carried as
 // the first text-content block. Missing or malformed payloads fall through
 // as a zero-value PluginError — MapPluginError maps the empty code to
 // SERVICE_DOWN, which is the conservative "unknown plugin failure" code.

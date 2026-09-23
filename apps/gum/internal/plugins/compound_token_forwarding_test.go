@@ -442,7 +442,7 @@ func TestLoadManifestRejectsUnknownAuthStrategy(t *testing.T) {
 	}
 }
 
-// TestExactlyOneProductionSiteEmitsPluginTokenForwarded replaces the v0.1.0
+// TestExactlyOneProductionSiteEmitsPluginTokenForwarded replaces the original
 // tripwire that asserted no production file mentioned the event. The event now
 // exists, and the check that matters is that one file owns it: a second emitter
 // would mean a second forwarding path that skipped the strategy gate.

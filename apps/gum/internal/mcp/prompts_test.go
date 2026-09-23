@@ -35,7 +35,7 @@ func TestPromptRegistration(t *testing.T) {
 	}
 	for _, p := range res.Prompts {
 		if _, ok := want[p.Name]; !ok {
-			t.Errorf("unexpected prompt %q advertised; v0.1.0 roster is closed", p.Name)
+			t.Errorf("unexpected prompt %q advertised; the roster is closed", p.Name)
 			continue
 		}
 		want[p.Name] = true
@@ -68,8 +68,8 @@ func TestPromptRegistration(t *testing.T) {
 	}
 }
 
-// TestPromptZeroArgumentContract pins the spec §13 line 3164 invariant: both
-// v0.1.0 prompts are zero-argument. Declaring an `arguments` array on the
+// TestPromptZeroArgumentContract pins the spec §13 invariant: both
+// prompts are zero-argument. Declaring an `arguments` array on the
 // advertised prompt or accepting arguments at prompts/get time silently
 // breaks clients that bypass the schema and pass keyword args.
 func TestPromptZeroArgumentContract(t *testing.T) {
@@ -84,10 +84,10 @@ func TestPromptZeroArgumentContract(t *testing.T) {
 	}
 	for _, p := range res.Prompts {
 		if len(p.Arguments) != 0 {
-			t.Errorf("prompt %q advertised %d arguments; want 0 (v0.1.0 closed roster)", p.Name, len(p.Arguments))
+			t.Errorf("prompt %q advertised %d arguments; want 0 (closed roster)", p.Name, len(p.Arguments))
 		}
 		// Passing a stray argument MUST be rejected by the handler so a
-		// client cannot use the v0.1.0 zero-argument surface as a
+		// client cannot use the zero-argument surface as a
 		// templating channel.
 		_, err := cs.GetPrompt(ctx, &sdkmcp.GetPromptParams{
 			Name:      p.Name,

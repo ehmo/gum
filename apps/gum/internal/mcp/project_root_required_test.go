@@ -39,7 +39,7 @@ func (d sentinelDispatcher) Dispatch(_ context.Context, _ *dispatch.Invocation) 
 // roster). With two file roots advertised by the client and no
 // `_meta.gumRoot` provided, the §9.2 selection rule MUST fail the request
 // before dispatch hits the catalog — surfaced as a tool error whose JSON body
-// carries the spec §1421 envelope (`error_code: PROJECT_ROOT_REQUIRED`,
+// carries the spec §7 envelope (`error_code: PROJECT_ROOT_REQUIRED`,
 // `reason: missing_gumroot_in_multi_root_session`, and both negotiated roots
 // in `negotiated_roots`).
 func TestMultiRootSessionWithoutGumRootReturnsProjectRootRequired(t *testing.T) {

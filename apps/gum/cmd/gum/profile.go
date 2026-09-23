@@ -81,6 +81,11 @@ func newProfileValidateCmd() *cobra.Command {
 				return err
 			}
 
+			// §9.2 shadowing warning. It runs after the binding check so a
+			// dangling binding fails with OVERRIDE_BINDING_INVALID rather than
+			// warning about a profile that does not resolve.
+			emitShadowWarnings(cmd.ErrOrStderr(), fileShadowWarnings(args[0], f))
+
 			if v == nil {
 				for _, p := range f.Profiles {
 					if p.StripNulls {

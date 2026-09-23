@@ -12,7 +12,7 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// v0.1.0 active seed set from spec §13 line 3150 plus the five per-service
+// Active seed set from spec §13 plus the five per-service
 // quickstarts added by gum-72y. The test enforces this list literally so a
 // topic add/remove forces a deliberate spec update.
 var expectedActiveTopics = []string{
@@ -90,11 +90,11 @@ func TestHelpTopicsSeedSet(t *testing.T) {
 	}
 }
 
-// TestHelpResourceNotFound asserts the spec §13 line 1425 envelope for the
+// TestHelpResourceNotFound asserts the spec §13 envelope for the
 // canonical case "template matches but the parameter value does not resolve
 // to any known resource". URIs that fail to match the template at all are
 // rejected by the SDK with its own RESOURCE_NOT_FOUND before our handler
-// runs; spec §13 line 1425 carves out the matches-but-unknown case as the
+// runs; spec §13 carves out the matches-but-unknown case as the
 // envelope-bearing path.
 func TestHelpResourceNotFound(t *testing.T) {
 	ctx, cs, _, cleanup := connectResourceClient(t)
@@ -102,7 +102,7 @@ func TestHelpResourceNotFound(t *testing.T) {
 
 	// Group A — template matches, value rejected by our handler. Envelope
 	// MUST carry error_code=RESOURCE_NOT_FOUND with user_message + suggestion
-	// per spec §13 line 1425.
+	// per spec §13.
 	envelopeCases := []string{
 		"gum://help/does-not-exist",
 		"gum://help/UPPER",            // non-kebab-lowercase
@@ -120,7 +120,7 @@ func TestHelpResourceNotFound(t *testing.T) {
 			continue
 		}
 		// gum emits the code the SDK emits for a missing resource: -32602
-		// (Invalid Params) under go-sdk v1.7.0, per SEP-2164. Spec §13 line 1427
+		// (Invalid Params) under go-sdk v1.7.0, per SEP-2164. Spec §13
 		// says -32004, but that code collides with jsonrpc2.ErrServerClosing in
 		// the SDK; see help_resource.go for the divergence rationale.
 		if rpcErr.Code != jsonrpc.CodeInvalidParams {
@@ -201,7 +201,7 @@ func TestHelpTopicsListAdvertised(t *testing.T) {
 }
 
 // TestHelpTopicTemplateAdvertised verifies gum://help/{topic} appears in
-// resources/templates/list per spec §13 line 3168.
+// resources/templates/list per spec §13.
 func TestHelpTopicTemplateAdvertised(t *testing.T) {
 	ctx, cs, _, cleanup := connectResourceClient(t)
 	defer cleanup()

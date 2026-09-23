@@ -1,6 +1,6 @@
 {
   "$schema": "./auth-managed-scopes.v1.schema.json",
-  "_preamble": "Scope promotion is governed by §7 of spec.md ('Scope promotion procedure (normative)'). A scope transitions from 'planned' to 'active' only via a human-reviewed PR that completes all evidence fields, runs TestManagedScopeVerificationEvidence and TestManagedOAuthProjectReadiness as v0.1 CI gates, and changes status/verification_state/project_evidence_state/live_canary_state to (active, verified, ready, passing) atomically. v0.1.0 release tagging requires at least one scope with status=active; the gate is GUM_OAUTH_MANAGED_CLIENT_NOT_READY.",
+  "_preamble": "Scope promotion is governed by §7 of spec.md ('Scope promotion procedure (normative)'). A scope transitions from 'planned' to 'active' only via a human-reviewed PR that completes all evidence fields, runs TestManagedScopeVerificationEvidence and TestManagedOAuthProjectReadiness as CI gates, and changes status/verification_state/project_evidence_state/live_canary_state to (active, verified, ready, passing) atomically. Release tagging requires at least one scope with status=active; the gate is GUM_OAUTH_MANAGED_CLIENT_NOT_READY.",
   "schema_version": 1,
   "client_policy": {
     "flow": "installed_app_pkce",

@@ -13,7 +13,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// TestBackendKindGenAI pins spec §14 line 3334: the gen-ai backend kind is
+// TestBackendKindGenAI pins spec §14: the gen-ai backend kind is
 // dispatchable via internal/adapters/genai using google.golang.org/genai.
 // We stand up an httptest server that returns a canned generateContent
 // response, point the SDK at it via Adapter.BaseURL + HTTPClient, and

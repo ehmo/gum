@@ -10,8 +10,7 @@
 //     mode 600 inside a mode-700 profile dir.
 //  2. Corruption / missing at runtime — surface TEE_SECRET_CORRUPT. Silent
 //     regeneration is prohibited.
-//  3. Algorithm stability — HMAC-SHA-256 keyed by tee.secret; not versioned
-//     in v0.1.0.
+//  3. Algorithm stability — HMAC-SHA-256 keyed by tee.secret; not versioned.
 //  4. Reverse lookup for gum://results/{hash} — directory scan (sibling
 //     package gum-uuh).
 //  5. Embedding-model independence — tee.secret has its own lifecycle and is

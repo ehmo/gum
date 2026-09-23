@@ -64,7 +64,7 @@ func addFillerTemplates(srv *Server, n int) {
 func TestMCPResourceCursorPagination(t *testing.T) {
 	t.Run("page cap is the spec value", func(t *testing.T) {
 		if listPageCap != 100 {
-			t.Fatalf("listPageCap = %d; spec §13 fixes the v0.1.0 cap at 100", listPageCap)
+			t.Fatalf("listPageCap = %d; spec §13 fixes the cap at 100", listPageCap)
 		}
 	})
 

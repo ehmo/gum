@@ -6,7 +6,7 @@ import (
 )
 
 // newTxID returns the 8-character lowercase hex install_txid used in the
-// example at spec §8.7 line 1732. Random bytes come from crypto/rand so
+// example at spec §8.7. Random bytes come from crypto/rand so
 // concurrent installers in different processes don't collide.
 func newTxID() string {
 	var b [4]byte

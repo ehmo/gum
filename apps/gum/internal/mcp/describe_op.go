@@ -8,7 +8,7 @@ import (
 
 const defaultMaxVariants = 5
 
-// executionSupportFull is the §918 value for an op whose declared atoms are all
+// executionSupportFull is the §5.8 value for an op whose declared atoms are all
 // executable. The catalog ABI leaves `execution_support` omitempty and
 // `gen-catalog -apply-capabilities` writes it only on the curated variants that
 // cannot run one of their atoms, so most variants arrive empty. §13 makes the
@@ -63,7 +63,7 @@ type describeOpResult struct {
 	RiskOverride         bool                `json:"risk_override,omitempty"`
 	RiskOverrideReason   string              `json:"risk_override_reason,omitempty"`
 
-	// CapabilityClassWarnings renders the blocking atoms as prose. §955 makes
+	// CapabilityClassWarnings renders the blocking atoms as prose. §5.8 makes
 	// describe_op surface a new atom here as well as in execution_support, so
 	// a caller who reads the answer rather than the discriminator still learns
 	// the limit. Omitted when the default variant blocks nothing.
@@ -137,7 +137,7 @@ func buildDescribeOpResult(op *catalog.Op, maxVariants int) describeOpResult {
 		r.ExecutionSupport = executionSupport(defVar.ExecutionSupport)
 		if r.ExecutionSupport != executionSupportFull {
 			// §13 requires the list on every non-full branch and the variant
-			// declares it. Op.Validate already checked the §925 binding, so
+			// declares it. Op.Validate already checked the §5.8 binding, so
 			// the only work left is the nil-to-empty conversion §13 needs: the
 			// field is required here, and a nil slice marshals to null.
 			unsupported := slices.Clone(defVar.UnsupportedCapabilities)

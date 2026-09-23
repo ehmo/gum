@@ -74,7 +74,7 @@ func buildTOONDoc(headers map[string]string, body string) string {
 // TestToonDocumentRoundTrip — §9.0 normative round-trip using the two-section
 // header+body TOON document format.
 //
-// Spec ref: docs/spec.md line 1828
+// Spec ref: §9.0
 // "TestToonRoundTrip in internal/output/toon_test.go MUST verify that for each
 // representative TOON fixture in testdata/toon/ ... the GUM TOON parser
 // round-trips the document to the same typed Go values as the original upstream
@@ -179,7 +179,7 @@ func roundTrip(t *testing.T, name, raw string) {
 // ---------------------------------------------------------------------------
 // TestToonVersionUnsupported — §9.0 forward-compatibility (normative).
 //
-// Spec ref: docs/spec.md line 1832
+// Spec ref: §9.0
 // "A TOON parser that reads a document carrying format_version greater than its
 // highest-supported version … MUST fail closed with the structured error
 // TOON_VERSION_UNSUPPORTED."
@@ -225,7 +225,7 @@ func TestToonVersionUnsupported(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestToonNullRepresentation — §9.0 null-sentinel normative rule.
 //
-// Spec ref: docs/spec.md line 1817–1823
+// Spec ref: §9.0
 // "Null value: empty field (two consecutive commas, or a trailing comma)."
 // "Empty string (""):  a double-quoted empty field, \"\"."
 // ---------------------------------------------------------------------------
@@ -309,7 +309,7 @@ func extractBody(t *testing.T, doc string) string {
 // ---------------------------------------------------------------------------
 // TestToonQuotedCSV — §9.0 RFC 4180 quoting rules (normative).
 //
-// Spec ref: docs/spec.md line 1802
+// Spec ref: §9.0
 // "String fields containing commas, double quotes, or newlines are
 // double-quote-quoted with internal \" escaped as \"\"."
 // ---------------------------------------------------------------------------
@@ -361,9 +361,9 @@ func TestToonQuotedCSV(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestToonEmptyBodySentinel — §9.0 empty-body sentinel (normative).
 //
-// Spec ref: docs/spec.md line 1828
+// Spec ref: §9.0
 // "an empty-body result" is one of the four normative fixtures.
-// Spec line 1801 count=0 implies no data rows; the body section emits "{}".
+// Spec §9.0: count=0 implies no data rows; the body section emits "{}".
 //
 // Cross-reference: encoder.go comment line 12:
 // "An object with all-empty fields encodes as "{}" (empty object sentinel)"
@@ -391,7 +391,7 @@ func TestToonEmptyBodySentinel(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestToonHeaderKeysRequired — §9.0 normative required header keys.
 //
-// Spec ref: docs/spec.md line 1801
+// Spec ref: §9.0
 // "required keys are op, variant, count, fields, and format_version: 1"
 // Missing any required key MUST be an error.
 // ---------------------------------------------------------------------------
@@ -426,7 +426,7 @@ func TestToonHeaderKeysRequired(t *testing.T) {
 // ---------------------------------------------------------------------------
 // TestToonNextPageTokenOptional — §9.0 optional next_page_token header.
 //
-// Spec ref: docs/spec.md line 1801
+// Spec ref: §9.0
 // "Optional keys: next_page_token (omitted if no next page)."
 // ---------------------------------------------------------------------------
 func TestToonNextPageTokenOptional(t *testing.T) {

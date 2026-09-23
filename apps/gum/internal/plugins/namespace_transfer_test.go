@@ -81,7 +81,7 @@ func TestTransferNamespaceEmptyNewOwnerRejected(t *testing.T) {
 }
 
 // TestReleaseNamespaceClearsBindingAndAppendsHistory covers the second
-// half of §5.1.3 line 526: the namespace_owner key is removed but the row
+// half of §5.1.3: the namespace_owner key is removed but the row
 // is preserved with a transfer_history entry recording the release.
 func TestReleaseNamespaceClearsBindingAndAppendsHistory(t *testing.T) {
 	t.Parallel()

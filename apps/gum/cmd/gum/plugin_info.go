@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newPluginInfoCmd implements `gum plugin info <name>` (spec §12 line 2495 for
+// newPluginInfoCmd implements `gum plugin info <name>` (spec §12 for
 // the roster, line 2520 for the JSON root). It reads only the profile's §8.7
 // registry files, so it needs no plugin host and answers for a plugin that
 // cannot spawn — which is the state an operator most needs to inspect.
@@ -43,7 +43,7 @@ serves, byte for byte, so scripts can diff the two.`,
 }
 
 // formatPluginInfo renders one plugin record in the requested format. json is
-// the JCS-canonical gum://plugin/{name} payload (spec line 2520: "Same object
+// the JCS-canonical gum://plugin/{name} payload (spec §12: "Same object
 // carried inside the gum://plugin/{name} JSON resource payload"), produced by
 // the same loader and canonicaliser the resource handler uses. text is the
 // human form and may change within a minor release, per the §12 contract.
@@ -142,7 +142,7 @@ func stringField(obj map[string]any, key string) string {
 }
 
 // credentialAliases lists the aliases a needs_configuration plugin is waiting
-// on. Only the alias is printed: spec §1414 forbids showing raw env names.
+// on. Only the alias is printed: spec §7 forbids showing raw env names.
 func credentialAliases(descs []any) string {
 	out := make([]string, 0, len(descs))
 	for _, raw := range descs {

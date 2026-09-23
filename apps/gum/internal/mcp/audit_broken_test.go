@@ -1,4 +1,4 @@
-// audit_broken sentinel tests for handleCacheStats (spec §11 §2333-2336).
+// audit_broken sentinel tests for handleCacheStats (spec §11).
 //
 // audit_broken is true exactly when ~/.local/share/gum/<profile>/audit.broken
 // exists on disk. Both tests redirect XDG_DATA_HOME to a tempdir to avoid

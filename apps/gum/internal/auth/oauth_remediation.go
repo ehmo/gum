@@ -3,7 +3,7 @@ package auth
 import "strings"
 
 // OAuthRemediation maps a Google OAuth/token-endpoint error body to a
-// concrete next step the operator can run. v0.1.0 covers the two cases that
+// concrete next step the operator can run. The map covers the two cases that
 // dominate field reports:
 //
 //   - invalid_grant   — refresh token revoked, expired, or never seen by the

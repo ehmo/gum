@@ -6,7 +6,7 @@
 //  2. Budget+scope tracking inside CodeRunner.Execute (or a helper it calls).
 //  3. Per-call gum_confirm_destructive enforcement (must immediately precede each
 //     destructive gum_call; calling the wrong op_id or skipping it → REQUIRES_CONFIRMATION).
-//  4. Script-header pragma rejection (v0.1.0 MUST NOT parse pragmas silently).
+//  4. Script-header pragma rejection (the adapter MUST NOT parse pragmas silently).
 //
 // See /tmp/rgr/red/gum-ra1.md for the full mediated brief.
 package adapters_test
@@ -430,9 +430,9 @@ gum_print("both_ok")
 
 // ---------------------------------------------------------------------------
 // TestCodeRejectsScriptHeaderPragma
-// §6.1 step 6 (bare-CLI path) and spec line 1110:
-// "Script-header pragmas, --no-confirm, and CLI language selection are deferred
-// to v0.3.0 and MUST NOT be parsed or accepted silently in v0.1.0."
+// §6.1 step 6 (bare-CLI path):
+// "Script-header pragmas, --no-confirm, and CLI language selection are not
+// built and MUST NOT be parsed or accepted silently."
 //
 // The adapter MUST scan source BEFORE passing to the Risor sandbox. If the
 // source contains a pragma header line (pattern: optional-whitespace + "#" +
@@ -582,7 +582,7 @@ gum_call("calendar.events.delete", {"id": "evt001"})
 
 // ---------------------------------------------------------------------------
 // TestCodeDestructiveScopeCap
-// §1083: destructive_scope holds at most 20 entries. Nothing enforced the cap:
+// §6.1.1: destructive_scope holds at most 20 entries. Nothing enforced the cap:
 // extractScope returns no error and quietly skips entries it cannot read, so a
 // 100-entry scope widened the destructive envelope without a word.
 // ---------------------------------------------------------------------------

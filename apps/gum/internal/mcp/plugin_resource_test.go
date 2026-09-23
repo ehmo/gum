@@ -1,8 +1,8 @@
-// gum-l6fx acceptance: gum://plugin/{name} full §13 line 3161 surface.
+// gum-l6fx acceptance: gum://plugin/{name} full §13 surface.
 //
-// Spec §13 line 3158 prescribes a three-source assembly: runtime status from
+// Spec §13 prescribes a three-source assembly: runtime status from
 // plugin-state.json, variant metadata from plugin-catalog.json, package fields
-// from plugins.lock. Spec §13 line 3161 lists the required field set ({name,
+// from plugins.lock. Spec §13 lists the required field set ({name,
 // version, description, namespace_owner, shape, status, tos, risk,
 // variant_count, variant_ids, package, install_generation} plus status-
 // specific add-ons). These tests pin both — first by reading a fully-populated
@@ -51,7 +51,7 @@ func writePluginRegistryFiles(t *testing.T, profileDir string, catalog, lock, st
 	}
 }
 
-// TestPluginResourceFullSurface verifies the §13 line 3161 happy path: every
+// TestPluginResourceFullSurface verifies the §13 happy path: every
 // required field is present and sourced from the file the spec names.
 func TestPluginResourceFullSurface(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -128,7 +128,7 @@ func TestPluginResourceFullSurface(t *testing.T) {
 
 	payload := readPluginResourceAt(t, ctx, cs, profileDir, "google-flights")
 
-	// §13 line 3161 required-for-every-status fields.
+	// §13 required-for-every-status fields.
 	required := map[string]any{
 		"name":               "google-flights",
 		"version":            "1.2.3",
@@ -187,7 +187,7 @@ func TestPluginResourceFullSurface(t *testing.T) {
 	// executable block surfaces when plugins.lock carries it.
 	exe, ok := payload["executable"].(map[string]any)
 	if !ok {
-		t.Fatalf("payload.executable missing; spec §13 line 3161 requires it when lockfile has executable binding data")
+		t.Fatalf("payload.executable missing; spec §13 requires it when lockfile has executable binding data")
 	}
 	if got, _ := exe["executable_sha256"].(string); got != "sha256:exec" {
 		t.Errorf("executable.executable_sha256 = %q; want sha256:exec", got)
@@ -218,7 +218,7 @@ func TestPluginResourceFullSurface(t *testing.T) {
 }
 
 // TestPluginMetadataPrecedence pins the three-source precedence rule from
-// spec §13 line 3158. Each subtest forces disagreement on a different axis
+// spec §13. Each subtest forces disagreement on a different axis
 // and asserts the winner per the spec.
 func TestPluginMetadataPrecedence(t *testing.T) {
 	defer goleak.VerifyNone(t)

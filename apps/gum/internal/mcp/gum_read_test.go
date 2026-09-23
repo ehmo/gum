@@ -11,7 +11,7 @@
 //   - spec.md §4.1: RISK_TOOL_MISMATCH envelope with op_id, variant_id,
 //     variant_risk_class, required_tool.
 //   - spec.md §4.1: readOnlyHint=true, destructiveHint=false on gum.read.
-//   - spec.md §1421: stable error codes.
+//   - spec.md §7: stable error codes.
 package mcp
 
 import (
@@ -191,7 +191,7 @@ func TestGumReadInputSchemaHas8Params(t *testing.T) {
 // variant has risk_class=write. Expects RISK_TOOL_MISMATCH structured error
 // with the correct detail fields and no upstream dispatch.
 //
-// Spec anchor: spec.md §4.1 risk-gate step 3; §1421 RISK_TOOL_MISMATCH envelope:
+// Spec anchor: spec.md §4.1 risk-gate step 3; §7 RISK_TOOL_MISMATCH envelope:
 // {"error_code":"RISK_TOOL_MISMATCH","op_id":"...","variant_id":"...","variant_risk_class":"write","required_tool":"gum.write"}
 //
 // Current handleRiskTier returns a flat string like
@@ -458,7 +458,7 @@ func TestGumReadPaginationPassthrough(t *testing.T) {
 // non-empty; when the catalog is empty, suggestions may be empty/absent.
 //
 // Spec anchor: spec.md §4.1 — dispatch step 1 returns OP_NOT_FOUND on unknown
-// op_id; §1421 stable error code OP_NOT_FOUND. BM25 suggestions per
+// op_id; §7 stable error code OP_NOT_FOUND. BM25 suggestions per
 // test-matrix.md row: "OP_NOT_FOUND … .Detail['suggestions'] array".
 //
 // The current implementation returns a flat string "OP_NOT_FOUND: <op_id>"
@@ -499,7 +499,7 @@ func TestGumReadUnknownOpReturnsSuggestions(t *testing.T) {
 			t.Fatalf("expected OP_NOT_FOUND error; got: %s", text)
 		}
 		t.Errorf("OP_NOT_FOUND response is not structured JSON: %s; "+
-			"spec §1421 requires a structured envelope with suggestions array", text)
+			"spec §7 requires a structured envelope with suggestions array", text)
 		return
 	}
 
@@ -511,7 +511,7 @@ func TestGumReadUnknownOpReturnsSuggestions(t *testing.T) {
 	// but must be present as an array).
 	rawSuggestions, hasSuggestions := m["suggestions"]
 	if !hasSuggestions {
-		t.Error("OP_NOT_FOUND envelope missing 'suggestions' key (spec §1421, test-matrix BM25 row)")
+		t.Error("OP_NOT_FOUND envelope missing 'suggestions' key (spec §7, test-matrix BM25 row)")
 		return
 	}
 	suggestions, ok := rawSuggestions.([]any)

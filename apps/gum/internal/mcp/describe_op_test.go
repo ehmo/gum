@@ -5,7 +5,7 @@
 // as specified in spec.md §4.1 and the #/$defs/DescribeOpResult schema at
 // spec.md §Appendix-A / §9.4.
 //
-// Test matrix row: TestDescribeOpOutputSchema (test-matrix.md line 98)
+// Test matrix row: TestDescribeOpOutputSchema (test-matrix.md (TestDescribeOpTruncatesVariantsToFive row))
 //
 // Spec anchors:
 //   - spec.md §4.1 — gum.describe_op compact metadata shape
@@ -230,7 +230,7 @@ func TestDescribeOpReturnsCompactMetadata(t *testing.T) {
 // describe_op returns at most 5 in variants[] (the default max_variants) and
 // carries variants_total=7 and variants_omitted_count=2.
 //
-// Spec anchor: test-matrix.md line 98 — "deterministic variants[] truncation form
+// Spec anchor: test-matrix.md (TestDescribeOpTruncatesVariantsToFive row) — "deterministic variants[] truncation form
 // controlled by meta_tools.describe_op.max_variants (default 5; ops with 6+
 // variants truncate to 5 by default, with variants_total and variants_omitted_count)"
 //
@@ -249,7 +249,7 @@ func TestDescribeOpTruncatesVariantsToFive(t *testing.T) {
 		t.Fatalf("variants is not a JSON array; got %T", got["variants"])
 	}
 	if len(variants) != 5 {
-		t.Errorf("variants length = %d; want 5 (max_variants default; spec test-matrix.md line 98)", len(variants))
+		t.Errorf("variants length = %d; want 5 (max_variants default; spec test-matrix.md (TestDescribeOpTruncatesVariantsToFive row))", len(variants))
 	}
 
 	if vt, ok := got["variants_total"].(float64); !ok || int(vt) != 7 {
@@ -297,7 +297,7 @@ func TestDescribeOpCarriesRiskOverride(t *testing.T) {
 // Spec anchor: spec.md DescribeOpResult $comment — "The 'status' and 'reason'
 // fields are NOT properties of DescribeOpResult. They appear only on
 // gum://op/{id} and gum://variant/{id} resource responses"
-// Also: test-matrix.md line 98 — "explicit exclusion of inactive-plugin-only
+// Also: test-matrix.md (TestDescribeOpTruncatesVariantsToFive row) — "explicit exclusion of inactive-plugin-only
 // status / reason fields"
 //
 // Assertions:
@@ -314,11 +314,11 @@ func TestDescribeOpExcludesPluginStatusFields(t *testing.T) {
 
 	if _, has := got["status"]; has {
 		t.Errorf("status MUST NOT appear in describe_op result (plugin-only field; "+
-			"spec DescribeOpResult $comment and test-matrix.md line 98): got %v", got["status"])
+			"spec DescribeOpResult $comment and test-matrix.md (TestDescribeOpTruncatesVariantsToFive row)): got %v", got["status"])
 	}
 	if _, has := got["reason"]; has {
 		t.Errorf("reason MUST NOT appear in describe_op result (plugin-only field; "+
-			"spec DescribeOpResult $comment and test-matrix.md line 98): got %v", got["reason"])
+			"spec DescribeOpResult $comment and test-matrix.md (TestDescribeOpTruncatesVariantsToFive row)): got %v", got["reason"])
 	}
 
 	// The compact result MUST still carry risk_class and default_variant_id even for

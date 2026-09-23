@@ -1,10 +1,10 @@
 // Package maps is the backend executor for catalog variants with
-// backend_kind="maps-sdk" (spec §14 line 3335). It wraps
+// backend_kind="maps-sdk" (spec §14). It wraps
 // googlemaps.github.io/maps so the dispatcher can call the Maps Web Service
 // family (Directions, Geocode, Places, …) without falling through the
 // raw-HTTP long-tail dispatcher.
 //
-// v0.1.0 implements the Directions endpoint as the canary surface; the
+// The adapter implements the Directions endpoint as the canary surface; the
 // other Maps endpoints follow the same adapter shape and land
 // incrementally as catalog variants reference them.
 package maps
@@ -25,7 +25,7 @@ import (
 // Adapter executes Maps Web Service calls for catalog variants whose
 // binding.adapter_key starts with `maps.`. The binding's `endpoint`
 // substring (e.g. "directions", "geocode") selects which SDK method
-// runs; v0.1.0 wires "directions" only.
+// runs; only "directions" is wired.
 type Adapter struct {
 	// HTTPClient is forwarded to the Maps SDK via WithHTTPClient. Tests
 	// inject an httptest.Server-backed client; production leaves it nil
@@ -68,7 +68,7 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 	case "directions":
 		return executeDirections(ctx, client, inv)
 	default:
-		return nil, fmt.Errorf("maps adapter: unsupported endpoint %q (v0.1.0 wires `directions` only)", endpoint)
+		return nil, fmt.Errorf("maps adapter: unsupported endpoint %q (only `directions` is wired)", endpoint)
 	}
 }
 

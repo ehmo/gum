@@ -1,4 +1,4 @@
-// Acceptance tests for the spec §1606 credential descriptor types and
+// Acceptance tests for the spec §7 credential descriptor types and
 // validation rules. These are the normative contract tests for
 // ValidateCredentialDescriptors and PluginCredentialKey.
 
@@ -228,7 +228,7 @@ func TestSafeDescriptorMapsOmitsEnv(t *testing.T) {
 
 	// Must NOT contain "env" key.
 	if _, hasEnv := m["env"]; hasEnv {
-		t.Errorf("SafeDescriptorMaps includes 'env' field (spec §1606 violation)")
+		t.Errorf("SafeDescriptorMaps includes 'env' field (spec §7 violation)")
 	}
 
 	// Must contain the four safe keys.
@@ -240,6 +240,6 @@ func TestSafeDescriptorMapsOmitsEnv(t *testing.T) {
 
 	// alias must not be the raw env var name.
 	if alias, _ := m["alias"].(string); alias == "GUM_FLIGHTS_SESSION" {
-		t.Errorf("alias is the raw env var name (spec §1606 violation): %q", alias)
+		t.Errorf("alias is the raw env var name (spec §7 violation): %q", alias)
 	}
 }

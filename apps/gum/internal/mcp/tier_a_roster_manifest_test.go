@@ -3,10 +3,10 @@
 // Two test names called out by docs/test-matrix.md and spec §4.1 must exist
 // and pass:
 //
-//   - TestTierAConvenienceToolCount (spec §370): the registered convenience
+//   - TestTierAConvenienceToolCount (spec §4.1): the registered convenience
 //     tool count equals 18 — the hard cap.
 //   - TestTierARosterManifest (test-matrix row 24): loading active plugins
-//     before Server.Run does not grow tools/list; the v0.1.0 roster matches
+//     before Server.Run does not grow tools/list; the roster matches
 //     docs/tier-a-roster.v1.json (9 meta + 18 convenience) exactly.
 package mcp
 
@@ -17,7 +17,7 @@ import (
 )
 
 // TestTierAConvenienceToolCount asserts the MCP server registers exactly 18
-// convenience tools (spec §4.1 cap). Per spec line 370 this gate prevents
+// convenience tools (spec §4.1 cap). Per §4.1 this gate prevents
 // silent Tier A bloat from leaking past the 8k schema-token budget.
 func TestTierAConvenienceToolCount(t *testing.T) {
 	srv := NewServer(noopDispatcher{})
@@ -27,7 +27,7 @@ func TestTierAConvenienceToolCount(t *testing.T) {
 	}
 }
 
-// TestTierARosterManifest asserts the v0.1.0 tool surface — 9 meta + 18
+// TestTierARosterManifest asserts the tool surface, 9 meta + 18
 // convenience — registered by the MCP server matches docs/tier-a-roster.v1.json
 // exactly, both in count and in name set, and that constructing a server
 // (which loads the embedded catalog but does NOT start any plugin subprocess)

@@ -1,4 +1,4 @@
-// gum-kqvf acceptance: spec §13 line 3156 gum://schema/{ref} body
+// gum-kqvf acceptance: spec §13 gum://schema/{ref} body
 // materialiser. The handler delegates to schema_resource.go which walks four
 // resolution stages — grammar check, active first-party snapshot, profile-
 // local plugin inventory, RESOURCE_NOT_FOUND fallback — and these tests pin
@@ -37,7 +37,7 @@ import (
 	"github.com/ehmo/gum/internal/plugins/registry"
 )
 
-// TestSchemaResourceFirstPartyHit covers the §13 line 3156 first-party path:
+// TestSchemaResourceFirstPartyHit covers the §13 first-party path:
 // a ref that is referenced by an op in the active snapshot AND has a body
 // in the embedded schema store resolves to application/schema+json
 // with JCS-canonical bytes.
@@ -132,7 +132,7 @@ func TestSchemaResourceServesAGeneratedRequestSchema(t *testing.T) {
 	}
 }
 
-// TestSchemaResourcePluginHit covers the §13 line 3156 plugin path: a ref
+// TestSchemaResourcePluginHit covers the §13 plugin path: a ref
 // listed in plugin-catalog.json variants[].schema_hashes whose owner is
 // active resolves from `<profileDir>/plugin-schemas/<ref>.<sha256>.json`.
 func TestSchemaResourcePluginHit(t *testing.T) {
@@ -185,7 +185,7 @@ func TestSchemaResourceUnknownRef(t *testing.T) {
 	assertResourceNotFound(t, err, uri)
 }
 
-// TestSchemaResourceInactivePluginRef — spec §13 line 3156: inactive plugin
+// TestSchemaResourceInactivePluginRef — spec §13: inactive plugin
 // refs (installed_pending_restart, needs_configuration) return
 // RESOURCE_NOT_FOUND rather than the schema_only response used for op/variant.
 func TestSchemaResourceInactivePluginRef(t *testing.T) {
@@ -214,7 +214,7 @@ func TestSchemaResourceInactivePluginRef(t *testing.T) {
 	}
 }
 
-// TestSchemaResourceQuarantinedPluginRef pins the §13 line 3156 quarantine
+// TestSchemaResourceQuarantinedPluginRef pins the §13 quarantine
 // branch: even with a readable body on disk, a quarantined owner forces
 // RESOURCE_NOT_FOUND (NOT the VARIANT_QUARANTINED envelope used for op/
 // variant resources — schemas can't be "quarantined", only their owners can).
@@ -240,11 +240,11 @@ func TestSchemaResourceQuarantinedPluginRef(t *testing.T) {
 	envelope := assertResourceNotFound(t, err, uri)
 	// Quarantine MUST surface as RESOURCE_NOT_FOUND, not VARIANT_QUARANTINED.
 	if got, _ := envelope["error_code"].(string); got != "RESOURCE_NOT_FOUND" {
-		t.Errorf("envelope.error_code=%q; want RESOURCE_NOT_FOUND (not VARIANT_QUARANTINED — schema refs use the not-found shape per §13 line 3156)", got)
+		t.Errorf("envelope.error_code=%q; want RESOURCE_NOT_FOUND (not VARIANT_QUARANTINED — schema refs use the not-found shape per §13)", got)
 	}
 }
 
-// TestSchemaResourceGrammarRejection — spec §8.2 line 1601: grammar check
+// TestSchemaResourceGrammarRejection — spec §8.2: grammar check
 // happens BEFORE any filesystem path construction. Uppercase letters, `..`,
 // path separators (raw and percent-encoded), and over-length refs all
 // resolve to RESOURCE_NOT_FOUND without touching disk.

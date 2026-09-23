@@ -2,7 +2,7 @@ package profile_test
 
 // dsl_schema_test.go exercises docs/expression-profile-dsl.json as the
 // structural validator for expression-profile files (JSON Schema 2020-12).
-// Spec anchor: §5.4 line 676, §9.1 line 1966.
+// Spec anchor: §5.4, §9.1.
 
 import (
 	"encoding/json"

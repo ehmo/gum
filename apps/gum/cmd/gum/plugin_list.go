@@ -147,11 +147,11 @@ func dashIfEmpty(s string) string {
 	return s
 }
 
-// formatPluginListJSON renders the §12 line 2537 root
+// formatPluginListJSON renders the §12 root
 // `{"plugins": PluginInventoryRow[]}` for one profile. The rows come from the
 // same loader that backs gum://plugins, so the two surfaces cannot report
 // different columns; unlike the resource, this listing keeps
-// installed_pending_restart rows, which spec §13 line 3234 requires an
+// installed_pending_restart rows, which spec §13 requires an
 // operator to be able to see.
 //
 // The text listing is a different join (manifest walk plus state rows) and

@@ -175,7 +175,7 @@ func TestTierATokenBudget(t *testing.T) {
 	t.Logf("total cl100k tokens across live tools: %d (budget: %d)", total, budgetTokens)
 }
 
-// TestTierAPerToolTokenDelta (spec §2 line 129, bead gum-coo):
+// TestTierAPerToolTokenDelta (spec §2, bead gum-coo):
 // Compares each tool's measured cl100k_base token count to the stored
 // baseline in testdata/tier-a-token-baseline.json. The gate is
 // intentionally asymmetric: any increase above the stored baseline
@@ -225,7 +225,7 @@ func TestTierAPerToolTokenDelta(t *testing.T) {
 				t.Errorf("TOKEN_DELTA_REGRESSION: tool %q grew %d → %d (Δ=+%d). "+
 					"PRs that increase a per-tool budget MUST carry the `token-budget-increase` "+
 					"label and bump testdata/tier-a-token-baseline.json in the same change "+
-					"(spec §2 line 129).",
+					"(spec §2).",
 					td.Name, expected, actual, actual-expected)
 			case actual < expected:
 				t.Logf("RATCHET_OPPORTUNITY: tool %q shrank %d → %d (Δ=-%d); consider tightening the baseline",

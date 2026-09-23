@@ -17,7 +17,7 @@ func (d rawFailDispatcher) Dispatch(context.Context, *dispatch.Invocation) (*dis
 	return nil, d.err
 }
 
-// Spec §1421: every failure the agent sees carries a parseable envelope with a
+// Spec §7: every failure the agent sees carries a parseable envelope with a
 // stable error_code. dispatchAndShape used to fall through to free text for any
 // error that was not a *dispatch.StructuredError, so the agent got a bare
 // sentence with isError=true and nothing to branch on.

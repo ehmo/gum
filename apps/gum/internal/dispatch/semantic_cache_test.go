@@ -138,7 +138,7 @@ func TestSemanticCachePrincipalScopingIsolatesEntries(t *testing.T) {
 
 // TestSemanticCacheFieldsDimensionIsolatesEntries: two dispatches with the
 // same (op, args, subject) but different field-mask projections must
-// produce distinct cache entries. Spec §10.3 line 2253 explicitly enumerates
+// produce distinct cache entries. Spec §10.3 explicitly enumerates
 // `fields` as part of the cache key.
 func TestSemanticCacheFieldsDimensionIsolatesEntries(t *testing.T) {
 	const opID = "test.cache.fields.op"

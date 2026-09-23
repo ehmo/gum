@@ -12,7 +12,7 @@
     "schema_version": {
       "type": "integer",
       "const": 1,
-      "description": "Bumped on incompatible field-shape changes to the manifest format. The v0.1.0 catalog generator pins to 1; future versions require a documented migration path."
+      "description": "Bumped on incompatible field-shape changes to the manifest format. The catalog generator pins to 1; future versions require a documented migration path."
     },
     "client_policy": {
       "type": "object",
@@ -54,7 +54,7 @@
       "type": "array",
       "items": {"$ref": "#/$defs/ScopeEntry"},
       "uniqueItems": true,
-      "description": "List of OAuth scopes the GUM-managed OAuth client may request. v0.1.0 release tagging requires at least one entry with status=active (see GUM_OAUTH_MANAGED_CLIENT_NOT_READY in spec.md §7)."
+      "description": "List of OAuth scopes the GUM-managed OAuth client may request. Release tagging requires at least one entry with status=active (see GUM_OAUTH_MANAGED_CLIENT_NOT_READY in spec.md §7)."
     }
   },
   "$defs": {
@@ -76,7 +76,7 @@
         "scope": {
           "type": "string",
           "pattern": "^https://www\\.googleapis\\.com/auth/[A-Za-z0-9._-]+$",
-          "description": "Full OAuth scope URI. v0.1.0 supports only googleapis.com scopes; sovereign-cloud scope hosts (e.g. mil/gov) are deferred to v0.4.0 universe-domain support."
+          "description": "Full OAuth scope URI. Only googleapis.com scopes are supported; sovereign-cloud scope hosts (e.g. mil/gov) would need universe-domain support, which is not built."
         },
         "service": {
           "type": "string",

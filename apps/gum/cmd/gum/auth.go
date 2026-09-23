@@ -132,12 +132,12 @@ func readClientSecret(cmd *cobra.Command, fromStdin bool, fromFile string) (stri
 	return strings.TrimSpace(string(b)), true, nil
 }
 
-// newAuthSetupCmd is the spec §7 (lines 1198, 1281, 1285, 1344, 1397-1398)
+// newAuthSetupCmd is the spec §7
 // canonical entry point for compound-auth, byo_oauth, and non-gum_oauth
-// strategies. v0.1.0 prints the structured envelope shape an LLM/user would
+// strategies. It prints the structured envelope shape an LLM/user would
 // see at dispatch time so the operator can preview the components required
-// for an op_id before invoking it. The per-component walk-through lands
-// alongside the catalog component records (post-v0.1).
+// for an op_id before invoking it. The per-component walk-through is not
+// built: it needs the catalog component records.
 func newAuthSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:           "setup <op_id>",
@@ -156,7 +156,7 @@ func newAuthSetupCmd() *cobra.Command {
 				OpID:              opID,
 				MissingComponents: []string{"see_setup_command"},
 				SetupCommand:      "gum auth setup " + opID,
-				UserMessage:       "Compound auth for " + opID + " walks each declared component. v0.1.0 prints the envelope; per-component prompts land with the catalog component records.",
+				UserMessage:       "Compound auth for " + opID + " walks each declared component. This command prints the envelope; per-component prompts are not built.",
 				HumanRemediation:  "Run `gum auth use-oauth-client`, `gum auth use-api-key`, or `gum auth use-service-account` as the variant requires.",
 				Retryable:         false,
 			}
@@ -166,9 +166,9 @@ func newAuthSetupCmd() *cobra.Command {
 }
 
 // newAuthUseServiceAccountCmd prints the export line for the
-// GUM_SERVICE_ACCOUNT_KEY env variable. Like use-api-key it is the v0.1.0
-// surface for spec §7's "key stored in keychain" intent; the keychain
-// backing lands with gum-0wv.
+// GUM_SERVICE_ACCOUNT_KEY env variable. Unlike use-api-key, no keychain
+// backing is built for a service-account key file: the resolver reads the
+// path from the environment only.
 func newAuthUseServiceAccountCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "use-service-account <key.json>",
@@ -194,19 +194,19 @@ func newAuthUseServiceAccountCmd() *cobra.Command {
 				return fmt.Errorf("gum auth use-service-account: %w", perr)
 			}
 			out := cmd.OutOrStdout()
-			_, _ = fmt.Fprintln(out, "gum auth use-service-account: v0.1.0 storage is environment-based.")
+			_, _ = fmt.Fprintln(out, "gum auth use-service-account: storage is environment-based.")
 			_, _ = fmt.Fprintln(out, "Add this line to your shell profile (zshrc, bashrc, etc.):")
 			_, _ = fmt.Fprintln(out)
 			_, _ = fmt.Fprintf(out, "  export %s=%q\n", auth.EnvServiceAccountKeyVar, abs)
 			_, _ = fmt.Fprintln(out)
-			_, _ = fmt.Fprintln(out, "Keychain storage lands with the gum auth keychain backend in v0.2.0.")
+			_, _ = fmt.Fprintln(out, "The key file path is read from the environment; no keychain backing is built for it.")
 			return nil
 		},
 	}
 }
 
 // newAuthUseAPIKeyCmd is the operator-facing surface for the api_key
-// strategy (spec §7 line 1202, gum-6hcr).
+// strategy (spec §7, gum-6hcr).
 //
 // The key is NEVER accepted as a positional argv — that would leak it via
 // shell history (~/.zsh_history) and the process listing (`ps -ef`).

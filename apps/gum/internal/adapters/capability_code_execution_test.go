@@ -68,7 +68,7 @@ func TestCapabilityClassCodeExecution(t *testing.T) {
 	t.Run("the atom is executable, so the variant stays full", func(t *testing.T) {
 		// §5.8 puts code_execution in the executable group: the typed executor
 		// runs it. An executable atom must not downgrade execution_support, and
-		// §925 forbids unsupported_capabilities on a full variant.
+		// §5.8 forbids unsupported_capabilities on a full variant.
 		if variant.ExecutionSupport != "" && variant.ExecutionSupport != catalog.ExecutionSupportFull {
 			t.Fatalf("execution_support = %q, want %q or absent", variant.ExecutionSupport, catalog.ExecutionSupportFull)
 		}

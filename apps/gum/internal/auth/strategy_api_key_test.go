@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestAPIKeyResolverFromEnv pins the v0.1.0 storage path: an env-var
-// lookup returns the key verbatim and never echoes Token. Spec §7 line 1284
-// reserves keychain storage for v0.2.0; this test is the contract that
-// guarantees the swap is a single-package refactor.
+// TestAPIKeyResolverFromEnv pins the env-var fallback: with no keychain entry
+// the lookup returns the key verbatim and never echoes Token. The keychain
+// branch is the default read and is covered by
+// strategy_api_key_lookup_internal_test.go.
 func TestAPIKeyResolverFromEnv(t *testing.T) {
 	t.Setenv(EnvAPIKeyVar, "AIza-test-key")
 	r := NewAPIKeyResolver()

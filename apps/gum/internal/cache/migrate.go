@@ -1,4 +1,4 @@
-// Package cache — BoltDB → WAL-SQLite migration (spec §10.2 lines 2234-2241).
+// Package cache — BoltDB → WAL-SQLite migration (spec §10.2).
 //
 // The migration is idempotent. Repeated invocations after a successful run
 // observe the sentinel row in http-wal.db and exit early. Mid-migration
@@ -63,8 +63,8 @@ type MigrateResult struct {
 	// BakRenamed is true when http.db was renamed to http.db.bak.
 	BakRenamed bool `json:"bak_renamed"`
 	// SubBucketsFound is the count of nested buckets seen in BoltDB. The
-	// spec mandates the tool warn (but proceed) since v0.1.0 doesn't
-	// create them.
+	// spec mandates the tool warn (but proceed) because gum never
+	// creates them.
 	SubBucketsFound int `json:"sub_buckets_found"`
 	// Warnings is a free-form slice; the CLI emits them on stderr so
 	// scripts piping stdout JSON aren't disturbed.
@@ -262,7 +262,7 @@ func copyBoltToSQLite(boltPath, walPath string) (int, int, []string, error) {
 	}
 
 	if subBuckets > 0 {
-		warnings = append(warnings, fmt.Sprintf("found %d nested bbolt sub-buckets; v0.1.0 does not create these — migrated with bucket-name prefix", subBuckets))
+		warnings = append(warnings, fmt.Sprintf("found %d nested bbolt sub-buckets; gum does not create these — migrated with bucket-name prefix", subBuckets))
 	}
 
 	if err := im.Commit(); err != nil {

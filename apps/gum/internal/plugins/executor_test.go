@@ -318,7 +318,7 @@ func TestPluginExecutorCallToolMapsErrorEnvelope(t *testing.T) {
 
 // TestPluginExecutorStartRejectsShellInterpreter creates a manifest whose
 // executable path basename is `sh` and asserts Host.Start refuses to spawn
-// with PLUGIN_EXECUTABLE_UNTRUSTED (spec §8.7 line 1690). The deny-list runs
+// with PLUGIN_EXECUTABLE_UNTRUSTED (spec §8.7). The deny-list runs
 // before VerifyExecutableBinding so manifests claiming "executable":"sh"
 // cannot smuggle in shell-interpreter execution even with a matching digest.
 func TestPluginExecutorStartRejectsShellInterpreter(t *testing.T) {

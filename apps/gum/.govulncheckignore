@@ -1,22 +1,23 @@
-# govulncheck suppression file (spec §15 step 3, line 3459)
+# govulncheck waiver policy (spec §15, release pipeline step 4)
 #
-# From v0.2.0, govulncheck is a BLOCKING release gate in .github/workflows/release.yml.
-# Each line below suppresses one finding. Lines starting with "#" are comments.
+# NOTHING READS THIS FILE. Adding an entry here suppresses no finding.
 #
-# Format (one per line):
-#   GO-NNNN-NNNNN  # rationale: <one-line justification>; reviewed-by: <name>; expires: YYYY-MM-DD
+# Both `.github/workflows/govulncheck.yml` and the `govulncheck` job in
+# `.github/workflows/release.yml` run plain `govulncheck ./...`. There is no
+# `-json` parse step and no ID subtraction, so the gate fails on any reachable
+# vulnerability and no file edit can waive one. `release.yml` declares
+# `needs: [govulncheck, docs-live]`, so a failure blocks the tag.
 #
-# Suppression policy:
-#   1. The vulnerability MUST be in a transitive dep with no available patched version, OR
-#      the reachable function MUST be proven unreachable at our use site (link to audit).
-#   2. Add the entry with a reviewer signature and an expiry date (max 90 days).
-#   3. Expired entries are treated as hard failures by CI; re-evaluate before extending.
-#   4. The release-notes for the tag MUST link this file's diff so users see what is waived.
+# Waiving a finding therefore requires a change to the workflow itself, in a
+# reviewed PR. A waiver added that way MUST meet all four conditions below.
 #
-# Suppression entries are consumed by the govulncheck CI step (release workflow,
-# job `govulncheck`). The step parses `govulncheck -json ./...`, extracts each
-# `finding.osv` ID, subtracts the IDs listed here, and fails CI if any
-# unsuppressed finding remains. Suppressed IDs are still printed as advisory
-# output so reviewers see the active waiver list on every release.
+#   1. The vulnerability is in a transitive dependency with no patched version,
+#      or the reachable function is proven unreachable at our use site, with a
+#      link to the audit.
+#   2. The waiver carries a reviewer name and an expiry date, 90 days maximum.
+#   3. An expired waiver is a hard failure. Re-evaluate before extending it.
+#   4. The release notes for the tag link the waiver diff, so users see what
+#      was waived.
 #
-# (No active suppressions as of v0.1.0.)
+# The file is kept as the written standard for that review. If a suppression
+# path is ever wired, wire it to a format declared here and delete this notice.

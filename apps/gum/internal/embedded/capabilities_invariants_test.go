@@ -31,7 +31,7 @@ var curatedCapabilityVariants = map[string]struct {
 }
 
 // TestCatalogDeclaresCapabilities is the §5.8 shipped-artifact invariant.
-// `capabilities[]` drives the §927 dispatch gate, the `lro_return` code-mode
+// `capabilities[]` drives the §5.8 dispatch gate, the `lro_return` code-mode
 // refusal, and describe_op's execution_support. A variant that declares no atom
 // tells all three that it needs nothing, which is never true of a real op.
 func TestCatalogDeclaresCapabilities(t *testing.T) {
@@ -59,7 +59,7 @@ func TestCatalogDeclaresCapabilities(t *testing.T) {
 }
 
 // TestCatalogCuratedExecutionSupport holds the other half: exactly the curated
-// variants carry a non-`full` execution_support, and they carry the list §925
+// variants carry a non-`full` execution_support, and they carry the list §5.8
 // binds to it. A derived variant that drifts to `partial` would silently stop
 // dispatching part of its work with no one having decided that.
 func TestCatalogCuratedExecutionSupport(t *testing.T) {

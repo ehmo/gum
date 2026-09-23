@@ -1,7 +1,7 @@
 // Package mcp — gum-26nz: the session snapshot carries active plugin ops.
 //
 // The merge happens in cmd/gum before Server.Run; these tests pin what the
-// MCP surface does with the result. Spec §4.1 line 383 forbids
+// MCP surface does with the result. Spec §4.1 forbids
 // tools/list_changed and dynamic Tier B materialisation, so a plugin op that
 // enters the snapshot MUST stay a catalog record: describable, searchable,
 // readable as a resource, and never a tool.
@@ -128,7 +128,7 @@ func TestPluginOpIsDescribable(t *testing.T) {
 	}
 }
 
-// TestPluginOpIsSearchable pins spec §2765: an installed plugin's tools are
+// TestPluginOpIsSearchable pins spec §4.1: an installed plugin's tools are
 // reachable through gum.search_apis, which indexes the snapshot.
 func TestPluginOpIsSearchable(t *testing.T) {
 	_, merged := snapshotWithPluginOp(t)

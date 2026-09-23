@@ -12,7 +12,7 @@
 // Spec anchors:
 //
 //	§6.1.2 — Confirmation token implementation (normative)
-//	§1421  — Stable runtime error codes (CONFIRMATION_TOKEN_INVALID, reason closed enum)
+//	§7  — Stable runtime error codes (CONFIRMATION_TOKEN_INVALID, reason closed enum)
 package dispatch
 
 import (
@@ -94,7 +94,7 @@ func TestConfirmationTokenValidRoundTrip(t *testing.T) {
 	}
 }
 
-// TestConfirmationTokenMissingFails (§6.1.2, §1421 reason=missing) — empty string
+// TestConfirmationTokenMissingFails (§6.1.2, §7 reason=missing) — empty string
 // returns CONFIRMATION_TOKEN_INVALID with reason "missing".
 func TestConfirmationTokenMissingFails(t *testing.T) {
 	params := confirmationBindingParams(5 * time.Minute)
@@ -102,7 +102,7 @@ func TestConfirmationTokenMissingFails(t *testing.T) {
 	assertTokenInvalid(t, err, "missing")
 }
 
-// TestConfirmationTokenExpiredFails (§6.1.2 TTL, §1421 reason=expired) — token issued
+// TestConfirmationTokenExpiredFails (§6.1.2 TTL, §7 reason=expired) — token issued
 // with TTL=1ns expires before Verify is called (sleep 1ms to guarantee passage).
 func TestConfirmationTokenExpiredFails(t *testing.T) {
 	params := confirmationBindingParams(1 * time.Nanosecond)
@@ -119,7 +119,7 @@ func TestConfirmationTokenExpiredFails(t *testing.T) {
 	assertTokenInvalid(t, VerifyConfirmationToken(tok, verifyParams), "expired")
 }
 
-// TestConfirmationTokenReplayedFails (§6.1.2, §1421 reason=replayed) — verifying the
+// TestConfirmationTokenReplayedFails (§6.1.2, §7 reason=replayed) — verifying the
 // same token twice must fail the second time with reason "replayed".
 // This test forces the replay-cache API contract (gum-1otq.5) even if the cache is not
 // yet implemented: if no cache exists the second call will succeed and the test fails,
@@ -137,11 +137,11 @@ func TestConfirmationTokenReplayedFails(t *testing.T) {
 		t.Fatalf("VerifyConfirmationToken first call: %v; want nil", err)
 	}
 
-	// Second verify with identical token must be rejected as replayed (§1421 reason=replayed).
+	// Second verify with identical token must be rejected as replayed (§7 reason=replayed).
 	assertTokenInvalid(t, VerifyConfirmationToken(tok, params), "replayed")
 }
 
-// TestConfirmationTokenMismatchOpID (§6.1.2 binding tuple, §1421 reason=mismatch) —
+// TestConfirmationTokenMismatchOpID (§6.1.2 binding tuple, §7 reason=mismatch) —
 // token issued for opID="A"; verify with opID="B" must return reason "mismatch".
 func TestConfirmationTokenMismatchOpID(t *testing.T) {
 	issueParams := confirmationBindingParams(5 * time.Minute)
@@ -157,7 +157,7 @@ func TestConfirmationTokenMismatchOpID(t *testing.T) {
 	assertTokenInvalid(t, VerifyConfirmationToken(tok, verifyParams), "mismatch")
 }
 
-// TestConfirmationTokenMismatchVariant (§6.1.2 binding tuple, §1421 reason=mismatch) —
+// TestConfirmationTokenMismatchVariant (§6.1.2 binding tuple, §7 reason=mismatch) —
 // variant_id changed between issue and verify.
 func TestConfirmationTokenMismatchVariant(t *testing.T) {
 	issueParams := confirmationBindingParams(5 * time.Minute)
@@ -173,7 +173,7 @@ func TestConfirmationTokenMismatchVariant(t *testing.T) {
 	assertTokenInvalid(t, VerifyConfirmationToken(tok, verifyParams), "mismatch")
 }
 
-// TestConfirmationTokenMismatchArgsHash (§6.1.2 binding tuple, §1421 reason=mismatch) —
+// TestConfirmationTokenMismatchArgsHash (§6.1.2 binding tuple, §7 reason=mismatch) —
 // args_hash changed between issue and verify (models argument tampering).
 func TestConfirmationTokenMismatchArgsHash(t *testing.T) {
 	issueParams := confirmationBindingParams(5 * time.Minute)
@@ -188,7 +188,7 @@ func TestConfirmationTokenMismatchArgsHash(t *testing.T) {
 }
 
 // TestConfirmationTokenMismatchScope (§6.1.2 binding tuple destructive_scope_canonical,
-// §1421 reason=mismatch) — destructive scope changed between issue and verify.
+// §7 reason=mismatch) — destructive scope changed between issue and verify.
 func TestConfirmationTokenMismatchScope(t *testing.T) {
 	issueParams := confirmationBindingParams(5 * time.Minute)
 	issueParams.Scope = `["gmail"]`
@@ -204,7 +204,7 @@ func TestConfirmationTokenMismatchScope(t *testing.T) {
 }
 
 // TestConfirmationTokenUnknownPurposeCheckedFirst (§6.1.2 pre-HMAC enum check,
-// §1421 reason=unknown_purpose) — CRITICAL ORDERING TEST.
+// §7 reason=unknown_purpose) — CRITICAL ORDERING TEST.
 //
 // The spec mandates: "the dispatcher MUST validate confirmation_purpose against this enum
 // BEFORE running HMAC verification: an out-of-enum value is rejected with

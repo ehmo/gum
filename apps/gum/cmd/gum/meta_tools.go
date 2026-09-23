@@ -412,7 +412,7 @@ func newSearchCmd() *cobra.Command {
 	return cmd
 }
 
-// searchJSONEnvelope builds the spec §2515 root for `gum search --format=json`:
+// searchJSONEnvelope builds the spec §12 root for `gum search --format=json`:
 // `{"query", "results", "on_empty_message"?}`. It previously emitted only
 // `results`, so a consumer could not tell which query produced a hit set, and
 // an empty result set carried no explanation.
@@ -649,7 +649,7 @@ func exampleValueFor(name string) any {
 // It rejects either flag without --allow-destructive, because the adapter reads
 // both only when allow_destructive is true and the flags would otherwise be
 // silently inert. The 1..20 budget range and the 20-entry scope cap are policy
-// (spec §1083) and stay in the adapter, where MCP callers pass through too.
+// (spec §6.1.1) and stay in the adapter, where MCP callers pass through too.
 func addDestructiveArgs(args map[string]any, allowDestructive bool, budget int, scope []string) error {
 	if !allowDestructive {
 		if budget != 0 {
@@ -782,7 +782,7 @@ Scripts may be passed inline or as @path/to/file.risor.`,
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm --allow-write/--allow-destructive without a prompt (required when stdin is not a terminal)")
 	cmd.Flags().BoolVar(&confirmed, "confirmed", false, "Set the signed-confirmation flag for elevated sandbox ops")
 	cmd.Flags().StringVar(&token, "token", "", "Confirmation token returned by a prior elevated gum code attempt")
-	cmd.Flags().StringVar(&language, "language", "risor", "Sandbox language (only risor in v0.1.0)")
+	cmd.Flags().StringVar(&language, "language", "risor", "Sandbox language (only risor)")
 	cmd.Flags().StringVar(&format, "format", "", "Output format (toon|json|raw)")
 	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format: json|toon|raw (raw script output remains raw)")
 	return cmd

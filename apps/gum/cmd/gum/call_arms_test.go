@@ -362,7 +362,7 @@ func TestPrintDispatchErrorArms(t *testing.T) {
 }
 
 // TestCallDispatchErrorIsRendered pins that a structured dispatch failure is
-// rendered as the §1421 envelope on stderr and still exits non-zero.
+// rendered as the §7 envelope on stderr and still exits non-zero.
 func TestCallDispatchErrorIsRendered(t *testing.T) {
 	se := &dispatch.StructuredError{
 		ErrCode: dispatch.ErrCodeRiskToolMismatch,

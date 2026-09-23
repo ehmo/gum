@@ -16,7 +16,7 @@ import (
 )
 
 // ArtifactDate formats a tee artifact directory's <YYYY-MM-DD> component in
-// UTC, matching the path layout in spec §9.0 line 1846.
+// UTC, matching the path layout in spec §9.0.
 func ArtifactDate(t time.Time) string {
 	return t.UTC().Format("2006-01-02")
 }
@@ -111,7 +111,7 @@ func Read(path string) ([]byte, error) {
 // the destination path.
 //
 // The canonical form is not decoration: gum://results/{hash} serves these
-// bytes through resources/read untouched, and spec §13 line 1562 requires
+// bytes through resources/read untouched, and spec §13 requires
 // that body to be JCS-canonical JSON. Upstream payloads routinely carry '&',
 // '<' and '>' in URLs and snippets, which encoding/json escapes to \u0026,
 // \u003c and \u003e (bead gum-yi62).
@@ -167,7 +167,7 @@ func ScanWindowDays(retentionHours int) int {
 //
 // Scanning is O(days × ops × artifacts) in the worst case; with a 24-hour
 // default retention this is effectively bounded to one or two date dirs.
-// A sidecar BoltDB index is deferred to v0.3.0 per spec §9 lifecycle 4.
+// A sidecar BoltDB index is not built (spec §9 lifecycle 4).
 func FindArtifact(profileDir, hash string, maxDays int) (string, bool, error) {
 	if hash == "" || maxDays < 1 {
 		return "", false, nil

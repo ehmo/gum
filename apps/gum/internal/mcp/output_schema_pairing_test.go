@@ -2,18 +2,18 @@ package mcp
 
 // Output-schema / structuredContent pairing gate (bead gum-1itj).
 //
-// MCP 2025-11-25 and spec §3175 bind the two together: a tool that registers
+// MCP 2025-11-25 and spec §13 bind the two together: a tool that registers
 // an `outputSchema` owes the client a `structuredContent` value that validates
 // against it. The pinned go-sdk's low-level AddTool documents validation as
 // "the caller's responsibility" and performs none, so a handler that returns
 // only text ships the violation silently.
 //
-// Spec anchors:
-//   - §3175  structuredContent MUST validate against the registered outputSchema.
-//   - §3177  isError envelopes are exempt, and a confirmation-required response
-//            is one of them (REQUIRES_CONFIRMATION is a terminal §7 error code).
-//   - §3439  every Tier A tool ships outputSchema + validating structuredContent.
-//   - §2256-2258  gum.gain → GainResult, gum.cache_stats → CacheStatsResult,
+// Spec anchors, all §13 except the roster:
+//   - structuredContent MUST validate against the registered outputSchema.
+//   - isError envelopes are exempt, and a confirmation-required response
+//     is one of them (REQUIRES_CONFIRMATION is a terminal §7 error code).
+//   - every Tier A tool ships outputSchema + validating structuredContent.
+//   - §9.4 roster: gum.gain → GainResult, gum.cache_stats → CacheStatsResult,
 //     gum.describe_op → DescribeOpResult.
 
 import (
@@ -146,7 +146,7 @@ func pairingCallArgs(t *testing.T, srv *Server) map[string]map[string]any {
 // requires each one that advertises an outputSchema to return structuredContent
 // that validates against the schema it advertised.
 //
-// Every call must succeed. §3177 exempts isError envelopes from validation, so
+// Every call must succeed. §13 exempts isError envelopes from validation, so
 // a test that tolerated an error result would let a broken tool pass the gate
 // by failing.
 func TestEveryRegisteredToolPairsOutputSchemaWithStructuredContent(t *testing.T) {
@@ -209,7 +209,7 @@ func TestEveryRegisteredToolPairsOutputSchemaWithStructuredContent(t *testing.T)
 			}
 
 			if res.StructuredContent == nil {
-				t.Fatalf("%s advertises an outputSchema but returned no structuredContent (spec §3175, §3439)", tool.Name)
+				t.Fatalf("%s advertises an outputSchema but returned no structuredContent (spec §13)", tool.Name)
 			}
 
 			schemaJSON, err := json.Marshal(tool.OutputSchema)

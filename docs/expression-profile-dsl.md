@@ -35,7 +35,7 @@ truncate_strings = { default_chars = 500, fields = { snippet = 180 } }
 on_empty = "No matching messages."
 ```
 
-Project-local files live at `.gum/profiles/<profile-name>.toml`. User-global files live at `~/.config/gum/profiles/<profile-name>.toml`. Embedded catalog profiles are generated into `internal/embedded/catalog.json` / `catalog.bin`.
+Project-local files live at `.gum/profiles/<profile-name>.toml`. User-global files live at `~/.config/gum/profiles/<profile-name>.toml`. Embedded catalog profiles are generated into `internal/embedded/catalog.json`.
 
 One file MAY define several profiles, so the loader does not stop at the file named after the profile: it reads `<profile-name>.toml` first, then every other `*.toml` in the same directory in name order, and takes the first `[output_profiles."<name>"]` table that matches. A malformed file in the search path fails the load rather than being skipped.
 
@@ -66,9 +66,11 @@ Validation rules for `[override_bindings]`:
 5. `gum profile validate` MUST enforce the above; `OVERRIDE_BINDING_INVALID` is the single structural-violation code per §7.
 6. A profile file MUST contain at least one of `[output_profiles]` or `[override_bindings]`. An empty file, or a file containing only unknown top-level tables, fails schema validation.
 
-In MCP mode, project-local lookup is rooted by the MCP `roots/list` result when the client supports roots. Only `file://` roots are valid for project-local profile lookup in v0.1.0. Multiple file roots require `_meta.gumRoot` to disambiguate; absent or non-negotiated `_meta.gumRoot` fails with `PROJECT_ROOT_REQUIRED` and no project-local override is applied. If roots are unavailable, project-local lookup is disabled and resolution falls back to user-global then catalog-embedded profiles. MCP mode never reads `GUM_PROJECT_ROOT` or `$PWD`. §9.2's `--allow-implicit-project-root` opt-in is unimplemented: no flag parses it and nothing sets `_profile_resolution_warning`, so `"implicit_project_root"` never appears in an envelope (gum-zy45).
+In MCP mode, project-local lookup is rooted by the MCP `roots/list` result when the client supports roots. Only `file://` roots are valid for project-local profile lookup. Multiple file roots require `_meta.gumRoot` to disambiguate; absent or non-negotiated `_meta.gumRoot` fails with `PROJECT_ROOT_REQUIRED` and no project-local override is applied. If roots are unavailable, project-local lookup is disabled and resolution falls back to user-global then catalog-embedded profiles. MCP mode never reads `GUM_PROJECT_ROOT` or `$PWD`, and no operator flag re-enables an implicit root. `_expression.project_root_uri` is reserved and never emitted: the handler resolves the root, loads the profile through it, and discards it.
 
-Resolution order is project-local, then user-global, then catalog-embedded. First matching profile name wins for declared fields; undeclared fields inherit from the next lower-precedence source.
+Resolution order is project-local, then user-global, then catalog-embedded. The first matching profile name wins and replaces the displaced profile whole; a field it omits is absent, not inherited from a lower-precedence source. Field-by-field merging happens only through `inherits`, one level deep.
+
+An override that drops a loss-driving field the catalog-embedded profile set raises the `OVERRIDE_DISABLES_LOSSY_STAGE` warning rather than an error: `gum profile validate` and the runtime loader both report it, and the call still runs. The six triggers and the wire text are in spec §9.2; `--no-warn-lossy` suppresses them.
 
 ## Field Reference
 

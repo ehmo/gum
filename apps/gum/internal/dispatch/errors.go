@@ -1,6 +1,6 @@
-// Package dispatch — structured error envelope (spec.md §1421, §4.1, §3.1).
+// Package dispatch — structured error envelope (spec.md §7, §4.1, §3.1).
 //
-// ErrorCode constants are the stable runtime error codes defined in spec §1421.
+// ErrorCode constants are the stable runtime error codes defined in spec §7.
 // StructuredError implements error and json.Marshaler; Detail fields are flattened
 // into the top-level JSON object (never nested under a "detail" key).
 package dispatch
@@ -13,10 +13,12 @@ import (
 	"sort"
 )
 
-// ErrorCode is the stable string discriminator for structured errors (spec §1421).
+// ErrorCode is the stable string discriminator for structured errors (spec §7).
 type ErrorCode string
 
-// All 28 stable runtime error codes (spec §1421), grouped by category.
+// All 32 stable runtime error codes (spec §7), grouped by category.
+// TestErrorCodeHeaderCountIsCurrent pins the count; TestErrorCodesMatchSpecList
+// pins the set against the spec's enumerated list.
 const (
 	// Parse / dispatch resolution
 	ErrCodeOpNotFound       ErrorCode = "OP_NOT_FOUND"
@@ -53,7 +55,7 @@ const (
 	ErrCodeLROUnroutable ErrorCode = "LRO_UNROUTABLE"
 	// ErrCodeLROUnsupportedInCode is the §6.1 code-mode refusal: an op whose
 	// default variant is classified lro_return is not callable from gum.code
-	// in v0.1.0. It is raised by the code-mode host functions before dispatch,
+	// at all. It is raised by the code-mode host functions before dispatch,
 	// so no upstream request is made.
 	ErrCodeLROUnsupportedInCode ErrorCode = "LRO_UNSUPPORTED_IN_CODE"
 
@@ -80,7 +82,7 @@ const (
 
 // StructuredError is the canonical error type for the dispatch kernel.
 //
-// JSON marshalling rules (spec §1421, §4.1):
+// JSON marshalling rules (spec §7, §4.1):
 //   - Key order: error_code, message, <detail keys alphabetically>, retryable (if set).
 //   - Detail fields are emitted at the top level — the literal key "detail" never appears.
 //   - "retryable" is only emitted when WithRetryable has been called (even for false).
@@ -93,10 +95,15 @@ type StructuredError struct {
 	Detail       map[string]any `json:"-"`
 	Retryable    bool           `json:"retryable,omitempty"`
 	retryableSet bool           // tracks whether WithRetryable was explicitly called
+	// auditWritten marks a failure whose §11 audit row the producing stage
+	// already appended. The adapter-panic path writes its own row carrying
+	// panic:true (spec §3.1 step 7) before the error unwinds, so without the
+	// flag dispatcher.Dispatch would add a second row for the same call.
+	auditWritten bool
 }
 
 // Error implements the error interface.
-// Format "<CODE>: <message>" mirrors the JSON error_code + message pair (spec §1421).
+// Format "<CODE>: <message>" mirrors the JSON error_code + message pair (spec §7).
 func (e *StructuredError) Error() string {
 	return fmt.Sprintf("%s: %s", string(e.ErrCode), e.Message)
 }
@@ -111,7 +118,7 @@ func writeJSONKey(buf *bytes.Buffer, key []byte, value []byte) {
 	buf.Write(value)
 }
 
-// MarshalJSON produces a deterministic JSON object (spec §1421, §4.1).
+// MarshalJSON produces a deterministic JSON object (spec §7, §4.1).
 // Key order is enforced manually because encoding/json randomises map iteration:
 // error_code → message → detail keys (alpha) → retryable (only when explicitly set).
 func (e *StructuredError) MarshalJSON() ([]byte, error) {
@@ -192,7 +199,7 @@ func IsStructuredError(err error, code ErrorCode) bool {
 }
 
 // ErrRateLimited is the kernel-level sentinel for rate-limit conditions
-// (spec §3.1 + §1635). The internal/auth.ErrRateLimited bucket sentinel
+// (spec §3.1 + §7). The internal/auth.ErrRateLimited bucket sentinel
 // wraps this so dispatch can detect rate-limit errors flowing up from the
 // token-bucket layer without an import cycle (auth → dispatch is the
 // allowed direction). Adapter 429 responses are detected separately via
@@ -220,7 +227,7 @@ type UpstreamBodyCarrier interface {
 // spec §7 envelope. internal/auth implements it on *auth.AuthError: dispatch
 // cannot name that type (internal/auth imports dispatch), and flattening the
 // error to a bare AUTH_REQUIRED would drop auth_strategy, missing_components
-// and setup_command, which spec §7 lines 1378-1381 make mandatory for every
+// and setup_command, which spec §7 makes mandatory for every
 // non-gum_oauth auth failure.
 //
 // A carrier that returns nil is treated as having no envelope, so the caller
@@ -233,13 +240,13 @@ type StructuredErrorCarrier interface {
 // Retry-After hint from the upstream response. Optional companion to
 // HTTPStatuser: when present and positive, mapRateLimited surfaces the
 // value as the retry_after_ms detail on the RATE_LIMITED error envelope
-// (spec §1626, §1635).
+// (spec §7).
 type RetryAfterMsCarrier interface {
 	RetryAfterMs() int64
 }
 
 // mapRateLimited converts a raw bucket or adapter error into the canonical
-// ErrCodeRateLimited structured error (spec §1421, §1635). It is the
+// ErrCodeRateLimited structured error (spec §7). It is the
 // single dispatch-boundary translator for both paths:
 //
 //   - errors.Is(err, ErrRateLimited) — token-bucket sentinel (auth path)
@@ -349,6 +356,27 @@ func (w *wrappedKernelError) As(target any) bool {
 		return true
 	}
 	return false
+}
+
+// structuredErrorCode returns the §7 error code carried by err, or "" when
+// the chain holds no *StructuredError. Callers use it to label a failure
+// without duplicating the errors.As dance.
+func structuredErrorCode(err error) ErrorCode {
+	var se *StructuredError
+	if !errors.As(err, &se) || se == nil {
+		return ""
+	}
+	return se.ErrCode
+}
+
+// dispatchAudited reports whether an earlier stage already appended the §11
+// audit row for this failure.
+func dispatchAudited(err error) bool {
+	var se *StructuredError
+	if !errors.As(err, &se) || se == nil {
+		return false
+	}
+	return se.auditWritten
 }
 
 // wrapKernelError gives a non-structured kernel failure a §7 envelope.

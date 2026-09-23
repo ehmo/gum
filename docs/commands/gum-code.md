@@ -47,12 +47,13 @@ gum code <script-or-@file> [flags]
 | `--destructive-budget` | `int` | 0 | Maximum destructive calls the script may make (1..20); required with --allow-destructive |
 | `--destructive-scope` | `stringArray` | [] | Narrow destructive calls to op_id[:resource_key]; repeatable, at most 20 entries |
 | `--format` | `string` |  | Output format (toon\|json\|raw) |
-| `--language` | `string` | risor | Sandbox language (only risor in v0.1.0) |
+| `--language` | `string` | risor | Sandbox language (only risor) |
 | `-o`<br>`--output` | `string` |  | Output format: json\|toon\|raw (raw script output remains raw) |
 | `--token` | `string` |  | Confirmation token returned by a prior elevated gum code attempt |
 | `--yes` | `bool` | false | Confirm --allow-write/--allow-destructive without a prompt (required when stdin is not a terminal) |
 | `--log-format` | `string` | json | Log format: json\|text |
 | `--log-level` | `string` | info | Log level: debug\|info\|warn\|error (overrides GUM_LOG_LEVEL) |
+| `--no-warn-lossy` | `bool` | false | Suppress the OVERRIDE_DISABLES_LOSSY_STAGE warning when a profile override drops a lossy-compression stage |
 | `--profile` | `string` | default | Profile name to read/write config under |
 
 ## See also

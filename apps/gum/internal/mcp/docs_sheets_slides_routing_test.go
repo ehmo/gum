@@ -1,6 +1,6 @@
 // gum-45d acceptance: docs/sheets/slides convenience tool routing.
 //
-// Spec §4.1 lines 359-363. The convenience handlers (one per row in
+// Spec §4.1. The convenience handlers (one per row in
 // convenienceABITable) must:
 //
 //  1. Resolve to the right catalog op_id so dispatch.resolveVariant finds

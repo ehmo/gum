@@ -70,7 +70,7 @@ func metaToolDescription(name string) string {
 	case "gum.code":
 		return "Run a Risor v2 script in the sandbox."
 	case "gum.poll":
-		return "Poll a long-running operation (v0.2.0)."
+		return "Poll a long-running operation."
 	case "gum.cache_stats":
 		return "Return the dispatcher cache stats."
 	case "gum.gain":
@@ -128,7 +128,7 @@ func convenienceToolDescription(name string) string {
 func metaToolSchema(name string) json.RawMessage {
 	switch name {
 	case "gum.search_apis":
-		// spec §4.1 line 291: gum.search_apis(query, k=5); §2139: k default=5, range 1–20.
+		// spec §4.1: gum.search_apis(query, k=5); §9.4: k default=5, range 1–20.
 		return rawSchema(`{
 			"type":"object",
 			"properties":{
@@ -169,11 +169,11 @@ func metaToolSchema(name string) json.RawMessage {
 		return writeInvokeSchema()
 	case "gum.code":
 		// spec.md §4.1 (8-param table) and §6.1 (gum.code semantics).
-		// language enum is the v0.1.0 closed set: only "risor".
+		// language enum is the closed set: only "risor".
 		// Reserved strings starlark/yaegi/js/python MUST NOT appear here per §6.1;
 		// add them only when those runtimes ship.
 		//
-		// destructive_budget and destructive_scope carry the §1083 gate the
+		// destructive_budget and destructive_scope carry the §6.1.1 gate the
 		// executor enforces: budget 0..20, scope an array of at most 20
 		// {op_id, resource_key} objects. The scope items used to be declared
 		// as strings, which the executor's extractScope drops on the floor, so
@@ -205,7 +205,7 @@ func metaToolSchema(name string) json.RawMessage {
 	case "gum.cache_stats":
 		return rawSchema(`{"type":"object","properties":{},"additionalProperties":false}`)
 	case "gum.gain":
-		// The §2793 GainResult envelope is summary-only; by_op aggregation is a
+		// The §13 GainResult envelope is summary-only; by_op aggregation is a
 		// CLI-local convenience (`gum gain --by-op`), not part of the MCP
 		// contract, so it is not advertised here (review gum-y5wb).
 		return rawSchema(`{"type":"object","properties":{},"additionalProperties":false}`)
@@ -480,7 +480,6 @@ const expressionMetaDefJSON = `{
 			"full_result_path":{"type":"string"},
 			"full_result_resource":{"type":"string"},
 			"project_root_uri":{"type":["string","null"]},
-			"_profile_resolution_warning":{"type":["string","null"]},
 			"artifact_expires_at":{"type":["string","null"]},
 			"intentional_zero_max_items":{"type":["boolean","null"]},
 			"_code_output_truncated":{"type":["boolean","null"]}
@@ -490,7 +489,7 @@ const expressionMetaDefJSON = `{
 
 // resultShapeDefsJSON is the shared `$defs` block: the three spec §13 result
 // shapes plus the ExpressionMeta they reference. `data` is left open on
-// purpose (§2704): markdown data is a string, json data is any JSON value.
+// purpose (§13): markdown data is a string, json data is any JSON value.
 const resultShapeDefsJSON = `"$defs":{
 		"ExpressionMeta":` + expressionMetaDefJSON + `,
 		"ToonResult":{
@@ -543,7 +542,7 @@ func toonResultSchema() json.RawMessage {
 // shapedResultSchema is the output schema for every tool whose
 // structuredContent comes from dispatchAndShape. Which of the three §13
 // shapes it emits is decided at call time by the resolved profile format
-// (§2701-2705), and a project-local profile can change that format for the
+// (§13), and a project-local profile can change that format for the
 // same tool, so the registered schema must admit all three branches.
 //
 // `anyOf`, not `oneOf`: a {"format":"json","data":...} value validates
@@ -583,12 +582,12 @@ func rawSchema(s string) json.RawMessage {
 }
 
 // describeOpResultDefJSON is the spec §13 DescribeOpResult definition, the
-// schema §2258 requires gum.describe_op to register. Transcribed from §13 with
+// schema §9.4 requires gum.describe_op to register. Transcribed from §13 with
 // the `description` and `$comment` text dropped: those address spec readers,
 // not clients, and no registered schema in this file carries them.
 //
 // The `oneOf` is the execution_support discriminator: a "full" op MUST NOT
-// carry `unsupported_capabilities`, and every other value MUST carry it. §918
+// carry `unsupported_capabilities`, and every other value MUST carry it. §5.8
 // splits the reason but not the requirement: "partial" lists the non-executable
 // atoms, "schema_only" and "typed_executor_required" list the blocking ones.
 const describeOpResultDefJSON = `{
@@ -761,7 +760,7 @@ const describeOpResultDefJSON = `{
 	  "additionalProperties": false
 	}`
 
-// gainResultDefJSON is the spec §13 GainResult definition, the schema §2256
+// gainResultDefJSON is the spec §13 GainResult definition, the schema §9.4
 // requires gum.gain to register. Its `oneOf` binds `mode` to exactly one
 // mode-specific array: summary→sessions, session→operations, history→history.
 const gainResultDefJSON = `{
@@ -1069,7 +1068,7 @@ const gainResultDefJSON = `{
 	}`
 
 // cacheStatsResultDefJSON is the spec §13 CacheStatsResult definition, the
-// schema §2257 requires gum.cache_stats to register.
+// schema §9.4 requires gum.cache_stats to register.
 const cacheStatsResultDefJSON = `{
 	  "type": "object",
 	  "required": [
@@ -1171,7 +1170,7 @@ const cacheStatsResultDefJSON = `{
 	}`
 
 // namedResultSchema wraps one spec §13 named result shape in the registered
-// outputSchema envelope: an object root (§3180 — the pinned go-sdk validates a
+// outputSchema envelope: an object root (§13 — the pinned go-sdk validates a
 // registered outputSchema as an object schema), the shared ExpressionMeta
 // $def that every named shape $refs, and an allOf pointing at the shape.
 func namedResultSchema(name, defJSON string) json.RawMessage {
@@ -1186,25 +1185,25 @@ func namedResultSchema(name, defJSON string) json.RawMessage {
 }
 
 // describeOpResultSchema is the output schema gum.describe_op registers
-// (spec §2258).
+// (spec §9.4).
 func describeOpResultSchema() json.RawMessage {
 	return namedResultSchema("DescribeOpResult", describeOpResultDefJSON)
 }
 
-// gainResultSchema is the output schema gum.gain registers (spec §2256).
+// gainResultSchema is the output schema gum.gain registers (spec §9.4).
 func gainResultSchema() json.RawMessage {
 	return namedResultSchema("GainResult", gainResultDefJSON)
 }
 
 // cacheStatsResultSchema is the output schema gum.cache_stats registers
-// (spec §2257).
+// (spec §9.4).
 func cacheStatsResultSchema() json.RawMessage {
 	return namedResultSchema("CacheStatsResult", cacheStatsResultDefJSON)
 }
 
 // skillsListResultSchema describes what skills_list actually returns: the
 // embedded-skill summaries. The skill helpers sit outside the Tier A roster
-// (§403, §2709), so §13 names no shape for them and they describe their own
+// (§4.2), so §13 names no shape for them and they describe their own
 // payload instead of borrowing a Tier A envelope.
 func skillsListResultSchema() json.RawMessage {
 	return rawSchema(`{

@@ -1,16 +1,16 @@
-// Spec §13 lines 3155 + 3179 + 3180: inactive-plugin and quarantined branches
+// Spec §13: inactive-plugin and quarantined branches
 // for gum://op/{id} and gum://variant/{id}. The handlers in
 // resource_templates.go delegate to inactivePluginOpResponse /
 // inactivePluginVariantResponse when the active snapshot misses; if the
 // requested op/variant is owned by an inventory-visible plugin, the response
 // is determined by the plugin's runtime status.
 //
-// Status mapping (spec §13 line 3179):
+// Status mapping (spec §13):
 //   - installed_pending_restart → JSON body {execution_support: "schema_only",
 //     status, reason: "Plugin installed but MCP server not yet restarted;
 //     restart to invoke."}
 //   - needs_configuration       → JSON body adds credential_aliases (manifest
-//     descriptor aliases only, no raw env names per spec §13 line 3165)
+//     descriptor aliases only, no raw env names per spec §13)
 //   - quarantined               → JSON-RPC application error with envelope
 //     error_code: VARIANT_QUARANTINED + reason from plugin-state.json
 //   - active                    → return (nil, false) so the snapshot-miss
@@ -21,7 +21,7 @@
 //     RESOURCE_NOT_FOUND is the honest answer; synthesising a record here
 //     would advertise an op no dispatch can route.
 //
-// VARIANT_QUARANTINED uses JSON-RPC code -32000 (spec §13 line 1427 "other
+// VARIANT_QUARANTINED uses JSON-RPC code -32000 (spec §13 "other
 // stable runtime resource errors"); RESOURCE_NOT_FOUND uses the SDK's
 // CodeResourceNotFound due to the collision documented in help_resource.go.
 
@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	// jsonRPCRuntimeAppError matches spec §13 line 1427's "-32000 for other
+	// jsonRPCRuntimeAppError matches spec §13's "-32000 for other
 	// stable runtime resource errors". VARIANT_QUARANTINED rides this code.
 	jsonRPCRuntimeAppError = -32000
 
@@ -164,7 +164,7 @@ func (s *Server) lookupStateRow(name string) map[string]any {
 
 // credentialAliasNames extracts safe alias strings from the state row's
 // credential_descriptors. Other descriptor fields (kind, env, secret name)
-// are deliberately dropped per spec §13 line 3165.
+// are deliberately dropped per spec §13.
 func credentialAliasNames(stateRow map[string]any) []string {
 	if stateRow == nil {
 		return nil
@@ -185,7 +185,7 @@ func credentialAliasNames(stateRow map[string]any) []string {
 
 // jsonResourceResultFromPayload canonicalizes payload per RFC 8785 and wraps
 // it in the one-content-item shape. gum://op/{id} and gum://variant/{id} are
-// named by spec §13 line 1562, so the body MUST be JCS-canonical; stdlib
+// named by spec §13, so the body MUST be JCS-canonical; stdlib
 // json.Marshal is not a JCS encoder and would HTML-escape a credential alias
 // containing '&', '<' or '>'. The error is discarded because the payload
 // holds only strings and a []string, which neither encoder can reject
@@ -196,7 +196,7 @@ func jsonResourceResultFromPayload(uri string, payload map[string]any) *sdkmcp.R
 }
 
 // variantQuarantinedError builds the canonical VARIANT_QUARANTINED envelope.
-// Spec §13 line 1421 names the error code; line 1427 pins JSON-RPC -32000 for
+// Spec §13 names the error code; §7 pins JSON-RPC -32000 for
 // non-RESOURCE_NOT_FOUND / non-RESULT_ARTIFACT_EXPIRED runtime errors.
 func variantQuarantinedError(uri, opID, variantID, reason string) *jsonrpc.Error {
 	envelope := map[string]any{

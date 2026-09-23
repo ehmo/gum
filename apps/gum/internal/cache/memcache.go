@@ -137,7 +137,7 @@ func (c *MemCache) Len() int {
 }
 
 // Bytes returns the sum of len(value) for all live entries.
-// The cache is small in v0.1.0 so a full iteration under the mutex is acceptable.
+// The cache is small, so a full iteration under the mutex is acceptable.
 func (c *MemCache) Bytes() int64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()

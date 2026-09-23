@@ -203,7 +203,7 @@ func TestBackendBindingPerKindRejectsUnsupportedVersion(t *testing.T) {
 // TestBackendBindingPerKindAcceptsV1 is the positive counterpart: every BackendKind
 // variant accepts the currently-supported binding_schema_version=1 without error.
 // This anchors the "old" axis of the §5.4.1 step 4 acceptance criterion ("covers both
-// old and new binding schema version") for the v0.1 single-version era; when a v2 lands
+// old and new binding schema version") for the single-version era; when a v2 lands
 // the test should be extended to cover both v=1 and v=2 per the migration procedure.
 func TestBackendBindingPerKindAcceptsV1(t *testing.T) {
 	kinds := []catalog.BackendKind{

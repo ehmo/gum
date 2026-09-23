@@ -26,7 +26,7 @@ func decomposed(n int) string {
 }
 
 // TestValidateSemanticsRejectsLongOnEmpty pins the ON_EMPTY_TOO_LONG cap from
-// docs/spec.md:2103: on_empty is capped at 500 codepoints.
+// spec §9.1: on_empty is capped at 500 codepoints.
 func TestValidateSemanticsRejectsLongOnEmpty(t *testing.T) {
 	p := &profile.Profile{OnEmpty: strings.Repeat("a", 501)}
 
@@ -77,7 +77,7 @@ func TestParseNormalizesOnEmpty(t *testing.T) {
 
 // TestValidateSemanticsRejectsResourceLinkWithoutAlwaysTee pins
 // PROFILE_TEE_MODE_CONFLICT. A resource link with no guaranteed artifact
-// behind it is a dangling handle (docs/spec.md:1953).
+// behind it is a dangling handle (spec §9.0).
 func TestValidateSemanticsRejectsResourceLinkWithoutAlwaysTee(t *testing.T) {
 	for _, mode := range []string{"off", "failures"} {
 		p := &profile.Profile{Recovery: "resource_link", TeeMode: mode}

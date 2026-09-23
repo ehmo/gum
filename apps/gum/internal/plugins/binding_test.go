@@ -37,7 +37,7 @@ func installFakePlugin(t *testing.T, installRoot, name string, body []byte) *Exe
 	}
 }
 
-// TestPluginExecutableBinding is the spec §8.7 line 1690 acceptance test:
+// TestPluginExecutableBinding is the spec §8.7 acceptance test:
 // after install, the binding verifies; after the executable is tampered, the
 // re-hash must fail with PLUGIN_EXECUTABLE_UNTRUSTED and the host MUST
 // quarantine the plugin in plugin-state.json.
@@ -178,7 +178,7 @@ func TestPluginExecutableBinding(t *testing.T) {
 	})
 }
 
-// TestVerifyRejectsShellInterpreters proves the spec §8.7 line 1690 deny-list:
+// TestVerifyRejectsShellInterpreters proves the spec §8.7 deny-list:
 // even if the digest matches, a binding that points executable_path at
 // /bin/sh (or any other interpreter) MUST be rejected. This is the safeguard
 // against a manifest that smuggles `command=["sh","-c","..."]` past install.

@@ -5,7 +5,7 @@
 // `(op_id, variant_id_resolved, args_canonical, auth_subject_fingerprint)`.
 // On the next identical call the kernel sends the validator as
 // `If-None-Match`; a 304 means the stored body is still current and the
-// caller gets `{"unchanged": true, "etag": "..."}` (§2024).
+// caller gets `{"unchanged": true, "etag": "..."}` (§9.0).
 //
 // It is a different cache from the §10.3 semantic one. The semantic cache
 // answers without an upstream request and expires on a TTL. This one always
@@ -111,7 +111,7 @@ type HTTPEntry struct {
 	Format string `json:"format"`
 	// OpID names the operation the entry came from. The key is a digest, so
 	// without this field nothing in the store is addressable by a human and
-	// `gum cache clear <pattern>` (§2031) has nothing to match.
+	// `gum cache clear <pattern>` (§9.0) has nothing to match.
 	OpID string `json:"op_id,omitempty"`
 }
 

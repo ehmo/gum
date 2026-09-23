@@ -110,6 +110,20 @@ func runCatalogListOverrides(cmd *cobra.Command, _ []string) error {
 			}
 			rc, _ := m["risk_class"].(string)
 			reason, _ := m["risk_override_reason"].(string)
+
+			// §5.4 denylist. This command reads plugin-catalog.json straight off
+			// disk, so catalog.MergePluginVariants never sees the row and the
+			// reason would reach the terminal unchecked. The encoder runs with
+			// SetEscapeHTML(false), so a bidi override or a zero-width run in
+			// the reason renders as written. Skip the row and say so on
+			// stderr: stdout stays a clean NDJSON pipe, and dispatch already
+			// refuses the same row, so nothing dispatchable is hidden.
+			if err := catalog.ValidateRiskOverrideReason(vid, reason); err != nil {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "skipping plugin override: %v\n", err)
+				delete(merged, vid)
+				continue
+			}
+
 			merged[vid] = overrideEntry{
 				VariantID:          vid,
 				RiskClass:          rc,

@@ -31,7 +31,7 @@ type ConvenienceABI struct {
 }
 
 // convenienceABITable is the canonical ABI map for all 18 Tier A convenience
-// tools (spec.md §4.1 lines 347-366).
+// tools (spec.md §4.1).
 var convenienceABITable = map[string]ConvenienceABI{
 	"gmail_search": {
 		OpID:          "gmail.users.messages.list",

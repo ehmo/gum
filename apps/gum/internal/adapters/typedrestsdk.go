@@ -46,7 +46,7 @@ type UpstreamError struct {
 	// when the upstream omitted the header. Populated by parseUpstreamError
 	// when HTTPStatus == 429. Surfaced through the dispatch.RetryAfterMsCarrier
 	// interface so the dispatch boundary can attach retry_after_ms to the
-	// RATE_LIMITED envelope (spec §1635).
+	// RATE_LIMITED envelope (spec §7).
 	RetryAfterMillis int64
 
 	// ErrorReason is the machine-readable refusal reason Google attaches to
@@ -94,7 +94,7 @@ func (e *UpstreamError) HTTPStatusCode() int { return e.HTTPStatus }
 
 // RetryAfterMs satisfies dispatch.RetryAfterMsCarrier so the dispatch boundary
 // can copy the Retry-After hint onto the RATE_LIMITED envelope as
-// retry_after_ms (spec §1635). Returns 0 when no Retry-After was present.
+// retry_after_ms (spec §7). Returns 0 when no Retry-After was present.
 func (e *UpstreamError) RetryAfterMs() int64 { return e.RetryAfterMillis }
 
 // TypedRestSDK is the adapter for backend_kind = "typed-rest-sdk".
@@ -447,7 +447,7 @@ func (t *TypedRestSDK) Execute(ctx context.Context, inv *dispatch.Invocation, rv
 	// parseUpstreamError builds an UpstreamError from a non-2xx response.
 	// headers may be nil; when present, Retry-After is parsed (status 429
 	// or 503) and surfaced as RetryAfterMillis so the dispatch boundary can
-	// attach retry_after_ms to the RATE_LIMITED envelope (spec §1635).
+	// attach retry_after_ms to the RATE_LIMITED envelope (spec §7).
 	parseUpstreamError := func(status int, body []byte, headers http.Header) *UpstreamError {
 		ue := &UpstreamError{
 			HTTPStatus:   status,

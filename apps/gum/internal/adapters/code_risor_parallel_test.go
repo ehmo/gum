@@ -432,7 +432,7 @@ gum_print(out)
 }
 
 // TestGumParallelMissingOpIDRejected asserts that pre-flight input validation
-// rejects malformed element lists (spec §6.3 lines 1004-1005: "raises only
+// rejects malformed element lists (spec §6.3: "raises only
 // when pre-flight validation rejects the whole batch before dispatch starts").
 func TestGumParallelMissingOpIDRejected(t *testing.T) {
 	mock := &mockDispatcher{fn: func(ctx context.Context, inv *dispatch.Invocation) (*dispatch.ShapedResponse, error) {

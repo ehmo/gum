@@ -85,9 +85,9 @@ func assertSpecClosedEnumCompletions(t *testing.T, ctx context.Context, cs *sdkm
 
 	lang := toolArgEnum(t, ctx, cs, "gum.code", "language")
 	if !equalStringSlices(lang, []string{"risor"}) {
-		t.Errorf("gum.code.language enum = %v; want [risor] (§4.3 closed v0.1 set)", lang)
+		t.Errorf("gum.code.language enum = %v; want [risor] (§4.3 closed set)", lang)
 	}
-	// §4.3: the reserved names MUST NOT appear in the v0.1.0 input schema.
+	// §4.3: the reserved names MUST NOT appear in the input schema.
 	for _, deferred := range []string{"starlark", "yaegi", "js", "python"} {
 		for _, v := range lang {
 			if v == deferred {
@@ -99,7 +99,7 @@ func assertSpecClosedEnumCompletions(t *testing.T, ctx context.Context, cs *sdkm
 		t.Errorf("complete(gum.code.language, %q) = %v; want [risor]", "r", got)
 	}
 	if got := completeFromEnum(lang, "s"); len(got) != 0 {
-		t.Errorf("complete(gum.code.language, %q) = %v; want [] in v0.1.0", "s", got)
+		t.Errorf("complete(gum.code.language, %q) = %v; want []", "s", got)
 	}
 
 	wantFormat := []string{"toon", "csv", "json", "markdown"}

@@ -1,4 +1,4 @@
-// Spec §8.7 line 1893: "`gum plugin remove` MUST remove the corresponding
+// Spec §8.7: "`gum plugin remove` MUST remove the corresponding
 // entries under the same full-state transaction protocol." The legacy
 // Host.Remove (host.go) is os.RemoveAll of the install directory and nothing
 // else, so it leaves the plugin's catalog variants, its lock row and namespace

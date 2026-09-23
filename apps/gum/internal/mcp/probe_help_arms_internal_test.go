@@ -199,7 +199,7 @@ func TestHelpTopicDeprecatedReturnsRedirect(t *testing.T) {
 	if payload["status"] != "deprecated" || payload["redirect"] != "new-topic" {
 		t.Errorf("payload=%v; want status=deprecated redirect=new-topic", payload)
 	}
-	// Spec §13 line 3264 says the redirect body contains only these two
+	// Spec §13 says the redirect body contains only these two
 	// keys. Leaking one_line_description or the row's own topic name would
 	// hand a client fields it must not start depending on (bead gum-p1ko).
 	if len(payload) != 2 {

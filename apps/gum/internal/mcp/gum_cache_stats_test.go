@@ -5,9 +5,9 @@
 // http/prompt sub-object shapes, audit_broken presence, no extra keys.
 //
 // Spec anchors:
-//   - spec.md §3003 CacheStatsResult wire shape (4 required top-level keys,
+//   - spec.md §13 CacheStatsResult wire shape (4 required top-level keys,
 //     additionalProperties:false at root).
-//   - spec.md §2335-2336: audit_broken sentinel (v0.1.0: false).
+//   - spec.md §11: audit_broken sentinel (always false).
 //
 // These tests MUST FAIL today because handleCacheStats returns a flat map with
 // {version, hits, misses, entries, bytes, note} — missing semantic/http/prompt
@@ -70,7 +70,7 @@ func makeCacheStatsRequest() *sdkmcp.CallToolRequest {
 
 // invokeCacheStats calls handleCacheStats on srv and returns the parsed top-level
 // JSON map, failing the test on any error. Callers that depend on the
-// audit.broken sentinel probe (§2333-2336) MUST redirect XDG_DATA_HOME to a
+// audit.broken sentinel probe (§11) MUST redirect XDG_DATA_HOME to a
 // tempdir BEFORE calling this helper.
 func invokeCacheStats(t *testing.T, srv *Server) map[string]any {
 	t.Helper()
@@ -265,8 +265,8 @@ func TestCacheStatsSemanticLiveHits(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCacheStatsHttpShape asserts result["http"] has exactly {hits, misses, entries, bytes},
-// all non-negative integers.  v0.1.0 values may all be zero (no HTTP cache), but
-// KEYS must be present per spec §3003.
+// all non-negative integers.  Every value is zero (no HTTP cache is built), but
+// KEYS must be present per spec §13.
 //
 // Current handler has no "http" key.  MUST FAIL.
 func TestCacheStatsHttpShape(t *testing.T) {
@@ -295,8 +295,8 @@ func TestCacheStatsHttpShape(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCacheStatsPromptShape asserts result["prompt"] has exactly {supported, hits_estimate}.
-// supported must be bool (= false for v0.1.0).
-// hits_estimate must be integer or null (= null for v0.1.0).
+// supported must be bool (= false).
+// hits_estimate must be integer or null (= null).
 //
 // Current handler has no "prompt" key.  MUST FAIL.
 func TestCacheStatsPromptShape(t *testing.T) {
@@ -317,7 +317,7 @@ func TestCacheStatsPromptShape(t *testing.T) {
 	wantKeys := []string{"supported", "hits_estimate"}
 	assertExactKeys(t, prompt, wantKeys, "prompt")
 
-	// supported must be bool (v0.1.0 = false).
+	// supported must be bool (always false).
 	supRaw, hasSup := prompt["supported"]
 	if !hasSup {
 		t.Error("prompt.supported missing")
@@ -340,7 +340,7 @@ func TestCacheStatsPromptShape(t *testing.T) {
 			t.Errorf("prompt.hits_estimate = %v; want >= 0 or null", n)
 		}
 	}
-	// null (nil) is explicitly allowed per spec §3003.
+	// null (nil) is explicitly allowed per spec §13.
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ func TestCacheStatsPromptShape(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCacheStatsAuditBrokenPresent asserts result["audit_broken"] is a bool
-// equal to false for v0.1.0 (no sentinel implementation per spec §2335).
+// equal to false (no sentinel implementation per spec §11).
 //
 // Current handler has no "audit_broken" key.  MUST FAIL.
 func TestCacheStatsAuditBrokenPresent(t *testing.T) {
@@ -358,14 +358,14 @@ func TestCacheStatsAuditBrokenPresent(t *testing.T) {
 
 	raw, ok := m["audit_broken"]
 	if !ok {
-		t.Fatal("top-level \"audit_broken\" key missing (spec §2335)")
+		t.Fatal("top-level \"audit_broken\" key missing (spec §11)")
 	}
 	ab, ok := raw.(bool)
 	if !ok {
 		t.Fatalf("audit_broken is %T; want bool", raw)
 	}
 	if ab {
-		t.Error("audit_broken = true; want false for v0.1.0 (sentinel not implemented)")
+		t.Error("audit_broken = true; want false (sentinel not implemented)")
 	}
 }
 
@@ -375,7 +375,7 @@ func TestCacheStatsAuditBrokenPresent(t *testing.T) {
 
 // TestCacheStatsNoExtraKeys asserts the top-level envelope has ONLY the four
 // spec-mandated keys: semantic, http, prompt, audit_broken.
-// No version, no note, no hits, no _expression (optional per §3043, excluded
+// No version, no note, no hits, no _expression (optional per §13, excluded
 // until mandated).
 //
 // Current handler emits version+hits+misses+entries+bytes+note — 6 extra keys.  MUST FAIL.
@@ -392,7 +392,7 @@ func TestCacheStatsNoExtraKeys(t *testing.T) {
 	}
 	for k := range m {
 		if !allowed[k] {
-			t.Errorf("unexpected top-level key %q (spec §3003: additionalProperties:false at root)", k)
+			t.Errorf("unexpected top-level key %q (spec §13: additionalProperties:false at root)", k)
 		}
 	}
 }

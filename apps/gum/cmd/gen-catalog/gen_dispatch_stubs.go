@@ -1,11 +1,11 @@
 // gen_dispatch_stubs.go emits the per-variant stub files under gen/dispatch/.
 //
-// Spec §5.7 line 826: "Generated REST dispatch stubs in `gen/dispatch/*.go`
+// Spec §5.7: "Generated REST dispatch stubs in `gen/dispatch/*.go`
 // MUST pass the incoming `context.Context` to the typed Google API call
-// chain via `.Context(ctx)` before `.Do()`." The v0.1.0 stubs satisfy this by
+// chain via `.Context(ctx)` before `.Do()`." The stubs satisfy this by
 // forwarding to internal/adapters.TypedRestSDK, which calls
-// http.NewRequestWithContext(ctx, ...) verbatim. v0.2.0 will replace each
-// stub body with a typed call into google.golang.org/api/<svc>/v<n>.
+// http.NewRequestWithContext(ctx, ...) verbatim. No stub body calls a typed
+// google.golang.org/api/<svc>/v<n> client; that path is not built.
 //
 // The generator targets Workspace-family typed-rest-sdk variants because they
 // represent the densest cluster of routine reads/writes the dispatcher is

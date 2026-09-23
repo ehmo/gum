@@ -10,7 +10,7 @@ import (
 
 // TestStatusHealthSubsystemEnum is the bead-named acceptance for gum-nb85:
 // the gum://status/health resource MUST cover exactly the six closed-enum
-// subsystems from spec §13 line 3149. Adding or removing a subsystem
+// subsystems from spec §13. Adding or removing a subsystem
 // requires a minor-version spec PR plus a matching update to the test
 // fixture below.
 func TestStatusHealthSubsystemEnum(t *testing.T) {
@@ -79,7 +79,7 @@ func TestHealthSnapshotReturnsAllSubsystems(t *testing.T) {
 	}
 }
 
-// TestHealthSnapshotTTLCacheHit asserts the spec §13 line 3149 "5s sample
+// TestHealthSnapshotTTLCacheHit asserts the spec §13 "5s sample
 // TTL" — a second call within the window returns the same LastCheckAt
 // values, proving the probes did not re-run.
 func TestHealthSnapshotTTLCacheHit(t *testing.T) {

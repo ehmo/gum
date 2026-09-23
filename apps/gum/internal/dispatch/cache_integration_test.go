@@ -160,7 +160,7 @@ func TestKernelHonorsCacheHit(t *testing.T) {
 }
 
 // TestCacheKeyIncludesVariantID verifies variant_id participates in the cache
-// key (spec §10 line 2151). Two ops with the same op_id-shape but different
+// key (spec §10). Two ops with the same op_id-shape but different
 // default variants must NOT alias to the same entry. The dispatch lifecycle's
 // resolveVariant uses op.DefaultVariantID; this test exercises that path by
 // constructing two ops that differ only in their default variant id.

@@ -35,9 +35,9 @@ func serverNotifications(t *testing.T, stream string) []string {
 }
 
 // TestMCPInitializedWaitRule is the docs/test-matrix.md row 33 proof. Spec
-// §13.1 line 3393: gum MUST NOT send unsolicited server notifications before
-// it receives the client's notifications/initialized, and v0.1.0 sends none
-// at all (no tools/list_changed, no resources/list_changed, no
+// §13.1: gum MUST NOT send unsolicited server notifications before
+// it receives the client's notifications/initialized, and gum sends none at
+// all (no tools/list_changed, no resources/list_changed, no
 // logging/message).
 //
 // The SDK has no wait-rule gate of its own: Server.changeAndNotify fires on
@@ -116,7 +116,7 @@ func TestMCPInitializedWaitRule(t *testing.T) {
 
 	t.Run("the session emits no unsolicited notification", func(t *testing.T) {
 		if got := serverNotifications(t, session); len(got) > 0 {
-			t.Errorf("v0.1.0 emits no unsolicited notification; got %v", got)
+			t.Errorf("gum emits no unsolicited notification; got %v", got)
 		}
 	})
 

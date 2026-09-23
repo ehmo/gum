@@ -39,8 +39,8 @@ func (m *whiteboxFamilyDispatcher) ServiceFamily(opID string) string {
 }
 
 // TestGumParallelCancellationProducesCANCELLEDWhitebox calls buildParallelFn
-// directly so the Risor VM is not in the loop. Spec §6.3 lines 1007-1016 /
-// §1421: workers blocked on the upstream call receive a cancelled context
+// directly so the Risor VM is not in the loop. Spec §6.3 /
+// §7: workers blocked on the upstream call receive a cancelled context
 // and the envelope's per-element entries carry the canonical
 // {error_code: "CANCELLED", cancelled: true} shape.
 func TestGumParallelCancellationProducesCANCELLEDWhitebox(t *testing.T) {
@@ -188,7 +188,7 @@ func TestGumParallelOuterEnvelopeContract(t *testing.T) {
 }
 
 // TestGumParallel429ServiceFamilyIsolation is the gum-e9d acceptance test.
-// Spec §6.3 line 1171: a 429 on a Gmail op pauses only the gmail family for
+// Spec §6.3: a 429 on a Gmail op pauses only the gmail family for
 // retry_after_ms; workers in the drive family continue uninterrupted.
 //
 // Setup: 8 elements (4 gmail.*, 4 drive.*). Gmail returns RATE_LIMITED with
@@ -275,7 +275,7 @@ func TestGumParallel429ServiceFamilyIsolation(t *testing.T) {
 	// pause would expire — proving they were NOT held by the gate.
 	driveElapsed := lastDriveCompletion.Sub(start)
 	if driveElapsed >= familyPause {
-		t.Errorf("drive workers were stalled: lastDriveCompletion = %v after start; want < %v (the gmail family-pause window) — spec §6.3 line 1171",
+		t.Errorf("drive workers were stalled: lastDriveCompletion = %v after start; want < %v (the gmail family-pause window) — spec §6.3",
 			driveElapsed, familyPause)
 	}
 	if got := driveCalls.Load(); got != 4 {
@@ -394,7 +394,7 @@ func TestGumParallel429SameFamilyIsPaused(t *testing.T) {
 	mu.Unlock()
 	minGap := familyPause * 9 / 10
 	if gap < minGap {
-		t.Errorf("same-family pause not honoured: lastCall - firstCall = %v; want >= %v (retry_after_ms=%d) — spec §6.3 line 1171",
+		t.Errorf("same-family pause not honoured: lastCall - firstCall = %v; want >= %v (retry_after_ms=%d) — spec §6.3",
 			gap, minGap, retryAfterMs)
 	}
 }

@@ -22,7 +22,7 @@ import (
 // The harness mirrors TestDispatchEndToEndWithFakeServer: a tiny
 // httptest server records the inbound headers, the dispatcher is built
 // with a CompositeResolver whose APIKey branch is wired to a fake
-// resolver, and we assert the projected headers match spec §7 line 1284.
+// resolver, and we assert the projected headers match spec §7.
 func TestAuthStrategyApiKey(t *testing.T) {
 	var gotAuth, gotAPIKey string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

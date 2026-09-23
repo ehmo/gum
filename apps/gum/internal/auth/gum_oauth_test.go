@@ -16,7 +16,7 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-// TestManagedOAuthLiveCanaryRequired pins spec §7 lines 1212-1224: gum_oauth
+// TestManagedOAuthLiveCanaryRequired pins spec §7: gum_oauth
 // MUST refuse to start unless the requested scopes have been promoted to
 // (active, verified, ready, passing) in internal/embedded/data/auth-managed-scopes.v1.json.
 // The shipped manifest has all scopes in the planned/pending state, so a

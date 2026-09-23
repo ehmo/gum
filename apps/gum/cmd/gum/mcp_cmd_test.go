@@ -8,8 +8,8 @@ import (
 
 // TestNewMCPCmdRequiresStdio verifies the cobra wiring: invoking `gum mcp`
 // without --stdio errors with a clear remediation, never bringing up the
-// MCP server. v0.1.0 has no other transports and the user-facing message
-// must say so.
+// MCP server. gum has no other transport and the user-facing message must
+// say so.
 func TestNewMCPCmdRequiresStdio(t *testing.T) {
 	cmd := newMCPCmd()
 	var stdout, stderr bytes.Buffer

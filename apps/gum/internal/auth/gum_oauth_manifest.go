@@ -117,14 +117,14 @@ func canStartGumOAuth(m *managedScopesManifest, scopes []string) error {
 			MissingComponents: []string{"active_scope_required"},
 			SetupCommand:      "gum auth use-oauth-client",
 			HumanRemediation:  "gum_oauth needs at least one scope; the managed scope manifest currently has no active scopes (see internal/embedded/data/auth-managed-scopes.v1.json).",
-			UserMessage:       "No managed OAuth scopes are active yet. Use byo_oauth or adc for v0.1.0.",
+			UserMessage:       "No managed OAuth scopes are active. Use byo_oauth or adc.",
 		}
 	}
 	if m.ClientPolicy.EmbeddedClientSecret {
 		return &AuthError{
 			Code:             "GUM_OAUTH_MANIFEST_INVALID",
 			Strategy:         "gum_oauth",
-			HumanRemediation: "manifest declares embedded_client_secret=true; spec §7 line 1220 forbids this",
+			HumanRemediation: "manifest declares embedded_client_secret=true; spec §7 forbids this",
 		}
 	}
 	testingWindow := m.ManagedProject.PublishingStatus == "testing"
@@ -158,7 +158,7 @@ func canStartGumOAuth(m *managedScopesManifest, scopes []string) error {
 		Strategy:          "gum_oauth",
 		MissingComponents: missing,
 		SetupCommand:      "gum auth use-oauth-client",
-		HumanRemediation:  "one or more requested scopes is not yet promoted to active in the managed-scope manifest; v0.1.0 ships with all scopes planned/pending pending live canary evidence.",
+		HumanRemediation:  "one or more requested scopes is not promoted to active in the managed-scope manifest; promotion needs live canary evidence.",
 		UserMessage:       "gum_oauth is not yet available for these scopes; use byo_oauth or adc.",
 		RequiredScopes:    append([]string{}, scopes...),
 	}

@@ -46,7 +46,7 @@ func (s *Server) registerResultsResource() {
 // gum://results/{hash} template. Successful reads return exactly one text
 // resource content item containing the decompressed JSON payload (spec §13
 // "JSON-valued GUM resources"); failed reads return a JSON-RPC error with
-// code -32010 and structured error.data matching the §1423 envelope.
+// code -32010 and structured error.data matching the §7 envelope.
 func (s *Server) handleResultsResource(_ context.Context, req *sdkmcp.ReadResourceRequest) (*sdkmcp.ReadResourceResult, error) {
 	uri := req.Params.URI
 	hash, ok := parseResultsURI(uri)
@@ -122,10 +122,10 @@ func parseResultsURI(uri string) (string, bool) {
 	return hash, true
 }
 
-// expiredArtifactError builds the §1423 RESULT_ARTIFACT_EXPIRED envelope
+// expiredArtifactError builds the §7 RESULT_ARTIFACT_EXPIRED envelope
 // wrapped in a JSON-RPC error (code -32010). The envelope carries error_code,
-// hash, uri, expires_at (null in v0.1.0 — we don't persist artifact
-// metadata), user_message, and suggestion.
+// hash, uri, expires_at (always null: artifact metadata is not persisted),
+// user_message, and suggestion.
 func expiredArtifactError(uri, hash string) *jsonrpc.Error {
 	envelope := map[string]any{
 		"error_code":   "RESULT_ARTIFACT_EXPIRED",

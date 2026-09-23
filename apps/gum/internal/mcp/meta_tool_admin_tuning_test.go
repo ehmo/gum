@@ -1,7 +1,7 @@
 // Package mcp — acceptance tests for gum-8h46 (admin tuning surface).
 //
-// Spec §2139-§2145 defines an admin-tuning layer that overrides the §2129
-// hardcoded defaults for the gum.search_apis implicit profile. The keys live
+// Spec §9.4 defines an admin-tuning layer that overrides the hardcoded
+// defaults for the gum.search_apis implicit profile. The keys live
 // in the active profile's config.toml:
 //
 //	meta_tools.search_apis.k                                   default 5,   range 1-20
@@ -115,16 +115,16 @@ func TestMetaToolAdminTuningCollapseMaxItems(t *testing.T) {
 }
 
 // TestMetaToolAdminTuningDefaultsWhenAbsent verifies that an empty config
-// returns the spec §2129 defaults: k=5, default_chars=120, MaxItems=k.
+// returns the spec §9.4 defaults: k=5, default_chars=120, MaxItems=k.
 func TestMetaToolAdminTuningDefaultsWhenAbsent(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	tuning := loadSearchAPIsTuning("default", nil)
 	if tuning.k != 5 {
-		t.Errorf("tuning.k = %d; want 5 (spec §2129 default)", tuning.k)
+		t.Errorf("tuning.k = %d; want 5 (spec §9.4 default)", tuning.k)
 	}
 	if tuning.defaultChars != 120 {
-		t.Errorf("tuning.defaultChars = %d; want 120 (spec §2129 default)", tuning.defaultChars)
+		t.Errorf("tuning.defaultChars = %d; want 120 (spec §9.4 default)", tuning.defaultChars)
 	}
 	if tuning.maxItemsBound {
 		t.Error("tuning.maxItemsBound = true; want false (no override)")
@@ -191,7 +191,7 @@ func TestMetaToolAdminTuningClampsCollapseMaxItems(t *testing.T) {
 }
 
 // TestMetaToolAdminTuningUnparseableTruncateChars verifies a non-integer
-// default_chars falls back to the spec §2129 default of 120 rather than 0,
+// default_chars falls back to the spec §9.4 default of 120 rather than 0,
 // which would disable truncation entirely.
 func TestMetaToolAdminTuningUnparseableTruncateChars(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -215,7 +215,7 @@ func TestMetaToolAdminTuningUnparseableTruncateChars(t *testing.T) {
 
 // TestMetaToolAdminTuningUnparseableCollapseMaxItems verifies a non-integer
 // max_items leaves the knob unbound, so collapse_arrays.max_items keeps
-// tracking the caller's k (spec §2129: "max_items = k"). Treating the bad
+// tracking the caller's k (spec §9.4: "max_items = k"). Treating the bad
 // value as an override would silently shrink a k=12 request to the config
 // default.
 func TestMetaToolAdminTuningUnparseableCollapseMaxItems(t *testing.T) {

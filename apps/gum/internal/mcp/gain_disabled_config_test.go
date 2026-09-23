@@ -6,7 +6,7 @@ import (
 	"github.com/ehmo/gum/internal/config"
 )
 
-// Spec §2689 makes `gum config set gain.enabled=false` the opt-out, and says
+// Spec §12.3 makes `gum config set gain.enabled=false` the opt-out, and says
 // gum.gain() then returns GAIN_DISABLED. handleGain checked only the
 // GUM_GAIN_DISABLED env var, so a user who set the documented config key still
 // got their savings reported back over MCP.

@@ -3,11 +3,13 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/ehmo/gum/internal/adapters"
 	"github.com/ehmo/gum/internal/catalog"
 	"github.com/ehmo/gum/internal/dispatch"
+	"github.com/ehmo/gum/internal/sanitize"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -142,8 +144,10 @@ func TestHandleCodeElevatedRequiresConfirmationToken(t *testing.T) {
 	if !ok {
 		t.Fatalf("content[0]=%T; want TextContent", res.Content[0])
 	}
-	if tc.Text != "executed" {
-		t.Fatalf("confirmed output=%q; want executed", tc.Text)
+	// §11 layer 1 fences the payload block, so the assertion reads the text
+	// inside the markers rather than the whole block.
+	if got := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(tc.Text, sanitize.ExternalDataOpen), sanitize.ExternalDataClose)); got != "executed" {
+		t.Fatalf("confirmed output=%q; want executed inside the layer-1 fence", tc.Text)
 	}
 }
 

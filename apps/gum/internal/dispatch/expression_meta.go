@@ -65,23 +65,23 @@ type ExpressionMeta struct {
 	// OnEmptyMessage, which §13 makes a normative invariant.
 	IntentionalZeroMaxItems *bool `json:"intentional_zero_max_items,omitempty"`
 
-	// ProjectRootURI and ProfileResolutionWarning report where the profile
-	// came from when a project-local root participated (§9.2).
-	ProjectRootURI           *string `json:"project_root_uri,omitempty"`
-	ProfileResolutionWarning *string `json:"_profile_resolution_warning,omitempty"`
+	// ProjectRootURI is reserved for the negotiated MCP root that supplied a
+	// project-local profile (§9.2). Nothing sets it: the MCP handler resolves
+	// the root, loads the profile through it, and discards it.
+	ProjectRootURI *string `json:"project_root_uri,omitempty"`
 
 	// CodeOutputTruncated marks a gum.code result cut short by the cumulative
 	// output budget.
 	CodeOutputTruncated *bool `json:"_code_output_truncated,omitempty"`
 
-	// UnsupportedCapabilities is the spec §932 warning field. A `partial`
+	// UnsupportedCapabilities is the spec §5.8 warning field. A `partial`
 	// variant executes, so the call succeeds, and this names the capability
 	// atoms that did not run. Omitted for every other execution_support.
 	//
 	// It is deliberately absent from the registered MCP outputSchema. §13
 	// keeps ExpressionMeta open for exactly this case: "future minor releases
 	// can add diagnostic fields ... without breaking client validators that
-	// pin to the registered v0.1 outputSchema". Registering one more property
+	// pin to the registered outputSchema". Registering one more property
 	// also costs 783 tokens across every tool's outputSchema, and
 	// TestGainReleaseFixtureSavingsFloor has 9 tokens of headroom above the
 	// published 80% claim.
@@ -118,7 +118,7 @@ func newExpressionMeta(inv *Invocation, rv *ResolvedVariant, prof *profile.Profi
 		meta.IntentionalZeroMaxItems = &flag
 	}
 
-	// §2705: a pass-through reports the sentinel profile and never claims
+	// §13: a pass-through reports the sentinel profile and never claims
 	// lossy, whatever the profile it skipped would have done.
 	if out.Format == "raw" {
 		meta.Profile = rawProfileSentinel
@@ -207,9 +207,6 @@ func (m *ExpressionMeta) Fields() map[string]any {
 	}
 	if m.ProjectRootURI != nil {
 		out["project_root_uri"] = *m.ProjectRootURI
-	}
-	if m.ProfileResolutionWarning != nil {
-		out["_profile_resolution_warning"] = *m.ProfileResolutionWarning
 	}
 	if len(m.UnsupportedCapabilities) > 0 {
 		out["_unsupported_capabilities"] = m.UnsupportedCapabilities

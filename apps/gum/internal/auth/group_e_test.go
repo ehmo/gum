@@ -1,7 +1,7 @@
 // Group E auth test-matrix rows (spec §7, test-matrix.md row 68-71).
 //
 // This file covers the subset of Group E tests that are offline-executable in
-// v0.1.0 — i.e., they do not need a live `gum auth login` browser flow, OS
+// this package — i.e., they do not need a live `gum auth login` browser flow, OS
 // keychain interaction, or live Google OAuth verification. Tests that require
 // the interactive browser surface (TestAuthLoopbackStateRequired,
 // TestAuthScopeUpgrade*) are pending the gum-xth interactive OAuth bead and
@@ -24,7 +24,7 @@ import (
 	"github.com/ehmo/gum/internal/embedded"
 )
 
-// TestAuthHappyPathNoUserClientSecret verifies spec §7 line 1220: "GUM MUST
+// TestAuthHappyPathNoUserClientSecret verifies spec §7: "GUM MUST
 // NOT embed an OAuth client secret in the open-source binary." We scan the
 // repo for plausible secret literals and assert no source file outside the
 // BYO config plumbing references a hard-coded client secret.
@@ -59,7 +59,7 @@ func TestAuthHappyPathNoUserClientSecret(t *testing.T) {
 	}
 }
 
-// TestAuthErrorNextAction verifies spec §7 lines 1289-1292: variants whose
+// TestAuthErrorNextAction verifies spec §7: variants whose
 // strategy is not gum_oauth MUST emit error envelopes carrying auth_strategy,
 // missing_components, and setup_command — and MUST NOT imply that
 // `gum auth login` alone is the next action. The CompositeResolver's stub
@@ -78,7 +78,7 @@ func TestAuthErrorNextAction(t *testing.T) {
 		if ae.Code != "GUM_OAUTH_MANAGED_CLIENT_NOT_READY" {
 			t.Errorf("Code = %q; want GUM_OAUTH_MANAGED_CLIENT_NOT_READY", ae.Code)
 		}
-		// Spec §7 line 1289: the message MUST NOT claim browser login alone
+		// Spec §7: the message MUST NOT claim browser login alone
 		// works while the managed-scope manifest is unpromoted.
 		if strings.Contains(ae.HumanRemediation, "gum auth login") {
 			t.Errorf("not-ready message wrongly suggests `gum auth login`: %s", ae.HumanRemediation)
@@ -100,8 +100,8 @@ func TestAuthErrorNextAction(t *testing.T) {
 		if ae.Strategy != "byo_oauth" {
 			t.Errorf("Strategy = %q; want byo_oauth", ae.Strategy)
 		}
-		// Spec §7 line 1281: byo_oauth setup must surface use-oauth-client.
-		// The current v0.1 surface uses ADC fallback hints. Either is
+		// Spec §7: byo_oauth setup must surface use-oauth-client.
+		// The current surface uses ADC fallback hints. Either is
 		// acceptable as long as it does NOT imply plain `gum auth login`.
 		if strings.Contains(ae.HumanRemediation, "`gum auth login`") {
 			t.Errorf("byo_oauth setup wrongly suggests `gum auth login`: %s", ae.HumanRemediation)
@@ -161,7 +161,7 @@ func TestAuthNoAmbientADCWithoutOptIn(t *testing.T) {
 	}
 }
 
-// TestAuthStrategyRequired verifies spec §7 line 1275-1276: every executable
+// TestAuthStrategyRequired verifies spec §7: every executable
 // catalog variant MUST declare exactly one auth_strategy. We walk the
 // embedded catalog and assert no variant has an empty AuthStrategy field.
 func TestAuthStrategyRequired(t *testing.T) {
@@ -189,7 +189,7 @@ func TestAuthStrategyRequired(t *testing.T) {
 	}
 }
 
-// TestManagedOAuthScopeManifest verifies spec §7 line 1307-1317: the
+// TestManagedOAuthScopeManifest verifies spec §7: the
 // internal/embedded/data/auth-managed-scopes.v1.json manifest is the single source of truth
 // for scopes eligible to use auth_strategy="gum_oauth". The manifest must
 // exist, parse, and satisfy the structural invariants documented in §7.
@@ -215,7 +215,7 @@ func TestManagedOAuthScopeManifest(t *testing.T) {
 	if doc.SchemaVersion != 1 {
 		t.Errorf("schema_version = %d; want 1", doc.SchemaVersion)
 	}
-	// Spec §7 line 1219-1221: no client secret.
+	// Spec §7: no client secret.
 	if v, _ := doc.ClientPolicy["embedded_client_secret"].(bool); v {
 		t.Errorf("client_policy.embedded_client_secret = true; spec §7 forbids this")
 	}
@@ -223,7 +223,7 @@ func TestManagedOAuthScopeManifest(t *testing.T) {
 		t.Errorf("client_policy.flow = %q; want installed_app_pkce", v)
 	}
 	if v, _ := doc.ClientPolicy["redirect_method"].(string); v != "loopback" {
-		t.Errorf("client_policy.redirect_method = %q; want loopback (spec §7 line 1218)", v)
+		t.Errorf("client_policy.redirect_method = %q; want loopback (spec §7)", v)
 	}
 	// At least one scope must exist (even if all are planned).
 	if len(doc.Scopes) == 0 {
@@ -240,8 +240,8 @@ func TestManagedOAuthScopeManifest(t *testing.T) {
 
 // TestGumOAuthScopeNotManaged is a forward-looking guard: when a variant
 // declares auth_strategy="gum_oauth", every required scope must appear in
-// the manifest with all four lifecycle fields = managed-ready. v0.1.0 has
-// gum_oauth disabled at the resolver level, but the catalog generator
+// the manifest with all four lifecycle fields = managed-ready. The resolver
+// gates gum_oauth on the manifest, but the catalog generator
 // should still reject ineligible declarations. We scan the embedded catalog
 // for any gum_oauth variant referencing an unmanaged scope.
 func TestGumOAuthScopeNotManaged(t *testing.T) {
@@ -268,7 +268,7 @@ func TestGumOAuthScopeNotManaged(t *testing.T) {
 	}
 }
 
-// TestAuthComponentUnknown verifies spec §7 lines 1296-1305: only the closed
+// TestAuthComponentUnknown verifies spec §7: only the closed
 // set of component kinds is accepted; an unknown kind fails catalog build
 // with AUTH_COMPONENT_UNKNOWN unless it carries the "x-" informational
 // prefix. The kinds now live in catalog.AuthComponentKinds and a variant can
@@ -319,7 +319,7 @@ func TestAuthComponentUnknown(t *testing.T) {
 	}
 }
 
-// TestCompoundAuthErrorEnvelope verifies spec §7 lines 1289-1305 +
+// TestCompoundAuthErrorEnvelope verifies spec §7 +
 // 1378-1389: compound-auth failure envelopes MUST include auth_strategy,
 // missing_components, and setup_command. The error also marshals to the
 // canonical JSON envelope shape so MCP stdio mode can forward it verbatim.
@@ -332,18 +332,18 @@ func TestCompoundAuthErrorEnvelope(t *testing.T) {
 	if !errors.As(err, &ae) {
 		t.Fatalf("want *AuthError for compound strategy, got %T: %v", err, err)
 	}
-	// All three required fields per spec §7 line 1291.
+	// All three required fields per spec §7.
 	if ae.Strategy != "compound" {
 		t.Errorf("auth_strategy = %q; want compound", ae.Strategy)
 	}
 	if len(ae.MissingComponents) == 0 {
-		t.Errorf("missing_components is empty; spec §7 line 1291 requires it on compound envelopes")
+		t.Errorf("missing_components is empty; spec §7 requires it on compound envelopes")
 	}
 	if ae.SetupCommand == "" {
-		t.Errorf("setup_command is empty; spec §7 line 1291 requires it on compound envelopes")
+		t.Errorf("setup_command is empty; spec §7 requires it on compound envelopes")
 	}
 	// Setup command MUST be `gum auth setup <op_id>` form, NOT a plain
-	// `gum auth login` (spec §7 lines 1289-1292 + 1396-1398).
+	// `gum auth login` (spec §7).
 	if !strings.Contains(ae.SetupCommand, "gum auth setup") {
 		t.Errorf("setup_command = %q; want a `gum auth setup ...` form", ae.SetupCommand)
 	}
@@ -351,12 +351,12 @@ func TestCompoundAuthErrorEnvelope(t *testing.T) {
 		t.Errorf("setup_command = %q; compound MUST NOT suggest plain `gum auth login`", ae.SetupCommand)
 	}
 	// Error code should be the canonical AUTH_REQUIRED envelope code
-	// (spec §1289 wording). AUTH_STRATEGY_NOT_IMPLEMENTED is the stub
+	// (spec §7 wording). AUTH_STRATEGY_NOT_IMPLEMENTED is the stub
 	// code we used before this bead landed.
 	if ae.Code != "AUTH_REQUIRED" {
 		t.Errorf("error_code = %q; want AUTH_REQUIRED on compound envelopes", ae.Code)
 	}
-	// The envelope JSON shape must round-trip per spec §1378-1389.
+	// The envelope JSON shape must round-trip per spec §7.
 	body, jerr := json.Marshal(ae)
 	if jerr != nil {
 		t.Fatalf("marshal envelope: %v", jerr)

@@ -16,7 +16,7 @@ const (
 //	read:  docs.documents.get    (GET)
 //	write: docs.documents.create (POST)
 //
-// Spec §4.1 lines 359-360. Backs the docs_get / docs_create convenience tools
+// Spec §4.1. Backs the docs_get / docs_create convenience tools
 // declared in internal/mcp/tier_a_abi.go. Both variants use BYO OAuth and the
 // typed-rest-sdk adapter; live discovery-doc walk is deferred to the offline
 // gen-catalog network path — these hand-curated entries unblock the dispatch
@@ -49,7 +49,7 @@ func BuildDocsOps() []catalog.Op {
 //	read:  sheets.spreadsheets.values.get    (GET)
 //	write: sheets.spreadsheets.values.update (PUT)
 //
-// Spec §4.1 lines 361-362. Backs the sheets_read / sheets_write convenience
+// Spec §4.1. Backs the sheets_read / sheets_write convenience
 // tools declared in internal/mcp/tier_a_abi.go.
 func BuildSheetsOps() []catalog.Op {
 	op := func(opID, variantID, title, summary string, risk catalog.RiskClass, scopes []string, method, path, goCall string) catalog.Op {
@@ -98,9 +98,9 @@ func BuildSheetsOps() []catalog.Op {
 //
 //	read: slides.presentations.get (GET)
 //
-// Spec §4.1 line 363. Backs the slides_get convenience tool declared in
+// Spec §4.1. Backs the slides_get convenience tool declared in
 // internal/mcp/tier_a_abi.go. Write ops on Slides go through batchUpdate and
-// are not exposed as a Tier A convenience tool in v0.1.0 (callers fall back
+// are not exposed as a Tier A convenience tool (callers fall back
 // to gum call slides.presentations.batchUpdate when needed).
 func BuildSlidesOps() []catalog.Op {
 	op := func(opID, variantID, title, summary string, risk catalog.RiskClass, scopes []string, method, path, goCall string) catalog.Op {
@@ -184,7 +184,7 @@ func makeWorkspaceOp(s workspaceOpSpec) catalog.Op {
 
 // versionFromVariantID extracts the API version label embedded in the variant
 // id (e.g. "docs.v1.rest.documents.get" -> "v1", "sheets.v4.rest.…" -> "v4").
-// The Workspace ops in v0.1.0 all carry a "<service>.<vN>." prefix, so a
+// Every Workspace op carries a "<service>.<vN>." prefix, so a
 // single token lookup is sufficient and explicit (avoids drifting from the
 // httpPath component).
 func versionFromVariantID(variantID string) string {

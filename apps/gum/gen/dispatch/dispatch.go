@@ -23,10 +23,10 @@
 //	                                       │
 //	                             internal/embedded/catalog.json
 //
-// Nothing imports this package yet: v0.1.0 routes every op through
-// internal/dispatch, and the stubs exist to pin the §5.7 contract (a stub per
-// curated variant, context threaded to the HTTP call) ahead of v0.2.0 replacing
-// each body with a typed google.golang.org/api call chain.
+// Nothing imports this package: every op routes through internal/dispatch,
+// and the stubs exist to pin the §5.7 contract (a stub per curated variant,
+// context threaded to the HTTP call). No stub body calls a typed
+// google.golang.org/api client; that replacement is not built.
 package dispatch
 
 //go:generate go run ../../cmd/gen-catalog -offline-stubs-only -out=../../internal/embedded/catalog.json -stubs-out=.

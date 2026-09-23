@@ -9,7 +9,7 @@ import (
 // TestNewCodeCmdElevatedFlagsReachDispatch drives the elevated arm of
 // newCodeCmd (--allow-write plus --allow-destructive, consented with --yes)
 // and reads the outcome instead of discarding it. With no
-// --destructive-budget the run must die on the §1083 budget refusal, which
+// --destructive-budget the run must die on the §6.1.1 budget refusal, which
 // proves the invocation reached the executor rather than failing earlier on an
 // argument gum.code never declared.
 func TestNewCodeCmdElevatedFlagsReachDispatch(t *testing.T) {

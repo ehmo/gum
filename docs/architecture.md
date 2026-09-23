@@ -1,7 +1,7 @@
 ---
 title: gum architecture overview
 audience: new contributors
-status: living document (v0.1.0)
+status: living document
 ---
 
 # gum architecture overview

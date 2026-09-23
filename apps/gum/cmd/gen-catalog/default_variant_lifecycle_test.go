@@ -11,11 +11,11 @@ import (
 	"github.com/ehmo/gum/internal/embedded"
 )
 
-// docs/spec.md line 434, lifecycle-aware default rule (normative):
+// docs/spec.md §5.1, lifecycle-aware default rule (normative):
 // "default_variant_id MUST select an active, non-quarantined, non-removed
 // variant... cmd/gen-catalog fails with DEFAULT_VARIANT_INVALID when the
-// selected default violates this lifecycle rule." §7 line 1580 lists the code
-// with firing point "Build".
+// selected default violates this lifecycle rule." The §7 build-time error
+// table lists the code with phase "Build".
 //
 // The removed half is already enforced: Op.Validate rejects a default that
 // names no variant in variants[], which is what removal looks like in the
@@ -102,7 +102,7 @@ func TestDefaultVariantLifecycleAllowsDeprecatedDefaultWhenAllAreDeprecated(t *t
 	}
 }
 
-// A non-deprecated sibling that cannot execute is not an alternative. §918
+// A non-deprecated sibling that cannot execute is not an alternative. §5.8
 // says typed_executor_required and schema_only execute no declared atom
 // through generic dispatch, so promoting one would trade a deprecation warning
 // for UNSUPPORTED_CAPABILITY on every call.

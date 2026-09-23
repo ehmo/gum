@@ -1,6 +1,6 @@
-// Spec §12 line 2537: `gum plugin list --format=json` emits
+// Spec §12: `gum plugin list --format=json` emits
 // `{"plugins": PluginInventoryRow[]}`, whose "rows mirror gum://plugins
-// columns with named JSON fields". Spec §13 line 3234 fixes those columns at
+// columns with named JSON fields". Spec §13 fixes those columns at
 // [name, version, shape, status, tos, risk, variant_count].
 //
 // Both surfaces read one loader here, so the CLI and the MCP resource cannot
@@ -26,7 +26,7 @@ import (
 )
 
 // PluginInventoryRow is one row of the plugin inventory. Field order matches
-// the §13 line 3234 column order; JSON names are the spec's column names.
+// the §13 column order; JSON names are the spec's column names.
 type PluginInventoryRow struct {
 	Name         string `json:"name"`
 	Version      string `json:"version"`

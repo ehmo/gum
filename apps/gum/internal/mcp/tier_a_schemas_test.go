@@ -415,7 +415,7 @@ func TestTierARosterFileExists(t *testing.T) {
 
 	if len(roster.ConvenienceTools) != 18 {
 		t.Errorf("docs/tier-a-roster.v1.json lists %d convenience_tools; want 18 "+
-			"(spec.md §4.1: hard cap of 18 convenience tools in v0.1)", len(roster.ConvenienceTools))
+			"(spec.md §4.1: hard cap of 18 convenience tools)", len(roster.ConvenienceTools))
 	}
 
 	if len(roster.MetaTools) != 9 {

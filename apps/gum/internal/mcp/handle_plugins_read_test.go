@@ -93,7 +93,7 @@ func TestHandlePluginsReadHappyPath(t *testing.T) {
 }
 
 // TestHandlePluginsReadFiltersInstalledPendingRestart asserts the spec
-// §13 line 3148 filter: rows in installed_pending_restart status must
+// §13 filter: rows in installed_pending_restart status must
 // not appear in the MCP inventory (gum plugin list still shows them).
 func TestHandlePluginsReadFiltersInstalledPendingRestart(t *testing.T) {
 	dir := t.TempDir()

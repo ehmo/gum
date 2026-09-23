@@ -205,7 +205,7 @@ func TestResolveProfileNotFoundReturnsSentinel(t *testing.T) {
 
 // TestResolutionSourceStringConstants verifies that the three ResolutionSource
 // constants carry the exact string values required by the gum describe
-// output_profile_source field (spec §2073).
+// output_profile_source field (spec §9.2).
 func TestResolutionSourceStringConstants(t *testing.T) {
 	tests := []struct {
 		constant profile.ResolutionSource

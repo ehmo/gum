@@ -123,7 +123,7 @@ func TestGenerateRejectsGumOAuthEmission(t *testing.T) {
 				if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
 					t.Errorf(
 						"fixture %s: op %s variant %s emits auth_strategy=%q — "+
-							"gum_oauth MUST NOT be emitted by the generator in v0.1.0",
+							"gum_oauth MUST NOT be emitted by the generator",
 						path, op.OpID, v.VariantID, v.AuthStrategy,
 					)
 				}

@@ -1,8 +1,8 @@
 // Package mcp — Red team failing tests for gum-9vuq.9.
 //
-// Covers: gum.gain handler GainResult envelope (9 required top-level keys per spec §2793),
-// tokenizer header (spec §2866), default mode (spec §2518), terminal error envelopes for
-// GAIN_DISABLED (spec §2570) and GAIN_LEDGER_UNAVAILABLE (spec §2541).
+// Covers: gum.gain handler GainResult envelope (9 required top-level keys per spec §13),
+// tokenizer header (spec §13), default mode (spec §12.3), terminal error envelopes for
+// GAIN_DISABLED and GAIN_LEDGER_UNAVAILABLE (spec §7).
 //
 // These tests MUST FAIL today because:
 //   - handleGain returns {total_calls, total_tokens_saved, mean_savings_per_call, p50, p95, p99}
@@ -103,11 +103,11 @@ func invokeGainExpectError(t *testing.T, srv *Server) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
-// Test 1: Success envelope has all 9 required GainResult top-level keys (spec §2793)
+// Test 1: Success envelope has all 9 required GainResult top-level keys (spec §13)
 // ---------------------------------------------------------------------------
 
 // TestGainSuccessEnvelopeHasAllRequiredKeys invokes handleGain against a fresh ledger
-// in a temp HOME and asserts all 9 spec §2793 top-level keys are present:
+// in a temp HOME and asserts all 9 spec §13 top-level keys are present:
 // mode, window, baseline_tokens, actual_tokens, savings_tokens,
 // savings_pct, end_to_end_savings, batch_envelope_overhead, tokenizer.
 //
@@ -132,13 +132,13 @@ func TestGainSuccessEnvelopeHasAllRequiredKeys(t *testing.T) {
 	}
 	for _, key := range required {
 		if _, ok := m[key]; !ok {
-			t.Errorf("missing required GainResult key %q (spec §2793)", key)
+			t.Errorf("missing required GainResult key %q (spec §13)", key)
 		}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 2: tokenizer field equals "cl100k_base" (spec §2866)
+// Test 2: tokenizer field equals "cl100k_base" (spec §13)
 // ---------------------------------------------------------------------------
 
 // TestGainSuccessTokenizerHeader asserts result["tokenizer"] == "cl100k_base".
@@ -151,23 +151,23 @@ func TestGainSuccessTokenizerHeader(t *testing.T) {
 
 	raw, ok := m["tokenizer"]
 	if !ok {
-		t.Fatal("missing field \"tokenizer\" (spec §2866)")
+		t.Fatal("missing field \"tokenizer\" (spec §13)")
 	}
 	got, ok := raw.(string)
 	if !ok {
 		t.Fatalf("tokenizer is %T; want string", raw)
 	}
 	if got != "cl100k_base" {
-		t.Errorf("tokenizer = %q; want \"cl100k_base\" (spec §2866)", got)
+		t.Errorf("tokenizer = %q; want \"cl100k_base\" (spec §13)", got)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 3: Default mode is "summary" (spec §2518)
+// Test 3: Default mode is "summary" (spec §12.3)
 // ---------------------------------------------------------------------------
 
-// TestGainSuccessModeIsSummary asserts that a default v0.1.0 invocation sets
-// result["mode"] == "summary" per spec §2518.
+// TestGainSuccessModeIsSummary asserts that a default invocation sets
+// result["mode"] == "summary" per spec §12.3.
 // Current handler has no "mode" field.  MUST FAIL.
 func TestGainSuccessModeIsSummary(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
@@ -177,19 +177,19 @@ func TestGainSuccessModeIsSummary(t *testing.T) {
 
 	raw, ok := m["mode"]
 	if !ok {
-		t.Fatal("missing field \"mode\" (spec §2518)")
+		t.Fatal("missing field \"mode\" (spec §12.3)")
 	}
 	got, ok := raw.(string)
 	if !ok {
 		t.Fatalf("mode is %T; want string", raw)
 	}
 	if got != "summary" {
-		t.Errorf("mode = %q; want \"summary\" for v0.1.0 default invocation (spec §2518)", got)
+		t.Errorf("mode = %q; want \"summary\" for a default invocation (spec §12.3)", got)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 4: GAIN_DISABLED terminal error (spec §2570)
+// Test 4: GAIN_DISABLED terminal error (spec §7)
 // ---------------------------------------------------------------------------
 
 // TestGainDisabledReturnsTerminalError asserts that when gain is disabled
@@ -214,17 +214,17 @@ func TestGainDisabledReturnsTerminalError(t *testing.T) {
 
 	code, _ := m["error_code"].(string)
 	if code != "GAIN_DISABLED" {
-		t.Errorf("error_code = %q; want \"GAIN_DISABLED\" (spec §2570)", code)
+		t.Errorf("error_code = %q; want \"GAIN_DISABLED\" (spec §7)", code)
 	}
 
 	// Must NOT contain the "mode" field — this is not a GainResult success envelope.
 	if _, hasMode := m["mode"]; hasMode {
-		t.Error("error envelope must not contain \"mode\" field (spec §1421: terminal errors do not use GainResult schema)")
+		t.Error("error envelope must not contain \"mode\" field (spec §7: terminal errors do not use GainResult schema)")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test 5: GAIN_LEDGER_UNAVAILABLE terminal error (spec §2541)
+// Test 5: GAIN_LEDGER_UNAVAILABLE terminal error (spec §7)
 // ---------------------------------------------------------------------------
 
 // TestGainLedgerUnavailableReturnsTerminalError asserts that when the ledger
@@ -253,11 +253,11 @@ func TestGainLedgerUnavailableReturnsTerminalError(t *testing.T) {
 
 	code, _ := m["error_code"].(string)
 	if code != "GAIN_LEDGER_UNAVAILABLE" {
-		t.Errorf("error_code = %q; want \"GAIN_LEDGER_UNAVAILABLE\" (spec §2541)", code)
+		t.Errorf("error_code = %q; want \"GAIN_LEDGER_UNAVAILABLE\" (spec §7)", code)
 	}
 
 	hint, _ := m["hint"].(string)
 	if hint == "" {
-		t.Error("\"hint\" must be present and non-empty (spec §2541)")
+		t.Error("\"hint\" must be present and non-empty (spec §7)")
 	}
 }

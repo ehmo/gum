@@ -67,8 +67,8 @@ func claudeDesktopTarget(homeDir, _ string) (SettingsTarget, error) {
 }
 
 // cursorTarget returns the single canonical Cursor MCP config path. Cursor
-// uses a global ~/.cursor/mcp.json (no project-local equivalent in the IDE's
-// public docs as of v0.40+).
+// uses a global ~/.cursor/mcp.json (Cursor v0.40+ documents no project-local
+// equivalent).
 func cursorTarget(homeDir string) SettingsTarget {
 	dir := filepath.Join(homeDir, ".cursor")
 	return SettingsTarget{

@@ -1,7 +1,7 @@
 // gum-d7t: acceptance test for spec §9.2 — MCP roots binding +
 // project-local profile resolution.
 //
-// Spec §9.2 lines 2048-2052: "In MCP mode, project-local lookup MUST NOT
+// Spec §9.2: "In MCP mode, project-local lookup MUST NOT
 // rely on process $PWD. With a single file root, GUM uses that root. With
 // multiple file roots, the request MUST provide _meta.gumRoot equal to one
 // of the negotiated root URIs. If _meta.gumRoot is absent, non-file, or

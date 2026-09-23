@@ -17,8 +17,8 @@ import (
 //
 // Behaviour:
 //   - --plugin is required; --live is optional and currently triggers a
-//     no-op ping after a successful Start. v0.1.0 keeps the live ping as a
-//     plain Start+Stop because the MCP go-sdk handshake already exercises
+//     no-op ping after a successful Start. The live ping stays a plain
+//     Start+Stop because the MCP go-sdk handshake already exercises
 //     tools/list during Connect.
 //   - On success, the command prints a single-line JSON envelope on stdout
 //     and exits 0.

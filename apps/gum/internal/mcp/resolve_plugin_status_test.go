@@ -21,7 +21,7 @@ func TestResolvePluginStatusQuarantineWins(t *testing.T) {
 // `return "active"` arm (static_resources.go:290). Reached when
 // neither quarantined nor a non-empty status string is present —
 // fresh-install rows that haven't recorded a status yet default
-// to active per spec §13 line 3176.
+// to active per spec §13.
 func TestResolvePluginStatusFallthroughReturnsActive(t *testing.T) {
 	for _, tc := range []struct {
 		name string

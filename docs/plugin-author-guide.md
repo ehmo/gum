@@ -16,7 +16,7 @@ Concretely you ship:
 2. **An executable** that, when launched with no arguments and its stdio connected to the host, behaves as a conforming MCP stdio server. It MUST implement `initialize`, `tools/list`, and `tools/call`.
 3. **A package** (currently any of: GitHub release artifact, Git repo at pinned commit, PyPI wheel/sdist, or a local directory for development).
 
-GUM verifies the executable's SHA-256 at install time, records `(executable_path, executable_sha256, argv_normalized, install_root)` in the active profile's `plugins.lock`, and re-hashes on every spawn (spec §8 line 1690). Shell interpreters in `executable_path` and path escapes outside the install root are rejected with `PLUGIN_EXECUTABLE_UNTRUSTED`.
+GUM verifies the executable's SHA-256 at install time, records `(executable_path, executable_sha256, argv_normalized, install_root)` in the active profile's `plugins.lock`, and re-hashes on every spawn (spec §8). Shell interpreters in `executable_path` and path escapes outside the install root are rejected with `PLUGIN_EXECUTABLE_UNTRUSTED`.
 
 ---
 
@@ -60,6 +60,7 @@ The manifest is the v1 schema enforced by `plugins.LoadManifest`. Every field be
 | `shape` | string | Must be `"mcp-plugin"`. | `PLUGIN_SHAPE_UNSUPPORTED` |
 | `executable` | string | Path **relative** to the install directory; absolute paths are rejected during install. | `PLUGIN_MANIFEST_INVALID`, `PLUGIN_EXECUTABLE_UNTRUSTED` at install |
 | `advertised_tools[].name` | string | Unprefixed. Host adds `plug.<plugin_id>.` prefix. | `PLUGIN_MANIFEST_INVALID` if empty |
+| `advertised_tools[].description` | string | Passes the `spec.md` §7 13-rule description sanitizer at tool kind `plugin` and the tool's own `risk_class`: no marketing language, no model hints, no second person, at most 220 `cl100k_base` tokens and 400 Unicode codepoints, no PII, no pseudo-instruction tag (`<system>`), no instruction directive (`ignore previous instructions`, `<|im_start|>`, `## Important`), no compatibility homoglyph (fullwidth or mathematical letters, non-breaking space), no credential-shaped token beside a filesystem path, no base64 payload, and a `write` or `destructive` tool must name its effect. Checked on every manifest load, not only at install. | `PLUGIN_MANIFEST_INVALID`, naming the tool and the rule |
 | `advertised_tools[].risk_class` | string | One of `read`, `write`, `destructive`. | `PLUGIN_MANIFEST_INVALID` |
 | `advertised_tools[].auth_strategy` | string | Optional. One of the `spec.md` §7 strategies: `adc`, `byo_oauth`, `gum_oauth`, `api_key`, `service_account_key`, `service_account`, `none`, `compound`, `plugin_managed`. Required and must be `compound` on **every** advertised tool when `requirements.needs_user_creds` contains `google_access_token`. | `PLUGIN_MANIFEST_INVALID` on an unknown value; `PLUGIN_ENV_PROHIBITED` when the token is requested without an all-`compound` tool list |
 | `declared_capabilities.network` | bool | Enforced for hosted plugin subprocesses on supported OS backends. Unsupported OS backends fail closed. | `PLUGIN_SANDBOX_UNSUPPORTED` or sandbox spawn error |
@@ -69,7 +70,7 @@ The manifest is the v1 schema enforced by `plugins.LoadManifest`. Every field be
 ### Cross-references
 
 - Namespace ownership rules: `docs/plugin-contract.md` §third-party namespace ownership.
-- Prefix claims are first claim wins. No reserved list of Google prefixes ships, so nothing stops a plugin from claiming `gmail` on a fresh profile (gum-g9qv).
+- Prefix claims are first claim wins inside the `plug.` namespace. A `plugin_id` of `gmail` gives you `plug.gmail.*`, not the first-party `gmail.*` ops; see `docs/plugin-contract.md` §Reserved Namespaces.
 - Credential descriptors required when `env_allow` carries OAuth-bearing vars: `docs/plugin-contract.md` §credential descriptors.
 
 ---
@@ -146,7 +147,7 @@ The host launches the executable, connects its stdin/stdout to the JSON-RPC tran
 }}
 ```
 
-**(d) Plugin-local error envelope (spec §8 lines 1624–1641):**
+**(d) Plugin-local error envelope (spec §8):**
 
 When the operation fails, the plugin returns a `CallToolResult` with `isError: true` and the body string is a JSON object:
 
@@ -297,7 +298,7 @@ app = FastMCP("Hello")
 def hello(name: str) -> str:
     """Return a deterministic greeting for the given name."""
     # GUM expects either a successful payload or a plugin-local error envelope
-    # per spec §8 lines 1624–1641.
+    # per spec §8.
     if not name or not isinstance(name, str):
         return json.dumps({
             "success": False,
@@ -346,7 +347,7 @@ gum plugin run hello hello '{"name":""}'
 | Install fails with `PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED` | Forgot to set `manifest_schema_version: 1`, or nested it inside a `plugin` object | Hoist it to the top level. |
 | Install fails with `PLUGIN_NAMESPACE_CONFLICT` | Another plugin already owns the prefix in this profile's lock, or `namespace_owner` is missing on a third-party manifest | Either rename your plugin_id, declare the actual owner string the previous install used, or — in dev only — re-run with `--dev-allow-namespace-conflict`. |
 | Spawn fails with `PLUGIN_EXECUTABLE_UNTRUSTED` | `executable` resolves outside the install root, points to a shell interpreter (`sh`, `bash`, `python`), or the file's SHA-256 changed since install | Repackage with a real entry-point binary; rerun `gum plugin install` to record the new digest. |
-| Calls fail with `SERVICE_DOWN` and `source_error_code: <something-weird>` | Plugin emitted an unknown error code; host maps unknowns to `SERVICE_DOWN` per spec §8 line 1641 | Use only the five plugin-local codes: `RATE_LIMIT`, `AUTH_EXPIRED`, `PARSE_FAILURE`, `SERVICE_DOWN`, `INVALID_INPUT`. |
+| Calls fail with `SERVICE_DOWN` and `source_error_code: <something-weird>` | Plugin emitted an unknown error code; host maps unknowns to `SERVICE_DOWN` per spec §8 | Use only the five plugin-local codes: `RATE_LIMIT`, `AUTH_EXPIRED`, `PARSE_FAILURE`, `SERVICE_DOWN`, `INVALID_INPUT`. |
 | `gum plugin run` returns `PLUGIN_ENV_PROHIBITED` | `env_allow` lists a `GUM_*` var, `GOOGLE_APPLICATION_CREDENTIALS`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `_GUM*` | Drop the denylisted entry; if you need an OAuth credential, declare it under `[requirements].credential_descriptors` instead. |
 | Plugin crashes on second invocation | Plugin is not stdio-safe: it wrote `print(...)` to stdout outside the JSON-RPC framing | Route all logging to stderr; stdout is reserved for the JSON-RPC transport. |
 

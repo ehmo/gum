@@ -176,7 +176,7 @@ func TestHashDeterministic(t *testing.T) {
 	}
 }
 
-// TestPrincipalScopedRecoveryAndCache covers spec §9.0 line 1846: the same
+// TestPrincipalScopedRecoveryAndCache covers spec §9.0: the same
 // (op, variant, args, profile) but DIFFERENT credential subject MUST produce
 // a different hash. This is the "cross-principal handles are not reusable"
 // guarantee — a hash collision would leak one user's data to another in a
@@ -277,7 +277,7 @@ func TestWriteAndReadArtifactRoundTrip(t *testing.T) {
 		t.Errorf("Write returned %q; want %q", dst, expected)
 	}
 
-	// Path components must match spec §9.0 line 1846.
+	// Path components must match spec §9.0.
 	want := filepath.Join(profileDir, "tee", "2026-05-23", "gmail.users.messages.list", hash+".json.gz")
 	if dst != want {
 		t.Errorf("artifact path = %q; want %q", dst, want)

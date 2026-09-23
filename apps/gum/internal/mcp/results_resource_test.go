@@ -143,7 +143,7 @@ func TestResourceReadResultsHit(t *testing.T) {
 
 // TestResultArtifactExpiredError asserts the JSON-RPC error envelope when the
 // hash cannot be located: code -32010, message non-empty, and error.data
-// matches the spec §1423 RESULT_ARTIFACT_EXPIRED schema.
+// matches the spec §7 RESULT_ARTIFACT_EXPIRED schema.
 func TestResultArtifactExpiredError(t *testing.T) {
 	defer goleak.VerifyNone(t)
 	ctx, cs, _, cleanup := connectResourceClient(t)
@@ -166,7 +166,7 @@ func TestResultArtifactExpiredError(t *testing.T) {
 		t.Error("rpcErr.Message empty; want non-empty")
 	}
 	if len(rpcErr.Data) == 0 {
-		t.Fatal("rpcErr.Data empty; want §1423 envelope")
+		t.Fatal("rpcErr.Data empty; want §7 envelope")
 	}
 	var env map[string]any
 	if err := json.Unmarshal(rpcErr.Data, &env); err != nil {
@@ -182,7 +182,7 @@ func TestResultArtifactExpiredError(t *testing.T) {
 		t.Error("envelope missing expires_at key (must be present, may be null)")
 	}
 	if env["expires_at"] != nil {
-		t.Errorf("envelope.expires_at = %v; want null in v0.1.0", env["expires_at"])
+		t.Errorf("envelope.expires_at = %v; want null", env["expires_at"])
 	}
 	if env["user_message"] == "" || env["user_message"] == nil {
 		t.Error("envelope.user_message empty")

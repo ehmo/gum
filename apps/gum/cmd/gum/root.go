@@ -43,9 +43,9 @@ func defaultSemanticCache() *cache.SemanticCache {
 }
 
 // defaultAuditBufferSize is the channel depth used when the audit writer is
-// constructed in buffered-channel mode (gum-dxpy). v0.1.0 picks 256 as a
-// reasonable burst capacity — bigger than the worst gum_parallel fan-out
-// (spec §6.3 caps at 16) yet small enough that a runaway producer is bounded.
+// constructed in buffered-channel mode (gum-dxpy). 256 is a reasonable burst
+// capacity: bigger than the worst gum_parallel fan-out (spec §6.3 caps at
+// 16) yet small enough that a runaway producer is bounded.
 const defaultAuditBufferSize = 256
 
 type auditRuntimeConfig struct {
@@ -98,6 +98,7 @@ func newRootCmd() *cobra.Command {
 			if err := applyLoggingFlags(cmd); err != nil {
 				return err
 			}
+			applyShadowWarnFlags(cmd)
 			promotePendingPlugins(cmd)
 			initSessionCatalog(cmd)
 			return nil
@@ -153,6 +154,7 @@ func newRootCmd() *cobra.Command {
 	_ = root.RegisterFlagCompletionFunc("profile", completeProfileNames)
 	root.PersistentFlags().String("log-level", "info", "Log level: debug|info|warn|error (overrides GUM_LOG_LEVEL)")
 	root.PersistentFlags().String("log-format", "json", "Log format: json|text")
+	registerShadowWarnFlags(root)
 	return root
 }
 
@@ -295,7 +297,7 @@ func maybeNotifyUpdate(cmd *cobra.Command) {
 
 // sessionSnapshot holds the catalog this process dispatches against: the
 // embedded catalog plus the active plugin variants of the profile the process
-// booted with (spec §5 line 405). initSessionCatalog fills it once, during the
+// booted with (spec §5). initSessionCatalog fills it once, during the
 // root PersistentPreRunE, before any command resolves an op.
 //
 // It stays nil until then, which is how a unit test that calls loadCatalog()
@@ -332,7 +334,7 @@ func embeddedCatalog() *catalog.Catalog {
 // by the time the merge reads plugin-state.json. Running here also puts the
 // merge before `gum mcp --stdio` reaches Server.Run: the MCP tool roster is
 // fixed at registration, so no plugin install can move it mid-session and
-// tools/list_changed never fires (spec §13 line 3148).
+// tools/list_changed never fires (spec §13).
 //
 // Failures are logged and dropped. A profile whose plugin registry gum cannot
 // read must still dispatch the built-in catalog.
@@ -395,9 +397,9 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		cr = cr.WithOutputLimitBytes(cfg.CodeOutputLimitBytes())
 	}
 	// rest.typed-rest-sdk, rest.discovery-rest, and rest.raw-http all share the
-	// same TypedRestSDK executor in v0.1.0 — they only differ in catalog
-	// metadata (interface_kind / backend_kind). v0.2.0 will split raw-http into
-	// a stricter executor with per-call pre-flight validation hooks.
+	// same TypedRestSDK executor; they differ only in catalog metadata
+	// (interface_kind / backend_kind). A stricter raw-http executor with
+	// per-call pre-flight validation hooks is not built.
 	rest := adapters.NewTypedRestSDK()
 	pluginMCP := adapters.NewPluginMCPLazyWithStarter(func() *plugins.Host {
 		// Profile + Keyring let Start resolve the credentials `gum plugin
@@ -486,25 +488,66 @@ func newDefaultDispatcher() dispatch.Dispatcher {
 // warning. Dropping the profile widens the response rather than narrowing it,
 // so the call still runs; the warning is what keeps a typo from passing unseen.
 func profileHierarchyLookup(name string) (*outprofile.Profile, bool) {
-	p, _, err := outprofile.ResolveProfile(profileSearchRoot(), name, outprofile.BuiltinLookup)
+	p, source, err := outprofile.ResolveProfile(profileSearchRoot(), name, outprofile.BuiltinLookup)
 	if err != nil {
 		if !errors.Is(err, outprofile.ErrProfileNotFound) {
 			slog.Warn("profile resolution failed", "profile", name, "error", err)
 		}
 		return nil, false
 	}
+	warnIfFilesystemLayerShadows(name, source, p)
 	return p, true
+}
+
+// warnIfFilesystemLayerShadows is the §9.2 shadowing warning at the runtime
+// loader. A filesystem layer that supplies a profile whose name the catalog also
+// carries has displaced it, so the loss-driving fields the catalog profile set
+// are compared against what the file kept.
+//
+// A catalog-embedded resolution warns about nothing: there is no override.
+func warnIfFilesystemLayerShadows(name string, source outprofile.ResolutionSource, resolved *outprofile.Profile) {
+	if source != outprofile.SourceProjectLocal && source != outprofile.SourceUserGlobal {
+		return
+	}
+	catalogProfile, ok := outprofile.BuiltinLookup(name)
+	if !ok {
+		return
+	}
+	emitShadowWarnings(nil, outprofile.DetectShadowing(name, catalogProfile, resolved))
 }
 
 // profileOverrideBindings returns the merged §9.2 [override_bindings] table for
 // the working directory, project-local beating user-global on a shared key.
 func profileOverrideBindings() map[string]string {
-	bindings, err := outprofile.LoadOverrideBindings(profileSearchRoot())
+	root := profileSearchRoot()
+	bindings, err := outprofile.LoadOverrideBindings(root)
 	if err != nil {
 		slog.Warn("override_bindings load failed", "error", err)
 		return nil
 	}
+	warnIfBindingsShadow(root, bindings)
 	return bindings
+}
+
+// warnIfBindingsShadow is the §9.2 shadowing warning for the binding form: a
+// table entry attaches a profile to an op whose catalog variant already named
+// one, so the two are compared and the op is what the warning names.
+func warnIfBindingsShadow(root string, bindings map[string]string) {
+	if len(bindings) == 0 {
+		return
+	}
+	cat := loadCatalog()
+	for _, target := range sortedBindingTargets(bindings) {
+		catalogProfile, ok := catalogProfileForTarget(cat, target)
+		if !ok {
+			continue
+		}
+		override, _, err := outprofile.ResolveProfile(root, bindings[target], outprofile.BuiltinLookup)
+		if err != nil {
+			continue
+		}
+		emitShadowWarnings(nil, outprofile.DetectShadowing(target, catalogProfile, override))
+	}
 }
 
 // profileSearchRoot is the project root for filesystem profile resolution. The
@@ -557,11 +600,11 @@ func newMCPDispatcherWithCloser(profile string, stderr io.Writer) (dispatch.Disp
 func newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir string, authResolver dispatch.AuthResolver, allowedScopes []string) dispatch.DispatcherConfig {
 	return dispatch.DispatcherConfig{
 		Auth: authResolver,
-		// Spec §10.3 semantic response cache. In-process for v0.1.0; the
-		// per-profile persistent semantic.db lands in v0.2.0 — until then,
-		// each gum process gets its own LRU+VAAC cache that lives only as
-		// long as the process. Max entries chosen to bound memory at a few
-		// MB for typical 1–10 KB Google-API responses.
+		// Spec §10.3 semantic response cache. In-process only: each gum
+		// process gets its own LRU+VAAC cache that lives as long as the
+		// process, and the per-profile persistent semantic.db is not built.
+		// Max entries bound memory at a few MB for typical 1-10 KB
+		// Google-API responses.
 		SemanticCache: defaultSemanticCache(),
 		// Per-profile scope allowlist for policy gate 5. Sourced from the
 		// scopes recorded at `gum login`; without this the gate sees an empty

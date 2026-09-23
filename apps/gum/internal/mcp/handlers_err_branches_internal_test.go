@@ -109,7 +109,7 @@ func TestHandleSearchAPIsEmptyQueryReturnsInvalidArgs(t *testing.T) {
 // TestAuditBrokenEmptyProfileDefaultsToDefault pins auditBroken's
 // `profile == "" → profile = "default"` arm (handlers.go:392-394).
 // Reached when the server was constructed without an explicit profile
-// name (most v0.1.0 deployments). Without the default, the path would
+// name (most deployments). Without the default, the path would
 // be `<dataHome>/gum//audit.broken` (double slash) and the sentinel
 // check would silently fail.
 //

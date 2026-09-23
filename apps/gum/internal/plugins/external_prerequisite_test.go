@@ -48,7 +48,7 @@ func writeManifestWithComponents(t *testing.T, installRoot, pluginID string, nee
 // `gum plugin setup` displays the prerequisites gum cannot complete as
 // checklist items, using the §7 kind and the author's setup hint. Secret
 // components stay out of the checklist because setup collects those itself,
-// and no raw env var name reaches the output (spec §1414).
+// and no raw env var name reaches the output (spec §7).
 func TestPluginExternalPrerequisiteChecklist(t *testing.T) {
 	installRoot := t.TempDir()
 	descs := []CredentialDescriptor{{
@@ -158,7 +158,7 @@ func TestPluginSetupChecklistWithoutSecrets(t *testing.T) {
 	}
 }
 
-// TestManifestRejectsUnknownAuthComponent pins the spec §1415 gate: an
+// TestManifestRejectsUnknownAuthComponent pins the spec §8.2 gate: an
 // invented component kind fails manifest load with AUTH_COMPONENT_UNKNOWN,
 // while an `x-` prefixed informational kind is accepted.
 func TestManifestRejectsUnknownAuthComponent(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 // spec §8.1: third-party plugin manifests that declare a Shape 2 transport
 // (e.g. shape="grpc-subprocess") MUST be rejected with PLUGIN_SHAPE_UNSUPPORTED
 // before any registry file is written. This guards against a future Shape 2
-// implementation accidentally allowing v0.1.0 catalogs to record half-installed
+// implementation accidentally allowing catalogs to record half-installed
 // plugins that the runtime cannot dispatch.
 //
 // The test exercises the full install path (Host.Install), not just

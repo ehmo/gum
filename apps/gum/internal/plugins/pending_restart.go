@@ -12,7 +12,7 @@ import (
 // confirm the install succeeded) but it MUST be excluded from any surface
 // that would invoke the plugin (gum.search_apis, gum.describe_op, MCP
 // completions) until the next process boot promotes it to active (spec
-// §8.7 + §13 line 3148).
+// §8.7 + §13).
 const StatusInstalledPendingRestart = "installed_pending_restart"
 
 // StatusActive is the steady-state row status for an installed plugin that

@@ -36,7 +36,7 @@ func promptCacheHintMeta() sdkmcp.Meta {
 }
 
 // clientSupportsPromptCache reports whether the calling client is known to
-// honour `_meta.cache_control` hints. v0.1.0 heuristic: substring "claude" in
+// honour `_meta.cache_control` hints. The heuristic: substring "claude" in
 // the client's Implementation.Name (case-insensitive). When the request is
 // nil or carries no client identity (CLI mode, test stubs), the answer is
 // false — spec §10.1 requires `supported` to be reported, not guessed.

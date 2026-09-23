@@ -1,4 +1,4 @@
-// Spec §8.7 line 1893: `gum plugin remove` drops the plugin's registry
+// Spec §8.7: `gum plugin remove` drops the plugin's registry
 // entries under the same transaction protocol install uses. The CLI must
 // therefore route remove through RemoveWithRegistry whenever a profile exists,
 // and degrade to the file-only Host.Remove only when there is no registry to

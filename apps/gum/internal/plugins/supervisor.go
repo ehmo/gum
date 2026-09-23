@@ -20,7 +20,7 @@ var ErrPluginQuarantined = errors.New("PLUGIN_QUARANTINED")
 // `gum plugin unquarantine <name>`.
 const MaxCrashRetries = 5
 
-// CrashBackoffSchedule is the spec §8.6 line 1671 wait ladder. Index i (1-based)
+// CrashBackoffSchedule is the spec §8.6 wait ladder. Index i (1-based)
 // is the delay before retry attempt i. After step==MaxCrashRetries the plugin
 // is permanently quarantined.
 var CrashBackoffSchedule = []time.Duration{

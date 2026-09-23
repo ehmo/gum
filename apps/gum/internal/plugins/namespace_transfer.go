@@ -4,7 +4,7 @@
 // in-memory mutations on plugins.lock so unit tests can pin the contract
 // without spinning up a registry transaction.
 //
-// Semantics (spec §5.1 line 526):
+// Semantics (spec §5.1):
 //   1. The prefix MUST currently be bound to an owner in plugins.lock.
 //   2. The new owner MUST be non-empty (Transfer) or omitted (Release).
 //   3. The mutation updates `namespace_owner` in place; the previous owner

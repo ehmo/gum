@@ -1,8 +1,8 @@
 package plugins
 
 // PluginError is the host-side rendering of a plugin-local error envelope.
-// Spec §8 line 1625 fixes the wire shape; the fields preserved here are the
-// ones spec §8 line 1631 ("Plugin error-code mapping") allows the host to
+// Spec §8 fixes the wire shape; the fields preserved here are the
+// ones spec §8 ("Plugin error-code mapping") allows the host to
 // forward into the stable GUM envelope after mapping.
 type PluginError struct {
 	Code         string // plugin-local error_code, e.g. "RATE_LIMIT"
@@ -12,7 +12,7 @@ type PluginError struct {
 }
 
 // MappedError is the stable GUM-side envelope produced by MapPluginError.
-// `SourceErrorCode` is the audit/error-metadata field spec §8 line 1635-1639
+// `SourceErrorCode` is the audit/error-metadata field spec §8
 // requires the host to preserve so that observability can correlate the
 // upstream plugin code with the stable runtime code shown to callers.
 type MappedError struct {
@@ -27,7 +27,7 @@ type MappedError struct {
 // It powers MapPluginError but is exposed for unit tests and observability
 // hooks that need only the stable-code projection without retry semantics.
 //
-// Unknown codes map to SERVICE_DOWN per spec §8 line 1641.
+// Unknown codes map to SERVICE_DOWN per spec §8.
 func MapPluginErrorCode(pluginCode string) string {
 	switch pluginCode {
 	case "RATE_LIMIT":
@@ -50,7 +50,7 @@ func MapPluginErrorCode(pluginCode string) string {
 // The returned MappedError is what the host injects into the stable GUM
 // envelope before forwarding to the caller and to the audit log.
 //
-// Field rules implemented (spec §8 lines 1635-1641):
+// Field rules implemented (spec §8):
 //   - RATE_LIMIT    → preserve retryable + retry_after_ms (positive only)
 //   - AUTH_EXPIRED  → force retryable=false; drop retry_after_ms
 //   - PARSE_FAILURE → preserve retryable from envelope; drop retry_after_ms

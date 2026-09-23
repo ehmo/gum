@@ -1,7 +1,7 @@
 package profile_test
 
 // dsl_validator_test.go — RED team tests for profile.ValidateRawProfileFile.
-// Spec anchor: §5.4 line 676 (CI gate: validate embedded output profiles
+// Spec anchor: §5.4 (CI gate: validate embedded output profiles
 // against docs/expression-profile-dsl.json; fail build on any violation).
 //
 // These tests FAIL to compile until the Green team adds:

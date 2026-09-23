@@ -13,7 +13,7 @@ import (
 	"github.com/ehmo/gum/internal/plugins/registry"
 )
 
-// TestNextBackoffSchedule pins the spec §8.6 line 1671 ladder.
+// TestNextBackoffSchedule pins the spec §8.6 ladder.
 func TestNextBackoffSchedule(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -167,7 +167,7 @@ func TestClearQuarantine(t *testing.T) {
 	}
 }
 
-// TestPluginStateFileMode600 proves spec §8.6 line 1675 (mode 0600).
+// TestPluginStateFileMode600 proves spec §8.6 (mode 0600).
 func TestPluginStateFileMode600(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

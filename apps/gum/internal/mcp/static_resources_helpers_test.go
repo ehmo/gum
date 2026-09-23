@@ -14,7 +14,7 @@ import (
 //   - missing/empty descriptor slice → nil
 //   - mixed slice items (some maps, some scrap) → only maps pass through
 //   - happy path: only the four whitelisted fields survive; env (raw env
-//     name, spec §13 line 3165) MUST NOT pass through.
+//     name, spec §13) MUST NOT pass through.
 func TestCredentialDescriptors(t *testing.T) {
 	t.Run("nil_row", func(t *testing.T) {
 		if got := credentialDescriptors(nil); got != nil {

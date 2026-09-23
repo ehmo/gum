@@ -76,7 +76,7 @@ func TestCLIVariantSelection(t *testing.T) {
 
 	// CLI surface separation: the parser reads --variant-id as a host control
 	// flag, and a positional `variant_id=` would be treated as an operation
-	// arg (not as the pin). This mirrors §12.0 line 2422 host-control rule.
+	// arg (not as the pin). This mirrors §12.0 host-control rule.
 	t.Run("positional variant_id= remains an op arg", func(t *testing.T) {
 		// Sandbox auth so dispatch fails at AUTH_REQUIRED (fast, no network).
 		t.Setenv("HOME", t.TempDir())
@@ -132,7 +132,7 @@ func extractJSON(body string) string {
 }
 
 // TestCliArgInvalid locks the CLI_ARG_INVALID wrapper shape: a *callargs.Error
-// whose Code matches the stable §1421 string and whose Reason round-trips
+// whose Code matches the stable §7 string and whose Reason round-trips
 // through Error().
 func TestCliArgInvalid(t *testing.T) {
 	err := cliArgInvalid("--risk is required")

@@ -1,6 +1,6 @@
 // gum-9vuq.10 acceptance: flights_search convenience tool wiring.
 //
-// Spec §4.1 line 366: flights_search → flights.search → flights.v1.plugin.search,
+// Spec §4.1: flights_search → flights.search → flights.v1.plugin.search,
 // no output_profile (gum-36f5), format=toon,json. Spec §8.2: the bundled fli
 // Shape 1 plugin owns the only variant; AdapterKey="plugin.mcp" routes through
 // the mcp-plugin executor (the executor itself is wired by gum-ikg).
@@ -49,7 +49,7 @@ func (d *flightsCapturingDispatcher) Dispatch(_ context.Context, inv *dispatch.I
 
 // TestFlightsSearchRoutesToCatalogOp — gum-9vuq.10 acceptance. The convenience
 // handler MUST translate flights_search → catalog op_id=flights.search (spec
-// §4.1 line 366). This pins the routing entry in convenienceABITable / the
+// §4.1). This pins the routing entry in convenienceABITable / the
 // derived convenienceOpRouting map.
 func TestFlightsSearchRoutesToCatalogOp(t *testing.T) {
 	disp := &flightsCapturingDispatcher{}
@@ -74,7 +74,7 @@ func TestFlightsSearchRoutesToCatalogOp(t *testing.T) {
 	}
 
 	if disp.gotOpID != "flights.search" {
-		t.Errorf("dispatcher saw op_id=%q; want flights.search (spec §4.1 line 366)", disp.gotOpID)
+		t.Errorf("dispatcher saw op_id=%q; want flights.search (spec §4.1)", disp.gotOpID)
 	}
 	for _, k := range []string{"origin", "destination", "departure_date"} {
 		if _, ok := disp.gotArgs[k]; !ok {
@@ -86,7 +86,7 @@ func TestFlightsSearchRoutesToCatalogOp(t *testing.T) {
 // TestFlightsSearchVariantIsPluginMCP — gum-9vuq.10. The flights.search op in
 // the embedded catalog MUST carry exactly one variant, flights.v1.plugin.search,
 // with backend_kind=mcp-plugin so the dispatcher routes through the plugin
-// executor (spec §4.1 line 366 + §8.2).
+// executor (spec §4.1 + §8.2).
 func TestFlightsSearchVariantIsPluginMCP(t *testing.T) {
 	cat := defaultCatalog()
 	if cat == nil {
@@ -118,10 +118,10 @@ func TestFlightsSearchVariantIsPluginMCP(t *testing.T) {
 		t.Fatal("flights.search op missing from embedded catalog; gum-9vuq.10 must add it so dispatch can resolve the plugin variant")
 	}
 	if len(op.variants) != 1 || op.variants[0] != "flights.v1.plugin.search" {
-		t.Errorf("flights.search variants = %v; want exactly [flights.v1.plugin.search] (spec §4.1 line 366)", op.variants)
+		t.Errorf("flights.search variants = %v; want exactly [flights.v1.plugin.search] (spec §4.1)", op.variants)
 	}
 	if len(op.backends) != 1 || op.backends[0] != "mcp-plugin" {
-		t.Errorf("flights.search backend_kinds = %v; want exactly [mcp-plugin] (spec §8.2 line 1582)", op.backends)
+		t.Errorf("flights.search backend_kinds = %v; want exactly [mcp-plugin] (spec §8.2)", op.backends)
 	}
 	// gum-36f5: the variant used to name "flights.search.v1", which has never
 	// shipped as a built-in profile body. The build gate in cmd/gen-catalog now

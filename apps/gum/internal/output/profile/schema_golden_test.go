@@ -14,7 +14,7 @@ import (
 // embedded expression-profile DSL schema (`docs/expression-profile-dsl.json`)
 // under testdata/golden/schema/ via the shared golden helper (gum-b22o.2).
 //
-// This is the v0.1.0 representative "output schema" golden: a drift detector
+// This is the representative "output schema" golden: a drift detector
 // at the schema-bytes level (the existing TestDSLSchemaDoesNotDrift covers
 // the source<->embedded byte-equality; this golden covers the post-Unmarshal
 // canonical re-emit, catching changes that would otherwise pass through

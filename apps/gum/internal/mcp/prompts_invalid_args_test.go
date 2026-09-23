@@ -32,9 +32,9 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-// TestPromptsGetInvalidArgs is the docs/test-matrix.md row 222 proof. Spec §7
-// line 1575: an argument map sent to a zero-argument v0.1.0 prompt MUST come
-// back as JSON-RPC -32602 with error.data.error_code = "INVALID_ARGS".
+// TestPromptsGetInvalidArgs is the docs/test-matrix.md row 222 proof. Spec §7:
+// an argument map sent to a zero-argument prompt MUST come back as JSON-RPC
+// -32602 with error.data.error_code = "INVALID_ARGS".
 func TestPromptsGetInvalidArgs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -60,7 +60,7 @@ func TestPromptsGetInvalidArgs(t *testing.T) {
 		t.Fatalf("ListPrompts: %v", err)
 	}
 	if len(listed.Prompts) == 0 {
-		t.Fatal("prompts/list returned nothing; the v0.1.0 roster is not empty")
+		t.Fatal("prompts/list returned nothing; the roster is not empty")
 	}
 
 	for _, p := range listed.Prompts {
@@ -88,7 +88,7 @@ func TestPromptsGetInvalidArgs(t *testing.T) {
 				t.Error("error.message is empty; spec requires a short human-readable summary")
 			}
 			if len(rpcErr.Data) == 0 {
-				t.Fatal("error.data is absent; spec §7 line 1575 requires the INVALID_ARGS envelope")
+				t.Fatal("error.data is absent; spec §7 requires the INVALID_ARGS envelope")
 			}
 
 			var envelope struct {
@@ -105,7 +105,7 @@ func TestPromptsGetInvalidArgs(t *testing.T) {
 			if envelope.Prompt != name {
 				t.Errorf("error.data.prompt = %q; want %q", envelope.Prompt, name)
 			}
-			wantMsg := "Prompt '" + name + "' takes no arguments in v0.1.0; remove the arguments field or upgrade once dynamic prompts ship."
+			wantMsg := "Prompt '" + name + "' takes no arguments; remove the arguments field or upgrade once dynamic prompts ship."
 			if envelope.UserMessage != wantMsg {
 				t.Errorf("error.data.user_message = %q; want %q", envelope.UserMessage, wantMsg)
 			}

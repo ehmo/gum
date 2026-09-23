@@ -85,7 +85,7 @@ func (d *dispatcher) dualFetch(ctx context.Context, inv *Invocation, rv *Resolve
 		return nil, nil, err
 	}
 
-	entry := successAuditEntry(&unmasked, rv, d.canonicalArgs(unmasked.Args))
+	entry := dispatchAuditEntry(&unmasked, rv, d.canonicalArgs(unmasked.Args))
 	entry[dualFetchAuditKey] = true
 	return resp, entry, nil
 }

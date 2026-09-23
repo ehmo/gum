@@ -195,12 +195,12 @@ func TestBuildDriveOpsCoverConvenienceABI(t *testing.T) {
 }
 
 // TestBuildDriveOpsRejectsGUMOAuth pins that no Drive variant uses the
-// v0.1.0-disabled gum_oauth strategy (bd memory gum-auth-strategy-v3).
+// disabled gum_oauth strategy (bd memory gum-auth-strategy-v3).
 func TestBuildDriveOpsRejectsGUMOAuth(t *testing.T) {
 	for _, op := range BuildDriveOps() {
 		for _, v := range op.Variants {
 			if v.AuthStrategy == catalog.AuthStrategyGUMOAuth {
-				t.Errorf("op %s variant %s: gum_oauth disabled in v0.1.0", op.OpID, v.VariantID)
+				t.Errorf("op %s variant %s: gum_oauth is disabled", op.OpID, v.VariantID)
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-// gum-tsu: bead-named acceptance for spec §13 line 3259 completion latency
+// gum-tsu: bead-named acceptance for spec §13 completion latency
 // budget. Worst-case is a 50-variant op + 100-plugin inventory, exercised
 // across each completable argument: op_id, variant_id, plugin name, and
 // help topic. P95 ≤ 100 ms, P99 ≤ 250 ms on linux/amd64 CI hardware. The
@@ -27,7 +27,7 @@ import (
 
 // TestMCPCompletionLatencyWorstCase is the bead-named acceptance for gum-tsu.
 //
-// Spec §13 line 3259 sets a 100 ms (P95) / 250 ms (P99) budget that must
+// Spec §13 sets a 100 ms (P95) / 250 ms (P99) budget that must
 // hold for the worst-case Tier A argument: variant_id completion against
 // an op with the maximum supported variant fan-out. We synthesize that
 // worst case (50 variants on one op, 100 plugins in the inventory) and
@@ -53,10 +53,10 @@ func TestMCPCompletionLatencyWorstCase(t *testing.T) {
 		argName string
 		prefix  string
 	}{
-		// variant_id: spec §13 line 3259 calls this out as worst case.
+		// variant_id: spec §13 calls this out as worst case.
 		{"variant_id_no_prefix", "gum://variant/{id}", "id", ""},
 		{"variant_id_prefix_match", "gum://variant/{id}", "id", "v"},
-		// op_id: spec §13 line 3208 source.
+		// op_id: spec §13 source.
 		{"op_id_no_prefix", "gum://op/{id}", "id", ""},
 		{"op_id_prefix_match", "gum://op/{id}", "id", "worstcase"},
 		// plugin name: 100-entry inventory.
@@ -72,10 +72,10 @@ func TestMCPCompletionLatencyWorstCase(t *testing.T) {
 			p95, p99 := measureCompletionLatency(t, ctx, cs, c.uri, c.argName, c.prefix, 100)
 			if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
 				if p95 > 100*time.Millisecond {
-					t.Errorf("P95=%s; spec §13 line 3259 budget is 100ms (gating on linux/amd64)", p95)
+					t.Errorf("P95=%s; spec §13 budget is 100ms (gating on linux/amd64)", p95)
 				}
 				if p99 > 250*time.Millisecond {
-					t.Errorf("P99=%s; spec §13 line 3259 budget is 250ms (gating on linux/amd64)", p99)
+					t.Errorf("P99=%s; spec §13 budget is 250ms (gating on linux/amd64)", p99)
 				}
 			} else if p95 > 100*time.Millisecond || p99 > 250*time.Millisecond {
 				t.Logf("warning: P95=%s P99=%s exceeds budget on %s/%s (linux/amd64 gates; other platforms are advisory)",
@@ -145,7 +145,7 @@ func buildWorstCaseCatalog(t *testing.T, variantCount int) *catalog.Catalog {
 
 // seedPluginInventory writes plugin-state.json + plugins.lock at the given
 // profile dir with the requested number of plugins. Each plugin is marked
-// active so it survives the §13 line 3148 installed_pending_restart filter.
+// active so it survives the §13 installed_pending_restart filter.
 func seedPluginInventory(t *testing.T, profileDir string, count int) {
 	t.Helper()
 	if err := os.MkdirAll(profileDir, 0o755); err != nil {

@@ -6,13 +6,13 @@ import "github.com/ehmo/gum/internal/catalog"
 //
 //	read: flights.search  (variant flights.v1.plugin.search, Shape 1 mcp-plugin)
 //
-// Spec §4.1 line 366 and §8.2 (plugin manifest example): the bundled fli
+// Spec §4.1 and §8.2 (plugin manifest example): the bundled fli
 // plugin owns the only variant. The variant carries `interface_kind=plugin-mcp`,
 // `backend_kind=mcp-plugin`, `auth_strategy=plugin_managed` (the plugin
 // manages credentials internally via its declared credential descriptors),
 // and a Binding whose AdapterKey routes through the host's mcp-plugin
 // executor. `tool_name=flights_search` matches the convenience tool name the
-// host registers in MCP (spec line 1578).
+// host registers in MCP (spec §8.2).
 //
 // The variant declares no output_profile. It used to name `flights.search.v1`,
 // which has never existed in internal/output/profile/builtin, so the name
