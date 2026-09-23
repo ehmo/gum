@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-22
+
+### Fixed
+
+- Keyword Planner calls that omit geo or language targeting returned
+  worldwide, all-language figures with nothing in the response saying so.
+  The catalog field descriptions read "Omit for all locations." and "Omit
+  for all languages.", and the only warning lived in
+  `docs/auth-guides/google-ads.md`, which an MCP caller never reads. Both
+  descriptions now name the consequence and the per-profile config key
+  (`googleads.geo_target_constants`, `googleads.language`), and the
+  `gum describe` example for all three `keywordPlanIdeas` operations
+  carries `geoTargetConstants: ["2840"]` and `language: "1000"`.
+- The `gum describe googleads.keywordPlanIdeas.generateKeywordIdeas`
+  example is runnable. The operation takes `keywords` and/or `url`, so
+  neither is a required field and the synthesizer emitted neither; the
+  example now seeds `keywords`.
+- Thirteen lint findings that kept the `test` workflow red on every run
+  since v2.1.0, so v2.1.0 and v2.2.0 both shipped with that gate failing.
+  Three came from staticcheck, which runs first and short circuits the job,
+  so CI never printed the ten golangci-lint findings behind it. bbolt v1.5.0
+  deprecated the top-level `ErrTimeout` alias; the cache-lock comparison
+  moved to `go.etcd.io/bbolt/errors`, which holds the same value that
+  `bolt_unix.go` returns. No runtime behaviour changed.
+
+### Added
+
+- `example_args` on a catalog operation, applied as the last overlay in the
+  `gum describe` synthesizer. The synthesizer covers required fields only,
+  so an optional field whose omission changes what the answer means has to
+  be curated. The field is additive and optional: operations without it keep
+  the synthesized example unchanged, and older binaries ignore it.
+
+### Changed
+
+- Catalog regenerated from the upstream Google discovery documents. 228
+  operations before and after: none added, none removed. Google reworded the
+  `chat.spaces.messages.create` `requestId` description, and the derived
+  request schema carries the same wording. No scope, risk class, auth
+  strategy, or required argument changed, so no existing call behaves
+  differently.
+- The release pipeline no longer signs or notarizes macOS binaries, and the
+  `notarize` block is gone from `.goreleaser.yaml`. gum ships plain CLI
+  binaries, not app bundles. Measured on the published v2.2.0
+  `darwin/arm64` artifact under Darwin 25.6.0: the Go linker already ad-hoc
+  signs the cross-compiled binary and `codesign -v` exits 0, `curl` sets no
+  `com.apple.quarantine` attribute, and a copy with quarantine forced on
+  still runs from a shell. The v2.2.0 known-limitation entry told readers to
+  clear quarantine by hand when Gatekeeper rejects the binary; that advice
+  was wrong and is corrected in the older release notes. Older macOS
+  versions were not tested.
+
+
 ## [2.2.0] - 2026-09-22
 
 ### Added

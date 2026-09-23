@@ -120,9 +120,10 @@ gum doctor
 
 ## Known limitations
 
-- 217 of 228 catalog variants still declare no `default_fields`, so the §770
-  requirement that every variant carry them is still unmet outside the 11
-  curated read operations.
+- 217 of 228 catalog variants declare no `default_fields`. Spec §5.6 curates the
+  table by hand and it covers 11 high-traffic read operations, so every other
+  variant sends no upstream field mask unless the call passes `--fields`, and
+  its response comes back full size.
 - macOS binaries carry the Go linker's ad-hoc signature, not a Developer ID
   signature, and are not notarized. Measured on this release's `darwin/arm64`
   artifact under Darwin 25.6.0: `codesign -v` exits 0, `curl` sets no

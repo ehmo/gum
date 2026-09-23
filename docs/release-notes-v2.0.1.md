@@ -69,9 +69,9 @@ called symbol.
 
 Unchanged from v2.0.0.
 
-- No catalog variant declares `default_fields`, so the §770 requirement that
-  every variant carry them is still unmet and the stage-1 field mask has nothing
-  to inject. `--fields` completion is therefore empty.
+- No catalog variant declares `default_fields`. Spec §5.6 curates the table by
+  hand and it was still empty at this tag, so the stage-1 field mask had nothing
+  to inject and `--fields` completion was empty.
 - Nothing converts a plugin registry variant row into a dispatchable catalog
   variant, so `gum plugin install` runs no catalog validation.
 - No catalog variant declares a non-`full` `execution_support`, so

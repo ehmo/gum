@@ -12,6 +12,7 @@ fixture-backed token-savings measurements.
 
 | Version | Date | Notes |
 | --- | --- | --- |
+| `v2.2.1` | 2026-09-22 | [Keyword Planner geo and language targeting named in the catalog and carried in the `gum describe` example, curated `example_args`, catalog regen, lint gate green again, macOS notarization dropped.](release-notes-v2.2.1.md) |
 | `v2.2.0` | 2026-09-22 | [Outbound HTTP and ETag revalidation, managed-scope re-consent over MCP elicitation, capability atoms on every shipped variant, macOS signing secrets reach the release pipeline.](release-notes-v2.2.0.md) |
 | `v2.1.0` | 2026-09-21 | [Strict-client tools/list fix, remote plugin package sources, §9.0 TOON wire documents, plugin variants in the session catalog, profile-account binding.](release-notes-v2.1.0.md) |
 | `v2.0.1` | 2026-09-20 | [No code change: the release tree now passes its own `gofmt` gate, which the v2.0.0 tree did not.](release-notes-v2.0.1.md) |
