@@ -1,6 +1,6 @@
 package adapters
 
-// Spec §9.0.1 "Aggregate batch output ceiling" (docs/test-matrix.md row 233).
+// Spec §9.0.1 "Aggregate batch output ceiling" (docs/test-matrix.md).
 //
 // Two ceilings bound a gum_parallel batch run from inside gum.code. The
 // pre-dispatch one refuses a batch whose declared input already exceeds

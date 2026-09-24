@@ -5,7 +5,7 @@
 //
 //   - TestTierAConvenienceToolCount (spec §4.1): the registered convenience
 //     tool count equals 18 — the hard cap.
-//   - TestTierARosterManifest (test-matrix row 24): loading active plugins
+//   - TestTierARosterManifest (docs/test-matrix.md): loading active plugins
 //     before Server.Run does not grow tools/list; the roster matches
 //     docs/tier-a-roster.v1.json (9 meta + 18 convenience) exactly.
 package mcp
@@ -33,7 +33,7 @@ func TestTierAConvenienceToolCount(t *testing.T) {
 // (which loads the embedded catalog but does NOT start any plugin subprocess)
 // does not grow tools/list past the documented roster.
 //
-// docs/test-matrix.md row 24 names this test and pins the roster source of
+// docs/test-matrix.md names this test and pins the roster source of
 // truth to docs/tier-a-roster.v1.json.
 func TestTierARosterManifest(t *testing.T) {
 	const rosterPath = "../../docs/tier-a-roster.v1.json"

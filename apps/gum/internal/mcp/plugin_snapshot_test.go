@@ -92,8 +92,9 @@ func listToolNames(t *testing.T, snap *catalog.Catalog) map[string]bool {
 }
 
 // TestPluginOpsNeverBecomeTools is the gum-26nz criterion-2 proof and keeps
-// test-matrix row 26 true: merging plugin variants into the snapshot MUST NOT
-// change the advertised tool roster, because tool registration reads the
+// the docs/test-matrix.md roster row true: merging plugin variants into the
+// snapshot MUST NOT change the advertised tool roster, because tool
+// registration reads the
 // static Tier A roster and never the snapshot.
 func TestPluginOpsNeverBecomeTools(t *testing.T) {
 	base, merged := snapshotWithPluginOp(t)

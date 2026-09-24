@@ -31,7 +31,7 @@ func (s *stdioTap) snapshot() string {
 	return s.buf.String()
 }
 
-// TestStdioFramingClean is the docs/test-matrix.md row 193 proof. Spec §13.1
+// TestStdioFramingClean is the docs/test-matrix.md proof. Spec §13.1
 // pins the shape: start the MCP server with a captured stdout pipe, send
 // initialize, and assert that every stdout line parses as one JSON-RPC
 // message and that no non-JSON bytes appear before notifications/initialized

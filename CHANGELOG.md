@@ -123,6 +123,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/mcp.md` documents the five meta-tool tuning keys with their
   defaults, ranges and clamping behavior, and `docs/agent-setup.md`
   carries the transcript provenance table.
+- No citation names a `docs/test-matrix.md` row by its ordinal.
+  `TestNoCitationNamesAMatrixRowNumber` scans Go sources and every live
+  Markdown page, and a 12-case table arms it on each spelling, including a
+  citation split across two comment lines. CSV, TOON and spreadsheet row
+  references stay untouched and need no exemption list.
+- Every quoted section label in a citation resolves.
+  `TestSpecLabelCitationsResolve` collects each `§N "label"` citation and
+  fails when no heading, table cell or list item of `spec.md`,
+  `docs/catalog-abi.md`, `docs/plugin-contract.md` or
+  `docs/expression-profile-dsl.md` carries that label. The gate skips
+  unless the tree ships all four, because a label may sit in any of them:
+  judged against three, the public export reported 36 live citations as dead.
+- No requirement cell in `docs/test-matrix.md` dates a gate to a v0.x
+  release. Thirteen rows still read that way after the tree-wide v0 gate
+  cleared the rest of the tree: the noun-modifier spelling ("the v0.1.0
+  dispatcher") slips past its patterns, and widening them would flag the
+  dependency floors it deliberately allows.
+  `TestMatrixRequirementsNameNoV0Release` checks the requirement column
+  only, because the third column's `v0.1 CI` phase names are that column's
+  own vocabulary. The thirteen rows now describe the build in the present
+  tense.
+- Every backticked repository path in a live document or Go source resolves
+  to a file or a directory. `TestNoCitationNamesAMissingPath` checks each one
+  against the repository root and the module root, and a 17-case table arms
+  it on the glob, elision, angle-slot, version-placeholder and `pkg.Symbol`
+  forms it must ignore. The spec's normative package-boundary table had cited
+  a plugin-spawning package that never existed, so the sentence a reader most
+  needs to trust pointed at nothing.
 
 ### Changed
 
@@ -265,6 +293,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cache.normalize_datetimes=true` the dispatcher rewrites every
   argument string that parses as RFC 3339, Calendar wall-clock values
   included, which is why the rule stays opt-in.
+- Citations name what they cite. 71 comments and messages across 56 files
+  pointed at a `docs/test-matrix.md` row by ordinal; a sweep found 65 of
+  them resolving to an unrelated requirement, most off by five to ten, and
+  one naming a row past the end of the table. Each now names the test the
+  row's proof column names, quotes the requirement, or names the row by
+  subject. Eleven citations quoted a section label no normative document
+  contained: two carried the wrong section (the `retry_after_ms` clause is
+  §8.4, not §7; the `source`, `ref` and `checksum` block is §8.2, not
+  §8.7), one pointed at spec §8.1 for a label that lives in
+  `docs/plugin-contract.md`, four were missing the backticks the label
+  carries, and three quoted prose that is not a label.
+- The specification header no longer carries a hand-maintained date. It
+  read `2026-05-22` while 97 later commits had changed the file. The draft
+  number stays, because `confirmationSourceHash` and two `internal/embed`
+  package comments pin it.
 
 ## [2.2.1] - 2026-09-22
 

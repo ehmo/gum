@@ -1,7 +1,7 @@
 package auth
 
-// The spec §7 "auth_strategy enum extension procedure" gate
-// (docs/test-matrix.md row 240, bead gum-codx).
+// The spec §7 "`auth_strategy` enum extension procedure" gate
+// (docs/test-matrix.md, bead gum-codx).
 //
 // §7 says a value added to the enum MUST land six things in one PR.
 // Three of them leave an artifact this test can see: the value in

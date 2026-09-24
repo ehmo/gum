@@ -1,7 +1,8 @@
 package mcp
 
-// Real proof for test-matrix row 160 (bead gum-6lks), which the testmatrix
-// shim of the same name used to delegate to TestTierARegistrationOutputSchemasValid.
+// Real proof for the docs/test-matrix.md branch-output-schema row (bead
+// gum-6lks), whose testmatrix shim used to delegate to
+// TestTierARegistrationOutputSchemasValid.
 // That test only checks root type and $defs presence; the row also claims
 // representative results validate, that gum.code carries no ParallelResults
 // branch, and that confirmation envelopes are not schema branches.
@@ -191,7 +192,7 @@ func TestGumCodeSchemaHasNoParallelResultsBranch(t *testing.T) {
 	}
 }
 
-// TestConfirmationEnvelopeIsNotASchemaBranch pins the other half of row 160: a
+// TestConfirmationEnvelopeIsNotASchemaBranch pins the other half of that row: a
 // REQUIRES_CONFIRMATION response travels as an isError §7 envelope, so no
 // registered branch describes it. If one ever did, the gate below fails and the
 // spec claim needs revisiting alongside it.

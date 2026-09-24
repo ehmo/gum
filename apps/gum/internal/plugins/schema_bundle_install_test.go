@@ -128,7 +128,7 @@ func variantForOwner(t *testing.T, reg *registry.Registry, pluginID string) map[
 	return nil
 }
 
-// TestPluginSchemaBundleMaterialization pins docs/test-matrix.md row 151:
+// TestPluginSchemaBundleMaterialization pins docs/test-matrix.md:
 // one manifest `schema_ref` whose bundle carries `$defs.request` and
 // `$defs.response` materializes `request_ref=<schema_ref>.request` and
 // `response_ref=<schema_ref>.response`, the served bodies are the JCS
@@ -191,7 +191,7 @@ func TestPluginSchemaBundleMaterialization(t *testing.T) {
 	}
 }
 
-// TestPluginSchemaBundleMissingDefs pins the row 151 rejection half: a bundle
+// TestPluginSchemaBundleMissingDefs pins the bundle row's rejection half: a bundle
 // without an object-valued `$defs.response` (or `$defs` at all) fails install
 // with PLUGIN_SCHEMA_REF_INVALID before anything reaches the registry.
 func TestPluginSchemaBundleMissingDefs(t *testing.T) {
@@ -236,7 +236,7 @@ func TestPluginSchemaBundleMissingDefs(t *testing.T) {
 	}
 }
 
-// TestPluginSchemaRefThirdPartyInstall pins docs/test-matrix.md row 45 for the
+// TestPluginSchemaRefThirdPartyInstall pins docs/test-matrix.md for the
 // runtime third-party install path: unsafe refs are rejected before any path
 // is constructed, and a missing bundle file fails the same way.
 func TestPluginSchemaRefThirdPartyInstall(t *testing.T) {
@@ -307,7 +307,7 @@ func TestPluginSchemaRefThirdPartyInstall(t *testing.T) {
 	})
 }
 
-// TestPluginSchemaRefCrossPluginCollision pins the row 45 / row 151 collision
+// TestPluginSchemaRefCrossPluginCollision pins the collision
 // half: a second plugin claiming a ref already in the profile inventory under
 // a different JCS digest fails with SCHEMA_REF_COLLISION, while an identical
 // body is reused without error.

@@ -223,7 +223,7 @@ func WithLogger(l *slog.Logger) Option { return func(w *Writer) { w.logger = l }
 // defaults. profileDir is created (mode 700) if it does not already exist.
 // If audit.jsonl is missing but audit.jsonl.lock is present (mid-rotation
 // crash from a prior process), the live file is recreated under the lock
-// per spec §11 "mid-rotation crash recovery".
+// per spec §11 "Mid-rotation crash recovery".
 func New(profileDir string, opts ...Option) (*Writer, error) {
 	if profileDir == "" {
 		return nil, errors.New("auditlog: empty profileDir")
@@ -493,7 +493,7 @@ func (w *Writer) syncAppend(entry map[string]any) {
 	}
 
 	// Successful append: clear any stale sentinel from a previous failure
-	// (spec §11 "Once a successful append occurs … GUM removes audit.broken").
+	// (spec §11: once a successful append occurs, GUM removes audit.broken).
 	if _, err := os.Stat(w.sentinelPath); err == nil {
 		_ = os.Remove(w.sentinelPath)
 	}

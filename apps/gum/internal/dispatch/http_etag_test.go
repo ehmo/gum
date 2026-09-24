@@ -190,7 +190,7 @@ func etagInvocation(variantID, fingerprint string) *Invocation {
 
 // TestDiffOnlyModeEtagReplay is the named acceptance for two claims.
 //
-// test-matrix row 67 (spec §9.0): a 304 short-circuits the expression
+// docs/test-matrix.md (spec §9.0): a 304 short-circuits the expression
 // pipeline, the ledger records cache_status "etag_304" with response_tokens 0,
 // `_expression` is absent from the 304 response, and a second call that
 // differs only in resolved variant or credential subject MUST NOT revalidate,
@@ -365,7 +365,7 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 		}
 	})
 
-	// Sub-test: row 67's cross-variant clause. variant_id is a key component,
+	// Sub-test: the matrix row's cross-variant clause. variant_id is a key component,
 	// so the stored validator must not travel to another variant.
 	t.Run("a_different_variant_does_not_revalidate", func(t *testing.T) {
 		fx := newETagFixture(t)
@@ -384,7 +384,7 @@ func TestDiffOnlyModeEtagReplay(t *testing.T) {
 		}
 	})
 
-	// Sub-test: row 67's cross-principal clause. §10.0.1's fingerprint is a key
+	// Sub-test: the matrix row's cross-principal clause. §10.0.1's fingerprint is a key
 	// component, so one principal's validator cannot answer for another.
 	t.Run("a_different_principal_does_not_revalidate", func(t *testing.T) {
 		fx := newETagFixture(t)

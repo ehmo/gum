@@ -233,7 +233,8 @@ func TestSentinelClearedOnSuccessfulAppend(t *testing.T) {
 //     NOT counted as audit.broken).
 //  3. overflow-drop: pushing past the channel capacity counts as dropped.
 //
-// Test-matrix row 162. Wired to cmd/gum's SIGTERM/SIGINT handler.
+// docs/test-matrix.md names this test. Wired to cmd/gum's SIGTERM/SIGINT
+// handler.
 func TestAuditGracefulShutdown(t *testing.T) {
 	t.Run("drain_success", func(t *testing.T) {
 		dir := t.TempDir()

@@ -1,7 +1,7 @@
 package main
 
-// Spec §5.2 overrides manifest and its schema gate (docs/test-matrix.md
-// row 215, bead gum-lpra). The manifest must load, carry the moved
+// Spec §5.2 overrides manifest and its schema gate (docs/test-matrix.md,
+// bead gum-lpra). The manifest must load, carry the moved
 // discovery-URL table, and refuse every malformed shape with
 // OVERRIDES_SCHEMA_INVALID before any generation runs.
 

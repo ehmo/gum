@@ -76,6 +76,12 @@ ASSET_REF_RE = re.compile(r"assets/([A-Za-z0-9_.-]+\.(?:png|jpg|jpeg|webp|gif|sv
 # public docs-site build died on the dangling href.
 MD_LINK_RE = re.compile(r"\]\(([^)#?\s]+\.md)(?:[#?][^)\s]*)?\)")
 
+# A page can also point at another page in prose or in inline code, which no
+# link checker reads. docs/plugin-author-guide.md told plugin authors to see
+# `docs/profile-dsl-reference.md`, a page the manifest does not export, so the
+# published sentence sent every public reader to a file that is not there.
+MD_PAGE_MENTION_RE = re.compile(r"docs/[A-Za-z0-9_./-]+\.md")
+
 # scripts/check-docs-site.mjs hard-fails on any page in its requiredDocs list
 # that is not on disk, and the public docs CI job runs it. Read the list from
 # the script itself so the two cannot drift.
@@ -238,6 +244,18 @@ def main() -> int:
                 fail(f"{rel} links outside the repository: {link}")
             if target_rel not in selected:
                 fail(f"{rel} links to {target_rel}, which the public export does not ship")
+
+    for rel in sorted(selected):
+        if not rel.startswith("docs/") or not rel.endswith(".md"):
+            continue
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for mention in sorted(set(MD_PAGE_MENTION_RE.findall(text))):
+            if mention == rel or mention in selected:
+                continue
+            fail(
+                f"{rel} names {mention}, which the public export does not ship; "
+                "drop the reference or add the page to the manifest"
+            )
 
     checker = ROOT / "scripts" / "check-docs-site.mjs"
     if checker.is_file():

@@ -135,7 +135,7 @@ Steps that may short-circuit:
 
 ## Cross-cutting invariants
 
-- **Single binary, no CGo** — `internal/securityscan/TestReleaseBinaryNoCGo`
+- **Single binary, no CGo** — `TestReleaseBinaryNoCGo` in `internal/securityscan`
   + `build-matrix` workflow enforce this on every PR.
 - **No silent stdout before initialized** — MCP stdio framing test
   `TestStdioFramingClean` (spec §13.1).

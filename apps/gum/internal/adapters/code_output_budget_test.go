@@ -1,6 +1,6 @@
 package adapters_test
 
-// Spec §6.1 "Code-output budget enforcement" (docs/test-matrix.md row 68).
+// Spec §6.1 "Code-output budget enforcement" (docs/test-matrix.md).
 //
 // gum.code carries ONE cumulative byte budget over every gum_print plus the
 // JSON projection of the script's return value. Default 4096 bytes. A print

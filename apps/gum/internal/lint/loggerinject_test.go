@@ -2,8 +2,8 @@
 // table that emits log output MUST route every emission through one
 // injectable *slog.Logger, MUST fall back to slog.Default() when the caller
 // injects none, and MUST fall silent under slog.New(slog.DiscardHandler).
-// This file implements TestLoggerInjectionContract, the proof for
-// docs/test-matrix.md row 169.
+// This file implements TestLoggerInjectionContract, the proof
+// docs/test-matrix.md names.
 package lint_test
 
 import (

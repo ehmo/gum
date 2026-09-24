@@ -1,6 +1,6 @@
 package plugins
 
-// Spec §8.7 "[package] source, ref, checksum": the manifest, not the CLI
+// Spec §8.2 "`source`, `ref` and `checksum`": the manifest, not the CLI
 // argument, names where the plugin's code comes from. `gum plugin install`
 // still takes a local manifest directory; a remote source is fetched from
 // the [package] declaration after the manifest validates, so the curated

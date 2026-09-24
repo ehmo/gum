@@ -11,7 +11,7 @@ import (
 )
 
 // Batch-accounting and cancellation gates for gum_parallel (beads gum-7oap,
-// gum-z8u9; docs/test-matrix.md rows 64 and 151).
+// gum-z8u9; docs/test-matrix.md).
 //
 // The §12.3 ledger describes one gum_parallel call as an outer sentinel entry
 // plus one inner entry per element, joined by a shared batch_id. Nothing joins
@@ -179,7 +179,7 @@ func TestGumParallelCancellationMarksBatchAndElements(t *testing.T) {
 	}
 	for i, el := range batch.Elements {
 		if !el.Cancelled {
-			t.Errorf("element %d not marked cancelled; row 151 requires a per-element cancelled:true ledger entry", i)
+			t.Errorf("element %d not marked cancelled; the matrix requires a per-element cancelled:true ledger entry", i)
 		}
 	}
 }
@@ -228,7 +228,7 @@ func TestGumParallelCancellationPropagatesWithin200ms(t *testing.T) {
 	select {
 	case env := <-done:
 		if elapsed := time.Since(cancelledAt); elapsed > 200*time.Millisecond {
-			t.Errorf("batch returned %v after cancel; row 151 caps propagation at 200ms", elapsed)
+			t.Errorf("batch returned %v after cancel; the matrix caps propagation at 200ms", elapsed)
 		}
 		results, _ := env["results"].([]any)
 		if len(results) != elements {
@@ -239,7 +239,8 @@ func TestGumParallelCancellationPropagatesWithin200ms(t *testing.T) {
 	}
 }
 
-// TestGumParallelLeaksNoGoroutines is the other half of row 151: the worker
+// TestGumParallelLeaksNoGoroutines is the other half of the batch-ledger
+// row: the worker
 // pool and the feeder goroutine both have to be joined before the batch
 // returns, on the cancelled path as well as the normal one.
 func TestGumParallelLeaksNoGoroutines(t *testing.T) {

@@ -207,7 +207,7 @@ func TestEmbeddedCatalogPassesTheLifecycleGate(t *testing.T) {
 }
 
 // TestDefaultVariantLifecycleSelection is the proof artifact docs/test-matrix.md
-// row 50 names: "Default variant never selects removed/quarantined/deprecated
+// names: "Default variant never selects removed/quarantined/deprecated
 // variants when an active executable alternative exists."
 //
 // It replaces the internal/testmatrix shim of the same name, which asserted

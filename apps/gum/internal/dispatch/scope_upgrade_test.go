@@ -1,7 +1,7 @@
 package dispatch
 
-// Spec §13 "managed-scope re-consent", kernel half (docs/test-matrix.md row
-// 136). The kernel owns the approval object, its request hash, the
+// Spec §13 "managed-scope re-consent", kernel half (docs/test-matrix.md).
+// The kernel owns the approval object, its request hash, the
 // post-consent verification and the audit event. It never re-runs the
 // operation.
 //

@@ -8,7 +8,8 @@ import (
 )
 
 // A quarantined default_variant_id must not end the call. Spec §5.5 makes
-// "active, non-quarantined" part of what a default is, and matrix row 50 says
+// "active, non-quarantined" part of what a default is, and the
+// docs/test-matrix.md default-variant lifecycle row says
 // the default never selects a quarantined variant while an active executable
 // alternative exists. Quarantine is runtime state (plugin-state.json), so a
 // catalog that was valid when generated can hold a quarantined default hours

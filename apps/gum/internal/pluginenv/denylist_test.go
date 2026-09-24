@@ -3,12 +3,12 @@ package pluginenv_test
 // Red-team failing tests for gum-b5b: PluginEnvDenylist single-source invariant.
 //
 // Spec anchors:
-//   - §8.1 "needs_user_creds denylist enforcement (normative)"
+//   - docs/plugin-contract.md "`needs_user_creds` denylist (normative)"
 //   - §14 pluginenv row: "The denylist data lives in a single source-of-truth file
 //     internal/pluginenv/denylist.txt … TestPluginEnvDenylistSingleSource MUST hash
 //     both embedding sites and fail if they diverge."
-//   - test-matrix.md row 167: TestPluginEnvDenylistSingleSource
-//   - test-matrix.md row 102: TestPluginEnvProhibited / TestPluginEnvExactDenylist
+//   - docs/test-matrix.md: TestPluginEnvDenylistSingleSource
+//   - docs/test-matrix.md: TestPluginEnvProhibited / TestPluginEnvExactDenylist
 
 import (
 	"crypto/sha256"
@@ -177,7 +177,7 @@ func TestPluginEnvDenylistSingleSource(t *testing.T) {
 // TestPluginEnvDenylistMembers asserts that specific credential-bearing and
 // runtime-sensitive env var names are present in PluginEnvDenylist.
 //
-// Spec §8.1 lists prohibited env names; §14 test-matrix row 102 names
+// Spec §8.1 lists prohibited env names; the §14 test matrix names
 // TestPluginEnvExactDenylist as the enforcement test.
 func TestPluginEnvDenylistMembers(t *testing.T) {
 	list := pluginenv.PluginEnvDenylist

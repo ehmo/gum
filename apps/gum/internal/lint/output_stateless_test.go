@@ -29,7 +29,7 @@ var statelessOutputPaths = []string{
 	"internal/output/toon",
 }
 
-// TestOutputStatelessness is the docs/test-matrix.md row 172 proof. It scans
+// TestOutputStatelessness is the docs/test-matrix.md proof. It scans
 // the encoder packages for the three shapes mutable state takes in Go: an
 // exported constructor handing out a stateful receiver, a package-level var
 // something writes to, and an exported struct with unexported fields.

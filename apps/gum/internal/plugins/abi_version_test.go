@@ -126,7 +126,7 @@ func itoa(n int) string {
 	return string(buf)
 }
 
-// TestPluginManifestSchemaVersionPlacement pins docs/test-matrix.md row 79
+// TestPluginManifestSchemaVersionPlacement pins docs/test-matrix.md
 // and spec §8.6: the canonical version field is a top-level
 // sibling of `plugin`. A missing field and a copy nested inside `plugin`
 // both fail install with PLUGIN_MANIFEST_SCHEMA_UNSUPPORTED, and the nested

@@ -355,7 +355,7 @@ gum plugin run hello hello '{"name":""}'
 
 ## 7. Going further
 
-- **Output profiles**: `output_profile` is not a manifest field and install binds none, so a plugin variant shapes through the default profile. See `docs/profile-dsl-reference.md` for the operator catalogue.
+- **Output profiles**: `output_profile` is not a manifest field and install binds none, so a plugin variant shapes through the default profile. See `docs/expression-profile-dsl.md` for the operator reference.
 - **Canaries**: a manifest declares no canary. `gum plugin setup <name>` runs a spawn probe after storing credentials, and `gum canary --plugin=<id>` runs the same probe as a diagnostic. The spec §8.7 manifest canary block is unimplemented (gum-upd4).
 - **Quarantine + crash recovery**: spec §8.6 describes the exponential-backoff window and the `gum plugin reload` / `gum plugin unquarantine` recovery commands.
 - **Plugin-shipped profiles**: see `docs/plugin-contract.md` §profiles for the rules that govern profiles bundled inside a plugin.

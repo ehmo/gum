@@ -1,6 +1,6 @@
 package mcp
 
-// Spec §13 "managed-scope re-consent", MCP half (docs/test-matrix.md row 136).
+// Spec §13 "managed-scope re-consent", MCP half (docs/test-matrix.md).
 //
 // The contract this file pins: a SCOPE_MISSING refusal becomes ONE elicitation
 // form when the client declares the capability; the form carries every binding

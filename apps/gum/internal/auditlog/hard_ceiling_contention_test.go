@@ -3,7 +3,7 @@
 package auditlog_test
 
 // Hard-ceiling behaviour under cross-process rotation-lock contention
-// (test-matrix row 162, bead gum-qq6m).
+// (docs/test-matrix.md, bead gum-qq6m).
 //
 // Spec §11 gives the ceiling append two permitted outcomes and forbids a
 // third: it blocks until the emergency rotation succeeds, or it reports an

@@ -149,7 +149,8 @@ func TestGainReleaseFixtureSavingsFloor(t *testing.T) {
 	dir := releaseFixtureDir(t)
 
 	// The embedded 17-op catalog is far too small to represent the
-	// spec §2 "naive author exposes every Google API op" baseline.
+	// spec §2 "Naive baseline definition" surface, which registers
+	// every op from the catalog as a separate tool.
 	// SpecScaleNaiveCatalog pads it to a realistic full-surface
 	// scale so the ≥80% aggregate savings arithmetic reflects the
 	// scenario the spec describes — see SpecScaleOpsTarget for the

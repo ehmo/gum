@@ -1,6 +1,6 @@
 package mcp
 
-// Reserved gum.code language rejection (test-matrix row 216, bead gum-q6v7).
+// Reserved gum.code language rejection (docs/test-matrix.md, bead gum-q6v7).
 //
 // gum ships one scripting language. The strings starlark, yaegi, js and
 // python are reserved and absent from the language

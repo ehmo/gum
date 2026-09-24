@@ -149,7 +149,7 @@ func seedVariants(t *testing.T, ctx context.Context, reg *registry.Registry, var
 }
 
 // TestSchemaRefCollisionSpansEveryPluginState pins the docs/test-matrix.md
-// row 45 phrase "full-profile-inventory ... across active, pending-restart,
+// phrase "full-profile-inventory ... across active, pending-restart,
 // needs-configuration, and quarantined plugins". The inventory the check
 // reads is plugin-catalog.json, which records no lifecycle state, so a ref
 // owned by a parked or quarantined plugin blocks a divergent candidate just

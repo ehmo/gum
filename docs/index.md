@@ -49,8 +49,10 @@ The [operations by service](services/) pages are generated from the embedded
 catalog. They are the product-level entry point. The [command index](commands/)
 is generated from `gum schema --json` and documents the CLI surface.
 
-The [v2.0.0 release notes](release-notes-v2.0.0.md) cover the conformance
-release, its 16 breaking changes, and the 10 security fixes.
+The [v2.2.1 release notes](release-notes-v2.2.1.md) describe the current
+release, and the [changelog](changelog.md) lists every version with its date.
+The [v2.0.0 release notes](release-notes-v2.0.0.md) stay the reference for the
+conformance release, its 16 breaking changes, and the 10 security fixes.
 
 ## What gum does
 

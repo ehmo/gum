@@ -7,8 +7,8 @@ import (
 	"github.com/ehmo/gum/internal/output/gain"
 )
 
-// §12.3 batch accounting (beads gum-7oap, gum-z8u9; docs/test-matrix.md rows
-// 64 and 151). One gum_parallel call writes an outer sentinel entry plus one
+// §12.3 batch accounting (beads gum-7oap, gum-z8u9; docs/test-matrix.md).
+// One gum_parallel call writes an outer sentinel entry plus one
 // inner entry per element. Step 9 supplies the inner entries for elements
 // that dispatched; RecordParallelBatch supplies the outer entry and the inner
 // entries for elements that were cancelled before producing a response.

@@ -1,6 +1,6 @@
 package mcp
 
-// docs/test-matrix.md row 192, network half. TestStatusHealthSubsystemEnum
+// docs/test-matrix.md, network half. TestStatusHealthSubsystemEnum
 // pins the closed subsystem enum and the TTL; this pins the other normative
 // clause on the same line, spec §13: "health probes are local-only
 // and emit no network calls".

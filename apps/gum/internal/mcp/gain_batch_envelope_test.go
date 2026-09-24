@@ -1,6 +1,6 @@
 package mcp
 
-// Test-matrix row 64 (bead gum-7oap): the release-gated savings number must be
+// docs/test-matrix.md (bead gum-7oap): the release-gated savings number must be
 // computed from end-to-end ledger totals, not hardcoded.
 //
 // handleGain emitted `"batch_envelope_overhead": int64(0)` and aliased

@@ -139,7 +139,7 @@ func TestFullResultPathPresentInExpression(t *testing.T) {
 // TestFullResultSizeMatchesDecompressedBody — bead-named acceptance for
 // gum-6krt. When tee fires, the dispatcher MUST attach the decompressed
 // payload length to ShapedResponse.FullResultSize so the MCP layer can
-// thread it onto ResourceLink.Size (spec §9.0 "size when known").
+// thread it onto ResourceLink.Size (spec §9.0 "`size` when known").
 // The size MUST match what `gum://results/<hash>` resources/read returns —
 // i.e. len(resp.Body) — not the gzip-compressed on-disk file size.
 func TestFullResultSizeMatchesDecompressedBody(t *testing.T) {

@@ -44,7 +44,7 @@ func writeManifestWithComponents(t *testing.T, installRoot, pluginID string, nee
 	}
 }
 
-// TestPluginExternalPrerequisiteChecklist pins docs/test-matrix.md row 97:
+// TestPluginExternalPrerequisiteChecklist pins docs/test-matrix.md:
 // `gum plugin setup` displays the prerequisites gum cannot complete as
 // checklist items, using the §7 kind and the author's setup hint. Secret
 // components stay out of the checklist because setup collects those itself,

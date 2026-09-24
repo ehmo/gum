@@ -2,7 +2,7 @@ package mcp
 
 // Tier A response-shape conformance tests for spec §13 outputSchema $defs.
 //
-// Covers the three test-matrix Group A row 5 acceptance tests:
+// Covers the three test-matrix Group A acceptance tests:
 //   - TestCacheStatsOutputSchema       — validates handleCacheStats output
 //   - TestGainOutputSchema             — validates handleGain output
 //   - TestTierAResponseShapeConformance — validates representative fixtures
@@ -13,7 +13,7 @@ package mcp
 // Spec anchors:
 //   - docs/spec.md §13 ToonResult/SingleObjectResult/RawJsonResult/GainResult/
 //     CacheStatsResult (lines 2640-3046).
-//   - docs/test-matrix.md row 5 ("Tier A representative structuredContent
+//   - docs/test-matrix.md ("Tier A representative structuredContent
 //     validates against ... 304 responses are exempt").
 //
 // Schemas are inlined verbatim from spec.md §13 to make the conformance
@@ -281,7 +281,7 @@ func minimalExpressionMeta(opID, variantID, profile string) map[string]any {
 }
 
 // isDiffOnly304 returns true for the spec-defined 304 diff-only envelope
-// `{"unchanged": true, "etag": "..."}`. test-matrix row 5 carves these out
+// `{"unchanged": true, "etag": "..."}`. docs/test-matrix.md carves these out
 // as schema-validation-exempt; the test reports them as skipped rather than
 // failing them against any Tier A $def.
 func isDiffOnly304(v any) bool {
@@ -342,7 +342,7 @@ func TestGainOutputSchema(t *testing.T) {
 // shapeFixture describes one representative structuredContent fixture and the
 // $def it is expected to validate against. The diff-only 304 fixture is
 // marked exemptDiff304 = true; the test must SKIP (not fail) that case per
-// test-matrix row 5.
+// docs/test-matrix.md.
 type shapeFixture struct {
 	name          string
 	def           string // schema constant (one of the *SpecSchema above)
@@ -426,7 +426,7 @@ func TestTierAResponseShapeConformance(t *testing.T) {
 				if !isDiffOnly304(f.body) {
 					t.Fatalf("fixture marked exemptDiff304 does not look like a 304 envelope: %+v", f.body)
 				}
-				t.Skip("304 diff-only envelopes are exempt from $def validation (test-matrix row 5)")
+				t.Skip("304 diff-only envelopes are exempt from $def validation (docs/test-matrix.md)")
 				return
 			}
 			rs := compileSpecSchema(t, f.def)

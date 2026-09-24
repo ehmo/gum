@@ -12,7 +12,7 @@ import (
 
 // TestTestdataNoProductionImport asserts that no production .go file (i.e.
 // non-_test.go) imports any package whose import path contains a "/testdata/"
-// segment. Required by docs/test-matrix.md row 16 and spec §4 Tier A
+// segment. Required by docs/test-matrix.md and spec §4 Tier A
 // guarantee: testdata helpers cannot contribute to the production Tier A
 // surface or budget.
 func TestTestdataNoProductionImport(t *testing.T) {

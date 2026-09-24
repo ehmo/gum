@@ -82,7 +82,7 @@ func lockRow(t *testing.T, reg *registry.Registry, pluginID string) map[string]a
 	return nil
 }
 
-// TestPluginCommandNormalization pins docs/test-matrix.md row 154 and spec
+// TestPluginCommandNormalization pins docs/test-matrix.md and spec
 // §8.7 "Install-time command normalization": the author's `command` is a
 // selector resolved once at install, the profile's plugins.lock records
 // executable path, digest, install root and normalized argv, and every

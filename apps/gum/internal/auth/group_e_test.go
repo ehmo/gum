@@ -1,4 +1,4 @@
-// Group E auth test-matrix rows (spec §7, test-matrix.md row 68-71).
+// Group E auth rows (spec §7, docs/test-matrix.md "Group E").
 //
 // This file covers the subset of Group E tests that are offline-executable in
 // this package — i.e., they do not need a live `gum auth login` browser flow, OS

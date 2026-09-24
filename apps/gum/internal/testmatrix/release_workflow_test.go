@@ -8,8 +8,9 @@ import (
 	"testing"
 )
 
-// Matrix row 209. The release gates live in GitHub Actions manifests, so the
-// only thing that can hold them is a test that reads those manifests. These
+// docs/test-matrix.md, release-pipeline row. The release gates live in
+// GitHub Actions manifests, so the only thing that can hold them is a test
+// that reads those manifests. These
 // two tests assert the exact command lines and the job dependency graph: a
 // deleted step, a weakened flag, or a broken `needs:` edge fails here rather
 // than silently shipping an unraced or unscanned tag.
@@ -136,7 +137,7 @@ func TestFuzzWorkflowTargetsExist(t *testing.T) {
 	entry := regexp.MustCompile(`package: (\S+)\n\s+target: (\w+)`)
 	found := entry.FindAllStringSubmatch(wf, -1)
 	if len(found) != 6 {
-		t.Fatalf("fuzz matrix has %d entries; row 209 pins six targets", len(found))
+		t.Fatalf("fuzz matrix has %d entries; the test matrix pins six targets", len(found))
 	}
 
 	want := map[string]string{
@@ -151,10 +152,10 @@ func TestFuzzWorkflowTargetsExist(t *testing.T) {
 	for _, m := range found {
 		pkg, target := m[1], m[2]
 		if wantPkg, known := want[target]; !known {
-			t.Errorf("fuzz target %q is not one of the six row 209 pins", target)
+			t.Errorf("fuzz target %q is not one of the six test-matrix pins", target)
 			continue
 		} else if pkg != wantPkg {
-			t.Errorf("target %s runs against %s; row 209 pins %s", target, pkg, wantPkg)
+			t.Errorf("target %s runs against %s; the test matrix pins %s", target, pkg, wantPkg)
 		}
 		dir := filepath.Join(root, filepath.FromSlash(strings.TrimSuffix(strings.TrimPrefix(pkg, "./"), "/...")))
 		if !dirDeclaresFunc(t, dir, "func "+target+"(") {

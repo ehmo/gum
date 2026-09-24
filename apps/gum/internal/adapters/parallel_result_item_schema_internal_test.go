@@ -1,6 +1,6 @@
 package adapters
 
-// docs/test-matrix.md row 226 proof: the §13 `$defs/ParallelResultItem`
+// docs/test-matrix.md proof: the §13 `$defs/ParallelResultItem`
 // schema is what validates `ParallelResults.results[]`, and a ToonResult
 // schema is not a substitute for it.
 //

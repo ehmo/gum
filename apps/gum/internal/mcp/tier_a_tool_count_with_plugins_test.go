@@ -1,4 +1,4 @@
-// docs/test-matrix.md row 26, plugin half. TestTierARosterManifest pins the
+// docs/test-matrix.md, plugin half. TestTierARosterManifest pins the
 // roster on a server built with no plugins on disk; this pins the clause that
 // test cannot reach: active plugins present before Server.Run do not grow
 // tools/list.

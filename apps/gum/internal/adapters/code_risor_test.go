@@ -1,5 +1,5 @@
 // Package adapters_test — RED-TEAM failing tests for TestCodeDestructiveBudgetAndScope
-// (spec.md §6.1 "Destructive budget and scope gate"; test-matrix.md row 57).
+// (spec.md §6.1 "Destructive budget and scope gate"; docs/test-matrix.md).
 //
 // ALL tests in this file are expected to FAIL until the green team implements:
 //  1. DestructiveBudget / DestructiveScope fields on dispatch.Invocation.

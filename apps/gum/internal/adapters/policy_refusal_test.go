@@ -12,7 +12,7 @@ import (
 	"github.com/ehmo/gum/internal/dispatch"
 )
 
-// Matrix row 96, response half (gum-ixky). A Google refusal that no amount of
+// docs/test-matrix.md, response half (gum-ixky). A Google refusal that no amount of
 // re-authenticating can clear MUST reach the caller as the same §7 envelope
 // the compound pre-flight builds: AUTH_REQUIRED, the missing component kind,
 // retryable=false and an op-scoped setup_command.

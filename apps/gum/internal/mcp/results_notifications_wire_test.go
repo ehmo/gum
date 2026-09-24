@@ -1,7 +1,7 @@
 package mcp
 
 // Raw-wire proof of the gum://results/{hash} lifecycle contract (bead gum-sd58,
-// test-matrix row 220).
+// docs/test-matrix.md).
 //
 // The row states a polling pattern, not a push one: a client copies an artifact
 // before `artifact_expires_at` because gum sends nothing when the artifact goes

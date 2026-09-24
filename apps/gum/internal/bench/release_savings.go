@@ -12,7 +12,7 @@ import (
 
 // ReleaseSavings is the report ComputeReleaseSavings returns for the
 // in-tree release fixture set. It is the wire-shape backing
-// TestGainReleaseFixtureSavingsFloor (docs/test-matrix.md row 140 /
+// TestGainReleaseFixtureSavingsFloor (docs/test-matrix.md,
 // bead gum-wqk4): the assertion is AggregateSavingsPct >= 0.80.
 type ReleaseSavings struct {
 	// Fixtures is the number of leaf fixture directories replayed.

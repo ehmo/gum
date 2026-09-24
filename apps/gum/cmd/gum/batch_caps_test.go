@@ -69,7 +69,7 @@ func (p *mcpProcess) await(marker string) string {
 const legacyBatchFrame = `[{"jsonrpc":"2.0","id":10,"method":"prompts/get","params":{"name":"gum.audit_recent_writes"}},` +
 	`{"jsonrpc":"2.0","id":11,"method":"tools/list","params":{}}]`
 
-// TestMCPBatchCaps is the docs/test-matrix.md row 166 proof: gum advertises
+// TestMCPBatchCaps is the docs/test-matrix.md proof: gum advertises
 // no JSON-RPC batching, and no legacy batch frame reaches a tool handler.
 //
 // MCP removed batching in 2025-06-18 and the pinned transport refuses a batch

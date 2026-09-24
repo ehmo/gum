@@ -1,6 +1,6 @@
 package lint_test
 
-// Cobra init-hook prohibition (bead gum-ches, docs/test-matrix.md row 209).
+// Cobra init-hook prohibition (bead gum-ches, docs/test-matrix.md).
 //
 // Spec §12.2 requires the CLI's initialization order to be constructor-driven.
 // cobra.OnInitialize and cobra.OnFinalize register package-global hooks that

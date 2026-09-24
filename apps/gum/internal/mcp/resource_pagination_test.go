@@ -57,7 +57,7 @@ func addFillerTemplates(srv *Server, n int) {
 	}
 }
 
-// TestMCPResourceCursorPagination is the docs/test-matrix.md row 35 proof:
+// TestMCPResourceCursorPagination is the docs/test-matrix.md proof:
 // resources/list and resources/templates/list take the optional MCP `cursor`,
 // return `nextCursor` while entries remain, cap a page at 100 entries, and
 // accept no client page-size parameter.

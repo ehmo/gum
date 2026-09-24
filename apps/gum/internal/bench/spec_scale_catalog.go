@@ -21,8 +21,8 @@ import (
 // embedded ops under fresh synthetic op_ids until the catalog reaches
 // SpecScaleOpsTarget entries. Lowering this number silently inflates
 // the published savings percentage and is a regression — bump in
-// lockstep with docs/test-matrix.md row 140 if it ever needs to
-// change.
+// lockstep with the docs/test-matrix.md row that names
+// TestGainReleaseFixtureSavingsFloor if it ever needs to change.
 const SpecScaleOpsTarget = 1800
 
 // SpecScaleNaiveCatalog returns a catalog that represents the spec

@@ -13,7 +13,8 @@ import (
 	"github.com/ehmo/gum/internal/output/gain"
 )
 
-// healthSnapshotTTL is the §13 "5s sample TTL" constant. The probe
+// healthSnapshotTTL is the §13 "per-subsystem sample TTL of 5 seconds".
+// The probe
 // layer caches snapshot results for this window so repeated resources/read
 // calls do not re-stat the filesystem.
 const healthSnapshotTTL = 5 * time.Second

@@ -40,7 +40,7 @@ func TestAcquireFileLockOpenError(t *testing.T) {
 // TestAcquireFileLockTimeoutFromContention pins the EWOULDBLOCK+deadline
 // arm: when one fd holds the lock and a second tries with a tiny
 // timeout, the second call must wrap ErrLockTimeout so the registry
-// caller can recover via the spec §8.7 "lock-contention" path.
+// caller can recover via the spec §8.7 lock-contention path.
 func TestAcquireFileLockTimeoutFromContention(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "install.lock")
 	release, err := acquireFileLock(path, 250*time.Millisecond)

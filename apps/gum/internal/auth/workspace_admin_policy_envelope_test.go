@@ -11,7 +11,7 @@ import (
 	"github.com/ehmo/gum/internal/embedded"
 )
 
-// Matrix row 96. Spec §7 requires that a Workspace or org-policy refusal be
+// docs/test-matrix.md. Spec §7 requires that a Workspace or org-policy refusal be
 // actionable: the caller learns which prerequisite is missing and that no
 // amount of re-logging-in will fix it.
 //

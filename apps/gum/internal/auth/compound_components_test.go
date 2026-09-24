@@ -1,6 +1,6 @@
-// Compound-auth missing_components taxonomy (spec §7, test-matrix.md row 89).
+// Compound-auth missing_components taxonomy (spec §7, docs/test-matrix.md).
 //
-// Row 89 requires a Google Ads Keyword Planner-like fixture whose compound
+// The row requires a Google Ads Keyword Planner-like fixture whose compound
 // operation names its real prerequisites: developer token, OAuth client and
 // client secret, the consented scope behind the refresh token, customer id,
 // the optional manager login customer id, billing and account prerequisites,

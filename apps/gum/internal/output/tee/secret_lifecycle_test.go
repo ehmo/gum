@@ -10,7 +10,7 @@ import (
 	"github.com/ehmo/gum/internal/output/tee"
 )
 
-// Matrix row 231, spec §9 tee.secret lifecycle point 5. The secret is keyed
+// docs/test-matrix.md, spec §9 tee.secret lifecycle point 5. The secret is keyed
 // to profile identity alone: nothing else in the profile directory, and no
 // catalog or index artifact, participates in its derivation or rewrites it.
 //

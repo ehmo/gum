@@ -1,5 +1,5 @@
 // Package-internal MCP elicitation for the spec §13 managed-scope re-consent
-// flow (docs/test-matrix.md row 136).
+// flow (docs/test-matrix.md).
 //
 // A scoped operation refused with SCOPE_MISSING is a dead end for an agent:
 // only a human at a Google consent screen can widen the grant. When the client

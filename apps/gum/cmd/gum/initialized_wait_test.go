@@ -34,7 +34,7 @@ func serverNotifications(t *testing.T, stream string) []string {
 	return found
 }
 
-// TestMCPInitializedWaitRule is the docs/test-matrix.md row 33 proof. Spec
+// TestMCPInitializedWaitRule is the docs/test-matrix.md proof. Spec
 // §13.1: gum MUST NOT send unsolicited server notifications before
 // it receives the client's notifications/initialized, and gum sends none at
 // all (no tools/list_changed, no resources/list_changed, no

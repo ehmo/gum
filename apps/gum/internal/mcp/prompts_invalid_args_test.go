@@ -32,7 +32,7 @@ func (b *syncBuffer) String() string {
 	return b.buf.String()
 }
 
-// TestPromptsGetInvalidArgs is the docs/test-matrix.md row 222 proof. Spec §7:
+// TestPromptsGetInvalidArgs is the docs/test-matrix.md proof. Spec §7:
 // an argument map sent to a zero-argument prompt MUST come back as JSON-RPC
 // -32602 with error.data.error_code = "INVALID_ARGS".
 func TestPromptsGetInvalidArgs(t *testing.T) {
@@ -67,7 +67,7 @@ func TestPromptsGetInvalidArgs(t *testing.T) {
 		name := p.Name
 		t.Run(name, func(t *testing.T) {
 			if len(p.Arguments) != 0 {
-				t.Fatalf("prompt %q declares %d arguments; row 222 covers zero-argument prompts", name, len(p.Arguments))
+				t.Fatalf("prompt %q declares %d arguments; the matrix row covers zero-argument prompts", name, len(p.Arguments))
 			}
 			_, err := cs.GetPrompt(ctx, &sdkmcp.GetPromptParams{
 				Name:      name,

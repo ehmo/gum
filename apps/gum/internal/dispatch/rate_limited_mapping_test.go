@@ -81,7 +81,7 @@ func TestDispatchMapsUpstream429ToRateLimited(t *testing.T) {
 // TestDispatchMapsUpstream429WithoutRetryAfter asserts that an upstream 429
 // without a Retry-After hint still produces RATE_LIMITED + retryable=true,
 // but with no retry_after_ms detail (the field is OPTIONAL on the envelope
-// per spec §7 "preserve retry_after_ms when positive").
+// per spec §8.4 "preserve `retry_after_ms` when positive").
 func TestDispatchMapsUpstream429WithoutRetryAfter(t *testing.T) {
 	c := loadKernelCatalog(t)
 	upstream := &adapters.UpstreamError{HTTPStatus: 429}

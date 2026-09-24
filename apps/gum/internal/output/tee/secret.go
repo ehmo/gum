@@ -3,7 +3,7 @@
 // hashing, and gzip-compressed artifact writes used by lossy expression
 // profiles' recovery handles (`full_result_path`, `full_result_resource`).
 //
-// Five normative lifecycle points (spec §9 "tee.secret lifecycle"):
+// Five normative lifecycle points (spec §9.0 "`tee.secret` lifecycle"):
 //
 //  1. Generate — 32 random bytes from crypto/rand, hex-encoded (64 lowercase
 //     ASCII chars), written to ~/.local/share/gum/<profile>/tee.secret at

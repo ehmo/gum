@@ -158,7 +158,7 @@ func installFixtureWithProbe(t *testing.T, manifest, marker string) string {
 }
 
 // TestInstallNeedsConfigurationSkipsLiveCanary proves the two install-time
-// clauses docs/test-matrix.md row 149 states and nothing asserted: the
+// clauses docs/test-matrix.md states and nothing asserted: the
 // needs_configuration row lands without quarantine, and install runs no live
 // canary.
 //

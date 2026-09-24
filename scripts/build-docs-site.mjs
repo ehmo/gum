@@ -15,7 +15,7 @@ const installCommand = "brew install ehmo/tap/gum";
 
 const baseSections = [
   ["Start", ["index.md", "why-gum.md", "install.md", "quickstart.md", "auth.md", "mcp.md"]],
-  ["Agent Workflows", ["agent-setup.md", "automation.md", "api-workflows.md", "safety.md", "output.md", "hasp.md"]],
+  ["Agent Workflows", ["agent-setup.md", "mcp-client-setup.md", "automation.md", "api-workflows.md", "safety.md", "output.md", "hasp.md"]],
   ["Google APIs", ["service-coverage.md", "services/README.md", "auth-guides/README.md", "field-masks.md", "paths.md", "live-testing.md"]],
   ["Plugins", ["plugins.md", "plugin-contract.md", "plugin-author-guide.md"]],
   ["Reference", ["commands/README.md", "architecture.md", "catalog-abi.md", "expression-profile-dsl.md", "test-matrix.md"]],
@@ -68,6 +68,11 @@ const serviceGroupsBySlug = new Map([
   ["meta", "Internal"],
 ]);
 
+// Pages the site does not publish. The first block is internal process and
+// generated duplicates. The second block is source-repo-only material that
+// scripts/public-release-manifest.json does not export, so the published site
+// never had it: excluding it here keeps a build from this checkout equal to a
+// build from the public one.
 const buildExcludes = [
   /^AGENTS\.md$/,
   /^PROCESS\.md$/,
@@ -78,6 +83,10 @@ const buildExcludes = [
   /^releases\//,
   /^commands\.generated\.md$/,
   /^spec\.md$/,
+  /^canary-fixture-plan\.md$/,
+  /^dev-environment\.md$/,
+  /^expansion-playbooks\.md$/,
+  /^profile-dsl-reference\.md$/,
 ];
 
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -121,6 +130,7 @@ copyStaticDir(path.join(docsDir, "assets"), path.join(outDir, "assets"));
 fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 fs.writeFileSync(path.join(outDir, "llms.txt"), llmsTxt(), "utf8");
 validateLinks(outDir);
+validateReachable(outDir);
 console.log(`built docs site: ${path.relative(root, outDir)}`);
 
 function parseFrontmatter(raw) {
@@ -603,6 +613,43 @@ function validateLinks(dir) {
         throw new Error(`broken link in ${path.relative(root, file)}: ${href}`);
       }
     }
+  }
+}
+
+// validateReachable fails the build when an emitted page cannot be reached
+// from the home page. The sidebar ships in every page, so a page listed in a
+// nav section is reachable at once, and a page linked from a nav page's body
+// is reachable in one more hop. A page in neither is published at a URL no
+// reader can find, which is how docs/mcp-client-setup.md sat unlinked.
+function validateReachable(dir) {
+  const start = path.join(dir, "index.html");
+  const seen = new Set([start]);
+  const queue = [start];
+
+  while (queue.length) {
+    const file = queue.shift();
+    for (const match of fs.readFileSync(file, "utf8").matchAll(/href="([^"]+)"/g)) {
+      const href = match[1];
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("#")) continue;
+      const target = href.split("#")[0];
+      if (!target) continue;
+      const resolved = path.resolve(path.dirname(file), target);
+      if (!resolved.endsWith(".html") || seen.has(resolved)) continue;
+      seen.add(resolved);
+      queue.push(resolved);
+    }
+  }
+
+  const orphans = listFiles(dir)
+    .filter((file) => file.endsWith(".html") && !seen.has(file))
+    .map((file) => path.relative(dir, file))
+    .sort();
+
+  if (orphans.length) {
+    throw new Error(
+      `unreachable page(s) from index.html: ${orphans.join(", ")}. ` +
+        "Add the source page to a nav section in baseSections, link it from a page that is already in the nav, or add it to buildExcludes."
+    );
   }
 }
 

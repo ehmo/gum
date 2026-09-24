@@ -1,4 +1,4 @@
-// Bead gum-yh7p / docs/test-matrix.md row 180.
+// Bead gum-yh7p / docs/test-matrix.md.
 //
 // Spec §13 makes the startup shape of gum://status/canaries
 // normative: "on server startup, before any passive cron run has completed,

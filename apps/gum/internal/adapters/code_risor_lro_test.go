@@ -20,7 +20,7 @@ type lroDispatcher struct {
 
 func (d *lroDispatcher) ReturnsLRO(opID string) bool { return d.lro[opID] }
 
-// TestLROUnsupportedInCode is the spec §6.1 acceptance (matrix row 242):
+// TestLROUnsupportedInCode is the spec §6.1 acceptance (docs/test-matrix.md):
 // gum_call refuses an op whose default variant is classified lro_return
 // before dispatch, and returns the documented envelope.
 func TestLROUnsupportedInCode(t *testing.T) {

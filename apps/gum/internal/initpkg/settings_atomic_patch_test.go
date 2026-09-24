@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// TestSettingsAtomicPatch is the docs/test-matrix.md row 217 proof for the
+// TestSettingsAtomicPatch is the docs/test-matrix.md proof for the
 // spec §12.2 "Atomic settings.json patch" requirement: the advisory lock is
 // the canonical mutex for the whole read-merge-write, concurrent `gum init`
 // runs serialize instead of clobbering each other, and a lock that cannot be
