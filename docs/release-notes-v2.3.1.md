@@ -115,6 +115,45 @@ gum gain --fixture-replay --format=json
 | `toon` | 10 | 3,922 | 210 | 5.35 % |
 | `json` | 10 | 3,922 | -12 | 0.31 % overhead |
 
+## Verification
+
+All seven jobs in the [v2.3.1 release workflow](https://github.com/ehmo/gum/actions/runs/35949844359)
+passed: tag validation, live docs match, tests, the new `govulncheck` gate, the
+GoReleaser build, the independent four-platform rebuild, and the provenance
+comparison. The `govulncheck` job ran `scripts/check-govulncheck.py` against a
+scanner installed by the pinned `go install`, which is the first tag to prove the
+gate on CI rather than on a maintainer's host.
+
+`git checkout v2.3.1` produces `docs/profile-dsl-reference.md`. The file in the
+tag hashes to
+`235b8b5089245378c38ebef0cbf054130a96e1edb6b5f465f6a58da7bf6f3bc9`, the same
+digest as the copy in the source tree. The v2.3.0 tag produces no such file.
+
+The four downloaded archives matched `checksums.txt`, and each one matched its
+subject digest in `gum-v2.3.1.intoto.jsonl`. That statement names commit
+`f8ef8dad227fc1c57925ca02c0d90e60aec0d488` and `refs/tags/v2.3.1`. The binary
+extracted from each of the four archives matched its entry in
+`release-binaries.sha256`.
+
+A local rebuild reproduced all four published binaries. The command in
+Reproducibility below, run from a clean clone at tag `v2.3.1` on one
+darwin/arm64 host with `GOTOOLCHAIN=go1.26.7`, produced these hashes:
+
+| Target | sha256 |
+| --- | --- |
+| darwin/amd64 | `9645bf1039abca285337260a1b2da1a44b2f911aaa332e889295a439ddcc2666` |
+| darwin/arm64 | `d8f20109188b4d4588bac55ca81a343a626ea2a1b946dfab752f0328217bb95f` |
+| linux/amd64 | `a7cbc41cf4530cd27ed4347b8a52b47a9c8ada3fa56e331166a5cbc5ee29746a` |
+| linux/arm64 | `e9fc42db19a0a33a4a224cc167d578d6d4ec3583625ee766d19bc704d6890a55` |
+
+Each hash matches the matching line in `release-binaries.sha256`.
+
+The Homebrew installation reports 2.3.1 and `gum doctor` passed every check. The
+installed binary hashes to the published `darwin/arm64` digest.
+`brew audit --strict --online --os=all --arch=all ehmo/tap/gum` and
+`brew test ehmo/tap/gum` both passed, and the `tap-drift` workflow confirms both
+formulae point at this release.
+
 ## Reproducibility
 
 ```sh
