@@ -159,19 +159,19 @@ Variants that allow `strip_nulls=true` in their assigned expression profile MUST
 
 ## Service Root Extension Point
 
-In v1.3.0, `service_root_template` is reserved: `cmd/gen-catalog` MUST reject first-party or plugin manifests that set it with `SERVICE_ROOT_TEMPLATE_DEFERRED`, and runtime dispatch always uses the discovery-derived `rootUrl` / `servicePath` already recorded in variant metadata.
+`service_root_template` is reserved: `cmd/gen-catalog` MUST reject first-party or plugin manifests that set it with `SERVICE_ROOT_TEMPLATE_DEFERRED`, and runtime dispatch always uses the discovery-derived `rootUrl` / `servicePath` already recorded in variant metadata.
 
 Current endpoint boundary. Standard Google public endpoints whose discovery docs
 already carry the correct `rootUrl` / `servicePath` are in scope. Sovereign,
 government, private-service-connect, or universe-domain variants that require
-substituting a profile-specific host are out of scope in v1.3.0.
+substituting a profile-specific host are out of scope.
 They may be described as schema-only roadmap candidates, but they MUST NOT be
 advertised as executable variants before `service_root_template` support lands.
 This calibrates the "easy expansion" claim: adding public-endpoint API versions
 is catalog-only when the capability/backend class exists; adding endpoint-family
 selection is a runtime dispatch feature, not a manifest-only change.
 
-Future shape (illustrative only; invalid in v1.3.0):
+Future shape (illustrative only; rejected by the current generator):
 
 ```jsonc
 {
@@ -198,7 +198,7 @@ The future `service_root_template` validation contract is: the template MUST con
 | `raw-http` | Arbitrary HTTP, no discovery doc | stable |
 | `grpc-sdk` | `cloud.google.com/go` gRPC client | stable |
 | `mcp-plugin` | Shape 1 MCP subprocess | stable |
-| `grpc-plugin` | Shape 2 gRPC subprocess | Reserved ABI; external authoring unsupported in v1.3.0 |
+| `grpc-plugin` | Shape 2 gRPC subprocess | Reserved ABI; external authoring unsupported |
 | `google-ads-sdk` | Google Ads API (`googleads.googleapis.com`) REST; injects the secret `developer-token` header server-side | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
@@ -223,7 +223,7 @@ The future `service_root_template` validation contract is: the template MUST con
 | `discovery-rest` | Google Discovery REST method | stable |
 | `grpc` | Protobuf/gRPC method through a Go SDK | stable |
 | `plugin-mcp` | Shape 1 MCP subprocess tool | stable |
-| `plugin-grpc` | Shape 2 GUM gRPC subprocess method | Reserved ABI; external authoring unsupported in v1.3.0 |
+| `plugin-grpc` | Shape 2 GUM gRPC subprocess method | Reserved ABI; external authoring unsupported |
 | `sdk-native` | Non-discovery native Go SDK surface such as GenAI or Maps | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
@@ -356,12 +356,12 @@ Existing `TestBackendBinding<Name>` rows in `docs/test-matrix.md` MUST be update
 
 Some catalog fields are reserved as *capability atoms* — small, well-named slots that exist today only as metadata so future runtime features can light up without a wire-shape change. They are deliberately conservative; adding one requires a spec patch.
 
-| Atom | Field path | Type | v1.3.0 runtime | Future runtime |
+| Atom | Field path | Type | Current runtime | Future runtime |
 |---|---|---|---|---|
 | `x-sovereign-endpoint` | `variant.binding.x-sovereign-endpoint` (optional, string or null) | string | Inert. Generators MAY populate it from discovery doc `rootUrl` overrides for known sovereign hosts (`googleapis.us`, `googleapis.de`, etc.); runtime IGNORES the value and always uses the default `googleapis.com` request URL. | Future universe-domain support would consume this atom together with the `service_root_template` field (§Service Root Extension Point) to dispatch sovereign-cloud variants without a catalog regeneration. |
 | `stub_expires` | `variant.stub_expires` (optional, RFC 3339 timestamp string) | string | Inert. Curators MAY set this on schema-only experimental variants to signal a stub-expiry deadline; the daily catalog regeneration CI emits a warning when a stub has expired but does not fail the build. | A future catalog-build pipeline MAY graduate this to a hard build failure once expired-stub backfill has a documented owner. |
 
-Both atoms are reserved but inert in v1.3.0: their **schema slots** are part of the Catalog ABI (loaders MUST accept them without error and MUST NOT use them); the "Future runtime" column describes possible semantics with no target release. Adding a third capability atom requires a spec.md patch plus a row here.
+Both atoms are reserved but inert: their **schema slots** are part of the Catalog ABI (loaders MUST accept them without error and MUST NOT use them); the "Future runtime" column describes possible semantics with no target release. Adding a third capability atom requires a spec.md patch plus a row here.
 
 ## Schema Refs
 
