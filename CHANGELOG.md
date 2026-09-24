@@ -5,6 +5,56 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-09-23
+
+No change to the binary. No non-test Go file differs from 2.3.0.
+
+### Added
+
+- `scripts/check-govulncheck.py`, the vulnerability gate for
+  `.github/workflows/govulncheck.yml` and the release workflow's `govulncheck`
+  job. It reads the scanner's JSON and classifies each finding by its most
+  precise trace frame. A symbol- or package-level finding fails outright, and no
+  allowlist entry can cover code the build compiles.
+- `scripts/govulncheck-allowlist.json`, which records module-level advisories
+  with the advisory id, the module, the reason the requirement stays, and the
+  date recorded.
+- `make vulncheck`.
+- `TestGovulncheckAllowlistShape`, which holds every allowlist entry to a
+  well-formed advisory id, a module, a reason long enough for a reviewer to
+  check, and an ISO date, and rejects duplicate ids.
+
+### Changed
+
+- `docs/profile-dsl-reference.md` is exported. It is listed in
+  `scripts/public-release-manifest.json` and in the Reference section of the
+  docs-site navigation. The page was written before 2.3.0 but the manifest did
+  not list it, so the 2.3.0 tag carries no copy.
+- Both `govulncheck` jobs invoke the gate script rather than the scanner
+  directly. The scanner stays pinned at v1.3.0 and the scan still covers
+  `./...` at symbol granularity.
+- `SECURITY.md` and `docs/security.md` give `make vulncheck` as the local recipe
+  and state the three ways the gate fails.
+
+### Fixed
+
+- A module-level advisory can no longer land unnoticed. `govulncheck` prints
+  those under "vulnerabilities in modules you require" and exits 0, so the
+  previous gate passed whatever appeared there. GO-2026-5932 arrived that way.
+- A recorded advisory the scan no longer reports fails the gate, so the
+  allowlist cannot accumulate entries for advisories that are gone.
+
+### Security
+
+- No vulnerability fix and no dependency change. The gate reports 0 findings the
+  build can reach and one module-level finding, GO-2026-5932 in
+  `golang.org/x/crypto`. That advisory names no fixed version: its affected
+  range opens at `0` and carries no `fixed` event, because the finding is that
+  `golang.org/x/crypto/openpgp` is unmaintained rather than a defect a release
+  repairs. gum imports none of the seven affected packages, and the module stays
+  in the graph for `golang.org/x/crypto/cryptobyte`, which
+  `github.com/google/s2a-go` reaches under `cloud.google.com/go/auth`.
+
 ## [2.3.0] - 2026-09-23
 
 ### Security

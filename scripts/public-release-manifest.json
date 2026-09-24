@@ -10,6 +10,8 @@
     "install_test.sh",
     "Formula/gum.rb",
     "scripts/check-public-release-contract.py",
+    "scripts/check-govulncheck.py",
+    "scripts/govulncheck-allowlist.json",
     "scripts/build-docs-site.mjs",
     "scripts/check-docs-site.mjs",
     "scripts/gen-command-reference.mjs",
@@ -108,7 +110,8 @@
     "docs/release-notes-v2.1.0.md",
     "docs/release-notes-v2.2.0.md",
     "docs/release-notes-v2.2.1.md",
-    "docs/release-notes-v2.3.0.md"
+    "docs/release-notes-v2.3.0.md",
+    "docs/release-notes-v2.3.1.md"
   ],
   "forbidden_public_paths": [
     ".beads",

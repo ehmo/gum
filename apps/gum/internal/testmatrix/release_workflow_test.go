@@ -1,12 +1,17 @@
 package testmatrix
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
+
+// minAllowlistReason is the shortest justification a govulncheck allowlist
+// entry may carry. A one-word reason is not one a reviewer can check.
+const minAllowlistReason = 40
 
 // docs/test-matrix.md, release-pipeline row. The release gates live in
 // GitHub Actions manifests, so the only thing that can hold them is a test
@@ -106,13 +111,26 @@ func TestRaceModeReleaseGate(t *testing.T) {
 	}
 }
 
+// gateScript returns the contents of scripts/check-govulncheck.py.
+func gateScript(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(repoRootForWorkflows(t), "scripts", "check-govulncheck.py")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(raw)
+}
+
 // TestGovulncheckPipeline pins the vulnerability scan: a pinned scanner
-// version, the whole module in scope, and no `|| true` softening.
+// version, the whole module in scope, and no `|| true` softening. The scan runs
+// through scripts/check-govulncheck.py, which fails on any finding gum's build
+// can reach and on any module-only finding the allowlist does not record.
 func TestGovulncheckPipeline(t *testing.T) {
 	block := jobBlock(t, workflowFile(t, "release.yml"), "govulncheck")
 
-	if !strings.Contains(block, "run: govulncheck ./...") {
-		t.Error("the scan does not cover ./...")
+	if !strings.Contains(block, "scripts/check-govulncheck.py") {
+		t.Error("the scan does not run the govulncheck gate")
 	}
 	if !regexp.MustCompile(`go install golang\.org/x/vuln/cmd/govulncheck@v\d+\.\d+\.\d+`).MatchString(block) {
 		t.Error("govulncheck is not installed at a pinned version; a floating @latest makes the gate unreproducible")
@@ -121,6 +139,65 @@ func TestGovulncheckPipeline(t *testing.T) {
 		if strings.Contains(block, soften) {
 			t.Errorf("the govulncheck job contains %q; the gate does not block", soften)
 		}
+	}
+
+	gate := gateScript(t)
+	if !strings.Contains(gate, `"./..."`) {
+		t.Error("the gate does not cover ./...")
+	}
+	if !strings.Contains(gate, `"-scan", "symbol"`) {
+		t.Error("the gate does not scan at symbol level; a coarser scan cannot separate reachable from module-only")
+	}
+}
+
+// TestGovulncheckAllowlistShape pins the one file that can silence a finding.
+// Every entry names the advisory, the module it sits in, a reason a reviewer
+// can check, and the date it was recorded. The push workflow runs the same
+// gate as the tag, so a new finding fails a PR rather than a release.
+func TestGovulncheckAllowlistShape(t *testing.T) {
+	path := filepath.Join(repoRootForWorkflows(t), "scripts", "govulncheck-allowlist.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+
+	var allowlist struct {
+		ModuleOnly []struct {
+			ID       string `json:"id"`
+			Module   string `json:"module"`
+			Reason   string `json:"reason"`
+			Recorded string `json:"recorded"`
+		} `json:"module_only"`
+	}
+	if err := json.Unmarshal(raw, &allowlist); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+
+	advisory := regexp.MustCompile(`^GO-\d{4}-\d+$`)
+	day := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	seen := make(map[string]bool, len(allowlist.ModuleOnly))
+	for i, entry := range allowlist.ModuleOnly {
+		if !advisory.MatchString(entry.ID) {
+			t.Errorf("entry %d has id %q, which is not a Go advisory id", i, entry.ID)
+		}
+		if entry.Module == "" {
+			t.Errorf("entry %s names no module", entry.ID)
+		}
+		if len(entry.Reason) < minAllowlistReason {
+			t.Errorf("entry %s carries no reason a reviewer can check", entry.ID)
+		}
+		if !day.MatchString(entry.Recorded) {
+			t.Errorf("entry %s records %q, not a YYYY-MM-DD date", entry.ID, entry.Recorded)
+		}
+		if seen[entry.ID] {
+			t.Errorf("entry %s appears twice", entry.ID)
+		}
+		seen[entry.ID] = true
+	}
+
+	push := jobBlock(t, workflowFile(t, "govulncheck.yml"), "govulncheck")
+	if !strings.Contains(push, "scripts/check-govulncheck.py") {
+		t.Error("the push workflow does not run the same gate as the tag")
 	}
 }
 

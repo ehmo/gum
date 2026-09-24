@@ -30,9 +30,21 @@ subprocesses, and serves MCP tools over stdio to an agent client.
 cd apps/gum
 go test -race -count=1 ./...
 go vet ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ./...
 goreleaser check
 ```
+
+The vulnerability gate runs from the repository root:
+
+```bash
+go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+make vulncheck
+```
+
+`make vulncheck` fails on any advisory whose vulnerable code the build reaches.
+An advisory that covers only import paths gum never compiles also fails the
+gate unless `scripts/govulncheck-allowlist.json` records it with the module and
+the reason the requirement stays, and a recorded advisory the scan no longer
+reports fails too.
 
 The repository security policy remains the source of truth:
 [`SECURITY.md`](https://github.com/ehmo/gum/blob/main/SECURITY.md).

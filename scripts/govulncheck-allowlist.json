@@ -1,0 +1,10 @@
+{
+  "module_only": [
+    {
+      "id": "GO-2026-5932",
+      "module": "golang.org/x/crypto",
+      "reason": "The advisory covers golang.org/x/crypto/openpgp and its six subpackages, none of which gum imports. It names no fixed version: the affected range opens at 0 and never closes, because the finding is that the package is unmaintained rather than a defect a release can fix. golang.org/x/crypto stays in the module graph for golang.org/x/crypto/cryptobyte, which github.com/google/s2a-go reaches under cloud.google.com/go/auth, so the requirement cannot be dropped.",
+      "recorded": "2026-09-23"
+    }
+  ]
+}

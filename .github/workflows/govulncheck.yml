@@ -25,5 +25,5 @@ jobs:
       - name: install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
       - name: scan
-        run: |
-          "$(go env GOPATH)/bin/govulncheck" ./...
+        working-directory: .
+        run: scripts/check-govulncheck.py --govulncheck "$(go env GOPATH)/bin/govulncheck"

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: gum-build docs-commands docs-services docs-site docs-check public-check
+.PHONY: gum-build docs-commands docs-services docs-site docs-check public-check vulncheck
 
 gum-build:
 	$(MAKE) -C apps/gum build
@@ -19,3 +19,6 @@ docs-check: docs-site
 
 public-check:
 	scripts/check-public-release-contract.py
+
+vulncheck:
+	scripts/check-govulncheck.py

@@ -12,6 +12,7 @@ fixture-backed token-savings measurements.
 
 | Version | Date | Notes |
 | --- | --- | --- |
+| `v2.3.1` | 2026-09-23 | [No change to the binary: the profile DSL author reference now ships in a release tree, and a new gate fails on a module-level advisory the old one could not fail on.](release-notes-v2.3.1.md) |
 | `v2.3.0` | 2026-09-23 | [Prompt-injection defense built in two layers, RFC 8785 number and control-character fixes in `args_canonical`, failed dispatches logged, `gum.describe_op` truncation knobs read, around 240 documentation claims corrected.](release-notes-v2.3.0.md) |
 | `v2.2.1` | 2026-09-22 | [Keyword Planner geo and language targeting named in the catalog and carried in the `gum describe` example, curated `example_args`, catalog regen, lint gate green again, macOS notarization dropped.](release-notes-v2.2.1.md) |
 | `v2.2.0` | 2026-09-22 | [Outbound HTTP and ETag revalidation, managed-scope re-consent over MCP elicitation, capability atoms on every shipped variant, macOS signing secrets reach the release pipeline.](release-notes-v2.2.0.md) |
