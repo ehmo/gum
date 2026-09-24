@@ -74,36 +74,26 @@ func TestMCPInitializedWaitRule(t *testing.T) {
 			t.Fatalf("write %s: %v", line, err)
 		}
 	}
-	waitFor := func(marker string) string {
-		t.Helper()
-		deadline := time.Now().Add(45 * time.Second)
-		for time.Now().Before(deadline) {
-			if got := tap.snapshot(); strings.Contains(got, marker) {
-				return got
-			}
-			time.Sleep(20 * time.Millisecond)
-		}
-		t.Fatalf("server never wrote %s\nstdout=%q\nstderr=%q", marker, tap.snapshot(), stderr.String())
-		return ""
-	}
 
 	send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"waitrule","version":"0"}}}`)
-	waitFor(`"id":1`)
+	awaitFrames(t, tap, &stderr, `"id":1`)
 
 	// The SDK debounces a change notification by 10ms, so a stray one has
-	// time to land inside the handshake window.
+	// time to land inside the handshake window. A snapshot on a timer can cut
+	// a frame in half, so both windows here read whole frames only:
+	// serverNotifications parses every line it is given.
 	time.Sleep(200 * time.Millisecond)
-	handshakeWindow := tap.snapshot()
+	handshakeWindow := tap.completeFrames()
 
 	send(`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}`)
 	send(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
-	waitFor(`"id":2`)
+	awaitFrames(t, tap, &stderr, `"id":2`)
 	send(`{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{}}`)
-	waitFor(`"id":3`)
+	awaitFrames(t, tap, &stderr, `"id":3`)
 	send(`{"jsonrpc":"2.0","id":4,"method":"prompts/list","params":{}}`)
-	waitFor(`"id":4`)
+	awaitFrames(t, tap, &stderr, `"id":4`)
 	time.Sleep(200 * time.Millisecond)
-	session := tap.snapshot()
+	session := tap.completeFrames()
 
 	t.Run("the handshake window carries responses only", func(t *testing.T) {
 		if handshakeWindow == "" {

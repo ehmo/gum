@@ -49,18 +49,12 @@ func (p *mcpProcess) send(line string) {
 	}
 }
 
-// await blocks until marker appears on stdout, or fails the test.
+// await blocks until a complete frame carrying marker is on stdout, or fails
+// the test. firstFrameWithID decodes what it returns, so a mid-frame return
+// would hand it a truncated line.
 func (p *mcpProcess) await(marker string) string {
 	p.t.Helper()
-	deadline := time.Now().Add(45 * time.Second)
-	for time.Now().Before(deadline) {
-		if got := p.tap.snapshot(); strings.Contains(got, marker) {
-			return got
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	p.t.Fatalf("server never wrote %s\nstdout=%q\nstderr=%q", marker, p.tap.snapshot(), p.stderr.String())
-	return ""
+	return awaitFrames(p.t, p.tap, p.stderr, marker)
 }
 
 // legacyBatchFrame is a JSON-RPC batch: one array frame carrying two calls.
