@@ -89,8 +89,8 @@ allowlist entry records that reasoning next to the id.
 
 ## Known limitations
 
-Unchanged from the [v2.3.0 release notes](release-notes-v2.3.0.md), with one
-addition.
+Unchanged from the [v2.3.0 release notes](release-notes-v2.3.0.md), with three
+additions.
 
 - The allowlist holds one permanent entry. GO-2026-5932 has no fixed version,
   so the entry cannot expire and a reviewer reading the gate's output sees a
@@ -98,6 +98,11 @@ addition.
 - The `v2.3.0` tag tree carries no `docs/profile-dsl-reference.md`, and the
   `v2.0.0` tag tree still fails `make fmt-check`. A published tag is not moved,
   because its binaries, checksums and provenance all name that commit.
+- The `v2.3.1` tag tree carries a racy `TestStdioFramingClean`. The test waits
+  for a JSON-RPC id on stdout instead of for the frame terminator that follows
+  it, so `go test ./cmd/gum` at that tag can report non-JSON bytes on a loaded
+  machine. The binary is unaffected: only test code reads the capture. The fix
+  is on `main`.
 
 ## Token savings
 
