@@ -84,6 +84,7 @@
     "docs/paths.md",
     "docs/plugin-contract.md",
     "docs/plugin-author-guide.md",
+    "docs/profile-dsl-reference.md",
     "docs/quickstart.md",
     "docs/safety.md",
     "docs/service-coverage.md",

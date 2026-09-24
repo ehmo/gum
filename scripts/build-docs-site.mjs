@@ -18,7 +18,7 @@ const baseSections = [
   ["Agent Workflows", ["agent-setup.md", "mcp-client-setup.md", "automation.md", "api-workflows.md", "safety.md", "output.md", "hasp.md"]],
   ["Google APIs", ["service-coverage.md", "services/README.md", "auth-guides/README.md", "field-masks.md", "paths.md", "live-testing.md"]],
   ["Plugins", ["plugins.md", "plugin-contract.md", "plugin-author-guide.md"]],
-  ["Reference", ["commands/README.md", "architecture.md", "catalog-abi.md", "expression-profile-dsl.md", "test-matrix.md"]],
+  ["Reference", ["commands/README.md", "architecture.md", "catalog-abi.md", "expression-profile-dsl.md", "profile-dsl-reference.md", "test-matrix.md"]],
   ["Project", ["changelog.md", "license.md", "security.md", "support.md"]],
 ];
 
@@ -86,7 +86,6 @@ const buildExcludes = [
   /^canary-fixture-plan\.md$/,
   /^dev-environment\.md$/,
   /^expansion-playbooks\.md$/,
-  /^profile-dsl-reference\.md$/,
 ];
 
 fs.rmSync(outDir, { recursive: true, force: true });
