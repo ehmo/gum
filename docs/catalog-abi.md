@@ -183,7 +183,7 @@ Future shape (illustrative only; rejected by the current generator):
 
 The placeholder `{universe_domain}` is the universe domain string (e.g., `googleapis.com`, `googleapis.us`, or a sovereign-cloud domain). When `service_root_template` is absent, the runtime uses the discovery-derived `rootUrl` / `servicePath` already recorded in the variant metadata; implementers MUST NOT synthesize hostnames from API names. A future implementation would substitute the active profile's configured `universe_domain` (default `"googleapis.com"`) before constructing the request URL.
 
-This field would be additive: catalogs generated before this field was defined load correctly with the default behavior. Universe-domain support is therefore a manifest-and-catalog change, not an ABI-breaking schema version increment, but it is not active in v1.3.0 and has no target release.
+This field would be additive: catalogs generated before this field was defined load correctly with the default behavior. Universe-domain support is therefore a manifest-and-catalog change, not an ABI-breaking schema version increment, but it is not active and has no target release.
 
 The future `service_root_template` validation contract is: the template MUST contain exactly one `{universe_domain}` placeholder and MUST begin with `https://`. A future implementation would reject violations with `SERVICE_ROOT_TEMPLATE_INVALID`. Current builds reject every nonempty template with `SERVICE_ROOT_TEMPLATE_DEFERRED`.
 
@@ -335,7 +335,7 @@ Common binding fields:
 }
 ```
 
-`gum plugin install` materializes exactly one of these binding objects under each resolved plugin variant's `binding` field in `plugin-catalog.json`. For Shape 1 MCP plugins, `tool_name` is the live MCP tool name exposed by the subprocess and `operation_key` equals `tool_name`. For Shape 2 gRPC plugins, `operation_key` equals `<rpc_service>.<rpc_method>`. Missing or malformed selector fields fail build/install with `PLUGIN_BINDING_INVALID`, except that the third-party Shape 2 install gate runs earlier in v1.3.0 and returns `PLUGIN_SHAPE_UNSUPPORTED` for third-party `grpc-plugin` manifests regardless of selector completeness.
+`gum plugin install` materializes exactly one of these binding objects under each resolved plugin variant's `binding` field in `plugin-catalog.json`. For Shape 1 MCP plugins, `tool_name` is the live MCP tool name exposed by the subprocess and `operation_key` equals `tool_name`. For Shape 2 gRPC plugins, `operation_key` equals `<rpc_service>.<rpc_method>`. Missing or malformed selector fields fail build/install with `PLUGIN_BINDING_INVALID`, except that the third-party Shape 2 install gate runs earlier and returns `PLUGIN_SHAPE_UNSUPPORTED` for third-party `grpc-plugin` manifests regardless of selector completeness.
 
 Expansion rule: adding a new `grpc-sdk` or `sdk-native` variant for an existing `adapter_key` and existing capability classes is catalog-only. Adding a new `adapter_key`, changing a binding schema version, or adding a new backend binding kind is not catalog-only; it requires adapter implementation, generator validation, documentation, and a fixture-backed contract test in the same PR.
 
