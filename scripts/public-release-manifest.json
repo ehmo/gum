@@ -106,7 +106,8 @@
     "docs/release-notes-v2.0.1.md",
     "docs/release-notes-v2.1.0.md",
     "docs/release-notes-v2.2.0.md",
-    "docs/release-notes-v2.2.1.md"
+    "docs/release-notes-v2.2.1.md",
+    "docs/release-notes-v2.3.0.md"
   ],
   "forbidden_public_paths": [
     ".beads",

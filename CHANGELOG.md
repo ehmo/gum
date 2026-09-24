@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.0] - 2026-09-23
 
 ### Security
 
@@ -275,7 +275,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GUM_USAGE_AUTH_HEADER`; the three names exist only in the two plugin
   denylists, so a plugin never inherits them. The wire format and
   transport rules stay normative for the export that lands.
-- Six error codes that appear nowhere in the tree say so.
+- Five error codes that appear nowhere in the tree say so.
   `PLUGIN_RISK_CLASS_MISSING` is really `ErrUnknownRiskClass` at build
   and `ErrPluginRowMalformed` at the session-start merge;
   `PLUGIN_RISK_CLASS_MISMATCH` has no input to read, because no manifest

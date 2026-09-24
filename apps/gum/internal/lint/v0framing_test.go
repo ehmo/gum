@@ -169,7 +169,7 @@ func TestV0FramingOffensesCatchesEachDisguise(t *testing.T) {
 		{"rejected tag example", "tags (e.g. `v0.2.0-rc1`) are rejected by validate-tag", false},
 		{"historical roadmap", "// The week-by-week v0.1.0 delivery plan is finished work.", false},
 		{"sdk api note", "// CallToolParams.Arguments is `any` in go-sdk v0.2.0.", false},
-		{"current version", "// Only risor is supported in v2.2.1.", false},
+		{"current version", "// Only risor is supported in v2.3.0.", false},
 	}
 
 	for _, tc := range cases {

@@ -25,10 +25,17 @@ func TestReproducibleBuild(t *testing.T) {
 	// runGo carries the bounded retry that absorbs the nested-build load flake
 	// (gum-qooz); see toolchainAttempts for why retrying cannot hide a real
 	// reproducibility break.
+	//
+	// -buildvcs=false because the default stamps vcs.modified into the binary,
+	// read from `git status` at build time. A concurrent test that briefly
+	// writes into the work tree flips that bit between the two builds, and the
+	// hashes then diverge for a reason outside this test's subject. The release
+	// build and the repro canary both compile a clean tagged checkout, so
+	// dropping the stamp here costs no coverage.
 	build := func(out string) string {
 		t.Helper()
 		runGo(t, []string{"CGO_ENABLED=0", "GOFLAGS=", "SOURCE_DATE_EPOCH=1700000000"},
-			"build", "-trimpath",
+			"build", "-trimpath", "-buildvcs=false",
 			"-ldflags", "-s -w -X main.version=v0.0.0-reproducibility-check",
 			"-o", out, "./cmd/gum")
 		data, err := os.ReadFile(out)
