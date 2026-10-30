@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Google Ads calls no longer fail locally when a developer token is absent.
+  Google retired developer tokens on September 9, 2026 and enforces access
+  through the OAuth credential's Cloud project. gum omits the header when
+  unconfigured and preserves configured legacy tokens for compatibility.
+
 ## [2.3.1] - 2026-09-23
 
 No change to the binary. No non-test Go file differs from 2.3.0.

@@ -171,33 +171,31 @@ storing an OAuth client in gum does not repair ADC.
 
 ## Google Ads
 
-Google Ads uses OAuth plus a developer token.
+Google Ads uses the `adwords` OAuth scope and the API access level assigned to
+the Google Cloud project that owns the OAuth credentials. Google
+[retired developer tokens on September 9, 2026](https://developers.google.com/google-ads/api/docs/api-policy/developer-token).
+No developer token is required. gum still sends a legacy token if one is
+configured in the keychain or `GUM_GOOGLE_ADS_DEVELOPER_TOKEN`.
 
 1. Enable the Google Ads API in Google Cloud.
 2. Create and store a Desktop OAuth client as described in the OAuth section.
-3. Store the developer token.
-
-```bash
-printf '%s' "$GOOGLE_ADS_DEVELOPER_TOKEN" | gum auth use-ads-developer-token --stdin
-```
-
-4. Authorize the Ads scope.
+3. Authorize the Ads scope.
 
 ```bash
 gum login --service googleads
 ```
 
-5. Verify both the OAuth grant and the Ads operation shape.
+4. Verify both the OAuth grant and the Ads operation shape.
 
 ```bash
 gum auth status --scopes adwords
 gum describe googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics
 ```
 
-Google Ads auth is successful only when OAuth succeeds, the developer token is
-stored, and the signed-in account can access the customer ID used in the call.
-Google can still reject requests when the token is pending, the customer ID is
-wrong, or the account lacks access.
+Google Ads auth is successful when OAuth succeeds, the Cloud project's API
+access level permits the request, and the signed-in account can access the
+customer ID used in the call. Google can still reject requests when project
+access is insufficient, the customer ID is wrong, or the account lacks access.
 
 To omit `customerId` from each call, set a
 [default account](auth-guides/google-ads.md#default-account).

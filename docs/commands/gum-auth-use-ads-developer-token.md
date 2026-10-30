@@ -2,8 +2,10 @@
 
 > Generated from `gum schema --json`. Do not edit this page by hand; run `make docs-commands`.
 
-Store the Google Ads API developer token in the OS keychain so the
-googleads.* Keyword Planner ops can send it as the developer-token header.
+Store an optional legacy Google Ads developer token in the OS keychain.
+Google retired developer tokens on September 9, 2026. Access is managed by
+the OAuth credential's Google Cloud project; this header is no longer required.
+Configured tokens are still sent for compatibility with existing setups.
 The token is a secret: pipe it via --stdin (default) or --from-file; it is
 never accepted as a positional argument and never sent as an invocation arg.
 The OAuth Bearer is separate. Run `gum auth use-oauth-client` then

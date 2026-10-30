@@ -2,12 +2,13 @@
 // backend_kind="google-ads-sdk" (spec §14): Keyword Planner, GAQL reporting,
 // resource mutations, and conversion uploads on googleads.googleapis.com.
 //
-// It is deliberately a small, self-contained REST executor rather than a
-// variant of the shared typed-rest-sdk adapter, for one reason: the Google Ads
-// API requires a secret `developer-token` header on every request. That secret
-// is sourced server-side (OS keychain / env via the injected DevToken hook) and
-// is NEVER an invocation arg, so it never enters the audit log, args_canonical,
-// the semantic cache key, or the MCP tool-call context. The OAuth Bearer
+// It is a small, self-contained REST executor with Google Ads request shaping
+// and retry handling. Google retired developer tokens on September 9, 2026;
+// access is enforced by the OAuth credential's Google Cloud project. A legacy
+// developer token is still sent when configured, sourced server-side (OS
+// keychain / env via the injected DevToken hook). It is NEVER an invocation
+// arg, so it never enters the audit log, args_canonical, the semantic cache key,
+// or the MCP tool-call context. The OAuth Bearer
 // (scope https://www.googleapis.com/auth/adwords) still flows through the normal
 // byo_oauth resolver as creds.Token; the customer id and (optional) manager
 // login-customer-id are non-secret invocation args.
@@ -86,7 +87,7 @@ type Adapter struct {
 	// BaseURL overrides DefaultBaseURL. Tests point it at an httptest server;
 	// production leaves it empty.
 	BaseURL string
-	// DevToken returns the Google Ads developer token, sourced server-side from
+	// DevToken returns an optional legacy Google Ads developer token, sourced from
 	// the keychain/env. Injected at construction so this package stays decoupled
 	// from internal/auth's keychain. Returns "" when no token is configured.
 	DevToken func() string
@@ -101,9 +102,9 @@ type Adapter struct {
 	now func() time.Time
 }
 
-// NewAdapter constructs a Google Ads adapter. devToken supplies the developer
-// token (keychain/env); pass nil for a token-less adapter (every call then
-// fails closed with an actionable error).
+// NewAdapter constructs a Google Ads adapter. devToken optionally supplies a
+// legacy developer token (keychain/env); nil omits the developer-token header.
+// OAuth credentials are required regardless of whether a token is configured.
 func NewAdapter(devToken func() string) *Adapter {
 	return &Adapter{DevToken: devToken, now: time.Now}
 }
@@ -147,10 +148,6 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 	if a.DevToken != nil {
 		devTok = strings.TrimSpace(a.DevToken())
 	}
-	if devTok == "" {
-		return nil, errors.New("googleads adapter: missing developer token (run `gum auth use-ads-developer-token`, or set GUM_GOOGLE_ADS_DEVELOPER_TOKEN)")
-	}
-
 	method := customMethod(rv.Variant.Binding.HTTP.Path)
 	if !knownMethods[method] {
 		return nil, fmt.Errorf("googleads adapter: unsupported method %q (path %q)", method, rv.Variant.Binding.HTTP.Path)
@@ -191,7 +188,9 @@ func (a *Adapter) Execute(ctx context.Context, inv *dispatch.Invocation, rv *dis
 			return nil, fmt.Errorf("googleads adapter: build request: %w", rerr)
 		}
 		req.Header.Set("Authorization", "Bearer "+creds.Token)
-		req.Header.Set("developer-token", devTok)
+		if devTok != "" {
+			req.Header.Set("developer-token", devTok)
+		}
 		req.Header.Set("Content-Type", "application/json")
 		if loginCID != "" {
 			req.Header.Set("login-customer-id", loginCID)

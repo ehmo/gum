@@ -16,9 +16,9 @@ const scopeAdwords = "https://www.googleapis.com/auth/adwords"
 //
 // Conversion uploads report offline events for eligible developer tokens.
 // All six are byo_oauth (scope=adwords) and backed by the dedicated
-// google-ads-sdk adapter (internal/adapters/googleads), which injects the
-// secret developer-token header server-side so it never travels as an
-// invocation arg.
+// google-ads-sdk adapter (internal/adapters/googleads), which sends an optional
+// legacy developer-token header server-side so it never travels as an
+// invocation arg. Google enforces access through the OAuth Cloud project.
 //
 // login-customer-id (the manager/MCC id) and customer_id (the queried account)
 // are non-secret args; the developer token is sourced from the keychain/env.

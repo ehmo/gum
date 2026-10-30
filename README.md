@@ -37,7 +37,7 @@ gum v2.3.1 ships with 228 operations across 33 services. See the
 
 | Surface | Examples | Auth |
 | --- | --- | --- |
-| Google Workspace and Google APIs | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet, Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google Ads, Data Manager, Maps, Custom Search | OAuth, ADC, API key, service account, or Google Ads developer token |
+| Google Workspace and Google APIs | Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet, Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google Ads, Data Manager, Maps, Custom Search | OAuth, ADC, API key, or service account |
 | Bundled plugin services | Google Flights, Google Scholar, Google Patents, Google Trends, YouTube transcripts | Plugin-managed setup, with separate trust and sandbox checks |
 
 The Google API path is for accounts and projects you control. The plugin path is
@@ -95,7 +95,7 @@ The flow is:
    in prompts.
 
 Not every Google surface uses the same auth shape. Some operations use OAuth.
-Some use ADC, API keys, service accounts, or Google Ads developer tokens. The
+Some use ADC, API keys, or service accounts. The
 bundled plugin services, such as Flights and Scholar, use their own setup path
 because they are not normal Google API catalog endpoints.
 
@@ -245,7 +245,7 @@ checklist.
 | Automation in Google Cloud | ADC | Set `GOOGLE_APPLICATION_CREDENTIALS` or use a gcloud ADC cache |
 | Maps and Custom Search | API key | `gum auth use-api-key --stdin` |
 | Service-account variants | Service account | `gum auth use-service-account <key.json>` |
-| Google Ads | BYO OAuth plus developer token | `gum auth use-ads-developer-token`, then `gum login --service googleads` |
+| Google Ads | BYO OAuth and Cloud project API access | `gum login --service googleads`; no developer token required |
 | Data Manager conversion ingestion and diagnostics | BYO OAuth with the separate `datamanager` scope | `gum login --service datamanager`; see the [setup guide](docs/auth-guides/google-ads.md#data-manager) |
 
 ## MCP Setup
@@ -328,7 +328,7 @@ printf '%s' "$GOOGLE_OAUTH_CLIENT_SECRET" \
 If gum says a service needs product setup, OAuth worked but Google rejected the
 request for a service-specific reason. Examples include Chat app installation,
 Photos Library app access, Search Console property verification, and Google Ads
-developer-token approval.
+Cloud project API access approval.
 
 ### `RATE_LIMITED`
 

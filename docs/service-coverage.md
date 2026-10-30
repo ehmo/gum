@@ -30,7 +30,7 @@ subcommands.
 
 Some services require setup outside gum: enabled APIs on the OAuth project,
 Workspace admin privileges, Photos Library app configuration, Google Ads
-developer-token approval, an API key, or a Programmable Search Engine `cx`.
+Cloud project API access approval, an API key, or a Programmable Search Engine `cx`.
 
 Detailed setup lives in [auth guides](auth-guides/), including the separate
 [Data Manager OAuth setup](auth-guides/google-ads.md#data-manager).

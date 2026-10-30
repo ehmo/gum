@@ -44,7 +44,7 @@ output preservation passed HTTP fixture tests. See the
 | People | `gum call people.people.get --risk=read resourceName=people/me personFields=names,emailAddresses --json` | Needs scope/product setup | Google returned `PERMISSION_DENIED`; grant the exact missing scope |
 | Photos Library | `gum call photoslibrary.albums.list --risk=read pageSize:=1 --json` | Needs product setup | Requires Photos Library app setup |
 | Chat | `gum call chat.spaces.list --risk=read pageSize:=1 --json` | Needs product setup | Google returned `Google Chat app not found` |
-| Google Ads | `gum call googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --risk=read customerId=<customer-id> keywords:='["gum"]' --json` | Needs auth/product setup | Requires `adwords`, developer token, and customer access |
+| Google Ads | `gum call googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --risk=read customerId=<customer-id> keywords:='["gum"]' --json` | Needs auth/product setup | Requires `adwords`, Cloud project API access, and customer access |
 | Maps | `gum call maps.timezone.get --risk=read location=37.7749,-122.4194 timestamp:=0 --json` | Needs API key | Store an API key with Maps APIs enabled |
 | Custom Search | `gum call customsearch.cse.list --risk=read q=gum cx=<search-engine-id> --json` | Needs API key/product setup | Requires API key and Programmable Search Engine `cx` |
 

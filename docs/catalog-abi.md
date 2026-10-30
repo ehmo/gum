@@ -199,7 +199,7 @@ The future `service_root_template` validation contract is: the template MUST con
 | `grpc-sdk` | `cloud.google.com/go` gRPC client | stable |
 | `mcp-plugin` | Shape 1 MCP subprocess | stable |
 | `grpc-plugin` | Shape 2 gRPC subprocess | Reserved ABI; external authoring unsupported |
-| `google-ads-sdk` | Google Ads API (`googleads.googleapis.com`) REST; injects the secret `developer-token` header server-side | stable |
+| `google-ads-sdk` | Google Ads API (`googleads.googleapis.com`) REST; sends an optional legacy `developer-token` header server-side | stable |
 | `x-*` | Experimental; `execution_support = "schema_only"` required | unstable |
 
 **Adding a new `backend_kind` value** requires a PR that:

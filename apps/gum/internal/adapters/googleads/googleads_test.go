@@ -3,6 +3,7 @@ package googleads
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -112,7 +113,7 @@ func TestBackendKindGoogleAdsSDK(t *testing.T) {
 }
 
 func TestGoogleAdsRequiresOAuthToken(t *testing.T) {
-	adapter := NewAdapter(func() string { return "DEV" })
+	adapter := NewAdapter(nil)
 	_, err := adapter.Execute(context.Background(),
 		&dispatch.Invocation{Args: map[string]any{"customerId": "1234567890", "keywords": []any{"x"}}},
 		rvFor("generateKeywordIdeas"),
@@ -123,15 +124,63 @@ func TestGoogleAdsRequiresOAuthToken(t *testing.T) {
 	}
 }
 
-func TestGoogleAdsRequiresDeveloperToken(t *testing.T) {
-	adapter := NewAdapter(func() string { return "" }) // no dev token
-	_, err := adapter.Execute(context.Background(),
-		&dispatch.Invocation{Args: map[string]any{"customerId": "1234567890", "keywords": []any{"x"}}},
-		rvFor("generateKeywordIdeas"),
-		&dispatch.Credentials{Token: "B"},
-	)
-	if err == nil || !strings.Contains(err.Error(), "developer token") {
-		t.Fatalf("err = %v; want missing developer token", err)
+func TestGoogleAdsWithoutDeveloperToken(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		token func() string
+	}{
+		{"nil hook", nil},
+		{"empty token", func() string { return "" }},
+		{"whitespace token", func() string { return " \t\n" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, status := range []int{http.StatusOK, http.StatusForbidden} {
+				t.Run(http.StatusText(status), func(t *testing.T) {
+					var calls int
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						calls++
+						if _, present := r.Header[http.CanonicalHeaderKey("developer-token")]; present {
+							t.Error("request must omit the developer-token header when no token is configured")
+						}
+						if got := r.Header.Get("Authorization"); got != "Bearer B" {
+							t.Errorf("Authorization = %q; want Bearer B", got)
+						}
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(status)
+						if status == http.StatusForbidden {
+							_, _ = w.Write([]byte(`{"error":{"code":403,"message":"Cloud project not approved","status":"PERMISSION_DENIED"}}`))
+							return
+						}
+						_, _ = w.Write([]byte(`{"results":[]}`))
+					}))
+					defer srv.Close()
+
+					adapter := NewAdapter(tc.token)
+					adapter.BaseURL = srv.URL
+					resp, err := adapter.Execute(context.Background(),
+						&dispatch.Invocation{Args: map[string]any{"customerId": "1234567890", "keywords": []any{"x"}}},
+						rvFor("generateKeywordIdeas"),
+						&dispatch.Credentials{Token: "B"},
+					)
+					if calls != 1 {
+						t.Fatalf("upstream calls = %d; want 1 (err = %v)", calls, err)
+					}
+					if status == http.StatusForbidden {
+						var upstream *upstreamError
+						if !errors.As(err, &upstream) || upstream.HTTPStatusCode() != status || !strings.Contains(err.Error(), "Cloud project not approved") {
+							t.Fatalf("err = %v; want upstream HTTP 403 with project access error", err)
+						}
+						return
+					}
+					if err != nil {
+						t.Fatalf("Execute: %v", err)
+					}
+					if resp.StatusCode != status || string(resp.Body) != `{"results":[]}` {
+						t.Fatalf("response = %+v; want upstream success body", resp)
+					}
+				})
+			}
+		})
 	}
 }
 

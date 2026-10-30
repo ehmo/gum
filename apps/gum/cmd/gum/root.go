@@ -429,8 +429,8 @@ func defaultAdapters(profile string) (map[string]dispatch.Adapter, *adapters.Cod
 		}
 		return plugins.NewSupervisor(reg, host.Start, time.Now).Start(ctx, pluginID)
 	})
-	// Google Ads (backend_kind=google-ads-sdk). The developer
-	// token is a secret sourced from the OS keychain (env fallback) per profile,
+	// Google Ads (backend_kind=google-ads-sdk). An optional legacy developer
+	// token is sourced from the OS keychain (env fallback) per profile,
 	// so it never travels as an invocation arg. One adapter instance serves
 	// every Google Ads method, keyed by binding adapter_key.
 	gadsProfile := auth.DefaultAPIKeyProfile

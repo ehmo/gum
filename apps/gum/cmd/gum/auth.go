@@ -290,14 +290,12 @@ func readAPIKey(cmd *cobra.Command, fromStdin bool, fromFile string) (string, er
 	return strings.TrimSpace(string(b)), nil
 }
 
-// newAuthUseAdsDeveloperTokenCmd stores the Google Ads API developer token in
-// the OS keychain (env fallback GUM_GOOGLE_ADS_DEVELOPER_TOKEN) so the
-// googleads.* Keyword Planner ops can send it as the developer-token header.
+// newAuthUseAdsDeveloperTokenCmd retains legacy developer-token storage for
+// existing configurations. Google Ads no longer requires this header.
 //
 // The developer token is a secret and, like the api key, is NEVER accepted as a
 // positional argv (shell history / `ps` leak) and NEVER travels as an
-// invocation arg. It is the developer-token *component* of the googleads ops'
-// compound auth; the OAuth Bearer is the separate adwords-scope grant from
+// invocation arg. The OAuth Bearer is the separate adwords-scope grant from
 // `gum auth use-oauth-client` + `gum login --service googleads`.
 func newAuthUseAdsDeveloperTokenCmd() *cobra.Command {
 	var (
@@ -307,9 +305,11 @@ func newAuthUseAdsDeveloperTokenCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "use-ads-developer-token",
-		Short: "Store the Google Ads API developer token for the googleads Keyword Planner ops",
-		Long: "Store the Google Ads API developer token in the OS keychain so the\n" +
-			"googleads.* Keyword Planner ops can send it as the developer-token header.\n" +
+		Short: "Store an optional legacy Google Ads developer token",
+		Long: "Store an optional legacy Google Ads developer token in the OS keychain.\n" +
+			"Google retired developer tokens on September 9, 2026. Access is managed by\n" +
+			"the OAuth credential's Google Cloud project; this header is no longer required.\n" +
+			"Configured tokens are still sent for compatibility with existing setups.\n" +
 			"The token is a secret: pipe it via --stdin (default) or --from-file; it is\n" +
 			"never accepted as a positional argument and never sent as an invocation arg.\n" +
 			"The OAuth Bearer is separate. Run `gum auth use-oauth-client` then\n" +

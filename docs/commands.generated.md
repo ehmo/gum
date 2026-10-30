@@ -10,7 +10,7 @@ Generated from `gum schema --json`.
     - [`gum auth probe [flags]`](commands/gum-auth-probe.md) - Acquire a token for --scopes and print non-secret metadata
     - [`gum auth setup <op_id>`](commands/gum-auth-setup.md) - Walk the credential prerequisites for an operation
     - [`gum auth status [flags]`](commands/gum-auth-status.md) - Print resolved auth provider and scope coverage
-    - [`gum auth use-ads-developer-token [flags]`](commands/gum-auth-use-ads-developer-token.md) - Store the Google Ads API developer token in the OS keychain so the
+    - [`gum auth use-ads-developer-token [flags]`](commands/gum-auth-use-ads-developer-token.md) - Store an optional legacy Google Ads developer token in the OS keychain.
     - [`gum auth use-api-key [flags]`](commands/gum-auth-use-api-key.md) - Configure the api_key auth strategy
     - [`gum auth use-oauth-client --client-id <id> [--secret-stdin | --secret-file <path>] [flags]`](commands/gum-auth-use-oauth-client.md) - Register a Desktop-app OAuth client you created in the Google Cloud console.
     - [`gum auth use-service-account <key.json>`](commands/gum-auth-use-service-account.md) - Configure the service_account_key auth strategy

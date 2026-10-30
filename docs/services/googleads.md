@@ -54,19 +54,15 @@ printf '%s' "$GOOGLE_OAUTH_CLIENT_SECRET" \
   | gum auth use-oauth-client --client-id "$GOOGLE_OAUTH_CLIENT_ID" --secret-stdin
 ```
 
-6. Store the Google Ads developer token:
+Google Ads access is managed by the OAuth credential's Google Cloud project. Developer tokens are no longer required; configured legacy tokens remain optional.
 
-```bash
-printf '%s' "$GOOGLE_ADS_DEVELOPER_TOKEN" | gum auth use-ads-developer-token --stdin
-```
-
-7. Authorize this service:
+6. Authorize this service:
 
 ```bash
 gum login --service googleads
 ```
 
-8. Verify the grant before dispatch:
+7. Verify the grant before dispatch:
 
 ```bash
 gum auth status --scopes adwords

@@ -308,7 +308,6 @@ function byoOauthSteps(service, strategyOps) {
   const verifyOp = strategyOps.find((op) => firstVariant(op).risk_class === "read") || strategyOps[0];
   const scopes = uniqueScopes(strategyOps);
   const scopeArg = scopes.map(shortScope).join(",");
-  const stepOffset = service === "googleads" ? 2 : 1;
   const lines = [
     `1. In Google Cloud, enable ${apiEnableNameByService.get(service) || `${label(service)} API`}.`,
     "2. Configure the OAuth consent screen. Add your Google account as a test user when the app is still in testing mode.",
@@ -324,11 +323,11 @@ function byoOauthSteps(service, strategyOps) {
   ];
 
   if (service === "googleads") {
-    lines.push("6. Store the Google Ads developer token:", "", "```bash", "printf '%s' \"$GOOGLE_ADS_DEVELOPER_TOKEN\" | gum auth use-ads-developer-token --stdin", "```", "");
+    lines.push("Google Ads access is managed by the OAuth credential's Google Cloud project. Developer tokens are no longer required; configured legacy tokens remain optional.", "");
   }
 
-  lines.push(`${5 + stepOffset}. Authorize this service:`, "", "```bash", `gum login --service ${service}`, "```", "");
-  lines.push(`${6 + stepOffset}. Verify the grant before dispatch:`, "", "```bash", `gum auth status --scopes ${scopeArg || "gmail.readonly"}`, `gum describe ${verifyOp.op_id}`, "```", "");
+  lines.push("6. Authorize this service:", "", "```bash", `gum login --service ${service}`, "```", "");
+  lines.push("7. Verify the grant before dispatch:", "", "```bash", `gum auth status --scopes ${scopeArg || "gmail.readonly"}`, `gum describe ${verifyOp.op_id}`, "```", "");
 
   if (scopes.length) {
     lines.push("Scopes used by these operations:", "");

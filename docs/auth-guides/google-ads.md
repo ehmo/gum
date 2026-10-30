@@ -2,12 +2,19 @@
 
 For offline conversion ingestion through Data Manager, use the
 [Data Manager setup](#data-manager) below. The Google Ads API setup in the next
-section requires a developer token; Data Manager uses its own OAuth scope.
+section uses the `adwords` OAuth scope; Data Manager uses its own scope.
 
 ## Google Ads API
 
-Enable the Google Ads API in Google Cloud. You also need a Google Ads developer
-token and a customer ID that the signed-in account can access.
+Enable the Google Ads API in the Google Cloud project that owns your OAuth
+credentials. You also need a customer ID that the signed-in account can access.
+The Cloud project needs an access level that permits the target account.
+
+Google [retired developer tokens on September 9, 2026](https://developers.google.com/google-ads/api/docs/api-policy/developer-token).
+They are no longer required; Google enforces API access through the OAuth
+credential's Cloud project. Existing keychain tokens and
+`GUM_GOOGLE_ADS_DEVELOPER_TOKEN` remain supported for compatibility, but Google
+ignores the header. With neither configured, gum omits it.
 
 OAuth scope:
 
@@ -16,13 +23,14 @@ OAuth scope:
 Setup:
 
 ```shell
-printf '%s' "$GOOGLE_ADS_DEVELOPER_TOKEN" | gum auth use-ads-developer-token --stdin
 gum login --service googleads
 gum read googleads.keywordPlanIdeas.generateKeywordHistoricalMetrics --args '{"customerId":"<customer-id>","keywords":["gum"]}'
 ```
 
-Google Ads can reject requests after OAuth if the developer token is pending,
-the customer ID is wrong, or the account lacks access to the customer.
+Google Ads can reject requests after OAuth if the Cloud project's API access
+level does not permit the request, the customer ID is wrong, or the signed-in
+account lacks access to the customer. Apply for production access through the
+Google Ads API overview in Google Cloud, rather than requesting a developer token.
 
 ### Default account
 
@@ -217,5 +225,6 @@ retry. Check request state before resubmitting an upload with an uncertain
 outcome. Error messages preserve the request ID and up to five field
 violations, followed by an omitted count when needed.
 
-Sources checked September 7, 2026. Geo target and language ids checked
+Developer-token sunset guidance checked October 30, 2026. Other sources checked
+September 7, 2026. Geo target and language ids checked
 September 18, 2026.

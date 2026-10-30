@@ -44,7 +44,7 @@ catalog entry shows the auth strategy, scopes, risk class, and example args.
 | Chat | [chat.md](chat.md) | BYO OAuth plus Chat app setup |
 | Classroom, Forms, Meet, Apps Script | [classroom-forms-meet-script.md](classroom-forms-meet-script.md) | BYO OAuth |
 | Admin, Admin Reports, Cloud Identity, Groups Settings, Vault | [admin-cloud-vault.md](admin-cloud-vault.md) | BYO OAuth plus Workspace admin privileges |
-| Google Ads | [google-ads.md](google-ads.md) | BYO OAuth plus developer token |
+| Google Ads | [google-ads.md](google-ads.md) | BYO OAuth and Cloud project API access; developer token optional |
 | Data Manager | [Google Ads and Data Manager](google-ads.md#data-manager) | BYO OAuth with the separate `datamanager` scope; no developer token |
 | Maps and Custom Search | [maps-custom-search.md](maps-custom-search.md) | API key |
 
