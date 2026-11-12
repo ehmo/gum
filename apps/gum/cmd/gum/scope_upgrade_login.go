@@ -72,8 +72,12 @@ func newScopeUpgradeLogin(profile string, stderr io.Writer) dispatch.ScopeUpgrad
 		// verification has to see what was actually written. Expansion matches
 		// what the dispatcher's own allowlist was built from, so a scope a
 		// broader grant subsumes is not reported missing.
+		scopes, err := auth.GrantedScopes(kb, profile)
+		if err != nil {
+			return dispatch.ScopeUpgradeGrant{}, fmt.Errorf("read the stored OAuth grant: %w", err)
+		}
 		return dispatch.ScopeUpgradeGrant{
-			GrantedScopes:          auth.ExpandGrantedScopes(auth.GrantedScopes(kb, profile)),
+			GrantedScopes:          auth.ExpandGrantedScopes(scopes),
 			AuthSubjectFingerprint: creds.SubjectFingerprint,
 		}, nil
 	}

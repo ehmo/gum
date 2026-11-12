@@ -1,5 +1,8 @@
 # Google Ads and Data Manager
 
+For keyword ideas, search volume, and forecasts, start with the
+[Keyword Planner guide](../keyword-planner.md).
+
 For offline conversion ingestion through Data Manager, use the
 [Data Manager setup](#data-manager) below. The Google Ads API setup in the next
 section requires a developer token; Data Manager uses its own OAuth scope.

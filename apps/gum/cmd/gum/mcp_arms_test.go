@@ -50,7 +50,8 @@ func TestMCPStdioStopsWithItsContext(t *testing.T) {
 	go func() { done <- runMCPStdio(ctx, "default", io.Discard) }()
 
 	select {
-	case <-done:
+	case err := <-done:
+		_ = err // Shutdown may return the cancelled context.
 	case <-time.After(10 * time.Second):
 		t.Fatal("runMCPStdio did not return after its context was cancelled")
 	}

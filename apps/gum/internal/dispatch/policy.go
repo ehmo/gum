@@ -8,6 +8,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ehmo/gum/internal/catalog"
@@ -26,6 +27,10 @@ type ProfilePolicy struct {
 	// AllowedScopes is the set of OAuth scopes granted to this profile.
 	// Used to enforce variant.Scopes requirements at policy time (step 2).
 	AllowedScopes []string
+	// LoadScopes, when set, reads the stored grant at the scope gate. Errors
+	// fail closed without being misreported as missing scopes. It may run
+	// concurrently and is retried on the next scoped invocation.
+	LoadScopes func() ([]string, error)
 
 	// UnknownReadParamsAllowlist is the spec §5.7 read-only allowlist escape
 	// hatch for long-tail raw-http / discovery-rest variants. Keyed by op_id;
@@ -199,7 +204,20 @@ func (d *dispatcher) evaluatePolicy(ctx context.Context, inv *Invocation) *Struc
 	if len(v.Scopes) > 0 {
 		// Read the allowlist through the lock: a §13 re-consent rewrites it
 		// while other invocations are in this gate.
-		granted := d.allowedScopes()
+		granted, err := d.allowedScopes()
+		if err != nil {
+			var carrier StructuredErrorCarrier
+			if errors.As(err, &carrier) {
+				if se := carrier.AsStructuredError(); se != nil {
+					return se.WithDetail("op_id", inv.OpID).
+						WithDetail("variant_id", v.VariantID).
+						WithDetail("auth_strategy", string(v.AuthStrategy)).
+						WithDetail("profile", d.profileName)
+				}
+			}
+			return NewStructuredError(ErrCodeAuthRequired, "could not read the profile's granted OAuth scopes").
+				WithDetail("op_id", inv.OpID).WithDetail("profile", d.profileName)
+		}
 		required := sortedUniqueScopes(v.Scopes)
 		if missing := missingScopes(required, granted); len(missing) > 0 {
 			// required_scope names the first missing scope and predates the

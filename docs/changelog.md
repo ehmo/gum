@@ -12,6 +12,7 @@ fixture-backed token-savings measurements.
 
 | Version | Date | Notes |
 | --- | --- | --- |
+| `v2.3.2` | 2026-11-12 | [Retryable Keychain scope-read errors, direct Keyword Planner and Search Console guides, content search with section links.](release-notes-v2.3.2.md) |
 | `v2.3.1` | 2026-09-23 | [No change to the binary: the profile DSL author reference now ships in a release tree, and a new gate fails on a module-level advisory the old one could not fail on.](release-notes-v2.3.1.md) |
 | `v2.3.0` | 2026-09-23 | [Prompt-injection defense built in two layers, RFC 8785 number and control-character fixes in `args_canonical`, failed dispatches logged, `gum.describe_op` truncation knobs read, around 240 documentation claims corrected.](release-notes-v2.3.0.md) |
 | `v2.2.1` | 2026-09-22 | [Keyword Planner geo and language targeting named in the catalog and carried in the `gum describe` example, curated `example_args`, catalog regen, lint gate green again, macOS notarization dropped.](release-notes-v2.2.1.md) |

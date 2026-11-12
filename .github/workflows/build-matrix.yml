@@ -16,7 +16,9 @@ defaults:
 jobs:
   cross-compile:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
-    runs-on: ubicloud-standard-2
+    # GitHub-hosted runners cost nothing in ehmo/gum. Every other copy of
+    # this workflow runs on Ubicloud.
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +50,7 @@ jobs:
           fi
 
   cgo-invariant:
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -60,7 +62,7 @@ jobs:
 
   reproducible:
     name: reproducible build
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -72,7 +74,7 @@ jobs:
 
   binary-size:
     name: binary size budget (120 MB cap)
-    runs-on: ubicloud-standard-2
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6

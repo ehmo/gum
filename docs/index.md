@@ -12,10 +12,16 @@ description: "gum is a Go CLI and MCP stdio server for safer Google API access f
 one Go binary, one local credential model, and one dispatch path for CLI calls,
 MCP tool calls, and sandboxed code.
 
-The surface is catalog-first. Instead of minting a top-level command for every
-Google product, gum lets the caller search the embedded catalog, inspect the
-operation contract, then dispatch through `gum read`, `gum write`, or
-`gum destructive`.
+## Find your task
+
+- [Keyword Planner](keyword-planner.md): keyword ideas, monthly search volume, and ad forecasts.
+- [Search Console](search-console.md): organic clicks, impressions, rankings, and URL inspection.
+- [Google Ads](services/googleads.md): campaign, keyword, search-term, and spend reports.
+- [Data Manager](services/datamanager.md): offline conversions and diagnostics.
+- [All services](services/README.md): mail, calendars, files, spreadsheets, and other products.
+
+Search the embedded catalog, inspect the operation contract, then dispatch
+through `gum read`, `gum write`, or `gum destructive`.
 
 ## Try it
 
@@ -39,7 +45,7 @@ gum setup --target codex --features skills,mcp --yes
 
 ## What gum covers
 
-gum v2.3.1 ships with 228 catalog operations across 33 services. It covers Gmail,
+gum v2.3.2 ships with 228 catalog operations across 33 services. It covers Gmail,
 Calendar, Drive, Docs, Sheets, Slides, Tasks, Admin, Vault, Chat, Meet,
 Classroom, Forms, Apps Script, People, Photos, YouTube, Search Console, Google
 Ads, Data Manager, Maps, Custom Search, and bundled plugin services such as Flights, Scholar,
@@ -49,7 +55,7 @@ The [operations by service](services/) pages are generated from the embedded
 catalog. They are the product-level entry point. The [command index](commands/)
 is generated from `gum schema --json` and documents the CLI surface.
 
-The [v2.3.1 release notes](release-notes-v2.3.1.md) describe the current
+The [v2.3.2 release notes](release-notes-v2.3.2.md) describe the current
 release, and the [changelog](changelog.md) lists every version with its date.
 The [v2.0.0 release notes](release-notes-v2.0.0.md) stay the reference for the
 conformance release, its 16 breaking changes, and the 10 security fixes.

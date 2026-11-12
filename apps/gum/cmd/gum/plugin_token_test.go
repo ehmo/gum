@@ -28,7 +28,7 @@ func stubForwardingSeams(t *testing.T, scopes []string, res auth.Resolver, facto
 	t.Cleanup(func() {
 		forwardingGrantedScopes, newForwardingAuthResolver = origScopes, origResolver
 	})
-	forwardingGrantedScopes = func(string) []string { return scopes }
+	forwardingGrantedScopes = func(string) ([]string, error) { return scopes, nil }
 	newForwardingAuthResolver = func(string, []string) (auth.Resolver, error) {
 		return res, factoryErr
 	}
@@ -159,5 +159,15 @@ func TestNewForwardingAuthResolverUsesRegisteredClient(t *testing.T) {
 	}
 	if res == nil {
 		t.Fatal("resolver = nil; want the BYO OAuth resolver")
+	}
+}
+
+func TestGoogleTokenForwarderPreservesScopeReadError(t *testing.T) {
+	stubForwardingSeams(t, nil, stubAuthResolver{}, nil)
+	want := &auth.AuthError{Code: "AUTH_KEYCHAIN_UNAVAILABLE", Retryable: true}
+	forwardingGrantedScopes = func(string) ([]string, error) { return nil, want }
+	_, err := newGoogleTokenForwarder("default").ResolveGoogleToken(t.Context())
+	if !errors.Is(err, want) {
+		t.Fatalf("ResolveGoogleToken = %v; want the Keychain error", err)
 	}
 }

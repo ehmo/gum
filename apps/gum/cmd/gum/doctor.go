@@ -254,8 +254,26 @@ func doctorAuthFromKeyring(ctx context.Context, kb auth.KeyringBackend, profile 
 	defer cancel()
 	ch := make(chan result, 1)
 	go func() {
-		if _, ok, err := auth.LoadByoClient(kb, profile); err == nil && ok {
-			if scopes := auth.GrantedScopes(kb, profile); len(scopes) > 0 {
+		_, ok, err := auth.LoadByoClient(kb, profile)
+		if err != nil {
+			ch <- result{done: true, check: doctorCheckResult{
+				Name: "auth", OK: false,
+				Summary: "could not read the stored OAuth client",
+				Hint:    err.Error(),
+			}}
+			return
+		}
+		if ok {
+			scopes, err := auth.GrantedScopes(kb, profile)
+			if err != nil {
+				ch <- result{done: true, check: doctorCheckResult{
+					Name: "auth", OK: false,
+					Summary: "could not read the stored OAuth grant",
+					Hint:    err.Error(),
+				}}
+				return
+			}
+			if len(scopes) > 0 {
 				ch <- result{
 					done: true,
 					check: doctorCheckResult{

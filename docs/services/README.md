@@ -5,6 +5,8 @@ description: "Generated service pages for the Google API and plugin operations i
 
 # Operations by service
 
+Find a task: [Keyword Planner](../keyword-planner.md) for keyword ideas, search volume, and forecasts; [Search Console](../search-console.md) for organic search performance and URL inspection.
+
 gum ships 228 catalog operations across 33 services. The CLI does not expose one top-level command per Google product; product coverage lives in the catalog. Use these pages to start from a service, then call the selected operation with `gum read`, `gum write`, or `gum destructive`.
 
 ```bash

@@ -44,7 +44,7 @@ func TestLogoutCommandClearsGrant(t *testing.T) {
 	if err := b.StoreRefreshToken("rt-1"); err != nil {
 		t.Fatalf("StoreRefreshToken: %v", err)
 	}
-	if got := auth.GrantedScopes(kb, "default"); len(got) != 1 {
+	if got, err := auth.GrantedScopes(kb, "default"); err != nil || len(got) != 1 {
 		t.Fatalf("precondition: GrantedScopes = %v, want exactly one scope", got)
 	}
 
@@ -57,7 +57,7 @@ func TestLogoutCommandClearsGrant(t *testing.T) {
 		t.Fatalf("gum logout: %v\nstderr: %s", err, errBuf.String())
 	}
 
-	if got := auth.GrantedScopes(kb, "default"); got != nil {
+	if got, err := auth.GrantedScopes(kb, "default"); err != nil || got != nil {
 		t.Errorf("after logout GrantedScopes = %v, want nil", got)
 	}
 	if _, ok, _ := auth.LoadByoClient(kb, "default"); !ok {

@@ -83,7 +83,8 @@ func readPluginsResource(t *testing.T) string {
 	}
 	t.Cleanup(func() {
 		_ = session.Close()
-		<-done
+		runErr := <-done
+		_ = runErr // Shutdown may return the cancelled context.
 	})
 
 	res, err := session.ReadResource(ctx, &sdkmcp.ReadResourceParams{URI: "gum://plugins"})

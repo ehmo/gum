@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-11-12
+
+### Security
+
+- Release builds use Go 1.26.11. Update `golang.org/x/net` to v0.62.0 and
+  `golang.org/x/crypto` to v0.59.0, with their required Go submodule updates,
+  to clear the vulnerability gate. Remove the stale GO-2026-5932 allowlist entry.
+
+### Fixed
+
+- Granted-scope Keychain timeouts return retryable `AUTH_KEYCHAIN_UNAVAILABLE`
+  instead of non-retryable `SCOPE_MISSING`. The next scoped invocation retries
+  the read. A readable grant lacking a scope still returns `SCOPE_MISSING`.
+- Plugin token forwarding, diagnostics, and post-consent verification preserve
+  scope-read failures.
+- The stdio framing test waits for a complete frame before parsing it under load.
+
+### Added
+
+- Dedicated Keyword Planner and Search Console guides with setup and task examples.
+- Docs search over page content, headings, and operation IDs, with section links
+  and excerpts.
+
+### Changed
+
+- Homepage, sidebar, README, and service references link directly to the task guides.
+- Public test, build-matrix, fuzz, and standalone vulnerability workflows use
+  GitHub-hosted runners. Release jobs retain their existing builder.
+
 ## [2.3.1] - 2026-09-23
 
 No change to the binary. No non-test Go file differs from 2.3.0.

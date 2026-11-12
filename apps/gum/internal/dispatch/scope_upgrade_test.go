@@ -416,7 +416,7 @@ func TestScopeUpgradeRefusals(t *testing.T) {
 			if !tc.wantLogin && calls != 0 {
 				t.Errorf("login ran %d times; the reply was refused before any consent", calls)
 			}
-			if got := d.allowedScopes(); len(got) != 0 {
+			if got, err := d.allowedScopes(); err != nil || len(got) != 0 {
 				t.Errorf("allowed scopes = %v; a refused re-consent must not widen the allowlist", got)
 			}
 			if se := d.evaluatePolicy(context.Background(), &Invocation{OpID: upgradeOpID}); se == nil || se.ErrCode != ErrCodeScopeMissing {

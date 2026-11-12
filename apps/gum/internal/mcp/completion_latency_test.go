@@ -205,7 +205,8 @@ func connectCompletionClient(t *testing.T, snapshot *catalog.Catalog) (context.C
 		_ = cs.Close()
 		cancel()
 		select {
-		case <-done:
+		case err := <-done:
+			_ = err // Shutdown may return the cancelled context.
 		case <-time.After(2 * time.Second):
 			t.Error("server.Run did not stop within 2s after cancel")
 		}

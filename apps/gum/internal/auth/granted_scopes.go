@@ -11,15 +11,16 @@ package auth
 // immediately after a successful login that recorded the grant (gum-n9yl).
 //
 // Returns nil when no client is configured or no grant has been recorded yet,
-// so the gate stays closed rather than silently allowing every scope.
-func GrantedScopes(kb KeyringBackend, profile string) []string {
-	client, ok, _ := LoadByoClient(kb, profile)
-	if !ok {
-		return nil
+// so the gate stays closed rather than silently allowing every scope. Storage
+// errors are returned separately; a failed read is not evidence of a missing scope.
+func GrantedScopes(kb KeyringBackend, profile string) ([]string, error) {
+	client, ok, err := LoadByoClient(kb, profile)
+	if err != nil || !ok {
+		return nil, err
 	}
-	grant, ok, _ := NewByoOAuth(ByoOAuthConfig{ClientID: client.ClientID, Profile: profile}, kb).loadGrant()
-	if !ok {
-		return nil
+	grant, ok, err := NewByoOAuth(ByoOAuthConfig{ClientID: client.ClientID, Profile: profile}, kb).loadGrant()
+	if err != nil || !ok {
+		return nil, err
 	}
-	return grant.Scopes
+	return grant.Scopes, nil
 }

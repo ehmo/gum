@@ -34,7 +34,10 @@ func newGoogleTokenForwarder(profile string) plugins.GoogleTokenResolver {
 // live token, and one that starts without it fails its first upstream call with
 // a 401 that names neither the cause nor the fix.
 func (f googleTokenForwarder) ResolveGoogleToken(ctx context.Context) (plugins.GoogleToken, error) {
-	scopes := forwardingGrantedScopes(f.profile)
+	scopes, err := forwardingGrantedScopes(f.profile)
+	if err != nil {
+		return plugins.GoogleToken{}, err
+	}
 	if len(scopes) == 0 {
 		return plugins.GoogleToken{}, &auth.AuthError{
 			Code:             "AUTH_REQUIRED",
@@ -72,12 +75,11 @@ func (f googleTokenForwarder) ResolveGoogleToken(ctx context.Context) (plugins.G
 	}, nil
 }
 
-// forwardingGrantedScopes reports the scopes the profile has already consented
-// to. A locked keychain yields none, which surfaces as AUTH_REQUIRED naming
-// `gum login` rather than as a spawn that stalls on an interactive prompt. It
-// is a var so a test can forward a token without a real keychain.
-var forwardingGrantedScopes = func(profile string) []string {
-	return auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), profile))
+// forwardingGrantedScopes reads the stored grant with the short Keychain bound.
+// Read failures stay distinct from a profile that has never authorized scopes.
+var forwardingGrantedScopes = func(profile string) ([]string, error) {
+	scopes, err := auth.GrantedScopes(auth.NewBestEffortOSKeyring(), profile)
+	return auth.ExpandGrantedScopes(scopes), err
 }
 
 // newForwardingAuthResolver picks the strategy the same way `gum auth probe

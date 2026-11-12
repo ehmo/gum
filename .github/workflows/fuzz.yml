@@ -16,7 +16,9 @@ defaults:
 jobs:
   fuzz:
     if: github.repository == 'ehmo/gum'
-    runs-on: ubicloud-standard-2
+    # GitHub-hosted runners cost nothing in ehmo/gum. Every other copy of
+    # this workflow runs on Ubicloud.
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     strategy:
       fail-fast: false
       matrix:

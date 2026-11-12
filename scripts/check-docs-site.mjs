@@ -32,6 +32,8 @@ const requiredDocs = [
   "safety.md",
   "output.md",
   "service-coverage.md",
+  "keyword-planner.md",
+  "search-console.md",
   "services/README.md",
   "paths.md",
   "live-testing.md",

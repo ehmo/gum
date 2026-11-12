@@ -22,7 +22,10 @@ func TestGrantedScopesReturnsRecordedGrant(t *testing.T) {
 		t.Fatalf("StoreRefreshToken: %v", err)
 	}
 
-	got := GrantedScopes(kb, profile)
+	got, err := GrantedScopes(kb, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 || got[0] != "https://www.googleapis.com/auth/webmasters.readonly" {
 		t.Fatalf("GrantedScopes=%v; want [webmasters.readonly]", got)
 	}
@@ -33,7 +36,7 @@ func TestGrantedScopesReturnsRecordedGrant(t *testing.T) {
 // so the scope gate stays closed rather than silently allowing everything.
 func TestGrantedScopesNilWhenNoGrant(t *testing.T) {
 	kb := &mockKeyring{data: map[string]string{}}
-	if got := GrantedScopes(kb, "default"); got != nil {
+	if got, err := GrantedScopes(kb, "default"); err != nil || got != nil {
 		t.Fatalf("GrantedScopes=%v; want nil", got)
 	}
 }
@@ -45,7 +48,7 @@ func TestGrantedScopesNilWhenClientButNoGrant(t *testing.T) {
 	if err := StoreByoClient(kb, "default", ByoClient{ClientID: "client-xyz"}); err != nil {
 		t.Fatalf("StoreByoClient: %v", err)
 	}
-	if got := GrantedScopes(kb, "default"); got != nil {
+	if got, err := GrantedScopes(kb, "default"); err != nil || got != nil {
 		t.Fatalf("GrantedScopes=%v; want nil", got)
 	}
 }

@@ -689,15 +689,13 @@ func newDefaultDispatcherWithCloserAndScopeLoading(profile string, buffered, loa
 	// "default" regardless of --profile, stranding non-default-profile grants.
 	authResolver := auth.NewDefaultCompositeResolver()
 	authResolver.Profile = scopeProfile
-	var allowedScopes []string
+	cfg := newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir, authResolver, nil)
 	if loadProfileScopes {
-		// Best-effort tier: nobody asked for this read, and a locked keychain
-		// (a headless Linux box whose Secret Service prompt has no one to
-		// answer it) must degrade to "no granted scopes" instead of stalling
-		// every command on the interactive bound.
-		allowedScopes = auth.ExpandGrantedScopes(auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile))
+		cfg.Policy.LoadScopes = func() ([]string, error) {
+			scopes, err := auth.GrantedScopes(auth.NewBestEffortOSKeyring(), scopeProfile)
+			return auth.ExpandGrantedScopes(scopes), err
+		}
 	}
-	cfg := newDispatcherConfigForProfile(scopeProfile, profileName, profileDataDir, authResolver, allowedScopes)
 	cfg.ScopeUpgradeLogin = scopeUpgradeLogin
 	closer := func() error { return nil }
 	if dir := profileDataDir; dir != "" {

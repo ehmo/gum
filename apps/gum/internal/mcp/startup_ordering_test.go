@@ -79,7 +79,8 @@ func TestMCPStartupOrdering(t *testing.T) {
 	_ = cs.Close()
 	cancel()
 	select {
-	case <-runDone:
+	case err := <-runDone:
+		_ = err // Shutdown may return the cancelled context.
 	case <-time.After(2 * time.Second):
 		t.Fatal("Server.Run did not return within 2s after cancel")
 	}

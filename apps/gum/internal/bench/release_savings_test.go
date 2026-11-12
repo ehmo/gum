@@ -81,7 +81,8 @@ func gumToolsListViaInMemory(t *testing.T) (wire, naiveFieldSet []byte) {
 
 	cancel()
 	select {
-	case <-done:
+	case err := <-done:
+		_ = err // Shutdown may return the cancelled context.
 	case <-time.After(3 * time.Second):
 		t.Error("server did not stop within 3s")
 	}

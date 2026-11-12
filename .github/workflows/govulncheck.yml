@@ -15,7 +15,9 @@ defaults:
 
 jobs:
   govulncheck:
-    runs-on: ubicloud-standard-2
+    # GitHub-hosted runners cost nothing in ehmo/gum. Every other copy of
+    # this workflow runs on Ubicloud.
+    runs-on: ${{ github.repository == 'ehmo/gum' && 'ubuntu-latest' || 'ubicloud-standard-2' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6

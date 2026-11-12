@@ -64,7 +64,7 @@ func linuxPluginEnv(env []string) []string {
 
 func applyLinuxLandlock(writeRoot string) error {
 	handled := linuxLandlockWriteAccess()
-	ruleset := unix.LandlockRulesetAttr{Access_fs: handled}
+	ruleset := unix.LandlockRulesetAttr{Handled_access_fs: handled}
 	fd, _, errno := unix.Syscall(unix.SYS_LANDLOCK_CREATE_RULESET, uintptr(unsafe.Pointer(&ruleset)), unsafe.Sizeof(ruleset), 0)
 	if errno != 0 {
 		return fmt.Errorf("%w: landlock create ruleset: %v", ErrUnsupportedSandbox, errno)

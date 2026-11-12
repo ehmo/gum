@@ -6,6 +6,8 @@ service_group: "Search and media"
 
 # Search Console
 
+For property setup, search performance, and URL inspection examples, start with the [Search Console guide](../search-console.md).
+
 Search Console has 10 operations in gum's generated catalog. Start with search when you know the task, use describe to inspect request fields and scopes, then dispatch through the command that matches the operation risk class.
 
 | Count | Value |

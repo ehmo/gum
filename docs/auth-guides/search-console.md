@@ -1,5 +1,8 @@
 # Search Console
 
+For search performance and URL inspection examples, use the
+[Search Console guide](../search-console.md).
+
 Enable the Search Console API in Google Cloud. The Google account must have
 access to the target Search Console property.
 

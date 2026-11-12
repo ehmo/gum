@@ -265,4 +265,6 @@ operation returns data from its upstream source.
   as a headless host, an SSH session, a container, or CI. Unlock the login
   keyring, or use a credential path that does not need one:
   `gum auth use-service-account <key.json>`, or host ADC. See
-  [Keychain call bounds](paths.md#keychain-call-bounds).
+  A timeout is retryable, including a failed granted-scope lookup. Retry after
+  unlocking the keychain or reducing host load; reauthorizing scopes is not
+  required by this error. See [Keychain call bounds](paths.md#keychain-call-bounds).

@@ -108,7 +108,8 @@ func TestSkillsToolsHandleListAndGet(t *testing.T) {
 	go func() { serverDone <- srv.Run(ctx, serverTransport) }()
 	t.Cleanup(func() {
 		cancel()
-		<-serverDone
+		runErr := <-serverDone
+		_ = runErr // Shutdown may return the cancelled context.
 	})
 	cs, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
@@ -166,7 +167,8 @@ func TestMCPRegistryStructurallyMutable(t *testing.T) {
 	// Cancel to stop the server.
 	cancel()
 	select {
-	case <-done:
+	case err := <-done:
+		_ = err // Shutdown may return the cancelled context.
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not stop within 2s after context cancel")
 	}

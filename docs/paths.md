@@ -74,9 +74,10 @@ SSH session, a container, or CI.
 | A credential read or write you asked for | 20 seconds |
 | A read gum makes on its own behalf, such as the granted-scope lookup on the dispatch path | 2 seconds |
 
-A call that runs past its bound fails with `AUTH_KEYCHAIN_UNAVAILABLE`. The
-granted-scope lookup is best effort: when it times out, gum continues with no
-recorded scopes rather than failing the command.
+A call that runs past its bound fails with retryable `AUTH_KEYCHAIN_UNAVAILABLE`.
+The granted-scope lookup uses the short bound and fails closed on read errors.
+It does not report a failed read as `SCOPE_MISSING`. The next scoped invocation
+tries the lookup again; unscoped operations skip it.
 
 Set `GUM_KEYRING_TIMEOUT` to a Go duration to change the bounds. Raising it
 lengthens only the first bound, which is what a slow interactive keychain

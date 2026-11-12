@@ -22,8 +22,8 @@ require (
 	go.etcd.io/bbolt v1.5.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/tools v0.48.0
+	golang.org/x/sys v0.50.0
+	golang.org/x/tools v0.52.0
 	google.golang.org/genai v1.67.0
 	google.golang.org/grpc v1.83.2
 	googlemaps.github.io/maps v1.7.0
@@ -34,7 +34,7 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	github.com/pelletier/go-toml/v2 v2.4.3
-	golang.org/x/text v0.41.0
+	golang.org/x/text v0.44.0
 )
 
 require (
@@ -69,10 +69,10 @@ require (
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
-	golang.org/x/crypto v0.56.0 // indirect
-	golang.org/x/mod v0.38.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

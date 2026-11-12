@@ -6,6 +6,8 @@ service_group: "Ads and maps"
 
 # Google Ads
 
+For keyword ideas, search volume, and forecasts, start with the [Keyword Planner guide](../keyword-planner.md).
+
 Google Ads has 6 operations in gum's generated catalog. Start with search when you know the task, use describe to inspect request fields and scopes, then dispatch through the command that matches the operation risk class.
 
 | Count | Value |

@@ -111,7 +111,10 @@
     "docs/release-notes-v2.2.0.md",
     "docs/release-notes-v2.2.1.md",
     "docs/release-notes-v2.3.0.md",
-    "docs/release-notes-v2.3.1.md"
+    "docs/release-notes-v2.3.1.md",
+    "docs/keyword-planner.md",
+    "docs/search-console.md",
+    "docs/release-notes-v2.3.2.md"
   ],
   "forbidden_public_paths": [
     ".beads",

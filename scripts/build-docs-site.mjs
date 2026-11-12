@@ -15,6 +15,7 @@ const installCommand = "brew install ehmo/tap/gum";
 
 const baseSections = [
   ["Start", ["index.md", "why-gum.md", "install.md", "quickstart.md", "auth.md", "mcp.md"]],
+  ["Task guides", ["keyword-planner.md", "search-console.md"]],
   ["Agent Workflows", ["agent-setup.md", "mcp-client-setup.md", "automation.md", "api-workflows.md", "safety.md", "output.md", "hasp.md"]],
   ["Google APIs", ["service-coverage.md", "services/README.md", "auth-guides/README.md", "field-masks.md", "paths.md", "live-testing.md"]],
   ["Plugins", ["plugins.md", "plugin-contract.md", "plugin-author-guide.md"]],
@@ -102,11 +103,9 @@ const pages = allPages.filter((page) => !buildExcludes.some((re) => re.test(page
 const pageMap = new Map(pages.map((page) => [page.rel, page]));
 const servicePages = pages.filter((page) => page.rel.startsWith("services/") && page.rel !== "services/README.md")
   .sort((a, b) => a.title.localeCompare(b.title));
-const sections = [
-  ...baseSections.slice(0, 3),
-  serviceNavSection(servicePages),
-  ...baseSections.slice(3),
-];
+const sections = baseSections.flatMap((section) =>
+  section[0] === "Google APIs" ? [section, serviceNavSection(servicePages)] : [section]
+);
 const nav = sections
   .map(normalizeSection)
   .filter((section) => section.pages.length);
@@ -114,9 +113,11 @@ const sectionByRel = new Map();
 for (const section of nav) for (const page of section.pages) sectionByRel.set(page.rel, section.name);
 const orderedPages = nav.flatMap((section) => section.pages);
 
+const searchIndex = [];
 for (const page of pages) {
   const html = markdownToHtml(page.markdown, page.rel);
   const toc = tocFromHtml(html);
+  searchIndex.push(...searchEntries(page, html));
   const idx = orderedPages.findIndex((candidate) => candidate.rel === page.rel);
   const prev = idx > 0 ? orderedPages[idx - 1] : null;
   const next = idx >= 0 && idx < orderedPages.length - 1 ? orderedPages[idx + 1] : null;
@@ -125,12 +126,24 @@ for (const page of pages) {
   fs.writeFileSync(pageOut, layout({ page, html, toc, prev, next, sectionName: sectionByRel.get(page.rel) || "Reference" }), "utf8");
 }
 
+fs.writeFileSync(path.join(outDir, "search-index.json"), JSON.stringify(searchIndex), "utf8");
 copyStaticDir(path.join(docsDir, "assets"), path.join(outDir, "assets"));
 fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 fs.writeFileSync(path.join(outDir, "llms.txt"), llmsTxt(), "utf8");
 validateLinks(outDir);
 validateReachable(outDir);
 console.log(`built docs site: ${path.relative(root, outDir)}`);
+
+function searchEntries(page, html) {
+  const plain = (value) => value.replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
+  return html.split(/(?=<h[1-6]\b)/).filter((part) => plain(part)).map((part) => {
+    const heading = part.match(/^<h[1-6] id="([^"]+)">([\s\S]*?)<\/h[1-6]>/);
+    return { title: page.title, heading: heading ? plain(heading[2]) : page.title,
+      href: page.outRel + (heading ? `#${heading[1]}` : ""), text: plain(part) };
+  });
+}
 
 function parseFrontmatter(raw) {
   const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
@@ -546,10 +559,11 @@ function layout({ page, html, toc, prev, next, sectionName }) {
   <button class="nav-burger" type="button" aria-label="Menu" aria-controls="site-nav" aria-expanded="false"><span></span><span></span><span></span></button>
   <a class="brand" href="${relativeToRoot(page.outRel)}"><img src="${relativeHref(page.outRel, "assets/gum-wordmark.png")}" alt="gum"><span>field manual</span></a>
   <nav class="top-links">${primaryLinks}</nav>
+  <button class="docs-search-toggle" type="button" aria-controls="site-nav">Search docs</button>
 </header>
 <div class="nav-scrim"></div>
 <div class="shell">
-  <aside class="sidebar" id="site-nav"><div class="drawer-head"><span>Menu</span><button class="drawer-close" type="button" aria-label="Close menu">&times;</button></div><nav class="sidebar-quicklinks">${primaryLinks}</nav><label class="nav-search"><span>Search docs</span><input type="search" id="nav-filter" autocomplete="off" placeholder="Filter pages"></label>${navHtml(page)}</aside>
+  <aside class="sidebar" id="site-nav"><div class="drawer-head"><span>Menu</span><button class="drawer-close" type="button" aria-label="Close menu">&times;</button></div><nav class="sidebar-quicklinks">${primaryLinks}</nav><label class="nav-search"><span>Search docs</span><input type="search" id="nav-filter" autocomplete="off" placeholder="Keyword Planner, clicks, Gmail…" aria-controls="search-results" data-index="${relativeHref(page.outRel, "search-index.json")}"></label><div id="search-results" hidden><p class="search-status" role="status" aria-live="polite"></p><nav aria-label="Search results"></nav></div><div id="browse-nav">${navHtml(page)}</div></aside>
   <main>
     <div class="manual-head"><span>${escapeHtml(sectionName)}</span><span>${escapeHtml(page.title)}</span><span>${productTagline}</span></div>
     ${toc.length ? `<nav class="page-map" aria-label="On this page">${toc.map((item) => `<a class="l${item.level}" href="#${item.id}">${escapeHtml(item.text)}</a>`).join("")}</nav>` : ""}
@@ -705,21 +719,73 @@ function escapeAttr(value) {
 function clientJs() {
   return `
 const filter = document.querySelector("#nav-filter");
-filter?.addEventListener("input", () => {
+const results = document.querySelector("#search-results");
+const browse = document.querySelector("#browse-nav");
+let indexPromise;
+let searchVersion = 0;
+filter?.addEventListener("input", async () => {
+  const version = ++searchVersion;
   const query = filter.value.trim().toLowerCase();
-  document.querySelectorAll(".sidebar section").forEach((section) => {
-    let visible = false;
-    section.querySelectorAll("a").forEach((link) => {
-      const hit = !query || link.textContent.toLowerCase().includes(query);
-      link.hidden = !hit;
-      visible ||= hit;
+  results.hidden = !query;
+  browse.hidden = !!query;
+  const status = results.querySelector(".search-status");
+  const links = results.querySelector("nav");
+  links.replaceChildren();
+  if (!query) return;
+  status.textContent = "Searching…";
+  try {
+    indexPromise ||= fetch(filter.dataset.index).then((response) => {
+      if (!response.ok) throw new Error("search index unavailable");
+      return response.json();
+    }).catch((error) => { indexPromise = null; throw error; });
+    const index = await indexPromise;
+    if (version !== searchVersion) return;
+    const terms = query.split(/\\s+/);
+    const hits = index.map((entry) => {
+      const title = entry.title.toLowerCase().replace(/ guide$/, "");
+      const heading = entry.heading.toLowerCase();
+      const text = entry.text.toLowerCase();
+      if (!terms.every((term) => (title + " " + text).includes(term))) return null;
+      const score = (/release-notes|changelog/.test(entry.href) ? -20 : 0)
+        + (/^(keyword-planner|search-console)\\.html/.test(entry.href) ? 15 : 0)
+        + (entry.href.startsWith("services/") ? 10 : 0) + (heading === query ? 100 : 0) + (title === query ? 80 : 0)
+        + (title.includes(query) ? 40 : 0) + (heading.includes(query) ? 30 : 0)
+        + terms.filter((term) => heading.includes(term)).length * 5;
+      return { ...entry, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+    const seen = new Set();
+    const matches = hits.filter((hit) => {
+      const page = hit.href.split("#")[0];
+      if (seen.has(page)) return false;
+      seen.add(page);
+      return true;
     });
-    section.querySelectorAll(".nav-subgroup").forEach((group) => {
-      const groupVisible = [...group.querySelectorAll("a")].some((link) => !link.hidden);
-      group.hidden = !groupVisible;
-    });
-    section.hidden = !visible;
-  });
+    status.textContent = matches.length ? matches.length + " pages found. Showing up to 10."
+      : "No pages found. Try a service name, task, or operation ID.";
+    for (const hit of matches.slice(0, 10)) {
+      const link = document.createElement("a");
+      link.href = new URL(hit.href, new URL(filter.dataset.index, document.baseURI)).href;
+      const title = document.createElement("strong");
+      title.textContent = hit.title;
+      const section = document.createElement("span");
+      section.textContent = hit.heading;
+      const snippet = document.createElement("small");
+      const at = Math.max(0, hit.text.toLowerCase().indexOf(terms[0]) - 35);
+      snippet.textContent = (at ? "…" : "") + hit.text.slice(at, at + 160);
+      link.append(title, section, snippet);
+      links.append(link);
+    }
+  } catch {
+    if (version !== searchVersion) return;
+    status.textContent = "Search could not load. Browse the pages below or try again.";
+    browse.hidden = false;
+  }
+});
+filter?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    filter.value = "";
+    filter.dispatchEvent(new Event("input"));
+  }
 });
 document.querySelectorAll(".copy-code").forEach((button) => {
   button.addEventListener("click", async () => {
@@ -740,7 +806,13 @@ function setNav(open) {
 navBurger?.addEventListener("click", () => setNav(!document.body.classList.contains("nav-open")));
 navScrim?.addEventListener("click", () => setNav(false));
 navClose?.addEventListener("click", () => setNav(false));
-navSidebar?.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => setNav(false)));
+navSidebar?.addEventListener("click", (event) => {
+  if (event.target.closest("a")) setNav(false);
+});
+document.querySelector(".docs-search-toggle")?.addEventListener("click", () => {
+  setNav(true);
+  filter?.focus();
+});
 document.addEventListener("keydown", (event) => { if (event.key === "Escape") setNav(false); });
 `;
 }
@@ -757,6 +829,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(-
 .brand{display:grid;grid-template-columns:auto auto;align-items:end;gap:14px;color:var(--ink);font-family:"Commissioner","B612",sans-serif;font-weight:800;text-decoration:none}.brand:hover{text-decoration:none}.brand img{width:128px;height:auto;display:block}.brand span{padding-bottom:3px;color:var(--muted);font-size:11px;line-height:1;text-transform:uppercase;letter-spacing:.14em}
 .top nav{display:flex;align-items:center;gap:0;border:1px solid var(--rule);background:var(--wash);font-family:"Commissioner","B612",sans-serif;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.08em}.top nav a{display:inline-flex;align-items:center;min-height:36px;border-right:1px solid var(--rule);color:var(--muted);padding:6px 13px;text-decoration:none}.top nav a:last-child{border-right:0}.top nav a:hover{background:var(--panel);color:var(--ink)}
 .copy-code{font:inherit;font-size:12px;cursor:pointer}
+.docs-search-toggle{display:none}
 .nav-burger{display:none;flex-direction:column;justify-content:center;gap:4px;width:42px;height:40px;flex:none;padding:9px 8px;border:1px solid var(--rule-strong);background:var(--wash);cursor:pointer}.nav-burger span{display:block;height:1.5px;background:var(--ink)}.nav-burger:hover{background:var(--panel)}
 .nav-scrim{display:none}
 .drawer-head,.sidebar-quicklinks{display:none}
@@ -764,13 +837,14 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(-
 main{min-width:0}.manual-head{display:grid;grid-template-columns:max-content minmax(0,1fr) max-content;gap:12px;align-items:center;margin:0 0 22px;padding:8px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.1em}.manual-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.manual-head span+span:before{content:"/";margin-right:12px;color:var(--faint)}
 .page-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0;margin:0 0 32px;border:1px solid var(--rule);background:var(--wash)}.page-map a{display:flex;align-items:center;min-height:42px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:12px;font-weight:650;line-height:1.25;padding:9px 11px;text-decoration:none;text-transform:uppercase;letter-spacing:.06em}.page-map a:hover{background:var(--panel);color:var(--ink)}.page-map .l3{color:var(--faint)}
 .sidebar{align-self:start;border:1px solid var(--rule);background:rgba(12,18,16,.82)}.sidebar section{border-top:1px solid var(--rule)}.sidebar section:first-of-type{border-top:0}.sidebar h2{margin:0;padding:10px 14px;border-bottom:1px solid var(--rule);background:var(--panel-2);color:var(--copper);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;letter-spacing:.11em;text-transform:uppercase}.nav-subgroup{border-top:1px solid var(--rule)}.nav-subgroup:first-of-type{border-top:0}.nav-subgroup h3{margin:0;padding:8px 14px;border-bottom:1px solid rgba(66,82,74,.6);background:rgba(21,29,24,.52);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:10px;font-weight:650;letter-spacing:.1em;text-transform:uppercase}.sidebar a{display:block;padding:6px 14px;border-top:1px solid rgba(66,82,74,.45);color:var(--muted);font-size:13px;line-height:1.35;text-decoration:none}.sidebar a:first-of-type{border-top:0}.sidebar a:hover{background:var(--panel);color:var(--ink)}.sidebar a.active{background:var(--accent-dim);color:var(--ink);font-weight:700}.nav-search{display:block;padding:14px;border-bottom:1px solid var(--rule)}.nav-search span{display:block;margin-bottom:7px;color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.11em}.nav-search input{width:100%;border:1px solid var(--rule-strong);border-radius:0;background:var(--code);color:var(--ink);padding:9px 10px;font:inherit;font-size:14px}.nav-search input::placeholder{color:var(--faint)}
+.search-status{padding:10px 14px;margin:0;color:var(--muted);font-size:13px}#search-results a strong,#search-results a span,#search-results a small{display:block}#search-results a strong{color:var(--ink)}#search-results a small{margin-top:5px;font-size:12px;line-height:1.5}#search-results a{overflow-wrap:anywhere}#search-results a:focus-visible{outline:2px solid var(--copper);outline-offset:-2px}[hidden]{display:none!important}
 article{min-width:0;max-width:100%;overflow-x:hidden;background:transparent}article>p:first-child img[alt="gum logo"]{width:min(100%,360px);margin:10px 0 8px}.home-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,420px);gap:44px;align-items:center;margin:2px 0 36px}.home-hero-copy{min-width:0}.home-hero-copy h1{margin-bottom:18px}.home-hero-copy p{margin:0;color:var(--text);font-size:18px;line-height:1.6}.home-hero-logo{margin:0;justify-self:end}.home-hero-logo img{display:block;width:min(100%,420px);height:auto}h1,h2,h3{color:var(--ink);font-family:"B612","Commissioner",sans-serif;font-weight:700}h1{margin:0 0 22px;font-size:clamp(36px,3.9vw,56px);line-height:1.04;letter-spacing:0;max-width:17ch}h2{margin:50px 0 15px;padding-top:10px;border-top:1px solid var(--rule-strong);font-size:25px;line-height:1.18;letter-spacing:0}h3{margin:31px 0 10px;font-size:18px;line-height:1.25;letter-spacing:0}p{margin:14px 0;max-width:73ch}strong{color:var(--ink)}ul,ol{padding-left:24px;max-width:78ch}li{margin:7px 0}hr{border:0;border-top:1px solid var(--rule);margin:34px 0}
 .codeblock{margin:24px 0;border:1px solid var(--code-border);background:var(--code);overflow:hidden}.codebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid var(--code-line);background:#0a0f0d;color:var(--code-muted);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.1em}.copy-code{border:1px solid var(--code-line);border-radius:0;background:transparent;color:var(--code-muted);padding:4px 9px;text-transform:none;letter-spacing:0}.copy-code:hover{border-color:var(--accent);color:var(--accent)}.codeblock pre{overflow:visible;margin:0;padding:18px 20px;background:transparent;color:#e6fff7;white-space:pre-wrap}.codeblock code{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}code{font-family:"B612 Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em}p code,li code,td code{padding:2px 5px;border:1px solid var(--rule);border-radius:0;background:var(--panel);color:var(--ink)}
 .tok-comment{color:var(--code-muted)}.tok-command{color:var(--code-command);font-weight:700}.tok-flag,.tok-pipe{color:var(--code-flag)}.tok-string{color:var(--code-string)}.tok-key{color:var(--code-key)}.tok-number{color:var(--code-number)}.tok-atom{color:#d7a8ff}
 .table-wrap{width:100%;max-width:100%;overflow-x:auto;margin:22px 0;border:1px solid var(--rule);background:var(--wash)}table{width:100%;min-width:720px;table-layout:fixed;border-collapse:collapse;margin:0;border:0;font-size:14px;background:var(--wash)}th,td{padding:10px 12px;border:1px solid var(--rule);vertical-align:top;overflow-wrap:anywhere}th{background:var(--panel-2);color:var(--ink);font-family:"Commissioner","B612",sans-serif;font-size:12px;font-weight:650;text-align:left;text-transform:uppercase;letter-spacing:.06em}td code{white-space:normal}
 blockquote{margin:20px 0;padding:12px 16px;border:1px solid var(--rule);background:var(--wash);color:var(--muted)}
 img{max-width:100%;height:auto}.pager{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:54px 0 24px;padding-top:20px;border-top:1px solid var(--rule-strong)}.pager a{display:block;border:1px solid var(--rule);background:var(--wash);padding:12px 14px;text-decoration:none}.pager a:last-child{text-align:right}.pager a:hover{background:var(--panel);color:var(--ink)}
-@media (max-width:1100px){.shell{grid-template-columns:minmax(0,1fr);gap:32px}.sidebar{max-width:100%}html.js .nav-burger{display:flex}html.js .top{justify-content:flex-start;gap:16px}html.js .top-links{display:none}html.js .sidebar{position:fixed;top:0;left:0;z-index:20;height:100vh;height:100dvh;width:min(86vw,340px);max-width:none;margin:0;border:0;border-right:1px solid var(--rule-strong);background:var(--panel);overflow-y:auto;transform:translateX(-100%);visibility:hidden;transition:transform .22s ease,visibility .22s}html.js body.nav-open .sidebar{transform:translateX(0);visibility:visible}html.js .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--rule-strong);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.11em}html.js .drawer-close{width:30px;height:30px;border:1px solid var(--rule-strong);background:var(--wash);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}html.js .sidebar-quicklinks{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}html.js .sidebar-quicklinks a{display:flex;align-items:center;min-height:40px;padding:8px 14px;border-top:1px solid var(--rule);border-right:1px solid var(--rule);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;text-decoration:none}html.js .sidebar-quicklinks a:nth-child(2n){border-right:0}html.js .sidebar-quicklinks a:hover{background:var(--panel);color:var(--ink)}html.js .nav-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.58);opacity:0;pointer-events:none;transition:opacity .22s}html.js body.nav-open .nav-scrim{opacity:1;pointer-events:auto}html.js body.nav-open{overflow:hidden}}
-@media (max-width:760px){.top{align-items:center;flex-direction:row;flex-wrap:wrap;gap:12px;padding:12px 16px}.brand img{width:104px}.shell{display:block;padding:20px 18px}.top nav{width:100%;display:grid;grid-template-columns:1fr 1fr}.top nav a{border-bottom:1px solid var(--rule);min-height:36px}.top nav a:nth-child(2n){border-right:0}.manual-head{display:none}.page-map{display:none}article>p:first-child img[alt="gum logo"]{width:min(100%,310px)}.home-hero{grid-template-columns:1fr;gap:20px;margin-top:0}.home-hero-logo{justify-self:start;order:-1}.home-hero-logo img{width:min(100%,310px)}.home-hero-copy p{font-size:16px}h1{font-size:38px;max-width:none}.codeblock{margin-left:-8px;margin-right:-8px}.pager{grid-template-columns:1fr}.pager a:last-child{text-align:left}}
+@media (max-width:1100px){.docs-search-toggle{display:inline-flex;margin-left:auto;align-items:center;min-height:40px;padding:8px 12px;border:1px solid var(--rule-strong);background:var(--wash);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}.shell{grid-template-columns:minmax(0,1fr);gap:32px}.sidebar{max-width:100%}html.js .nav-burger{display:flex}html.js .top{justify-content:flex-start;gap:16px}html.js .top-links{display:none}html.js .sidebar{position:fixed;top:0;left:0;z-index:20;height:100vh;height:100dvh;width:min(86vw,340px);max-width:none;margin:0;border:0;border-right:1px solid var(--rule-strong);background:var(--panel);overflow-y:auto;transform:translateX(-100%);visibility:hidden;transition:transform .22s ease,visibility .22s}html.js body.nav-open .sidebar{transform:translateX(0);visibility:visible}html.js .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--rule-strong);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.11em}html.js .drawer-close{width:30px;height:30px;border:1px solid var(--rule-strong);background:var(--wash);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}html.js .sidebar-quicklinks{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}html.js .sidebar-quicklinks a{display:flex;align-items:center;min-height:40px;padding:8px 14px;border-top:1px solid var(--rule);border-right:1px solid var(--rule);color:var(--muted);font-family:"Commissioner","B612",sans-serif;font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;text-decoration:none}html.js .sidebar-quicklinks a:nth-child(2n){border-right:0}html.js .sidebar-quicklinks a:hover{background:var(--panel);color:var(--ink)}html.js .nav-scrim{display:block;position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.58);opacity:0;pointer-events:none;transition:opacity .22s}html.js body.nav-open .nav-scrim{opacity:1;pointer-events:auto}html.js body.nav-open{overflow:hidden}}
+@media (max-width:760px){.brand span{display:none}.top{align-items:center;flex-direction:row;flex-wrap:wrap;gap:12px;padding:12px 16px}.brand img{width:104px}.shell{display:block;padding:20px 18px}.top nav{width:100%;display:grid;grid-template-columns:1fr 1fr}.top nav a{border-bottom:1px solid var(--rule);min-height:36px}.top nav a:nth-child(2n){border-right:0}.manual-head{display:none}.page-map{display:none}article>p:first-child img[alt="gum logo"]{width:min(100%,310px)}.home-hero{grid-template-columns:1fr;gap:20px;margin-top:0}.home-hero-logo{justify-self:start;order:-1}.home-hero-logo img{width:min(100%,310px)}.home-hero-copy p{font-size:16px}h1{font-size:38px;max-width:none}.codeblock{margin-left:-8px;margin-right:-8px}.pager{grid-template-columns:1fr}.pager a:last-child{text-align:left}}
 `;
 }

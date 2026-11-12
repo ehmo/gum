@@ -128,16 +128,19 @@ func callKeyring(mode keyringMode, call func() (string, error)) (string, error) 
 }
 
 // keychainTimedOut builds the spec §7 envelope for a timed-out call. The
-// remediation names the override so the user can raise it when a slow
-// hardware-backed keychain is the real cause.
+// remediation distinguishes the fixed best-effort cap from the interactive
+// bound, which the operator can raise.
 func keychainTimedOut(mode keyringMode) *AuthError {
+	hint := fmt.Sprintf("OS keychain did not respond within %s; unlock the login keyring or retry when the host is less busy", mode.bound())
+	if mode == keyringInteractive {
+		hint += fmt.Sprintf("; raise the bound with %s (a Go duration, e.g. 60s)", keyringTimeoutEnv)
+	}
 	return &AuthError{
-		Code:     "AUTH_KEYCHAIN_UNAVAILABLE",
-		Strategy: "",
-		HumanRemediation: fmt.Sprintf(
-			"OS keychain did not respond within %s; unlock the login keyring, or raise the bound with %s (a Go duration, e.g. 60s)",
-			mode.bound(), keyringTimeoutEnv),
-		Cause: ErrKeychainTimeout,
+		Code:             "AUTH_KEYCHAIN_UNAVAILABLE",
+		Strategy:         "",
+		Retryable:        true,
+		HumanRemediation: hint,
+		Cause:            ErrKeychainTimeout,
 	}
 }
 

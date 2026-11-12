@@ -29,10 +29,18 @@ custom tool for each endpoint.
 Use it only with Google accounts, projects, and APIs you own or are authorized
 to operate.
 
+## Find your task
+
+- [Keyword Planner](docs/keyword-planner.md): keyword ideas, monthly search volume, and ad forecasts.
+- [Search Console](docs/search-console.md): organic clicks, impressions, rankings, and URL inspection.
+- [Google Ads](docs/services/googleads.md): campaign, keyword, search-term, and spend reports.
+- [Data Manager](docs/services/datamanager.md): offline conversions and diagnostics.
+- [All services](docs/services/README.md): mail, calendars, files, spreadsheets, and other products.
+
 ## What gum covers
 
-gum v2.3.1 ships with 228 operations across 33 services. See the
-[release notes](docs/release-notes-v2.3.1.md) and
+gum v2.3.2 ships with 228 operations across 33 services. See the
+[release notes](docs/release-notes-v2.3.2.md) and
 [operations by service](docs/services/README.md).
 
 | Surface | Examples | Auth |

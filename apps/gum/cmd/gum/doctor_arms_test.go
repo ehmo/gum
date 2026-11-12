@@ -218,6 +218,28 @@ func TestDoctorAuthFromKeyringArms(t *testing.T) {
 	})
 }
 
+type failingDoctorKeyring struct {
+	auth.KeyringBackend
+	reads, failAt int
+}
+
+func (k *failingDoctorKeyring) Get(string) (string, error) {
+	k.reads++
+	if k.reads == k.failAt {
+		return "", &auth.AuthError{Code: "AUTH_KEYCHAIN_UNAVAILABLE", Retryable: true, Cause: auth.ErrKeychainTimeout}
+	}
+	return `{"client_id":"client-xyz"}`, nil
+}
+
+func TestDoctorAuthReportsScopeReadFailure(t *testing.T) {
+	for _, read := range []int{1, 2, 3} {
+		got, done := doctorAuthFromKeyring(t.Context(), &failingDoctorKeyring{failAt: read}, "default")
+		if !done || got.OK || !strings.Contains(got.Summary, "could not read") || !strings.Contains(got.Hint, "AUTH_KEYCHAIN_UNAVAILABLE") {
+			t.Fatalf("failed read %d = (%+v,%v); want a Keychain failure", read, got, done)
+		}
+	}
+}
+
 // TestDoctorCacheFailureArms covers the cache probe's profile and dir
 // resolution failures.
 func TestDoctorCacheFailureArms(t *testing.T) {

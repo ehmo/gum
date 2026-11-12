@@ -275,15 +275,23 @@ func (d *dispatcher) auditScopeUpgrade(req ScopeUpgradeRequest, outcome, action 
 // grant plus anything a §13 re-consent added during this process.
 // profilePolicy is immutable after construction, so only the upgrade set needs
 // the lock.
-func (d *dispatcher) allowedScopes() []string {
+func (d *dispatcher) allowedScopes() ([]string, error) {
+	granted := d.profilePolicy.AllowedScopes
+	if d.profilePolicy.LoadScopes != nil {
+		var err error
+		granted, err = d.profilePolicy.LoadScopes()
+		if err != nil {
+			return nil, err
+		}
+	}
 	d.scopeMu.RLock()
 	defer d.scopeMu.RUnlock()
 	if len(d.upgradedScopes) == 0 {
-		return d.profilePolicy.AllowedScopes
+		return granted, nil
 	}
-	out := make([]string, 0, len(d.profilePolicy.AllowedScopes)+len(d.upgradedScopes))
-	out = append(out, d.profilePolicy.AllowedScopes...)
-	return append(out, d.upgradedScopes...)
+	out := make([]string, 0, len(granted)+len(d.upgradedScopes))
+	out = append(out, granted...)
+	return append(out, d.upgradedScopes...), nil
 }
 
 // addAllowedScopes records newly granted scopes for the rest of the process.

@@ -35,14 +35,16 @@ func connectInitializeClient(t *testing.T) (*sdkmcp.ClientSession, func()) {
 	cs, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		cancel()
-		<-done
+		runErr := <-done
+		_ = runErr // Shutdown may return the cancelled context.
 		t.Fatalf("client.Connect: %v", err)
 	}
 	cleanup := func() {
 		_ = cs.Close()
 		cancel()
 		select {
-		case <-done:
+		case err := <-done:
+			_ = err // Shutdown may return the cancelled context.
 		case <-time.After(2 * time.Second):
 			t.Error("Server.Run did not return within 2s after cancel")
 		}
