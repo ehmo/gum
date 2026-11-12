@@ -87,12 +87,16 @@ func TestRaceModeReleaseGate(t *testing.T) {
 
 	for _, want := range []string{
 		"go test -race -timeout 600s ./...",
-		"go-version: '1.26.x'",
 		"run: make fmt-check",
 		"run: go vet ./...",
 	} {
 		if !strings.Contains(pre, want) {
 			t.Errorf("pre-release-tests does not run %q", want)
+		}
+	}
+	for _, job := range []string{"pre-release-tests", "govulncheck", "goreleaser", "repro-canary"} {
+		if !strings.Contains(jobBlock(t, wf, job), "go-version: '1.26.11'") {
+			t.Errorf("%s must use Go 1.26.11; a minor range can select an older cached patch", job)
 		}
 	}
 

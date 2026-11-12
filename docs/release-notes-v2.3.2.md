@@ -1,10 +1,15 @@
 ---
 title: gum v2.3.2 release notes
 date: 2026-11-12
-status: release
+status: not-published
 ---
 
 # gum v2.3.2
+
+This tag was not published as a GitHub release. CI selected cached Go 1.26.10
+and the vulnerability gate rejected GO-2026-6859. The release attempt was
+cancelled before any binaries were published. Install [v2.3.3](release-notes-v2.3.3.md)
+for the changes below and the corrected toolchain selection.
 
 Keychain timeouts keep their retryable error, and Keyword Planner and Search
 Console now have direct guides and searchable documentation.

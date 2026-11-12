@@ -33,7 +33,7 @@ stubs:
 # CI already runs the pinned minor, so use its gofmt there and fetch the pinned
 # toolchain only on a host running something else.
 GOFMT_MINOR ?= go1.26
-GOFMT_TOOLCHAIN ?= $(GOFMT_MINOR).7
+GOFMT_TOOLCHAIN ?= $(GOFMT_MINOR).11
 GOFMT ?= $(shell if go version | grep -q ' $(GOFMT_MINOR)\.'; then go env GOROOT; \
 	else GOTOOLCHAIN=$(GOFMT_TOOLCHAIN) go env GOROOT; fi)/bin/gofmt
 

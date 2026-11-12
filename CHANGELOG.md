@@ -5,7 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2026-11-12
+
+Includes the Keychain error fix, task guides, content search, and dependency
+updates listed under 2.3.2. The 2.3.2 tag did not publish binaries.
+
+### Fixed
+
+- CI and release jobs pin Go 1.26.11. The previous `1.26.x` range selected
+  cached Go 1.26.10, which the vulnerability gate rejected for GO-2026-6859.
+
 ## [2.3.2] - 2026-11-12
+
+### Not published
+
+The release attempt was cancelled before publishing binaries after CI selected
+cached Go 1.26.10 and failed the vulnerability gate. The signed tag remains
+unchanged. Version 2.3.3 includes the changes below.
 
 ### Security
 
